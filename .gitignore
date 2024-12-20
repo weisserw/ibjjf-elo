@@ -1,3 +1,4 @@
 *.csv
 .python-version
-
+__pycache__/
+app/instance/

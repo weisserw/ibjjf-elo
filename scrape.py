@@ -19,7 +19,7 @@ def main():
     output_file = args.tournament_id + ".csv"
     with open(output_file, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Tournament ID', 'Tournament Name', 'Link', 'Gi', 'Gender', 'Age', 'Belt', 'Weight', 'Date', 'Red ID', 'Red Seed', 'Red Winnner', 'Red Name', 'Red Team', 'Red Note', 'Blue ID', 'Blue Seed', 'Blue Winner', 'Blue Name', 'Blue Team', 'Blue Note'])
+        writer.writerow(['Tournament ID', 'Tournament Name', 'Link', 'Gi', 'Gender', 'Age', 'Belt', 'Weight', 'Date', 'Red ID', 'Red Seed', 'Red Winner', 'Red Name', 'Red Team', 'Red Note', 'Blue ID', 'Blue Seed', 'Blue Winner', 'Blue Name', 'Blue Team', 'Blue Note'])
 
         for gender, url in urls:
             response = requests.get(url)
