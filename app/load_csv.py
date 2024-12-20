@@ -6,6 +6,7 @@ from elo import EloCompetitor
 from datetime import datetime
 from app import db, app
 from models import Event, Division, Athlete, Team, Match, MatchParticipant
+from current import generate_current_ratings
 
 def get_or_create(session, model, update=None, **kwargs):
     instance = session.query(model).filter_by(**kwargs).first()
@@ -125,6 +126,7 @@ def main(csv_file_path):
                     athlete_id=red_athlete.id,
                     team_id=red_team.id,
                     seed=row['Red Seed'],
+                    red=True,
                     winner=row['Red Winner'] == 'true',
                     note=row['Red Note'],
                     start_rating=red_start_rating,
@@ -136,12 +138,16 @@ def main(csv_file_path):
                     athlete_id=blue_athlete.id,
                     team_id=blue_team.id,
                     seed=row['Blue Seed'],
+                    red=False,
                     winner=row['Blue Winner'] == 'true',
                     note=row['Blue Note'],
                     start_rating=blue_start_rating,
                     end_rating=blue_end_rating
                 )
                 db.session.add(blue_participant)
+            db.session.commit()
+
+            generate_current_ratings(db)
             db.session.commit()
 
 if __name__ == '__main__':

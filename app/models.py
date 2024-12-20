@@ -1,13 +1,19 @@
 import uuid
 from sqlalchemy import Column, String, Boolean, Integer, DateTime, ForeignKey, Text, Float, Index
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
-from app import db
+from extensions import db
 
 class Event(db.Model):
     __tablename__ = 'events'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     ibjjf_id = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
+
+    __table_args__ = (
+        Index('ix_events_ibjjf_id', 'ibjjf_id'),
+        Index('ix_events_name', 'name'),
+    )
 
 class Division(db.Model):
     __tablename__ = 'divisions'
@@ -18,16 +24,29 @@ class Division(db.Model):
     belt = Column(String, nullable=False)
     weight = Column(String, nullable=False)
 
+    __table_args__ = (
+        Index('ix_divisions_all', 'gi', 'gender', 'age', 'belt', 'weight'),
+    )
+
 class Athlete(db.Model):
     __tablename__ = 'athletes'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     ibjjf_id = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
 
+    __table_args__ = (
+        Index('ix_athletes_ibjjf_id', 'ibjjf_id'),
+        Index('ix_athletes_name', 'name'),
+    )
+
 class Team(db.Model):
     __tablename__ = 'teams'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
+
+    __table_args__ = (
+        Index('ix_teams_name', 'name'),
+    )
 
 class Match(db.Model):
     __tablename__ = 'matches'
@@ -37,8 +56,9 @@ class Match(db.Model):
     division_id = Column(UUID(as_uuid=True), ForeignKey('divisions.id'), nullable=False)
 
     __table_args__ = (
-        Index('ix_event_id', 'event_id'),
-        Index('ix_division_id', 'division_id'),
+        Index('ix_matches_event_id', 'event_id'),
+        Index('ix_matches_division_id', 'division_id'),
+        Index('ix_matches_happened_at', 'happened_at'),
     )
 
 class MatchParticipant(db.Model):
@@ -48,13 +68,31 @@ class MatchParticipant(db.Model):
     athlete_id = Column(UUID(as_uuid=True), ForeignKey('athletes.id'), nullable=False)
     team_id = Column(UUID(as_uuid=True), ForeignKey('teams.id'), nullable=False)
     seed = Column(Integer, nullable=False)
+    red = Column(Boolean, nullable=False)
     winner = Column(Boolean, nullable=False)
     note = Column(Text)
     start_rating = Column(Float, nullable=False)
     end_rating = Column(Float, nullable=False)
 
     __table_args__ = (
-        Index('ix_match_id', 'match_id'),
-        Index('ix_athlete_id', 'athlete_id'),
-        Index('ix_team_id', 'team_id'),
+        Index('ix_match_participants_match_id', 'match_id'),
+        Index('ix_match_participants_athlete_id', 'athlete_id'),
+        Index('ix_match_participants_team_id', 'team_id'),
+    )
+
+class CurrentRating(db.Model):
+    __tablename__ = 'current_ratings'
+    athlete_id = Column(UUID(as_uuid=True), ForeignKey('athletes.id'), primary_key=True)
+    rating = Column(Float, nullable=False)
+    gender = Column(String, nullable=False)
+    age = Column(String, nullable=False)
+    belt = Column(String, nullable=False)
+    gi = Column(Boolean, nullable=False)
+
+    athlete = relationship("Athlete")
+
+    __table_args__ = (
+        Index('ix_current_ratings_athlete_id', 'athlete_id'),
+        Index('ix_current_ratings_rating', 'rating'),
+        Index('ix_current_ratings_all', 'gender', 'age', 'belt', 'gi'),
     )
