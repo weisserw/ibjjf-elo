@@ -1,6 +1,6 @@
-import {useState, useEffect, useCallback} from 'react'
-import axios, {AxiosResponse} from 'axios';
-import {debounce} from 'lodash'
+import { useState, useEffect, useCallback } from 'react'
+import axios, { AxiosResponse } from 'axios';
+import { debounce, set } from 'lodash'
 import "./EloTable.css"
 
 const juvenileRanks = [
@@ -21,6 +21,40 @@ const adultRanks = [
 
 const adultRanksValues = adultRanks.map(rank => rank.toUpperCase())
 
+const femaleWeights = [{
+  name: 'All',
+  value: ''
+}, {
+  name: 'Rooster',
+  value: 'Rooster'
+}, {
+  name: 'Light Feather',
+  value: 'Light Feather'
+}, {
+  name: 'Feather',
+  value: 'Feather'
+}, {
+  name: 'Light',
+  value: 'Light'
+}, {
+  name: 'Middle',
+  value: 'Middle'
+}, {
+  name: 'Medium Heavy',
+  value: 'Medium Heavy'
+}, {
+  name: 'Heavy',
+  value: 'Heavy'
+}, {
+  name: 'Super Heavy',
+  value: 'Super Heavy'
+}];
+
+const maleWeights = femaleWeights.concat([{
+  name: 'Ultra Heavy',
+  value: 'Ultra Heavy'
+}]);
+
 interface Row {
   rank: number
   name: string
@@ -35,7 +69,9 @@ function EloTable(props: EloTableProps) {
   const [gender, setGender] = useState('Male')
   const [age, setAge] = useState('Adult')
   const [belt, setBelt] = useState('BLACK')
+  const [weight, setWeight] = useState('')
   const [nameFilter, setNameFilter] = useState('')
+  const [nameFilterSearch, setNameFilterSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<Row[]>([])
 
@@ -46,7 +82,8 @@ function EloTable(props: EloTableProps) {
         gender,
         age,
         belt,
-        name: nameFilter,
+        weight,
+        name: nameFilterSearch,
         gi: props.gi ? 'true' : 'false'
       }
     }).then((response: AxiosResponse<Row[]>) => {
@@ -56,7 +93,7 @@ function EloTable(props: EloTableProps) {
       console.error(exception)
       setLoading(false)
     })
-  }, [gender, age, belt, nameFilter, props.gi]);
+  }, [gender, age, belt, weight, nameFilterSearch, props.gi]);
 
   const isJuvenileAge = (age: string) => {
     return age.startsWith('Juvenile')
@@ -68,6 +105,10 @@ function EloTable(props: EloTableProps) {
 
   const onGenderChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setGender(event.target.value)
+
+    if (event.target.value === 'Female' && weight === 'Ultra Heavy') {
+      setWeight('')
+    }
   }
 
   const defaultBelt = (age: string) => {
@@ -91,24 +132,28 @@ function EloTable(props: EloTableProps) {
     setBelt(event.target.value)
   }
 
-  const debouncedSetNameFilter = useCallback(
-    debounce((value: string) => setNameFilter(value), 300),
+  const onWeightChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setWeight(event.target.value)
+  }
+
+  const debouncedSetNameFilterSearch = useCallback(
+    debounce((value: string) => setNameFilterSearch(value), 300),
     []
   );
 
   const onNameFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    debouncedSetNameFilter(event.target.value)
+    setNameFilter(event.target.value)
+    debouncedSetNameFilterSearch(event.target.value)
   }
 
-  let ranks = adultRanks;
-  if (isJuvenileAge(age)) {
-    ranks = juvenileRanks
-  }
+  const ranks = isJuvenileAge(age) ? juvenileRanks : adultRanks;
+
+  const weights = gender === 'Male' ? maleWeights : femaleWeights;
 
   return (
     <div>
       <div className="columns is-mobile">
-        <div className="column is-one-third">
+        <div className="column">
           <div className="field is-horizontal">
             <div className="field-label">
               <label className="label">Gender:</label>
@@ -127,7 +172,7 @@ function EloTable(props: EloTableProps) {
             </div>
           </div>
         </div>
-        <div className="column is-one-third">
+        <div className="column">
           <div className="field is-horizontal">
             <div className="field-label">
               <label className="label">Age:</label>
@@ -154,7 +199,7 @@ function EloTable(props: EloTableProps) {
             </div>
           </div>
         </div>
-        <div className="column is-one-third">
+        <div className="column">
           <div className="field is-horizontal">
             <div className="field-label">
               <label className="label">Belt:</label>
@@ -176,60 +221,84 @@ function EloTable(props: EloTableProps) {
             </div>
           </div>
         </div>
-      </div>
-      <div className="field">
-        <div className="control">
-          <input className="input" type="text" placeholder="Enter name..." value={nameFilter} onChange={onNameFilterChange} />
+        <div className="column">
+          <div className="field is-horizontal">
+            <div className="field-label">
+              <label className="label">Weight:</label>
+            </div>
+            <div className="field-body">
+              <div className="field">
+                <div className="control">
+                  <div className="select">
+                    <select value={weight} onChange={onWeightChange}>
+                      {
+                        weights.map(({ name, value }) => (
+                          <option key={value} value={value}>{name}</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <table className="table is-fullwidth is-striped">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>↑↓</th>
-            <th>Name</th>
-            <th>Rating</th>
-            <th>+/-</th>
-          </tr>
-        </thead>
-        <tbody>
-          {
-            loading && (
-              <tr>
-                <td colSpan={5} className="empty-row">
-                  <div className="columns is-centered">
-                    <div className="column is-narrow">
-                      <div className="loader"></div>
+      <div>
+        <div className="field">
+          <div className="control">
+            <input className="input" type="text" placeholder="Enter name..." value={nameFilter} onChange={onNameFilterChange} />
+          </div>
+        </div>
+        <table className="table is-fullwidth is-striped">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>↑↓</th>
+              <th>Name</th>
+              <th>Rating</th>
+              <th>+/-</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              loading && (
+                <tr>
+                  <td colSpan={5} className="empty-row">
+                    <div className="columns is-centered">
+                      <div className="column is-narrow">
+                        <div className="loader"></div>
+                      </div>
                     </div>
-                  </div>
-                </td>
-              </tr>
-            )
-          }
-          {
-            !loading && data.length === 0 && (
-              <tr>
-                <td colSpan={5} className="empty-row">
-                  <div className="columns is-centered">
-                    No data found
-                  </div>
-                </td>
-              </tr>
-            )
-          }
-          {
-            !loading && !!data.length && data.map((row: Row) => (
-              <tr key={row.rank}>
-                <td>{row.rank}</td>
-                <td>&nbsp;</td>
-                <td>{row.name}</td>
-                <td>{row.rating}</td>
-                <td>&nbsp;</td>
-              </tr>
-            ))
-          }
-        </tbody>
-      </table>
+                  </td>
+                </tr>
+              )
+            }
+            {
+              !loading && data.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="empty-row">
+                    <div className="columns is-centered">
+                      No data found
+                    </div>
+                  </td>
+                </tr>
+              )
+            }
+            {
+              !loading && !!data.length && data.map((row: Row) => (
+                <tr key={row.rank}>
+                  <td>{row.rank}</td>
+                  <td>&nbsp;</td>
+                  <td>{row.name}</td>
+                  <td>{row.rating}</td>
+                  <td>&nbsp;</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

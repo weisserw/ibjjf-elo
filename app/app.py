@@ -1,7 +1,7 @@
 import os
 from flask import Flask, send_from_directory, request, jsonify
 from extensions import db, migrate
-from models import CurrentRating, Athlete
+from models import CurrentRating, Athlete, MatchParticipant, Division, Match
 
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='/')
 if os.getenv('RENDER'):
@@ -22,6 +22,7 @@ def top():
     age = request.args.get('age')
     belt = request.args.get('belt')
     gi = request.args.get('gi')
+    weight = request.args.get('weight')
     name = request.args.get('name')
 
     if not all([gender, age, belt, gi]):
@@ -38,6 +39,12 @@ def top():
 
     if name:
         query = query.filter(Athlete.name.ilike(f'%{name}%'))
+
+    if weight:
+        query = query.join(MatchParticipant).join(Match).join(Division).filter(
+            Division.weight == weight,
+            MatchParticipant.winner == True
+        )
 
     results = query.order_by(CurrentRating.rating.desc(), CurrentRating.match_happened_at.desc()).limit(30).all()
 
