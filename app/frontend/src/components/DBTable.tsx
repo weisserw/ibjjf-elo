@@ -79,7 +79,7 @@ function DBTable(props: EloTableProps) {
     setPage(pageNumber)
   }
 
-  function renderPageLink(pageNumber: number) {
+  const renderPageLink = (pageNumber: number) => {
     return (
       <li>
         <a href="#" className={classNames("pagination-link", {"is-current": page === pageNumber})} onClick={(event) => onPageClick(pageNumber, event)}>
@@ -89,9 +89,19 @@ function DBTable(props: EloTableProps) {
     );
   }
 
+  const outcomeClass = (startRating: number, endRating: number) => {
+    if (endRating > startRating) {
+      return 'has-text-success'
+    } else if (endRating < startRating) {
+      return 'has-text-danger'
+    } else {
+      return ''
+    }
+  }
+
   return (
     <div>
-      <div className="table-container">
+      <div className="table-container is-hidden-touch">
         <table className={classNames("table db-table is-striped", {"is-narrow": !loading && !!data.length})}>
           <thead>
             <tr>
@@ -134,9 +144,9 @@ function DBTable(props: EloTableProps) {
               !loading && !!data.length && data.map((row: Row) => (
                 <tr key={row.id}>
                   <td>{row.winner}</td>
-                  <td>{row.winnerStartRating} → {row.winnerEndRating}</td>
+                  <td className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerStartRating} → {row.winnerEndRating}</td>
                   <td>{row.loser}</td>
-                  <td>{row.loserStartRating} → {row.loserEndRating}</td>
+                  <td className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.loserStartRating} → {row.loserEndRating}</td>
                   <td className="has-tooltip-multiline" data-tooltip={row.event}>
                     {shortEvent(row)}
                   </td>
@@ -148,6 +158,54 @@ function DBTable(props: EloTableProps) {
             }
           </tbody>
         </table>
+      </div>
+      <div className="cards-container is-hidden-desktop">
+        {
+          loading && (
+            <div className="columns is-centered">
+              <div className="column is-narrow">
+                <div className="loader"></div>
+              </div>
+            </div>
+          )
+        }
+        {
+          !loading && data.length === 0 && (
+            <div className="columns is-centered">
+              No data found
+            </div>
+          )
+        }
+        {
+          !loading && !!data.length && data.map((row: Row) => (
+            <div key={row.id} className="card db-row-card">
+              <div className="date-box">
+                {dayjs(row.date).format('MMM D YYYY, h:mma')}
+              </div>
+              <div className="card-content">
+                <div className="columns">
+                  <div className="column">
+                    <strong>Winner:</strong> {row.winner} <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerStartRating} → {row.winnerEndRating}</span>
+                  </div>
+                  <div className="column">
+                    <strong>Loser:</strong> {row.loser} <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserStartRating} → {row.loserEndRating}</span>
+                  </div>
+                </div>
+                <div className="columns">
+                  <div className="column">
+                    {row.event}
+                  </div>
+                  <div className="column has-text-right-tablet">
+                    {row.division}
+                  </div>
+                </div>
+                {row.notes &&
+                  <p>{row.notes}</p>
+                }
+              </div>
+            </div>
+          ))
+        }
       </div>
       <nav className="pagination pagination-margin" role="navigation">
         <a href="#" className={classNames("pagination-previous", {"is-disabled": page === 1})} onClick={onPreviousPage}>Previous</a>

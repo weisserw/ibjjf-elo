@@ -10,3 +10,17 @@ td.empty-row {
 .pagination-margin {
   margin-bottom: 20px;
 }
+
+div.card.db-row-card {
+  margin-bottom: 10px;
+}
+
+.db-row-card div.column {
+  white-space: nowrap;
+}
+
+.db-row-card div.date-box {
+  position: absolute;
+  right: 10px;
+  top: 0px;
+}
