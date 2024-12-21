@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import axios, { AxiosResponse } from 'axios';
-import { debounce, set } from 'lodash'
+import { debounce } from 'lodash'
 import "./EloTable.css"
 
 const juvenileRanks = [
@@ -154,110 +154,81 @@ function EloTable(props: EloTableProps) {
     <div>
       <div className="columns is-mobile">
         <div className="column">
-          <div className="field is-horizontal">
-            <div className="field-label">
-              <label className="label">Gender:</label>
-            </div>
-            <div className="field-body">
-              <div className="field">
-                <div className="control">
-                  <div className="select">
-                    <select value={gender} onChange={onGenderChange}>
-                      <option>Male</option>
-                      <option>Female</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+          <div className="field">
+            <label className="label">Gender</label>
+            <div className="select">
+              <select value={gender} onChange={onGenderChange}>
+                <option>Male</option>
+                <option>Female</option>
+              </select>
             </div>
           </div>
         </div>
         <div className="column">
-          <div className="field is-horizontal">
-            <div className="field-label">
-              <label className="label">Age:</label>
-            </div>
-            <div className="field-body">
-              <div className="field">
-                <div className="control">
-                  <div className="select">
-                    <select value={age} onChange={onAgeChange}>
-                      <option>Juvenile 1</option>
-                      <option>Juvenile 2</option>
-                      <option>Adult</option>
-                      <option>Master 1</option>
-                      <option>Master 2</option>
-                      <option>Master 3</option>
-                      <option>Master 4</option>
-                      <option>Master 5</option>
-                      <option>Master 6</option>
-                      <option>Master 7</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+          <div className="field">
+            <label className="label">Age</label>
+            <div className="select">
+              <select value={age} onChange={onAgeChange}>
+                <option>Juvenile 1</option>
+                <option>Juvenile 2</option>
+                <option>Adult</option>
+                <option>Master 1</option>
+                <option>Master 2</option>
+                <option>Master 3</option>
+                <option>Master 4</option>
+                <option>Master 5</option>
+                <option>Master 6</option>
+                <option>Master 7</option>
+              </select>
             </div>
           </div>
         </div>
         <div className="column">
-          <div className="field is-horizontal">
-            <div className="field-label">
-              <label className="label">Belt:</label>
-            </div>
-            <div className="field-body">
-              <div className="field">
-                <div className="control">
-                  <div className="select">
-                    <select value={belt} onChange={onBeltChange}>
-                      {
-                        ranks.map(rank => (
-                          <option key={rank} value={rank.toUpperCase()}>{rank}</option>
-                        ))
-                      }
-                    </select>
-                  </div>
-                </div>
-              </div>
+          <div className="field">
+            <label className="label">Belt</label>
+            <div className="select">
+              <select value={belt} onChange={onBeltChange}>
+                {
+                  ranks.map(rank => (
+                    <option key={rank} value={rank.toUpperCase()}>{rank}</option>
+                  ))
+                }
+              </select>
             </div>
           </div>
         </div>
         <div className="column">
-          <div className="field is-horizontal">
-            <div className="field-label">
-              <label className="label">Weight:</label>
-            </div>
-            <div className="field-body">
-              <div className="field">
-                <div className="control">
-                  <div className="select">
-                    <select value={weight} onChange={onWeightChange}>
-                      {
-                        weights.map(({ name, value }) => (
-                          <option key={value} value={value}>{name}</option>
-                        ))
-                      }
-                    </select>
-                  </div>
-                </div>
-              </div>
+          <div className="field">
+            <label className="label">Weight</label>
+            <div className="select">
+              <select value={weight} onChange={onWeightChange}>
+                {
+                  weights.map(({ name, value }) => (
+                    <option key={value} value={value}>{name}</option>
+                  ))
+                }
+              </select>
             </div>
           </div>
         </div>
       </div>
       <div>
         <div className="field">
-          <div className="control">
+          <div className="control has-icons-left">
             <input className="input" type="text" placeholder="Enter name..." value={nameFilter} onChange={onNameFilterChange} />
+            <span className="icon is-left">
+              <i className="fa-solid fa-filter"></i>
+            </span>
           </div>
         </div>
-        <table className="table is-fullwidth is-striped">
+        <table className="table is-fullwidth table-margin">
           <thead>
             <tr>
-              <th>#</th>
-              <th>↑↓</th>
+              <th className="has-text-right">#</th>
+              <th className="has-text-right">↑↓</th>
               <th>Name</th>
-              <th>Rating</th>
-              <th>+/-</th>
+              <th className="has-text-right">Rating</th>
+              <th className="has-text-right">+/-</th>
             </tr>
           </thead>
           <tbody>
@@ -288,11 +259,11 @@ function EloTable(props: EloTableProps) {
             {
               !loading && !!data.length && data.map((row: Row) => (
                 <tr key={row.rank}>
-                  <td>{row.rank}</td>
-                  <td>&nbsp;</td>
+                  <td className="has-text-right">{row.rank}</td>
+                  <td className="has-text-right">&nbsp;</td>
                   <td>{row.name}</td>
-                  <td>{row.rating}</td>
-                  <td>&nbsp;</td>
+                  <td className="has-text-right">{row.rating}</td>
+                  <td className="has-text-right">&nbsp;</td>
                 </tr>
               ))
             }

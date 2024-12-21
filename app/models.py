@@ -28,6 +28,9 @@ class Division(db.Model):
         Index('ix_divisions_all', 'gi', 'gender', 'age', 'belt', 'weight'),
     )
 
+    def display_name(self):
+        return f'{self.age} / {self.gender} / {self.belt} / {self.weight}'
+
 class Athlete(db.Model):
     __tablename__ = 'athletes'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -56,6 +59,10 @@ class Match(db.Model):
     division_id = Column(UUID(as_uuid=True), ForeignKey('divisions.id'), nullable=False)
     rated = Column(Boolean, nullable=False)
 
+    participants = relationship("MatchParticipant", lazy='joined')
+    division = relationship("Division", lazy='joined')
+    event = relationship("Event", lazy='joined')
+
     __table_args__ = (
         Index('ix_matches_event_id', 'event_id'),
         Index('ix_matches_division_id', 'division_id'),
@@ -75,6 +82,8 @@ class MatchParticipant(db.Model):
     start_rating = Column(Float, nullable=False)
     end_rating = Column(Float, nullable=False)
 
+    athlete = relationship("Athlete", lazy='joined')
+
     __table_args__ = (
         Index('ix_match_participants_match_id', 'match_id'),
         Index('ix_match_participants_athlete_id', 'athlete_id'),
@@ -91,7 +100,7 @@ class CurrentRating(db.Model):
     gi = Column(Boolean, nullable=False)
     match_happened_at = Column(DateTime, nullable=False)
 
-    athlete = relationship("Athlete")
+    athlete = relationship("Athlete", lazy='joined')
 
     __table_args__ = (
         Index('ix_current_ratings_athlete_id', 'athlete_id'),

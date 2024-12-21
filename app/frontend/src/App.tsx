@@ -1,29 +1,28 @@
-import {useState} from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import EloTable from './components/EloTable';
-import classNames from 'classnames';
-import './App.css';
+import Ratings from './components/Ratings';
+import Database from './components/Database';
+import About from './components/About';
+import NotFound from './components/NotFound';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('Gi')
   return (
-    <>
+    <Router>
       <header className="hero is-small is-bold">
         <div className="hero-body">
           <Navbar />
         </div>
       </header>
-      <div className="container">
-        <div className="tabs">
-          <ul>
-            <li onClick={() => setActiveTab('Gi')} className={classNames({"is-active": activeTab === 'Gi'})}><a>Gi</a></li>
-            <li onClick={() => setActiveTab('No Gi')} className={classNames({"is-active": activeTab === 'No Gi'})}><a>No Gi</a></li>
-          </ul>
-        </div>
-        <EloTable gi={activeTab === 'Gi'} />
-      </div>
-    </>
-  )
+      <main>
+        <Routes>
+          <Route path="/" element={<Ratings />} />
+          <Route path="/database" element={<Database />} />
+          <Route path="/about" element={<About />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
+    </Router>
+  );
 }
 
 export default App;

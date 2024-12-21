@@ -16,6 +16,57 @@ migrate.init_app(app, db)
 def index():
     return send_from_directory(app.static_folder, 'index.html')
 
+RATINGS_PAGE_SIZE = 30
+MATCH_PAGE_SIZE = 12
+
+@app.route('/api/matches')
+def matches():
+    gi = request.args.get('gi')
+    page = request.args.get('page') or 1
+
+    if gi is None:
+        return jsonify({"error": "Missing mandatory query parameter"}), 400
+    
+    gi = gi.lower() == 'true'
+
+    query = db.session.query(Match).join(Division).join(MatchParticipant).filter(
+        Division.gi == gi
+    )
+
+    totalCount = query.count() // 2
+
+    query = query.order_by(Match.happened_at.desc()).limit(MATCH_PAGE_SIZE * 2).offset((int(page) - 1) * MATCH_PAGE_SIZE * 2)
+
+    response = []
+    for result in query.all():
+        winner = None
+        loser = None
+        for participant in result.participants:
+            if participant.winner:
+                winner = participant
+            else:
+                loser = participant
+        if winner is None or loser is None:
+            continue
+        response.append({
+            "id": result.id,
+            "winner": winner.athlete.name,
+            "winnerStartRating": round(winner.start_rating),
+            "winnerEndRating": round(winner.end_rating),
+            "loser": loser.athlete.name,
+            "loserStartRating": round(loser.start_rating),
+            "loserEndRating": round(loser.end_rating),
+            "event": result.event.name,
+            "division": result.division.display_name(),
+            "date": result.happened_at.isoformat(),
+            "notes": loser.note or winner.note
+        })
+
+    return jsonify({
+        "rows": response,
+        "totalPages": totalCount // MATCH_PAGE_SIZE + 1
+    })
+
 @app.route('/api/top')
 def top():
     gender = request.args.get('gender')
@@ -46,7 +97,7 @@ def top():
             MatchParticipant.winner == True
         )
 
-    results = query.order_by(CurrentRating.rating.desc(), CurrentRating.match_happened_at.desc()).limit(30).all()
+    results = query.order_by(CurrentRating.rating.desc(), CurrentRating.match_happened_at.desc()).limit(RATINGS_PAGE_SIZE).all()
 
     response = []
     previous_rating = None

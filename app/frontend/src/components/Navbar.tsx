@@ -1,33 +1,36 @@
 import {useState} from 'react';
+import { useLocation } from 'react-router-dom';
 import classNames from 'classnames';
 import './Navbar.css';
 
 function Navbar() {
-  const [isActive, setIsActive] = useState(false);
+  const [isMenuActive, setIsMenuActive] = useState(false);
+  const location = useLocation();
+  const activeLink = location.pathname;
 
   return (
     <nav className="navbar">
       <div className="navbar-brand">
         <h1 className="navbar-item">
-          IBJJF Elo Ratings
+          IBJJFRankings.com
         </h1>
-        <a className={classNames("navbar-burger", {"is-active": isActive})}
-           onClick={() => setIsActive(!isActive)}>
+        <a className={classNames("navbar-burger", {"is-active": isMenuActive})}
+           onClick={() => setIsMenuActive(!isMenuActive)}>
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
         </a>
       </div>
-      <div className={classNames("navbar-menu", {"is-active": isActive})}>
+      <div className={classNames("navbar-menu", {"is-active": isMenuActive})}>
         <div className="navbar-start">
-          <a className="navbar-item" href="/">
-            Rankings
+          <a className={classNames("navbar-item", {"is-active": activeLink === "/"})} href="/">
+            Ratings
           </a>
-          <a className="navbar-item" href="/database">
+          <a className={classNames("navbar-item", {"is-active": activeLink === "/database"})} href="/database">
             Database
           </a>
-          <a className="navbar-item" href="/about">
+          <a className={classNames("navbar-item", {"is-active": activeLink === "/about"})} href="/about">
             About
           </a>
         </div>

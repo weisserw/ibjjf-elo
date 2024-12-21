@@ -1,7 +1,7 @@
-.field.is-horizontal {
-  align-items: center;
-}
-
 td.empty-row {
   padding: 20px;
+}
+
+.table-margin {
+  margin-bottom: 20px;
 }

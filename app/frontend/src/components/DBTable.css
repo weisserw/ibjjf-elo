@@ -1,0 +1,12 @@
+td.empty-row {
+  padding: 20px;
+}
+
+.table-container table.db-table th,
+.table-container table.db-table td {
+    white-space: nowrap;
+}
+
+.pagination-margin {
+  margin-bottom: 20px;
+}
