@@ -43,6 +43,10 @@ function DBTable(props: EloTableProps) {
       setData(response.data.rows)
       setTotalPages(response.data.totalPages)
       setLoading(false)
+
+      if (response.data.rows.length === 0 && page > 1) {
+        setPage(page - 1)
+      }
     }).catch((exception) => {
       console.error(exception)
       setLoading(false)
@@ -58,12 +62,31 @@ function DBTable(props: EloTableProps) {
 
   const onNextPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    setPage(page + 1)
+    if (page < totalPages) {
+      setPage(page + 1)
+    }
   }
 
   const onPreviousPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    setPage(page - 1)
+    if (page > 1) {
+      setPage(page - 1)
+    }
+  }
+
+  const onPageClick = (pageNumber: number, event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    setPage(pageNumber)
+  }
+
+  function renderPageLink(pageNumber: number) {
+    return (
+      <li>
+        <a href="#" className={classNames("pagination-link", {"is-current": page === pageNumber})} onClick={(event) => onPageClick(pageNumber, event)}>
+          {pageNumber}
+        </a>
+      </li>
+    );
   }
 
   return (
@@ -125,44 +148,42 @@ function DBTable(props: EloTableProps) {
             }
           </tbody>
         </table>
-        <nav className="pagination pagination-margin" role="navigation">
-          {
-            page > 1 &&
-            <a href="#" className="pagination-previous" onClick={onPreviousPage}>Previous</a>
-          }
-          {
-            page < totalPages &&
-            <a href="#" className="pagination-next" onClick={onNextPage}>Next</a>
-          }
-          <ul className="pagination-list">
-            <li>
-              <a href="#" className="pagination-link">1</a>
-            </li>
-            <li>
-              <span className="pagination-ellipsis">&hellip;</span>
-            </li>
-            <li>
-              <a href="#" className="pagination-link">45</a>
-            </li>
-            <li>
-              <a
-                className="pagination-link is-current"
-                aria-label="Page 46"
-                aria-current="page"
-                >46</a>
-            </li>
-            <li>
-              <a href="#" className="pagination-link" >47</a>
-            </li>
-            <li>
-              <span className="pagination-ellipsis">&hellip;</span>
-            </li>
-            <li>
-              <a href="#" className="pagination-link">86</a>
-            </li>
-          </ul>
-        </nav>
       </div>
+      <nav className="pagination pagination-margin" role="navigation">
+        <a href="#" className={classNames("pagination-previous", {"is-disabled": page === 1})} onClick={onPreviousPage}>Previous</a>
+        <a href="#" className={classNames("pagination-next", {"is-disabled": page === totalPages})} onClick={onNextPage}>Next</a>
+        <ul className="pagination-list">
+          {renderPageLink(1)}
+          {
+            totalPages > 3 && page > 3 &&
+            <li>
+              <span className="pagination-ellipsis">&hellip;</span>
+            </li>
+          }
+          {
+            totalPages > 3 && page > 2 &&
+            renderPageLink(page - 1)
+          }
+          {
+            totalPages > 2 && page > 1 && page < totalPages &&
+            renderPageLink(page)
+          }
+          {
+            totalPages > 3 && page < totalPages - 1 &&
+            renderPageLink(page + 1)
+          }
+          {
+            totalPages > 4 && page < totalPages - 2 &&
+            <li>
+              <span className="pagination-ellipsis">&hellip;</span>
+            </li>
+          }
+          {
+            totalPages > 4 &&
+            renderPageLink(totalPages)
+          }
+        </ul>
+      </nav>
     </div>
   )
 }

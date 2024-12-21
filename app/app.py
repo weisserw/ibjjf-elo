@@ -1,7 +1,9 @@
 import os
+from datetime import datetime
+from sqlalchemy.sql import text
 from flask import Flask, send_from_directory, request, jsonify
 from extensions import db, migrate
-from models import CurrentRating, Athlete, MatchParticipant, Division, Match
+from models import CurrentRating, Athlete, MatchParticipant, Division, Match, Event
 
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='/')
 if os.getenv('RENDER'):
@@ -29,38 +31,79 @@ def matches():
     
     gi = gi.lower() == 'true'
 
-    query = db.session.query(Match).join(Division).join(MatchParticipant).filter(
-        Division.gi == gi
-    )
+    sql = '''
+        SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
+            mp.winner, mp.start_rating, mp.end_rating, a.name, mp.note
+        FROM matches m
+        JOIN divisions d ON m.division_id = d.id
+        JOIN events e ON m.event_id = e.id
+        JOIN match_participants mp ON m.id = mp.match_id
+        JOIN athletes a ON mp.athlete_id = a.id
+        WHERE d.gi = :gi
+        AND (
+            (SELECT COUNT(*)
+            FROM match_participants
+            WHERE match_id = m.id AND winner = true) = 1
+            AND
+            (SELECT COUNT(*)
+            FROM match_participants
+            WHERE match_id = m.id AND winner = false) = 1
+        )
+    '''
 
-    totalCount = query.count() // 2
+    totalCount = db.session.execute(text(f'''
+        SELECT COUNT(*) FROM (
+            {sql}
+        )'''), {'gi': gi}).scalar_one() // 2
 
-    query = query.order_by(Match.happened_at.desc()).limit(MATCH_PAGE_SIZE * 2).offset((int(page) - 1) * MATCH_PAGE_SIZE * 2)
+    results = db.session.execute(text(f'''
+        {sql}
+        ORDER BY m.happened_at DESC, m.id DESC
+        LIMIT :limit OFFSET :offset
+        '''), {'gi': gi, 'limit': MATCH_PAGE_SIZE * 2, 'offset': (int(page) - 1) * MATCH_PAGE_SIZE * 2})
 
     response = []
-    for result in query.all():
-        winner = None
-        loser = None
-        for participant in result.participants:
-            if participant.winner:
-                winner = participant
-            else:
-                loser = participant
-        if winner is None or loser is None:
-            continue
-        response.append({
-            "id": result.id,
-            "winner": winner.athlete.name,
-            "winnerStartRating": round(winner.start_rating),
-            "winnerEndRating": round(winner.end_rating),
-            "loser": loser.athlete.name,
-            "loserStartRating": round(loser.start_rating),
-            "loserEndRating": round(loser.end_rating),
-            "event": result.event.name,
-            "division": result.division.display_name(),
-            "date": result.happened_at.isoformat(),
-            "notes": loser.note or winner.note
-        })
+    current_match = None
+    for result in results:
+        row = result._mapping
+
+        if current_match is None or current_match.id != row['id']:
+            division = Division(gi=row['gi'], gender=row['gender'], age=row['age'], belt=row['belt'], weight=row['weight'])
+            event = Event(name=row['event_name'])
+
+            happened_at = datetime.fromisoformat(row['happened_at'])
+
+            current_match = Match(id=row['id'], happened_at=happened_at, division=division, event=event)
+
+        current_match.participants.append(MatchParticipant(
+            winner=row['winner'],
+            start_rating=row['start_rating'],
+            end_rating=row['end_rating'],
+            athlete=Athlete(name=row['name']),
+            note=row['note']
+        ))
+
+        if len(current_match.participants) == 2:
+            winner = None
+            loser = None
+            for participant in current_match.participants:
+                if participant.winner:
+                    winner = participant
+                else:
+                    loser = participant
+            response.append({
+                "id": current_match.id,
+                "winner": winner.athlete.name,
+                "winnerStartRating": round(winner.start_rating),
+                "winnerEndRating": round(winner.end_rating),
+                "loser": loser.athlete.name,
+                "loserStartRating": round(loser.start_rating),
+                "loserEndRating": round(loser.end_rating),
+                "event": current_match.event.name,
+                "division": current_match.division.display_name(),
+                "date": current_match.happened_at.isoformat(),
+                "notes": loser.note or winner.note
+            })
 
     return jsonify({
         "rows": response,

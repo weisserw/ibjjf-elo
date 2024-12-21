@@ -8,6 +8,11 @@ function Navbar() {
   const location = useLocation();
   const activeLink = location.pathname;
 
+  const getNavItemClass = (path: string) => classNames("navbar-item", {
+    "is-active": activeLink === path,
+    "has-background-link-80": activeLink === path
+  });
+
   return (
     <nav className="navbar">
       <div className="navbar-brand">
@@ -24,13 +29,13 @@ function Navbar() {
       </div>
       <div className={classNames("navbar-menu", {"is-active": isMenuActive})}>
         <div className="navbar-start">
-          <a className={classNames("navbar-item", {"is-active": activeLink === "/"})} href="/">
+          <a className={getNavItemClass("/")} href="/">
             Ratings
           </a>
-          <a className={classNames("navbar-item", {"is-active": activeLink === "/database"})} href="/database">
+          <a className={getNavItemClass("/database")} href="/database">
             Database
           </a>
-          <a className={classNames("navbar-item", {"is-active": activeLink === "/about"})} href="/about">
+          <a className={getNavItemClass("/about")} href="/about">
             About
           </a>
         </div>
