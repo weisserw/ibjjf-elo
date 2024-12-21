@@ -9,7 +9,7 @@ function Navbar() {
     <nav className="navbar">
       <div className="navbar-brand">
         <h1 className="navbar-item">
-          Jiu Jitsu Elo
+          IBJJF Elo Ratings
         </h1>
         <a className={classNames("navbar-burger", {"is-active": isActive})}
            onClick={() => setIsActive(!isActive)}>
