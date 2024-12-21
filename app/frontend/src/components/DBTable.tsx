@@ -144,9 +144,9 @@ function DBTable(props: EloTableProps) {
               !loading && !!data.length && data.map((row: Row) => (
                 <tr key={row.id}>
                   <td>{row.winner}</td>
-                  <td className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerStartRating} → {row.winnerEndRating}</td>
+                  <td>{row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span></td>
                   <td>{row.loser}</td>
-                  <td className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.loserStartRating} → {row.loserEndRating}</td>
+                  <td>{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span></td>
                   <td className="has-tooltip-multiline" data-tooltip={row.event}>
                     {shortEvent(row)}
                   </td>
@@ -162,17 +162,27 @@ function DBTable(props: EloTableProps) {
       <div className="cards-container is-hidden-desktop">
         {
           loading && (
-            <div className="columns is-centered">
-              <div className="column is-narrow">
-                <div className="loader"></div>
+            <div className="card db-row-card">
+              <div className="card-content">
+                <div className="columns is-centered">
+                  <div className="column is-narrow">
+                    <div className="loader"></div>
+                  </div>
+                </div>
               </div>
             </div>
           )
         }
         {
           !loading && data.length === 0 && (
-            <div className="columns is-centered">
-              No data found
+            <div className="card db-row-card">
+              <div className="card-content">
+                <div className="columns is-centered">
+                  <div className="column is-narrow">
+                    No data found
+                  </div>
+                </div>
+              </div>
             </div>
           )
         }
@@ -185,10 +195,10 @@ function DBTable(props: EloTableProps) {
               <div className="card-content">
                 <div className="columns">
                   <div className="column">
-                    <strong>Winner:</strong> {row.winner} <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerStartRating} → {row.winnerEndRating}</span>
+                    <strong>Winner:</strong> {row.winner} {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>
                   </div>
                   <div className="column">
-                    <strong>Loser:</strong> {row.loser} <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserStartRating} → {row.loserEndRating}</span>
+                    <strong>Loser:</strong> {row.loser} {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>
                   </div>
                 </div>
                 <div className="columns">
