@@ -33,9 +33,12 @@ def main():
 
             for category in categories:
                 link = category.find('a')['href']
-                category_type = category.find('div', class_='category-card__age-division').get_text(strip=True)
+                age = category.find('div', class_='category-card__age-division').get_text(strip=True)
                 belt = category.find('span', class_='category-card__belt-label').get_text(strip=True)
                 weight = category.find('span', class_='category-card__weight-label').get_text(strip=True)
+
+                if not (age.lower().startswith('master') or age.lower().startswith('juvenile') or age.lower() == 'adult'):
+                    continue
 
                 categoryurl = f'https://www.bjjcompsystem.com{link}'
                 response = requests.get(categoryurl)
@@ -86,7 +89,7 @@ def main():
                     blue_competitor_note = blue_competitor_description.find('i', class_='match-card__disqualification')
                     blue_competitor_note = blue_competitor_note['title'] if blue_competitor_note else ''
 
-                    writer.writerow([args.tournament_id, args.tournament_name, link, 'false' if args.nogi else 'true', gender, category_type, belt, weight, match_datetime_iso, red_competitor_id, red_competitor_seed, 'false' if red_competitor_loser else 'true', red_competitor_name, red_competitor_team, red_competitor_note, blue_competitor_id, blue_competitor_seed, 'false' if blue_competitor_loser else 'true', blue_competitor_name, blue_competitor_team, blue_competitor_note])
+                    writer.writerow([args.tournament_id, args.tournament_name, link, 'false' if args.nogi else 'true', gender, age, belt, weight, match_datetime_iso, red_competitor_id, red_competitor_seed, 'false' if red_competitor_loser else 'true', red_competitor_name, red_competitor_team, red_competitor_note, blue_competitor_id, blue_competitor_seed, 'false' if blue_competitor_loser else 'true', blue_competitor_name, blue_competitor_team, blue_competitor_note])
                     file.flush()
 
     print(f"Wrote data to {output_file}")

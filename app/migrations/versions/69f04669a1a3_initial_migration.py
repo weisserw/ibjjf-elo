@@ -1,8 +1,8 @@
 """Initial migration
 
-Revision ID: eede8d5c5dc5
+Revision ID: 69f04669a1a3
 Revises: 
-Create Date: 2024-12-20 01:00:11.585746
+Create Date: 2024-12-20 23:00:58.350290
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'eede8d5c5dc5'
+revision = '69f04669a1a3'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -67,6 +67,7 @@ def upgrade():
     sa.Column('age', sa.String(), nullable=False),
     sa.Column('belt', sa.String(), nullable=False),
     sa.Column('gi', sa.Boolean(), nullable=False),
+    sa.Column('match_happened_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['athlete_id'], ['athletes.id'], ),
     sa.PrimaryKeyConstraint('athlete_id')
     )
@@ -80,6 +81,7 @@ def upgrade():
     sa.Column('happened_at', sa.DateTime(), nullable=False),
     sa.Column('event_id', sa.UUID(), nullable=False),
     sa.Column('division_id', sa.UUID(), nullable=False),
+    sa.Column('rated', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['division_id'], ['divisions.id'], ),
     sa.ForeignKeyConstraint(['event_id'], ['events.id'], ),
     sa.PrimaryKeyConstraint('id')

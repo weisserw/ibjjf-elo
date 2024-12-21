@@ -2,7 +2,7 @@
 
 import csv
 import sys
-from elo import EloCompetitor
+from elo import compute_ratings
 from datetime import datetime
 from app import db, app
 from models import Event, Division, Athlete, Team, Match, MatchParticipant
@@ -22,25 +22,6 @@ def get_or_create(session, model, update=None, **kwargs):
         session.add(instance)
         session.flush()
         return instance
-    
-BELT_DEFAULT_RATING = {
-    'BLACK': 2000,
-    'BROWN': 1600,
-    'PURPLE': 1200,
-    'BLUE': 800,
-    'WHITE': 400
-}
-
-no_match_strings = [
-    'Disqualified by no show',
-    'Disqualified by overweight'
-]
-
-def match_didnt_happen(note1, note2):
-    for no_match_string in no_match_strings:
-        if no_match_string in note1 or no_match_string in note2:
-            return True
-    return False
 
 def main(csv_file_path):
     with app.app_context():
@@ -61,62 +42,22 @@ def main(csv_file_path):
                 red_team = get_or_create(db.session, Team, None, name=row['Red Team'])
                 blue_team = get_or_create(db.session, Team, None, name=row['Blue Team'])
 
-                # get the last match played by each athlete in the same division by querying the matches table
-                # in reverse date order
-                red_last_match = db.session.query(MatchParticipant).join(Match).join(Division).filter(
-                    Division.gi == division.gi,
-                    Division.gender == division.gender,
-                    Division.age == division.age,
-                    Division.belt == division.belt,
-                    MatchParticipant.athlete_id == red_athlete.id
-                ).order_by(Match.happened_at.desc()).first()
-                blue_last_match = db.session.query(MatchParticipant).join(Match).join(Division).filter(
-                    Division.gi == division.gi,
-                    Division.gender == division.gender,
-                    Division.age == division.age,
-                    Division.belt == division.belt,
-                    MatchParticipant.athlete_id == blue_athlete.id
-                ).order_by(Match.happened_at.desc()).first()
-
-                # if the athlete has no previous matches, use the default rating for their belt
-                if red_last_match is None:
-                    red_start_rating = BELT_DEFAULT_RATING[row['Belt']]
-                else:
-                    red_start_rating = red_last_match.end_rating
-                
-                if blue_last_match is None:
-                    blue_start_rating = BELT_DEFAULT_RATING[row['Belt']]
-                else:
-                    blue_start_rating = blue_last_match.end_rating
-
-                # calculate the new ratings
-                if match_didnt_happen(row['Red Note'], row['Blue Note']):
-                    red_end_rating = red_start_rating
-                    blue_end_rating = blue_start_rating
-                else:
-                    red_elo = EloCompetitor(red_start_rating, 64)
-                    blue_elo = EloCompetitor(blue_start_rating, 64)
-
-                    if row['Red Winner'] == row['Blue Winner']: # double DQ
-                        red_elo.tied(blue_elo)
-                    elif row['Red Winner'] == 'true':
-                        red_elo.beat(blue_elo)
-                    else:
-                        blue_elo.beat(red_elo)
-
-                    red_end_rating = red_elo.rating
-                    blue_end_rating = blue_elo.rating
-
-                # don't subtract points from winners
-                if red_end_rating < red_start_rating and row['Red Winner'] == 'true':
-                    red_end_rating = red_start_rating
-                if blue_end_rating < blue_start_rating and row['Blue Winner'] == 'true':
-                    blue_end_rating = blue_start_rating
+                rated, red_start_rating, red_end_rating, blue_start_rating, blue_end_rating = compute_ratings(
+                    db,
+                    division,
+                    red_athlete.id,
+                    row['Red Winner'] == 'true',
+                    row['Red Note'],
+                    blue_athlete.id,
+                    row['Blue Winner'] == 'true',
+                    row['Blue Note']
+                )
 
                 match = Match(
                     happened_at=datetime.strptime(row['Date'], '%Y-%m-%dT%H:%M:%S'),
                     event_id=event.id,
                     division_id=division.id,
+                    rated=rated
                 )
                 db.session.add(match)
                 db.session.flush()

@@ -54,6 +54,7 @@ class Match(db.Model):
     happened_at = Column(DateTime, nullable=False)
     event_id = Column(UUID(as_uuid=True), ForeignKey('events.id'), nullable=False)
     division_id = Column(UUID(as_uuid=True), ForeignKey('divisions.id'), nullable=False)
+    rated = Column(Boolean, nullable=False)
 
     __table_args__ = (
         Index('ix_matches_event_id', 'event_id'),
@@ -88,6 +89,7 @@ class CurrentRating(db.Model):
     age = Column(String, nullable=False)
     belt = Column(String, nullable=False)
     gi = Column(Boolean, nullable=False)
+    match_happened_at = Column(DateTime, nullable=False)
 
     athlete = relationship("Athlete")
 

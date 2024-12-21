@@ -3,16 +3,6 @@ import axios, {AxiosResponse} from 'axios';
 import {debounce} from 'lodash'
 import "./EloTable.css"
 
-const kidsRanks = [
-  'White',
-  'Grey',
-  'Yellow',
-  'Orange',
-  'Green',
-]
-
-const kidsRanksValues = kidsRanks.map(rank => rank.toUpperCase())
-
 const juvenileRanks = [
   'White',
   'Blue',
@@ -68,16 +58,12 @@ function EloTable(props: EloTableProps) {
     })
   }, [gender, age, belt, nameFilter, props.gi]);
 
-  const isKidsAge = (age: string) => {
-    return age !== 'Adult' && !age.startsWith('Master') && !isJuvenileAge(age)
-  }
-
   const isJuvenileAge = (age: string) => {
     return age.startsWith('Juvenile')
   }
 
   const isAdultAge = (age: string) => {
-    return !isKidsAge(age) && !isJuvenileAge(age)
+    return !isJuvenileAge(age)
   }
 
   const onGenderChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -87,18 +73,15 @@ function EloTable(props: EloTableProps) {
   const defaultBelt = (age: string) => {
     if (isAdultAge(age)) {
       return 'BLACK';
-    } else if (isJuvenileAge(age)) {
-      return 'BLUE';
     } else {
-      return 'WHITE';
+      return 'BLUE';
     }
   }
 
   const onAgeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setAge(event.target.value)
 
-    if ((isKidsAge(event.target.value) && kidsRanksValues.indexOf(belt) !== -1) 
-      || (isJuvenileAge(event.target.value) && juvenileRanksValues.indexOf(belt) !== -1)
+    if ((isJuvenileAge(event.target.value) && juvenileRanksValues.indexOf(belt) !== -1)
       || (isAdultAge(event.target.value) && adultRanksValues.indexOf(belt) === -1)) {
       setBelt(defaultBelt(event.target.value))
     }
@@ -118,9 +101,7 @@ function EloTable(props: EloTableProps) {
   }
 
   let ranks = adultRanks;
-  if (isKidsAge(age)) {
-    ranks = kidsRanks
-  } else if (isJuvenileAge(age)) {
+  if (isJuvenileAge(age)) {
     ranks = juvenileRanks
   }
 
@@ -156,18 +137,6 @@ function EloTable(props: EloTableProps) {
                 <div className="control">
                   <div className="select">
                     <select value={age} onChange={onAgeChange}>
-                      <option>Mighty-mite 1</option>
-                      <option>Mighty-mite 2</option>
-                      <option>Mighty-mite 3</option>
-                      <option>Pee-Wee 1</option>
-                      <option>Pee-Wee 2</option>
-                      <option>Pee-Wee 3</option>
-                      <option>Junior 1</option>
-                      <option>Junior 2</option>
-                      <option>Junior 3</option>
-                      <option>Teen 1</option>
-                      <option>Teen 2</option>
-                      <option>Teen 3</option>
                       <option>Juvenile 1</option>
                       <option>Juvenile 2</option>
                       <option>Adult</option>
@@ -176,6 +145,8 @@ function EloTable(props: EloTableProps) {
                       <option>Master 3</option>
                       <option>Master 4</option>
                       <option>Master 5</option>
+                      <option>Master 6</option>
+                      <option>Master 7</option>
                     </select>
                   </div>
                 </div>

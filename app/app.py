@@ -39,15 +39,21 @@ def top():
     if name:
         query = query.filter(Athlete.name.ilike(f'%{name}%'))
 
-    results = query.order_by(CurrentRating.rating.desc()).limit(30).all()
+    results = query.order_by(CurrentRating.rating.desc(), CurrentRating.match_happened_at.desc()).limit(30).all()
 
     response = []
-    for rank, result in enumerate(results, start=1):
+    previous_rating = None
+    rank = 0
+    for index, result in enumerate(results):
+        rounded_rating = round(result.rating)
+        if rounded_rating != previous_rating:
+            rank = index + 1
         response.append({
             "rank": rank,
             "name": result.athlete.name,
-            "rating": round(result.rating)
+            "rating": rounded_rating
         })
+        previous_rating = rounded_rating
 
     return jsonify(response)
 
