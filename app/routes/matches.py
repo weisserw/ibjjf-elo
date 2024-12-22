@@ -236,15 +236,6 @@ def matches():
         JOIN match_participants mp ON m.id = mp.match_id
         JOIN athletes a ON mp.athlete_id = a.id
         WHERE d.gi = :gi
-        AND (
-            (SELECT COUNT(*)
-            FROM match_participants
-            WHERE match_id = m.id AND winner = true) = 1
-            AND
-            (SELECT COUNT(*)
-            FROM match_participants
-            WHERE match_id = m.id AND winner = false) = 1
-        )
         {filters}
     '''
 
@@ -294,6 +285,11 @@ def matches():
                     winner = participant
                 else:
                     loser = participant
+
+            if winner is None or loser is None:
+                winner = current_match.participants[0]
+                loser = current_match.participants[1]
+
             response.append({
                 "id": current_match.id,
                 "winner": winner.athlete.name,
