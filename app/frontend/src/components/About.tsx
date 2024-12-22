@@ -44,24 +44,24 @@ function About() {
         <p className="content">
           A: Since Elo invented his rating system, many statisticians have developed alternate systems with additional features.
           However, some of these features are not necessary for our purposes. For example, because the IBJJF does not normally
-          record how a match was decided (points, submission, etc.), we cannot use the feature of a rating system that takes into account
+          record how a match was decided (points, submission, etc.), we cannot use a feature of a rating system that takes into account
           a margin of victory.
         </p>
         <p className="content">
-          The main reason we use the Elo system is its simplicity, which makes it easy to understand. This coincides with our goal of making
-          transparent data available to the jiu-jitsu community.
+          The main reason we use the Elo system is its simplicity, which makes it easy to understand. This aligns with our goal of keeping
+          our data and processes as transparent as possible.
         </p>
         <p className="content">
           <strong>Q: I see a problem with one of my match results or my rating. What should I do?</strong>
         </p>
         <p className="content">
-          A: Please contact us at <strong>???</strong> and we will investigate the issue and implement a fix if one is warranted.
+          A: Please contact us at <strong>???</strong> and we will investigate the issue and make a fix if one is warranted.
         </p>
         <p className="content">
           <strong>Q: How far back in time does your database go?</strong>
         </p>
         <p className="content">
-          A: Unfortunately, since we are starting from scratch, we only have access to historical data on a limited number of competitors.
+          A: Unfortunately, since we are starting from scratch, we only have access to historical data for a limited number of competitors.
           For most competitors, match data will accumulate starting in December 2024, and we hope to keep a comprehensive record of matches
           from that point forward. Although the rating system won't be as accurate until more data is accumulated, over time it will become
           more reliable.
@@ -70,13 +70,13 @@ function About() {
           <strong>Q: How do you determine the ratings for each belt?</strong>
         </p>
         <p className="content">
-          A: We don't determine ratings for each belt per se; we do assign an initial rating to new competitors based on their belt level.
-          These initial ratings are estimates and may change over time. But regardless of your initial rating, your rating will change over
+          A: We don't determine ratings for each belt per se. We do assign an initial rating to new competitors based on their belt level.
+          These initial ratings are estimates and we may modify them as we gather more data. But regardless of your initial rating, your rating will change over
           time based on your match results, until it converges to a value that reflects your skill level relative to other competitors.
         </p>
         <p className="content">
           To help this process along, we use a dynamic K-factor system that increases the speed of your rating changes when you have fewer
-          matches recorded in the system. As you accumulate more matches, the system becomes more confident in your rating and your rating
+          matches recorded in the system. As you accumulate more matches, the system becomes more confident and your rating
           will change more slowly.
         </p>
         <p className="content">
@@ -84,10 +84,10 @@ function About() {
         </p>
         <p className="content">
           A: This is a feature of the system working as intended. The solution is to compete more; as you yourself may now be under-rated,
-          it will be easier for you to gain rating points by competing against other competitors.
+          you will gain more rating points on average when you win.
         </p>
         <p className="content">
-          <strong>Q: Will my rating get reset when I change weight, rank or age divisions?</strong>
+          <strong>Q: Will my rating get reset when I change my weight, rank or age division?</strong>
         </p>
         <p className="content">
           A: Your rating stays with you regardless of weight or rank. Different age divisions are treated as separate pools of competitors,
@@ -97,7 +97,7 @@ function About() {
           <strong>Q: What about open class?</strong>
         </p>
         <p className="content">
-          A: Open class is a special case. In any other weight division, a match is a fair test of skill because both competitors are
+          A: Open class is a special case. In any other weight division, a match is, in theory, a fair test of skill because both competitors are
           required to make weight. If we rated open class matches the same as any other match, we would introduce bias into the system
           because the advantage of being a heavier weight would not be accounted for.
         </p>
