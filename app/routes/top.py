@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from extensions import db
+from sqlalchemy.sql import exists
 from models import CurrentRating, Athlete, MatchParticipant, Match, Division
 
 top_route = Blueprint('top_route', __name__)
@@ -31,12 +32,25 @@ def top():
         query = query.filter(Athlete.name.ilike(f'%{name}%'))
 
     if weight:
-        query = query.join(MatchParticipant).join(Match).join(Division).filter(
-            Division.weight == weight,
-            MatchParticipant.winner == True
+        subquery = (
+            db.session.query(Athlete.id)
+            .join(MatchParticipant)
+            .join(Match)
+            .join(Division)
+            .filter(
+                Division.weight == weight,
+                MatchParticipant.winner == True
+            )
+            .subquery()
         )
 
-    results = query.order_by(CurrentRating.rating.desc(), CurrentRating.match_happened_at.desc()).limit(RATINGS_PAGE_SIZE).all()
+        query = query.filter(
+            exists().where(Athlete.id == subquery.c.id)
+        )
+
+    query = query.order_by(CurrentRating.rating.desc(), CurrentRating.match_happened_at.desc()).limit(RATINGS_PAGE_SIZE)
+
+    results = query.all()
 
     response = []
     previous_rating = None
