@@ -1,5 +1,5 @@
-import {useState} from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import classNames from 'classnames';
 import './Navbar.css';
 
@@ -29,15 +29,15 @@ function Navbar() {
       </div>
       <div className={classNames("navbar-menu", {"is-active": isMenuActive})}>
         <div className="navbar-start">
-          <a className={getNavItemClass("/")} href="/">
+          <Link className={getNavItemClass("/")} to="/">
             Ratings
-          </a>
-          <a className={getNavItemClass("/database")} href="/database">
+          </Link>
+          <Link className={getNavItemClass("/database")} to="/database">
             Database
-          </a>
-          <a className={getNavItemClass("/about")} href="/about">
+          </Link>
+          <Link className={getNavItemClass("/about")} to="/about">
             About
-          </a>
+          </Link>
         </div>
       </div>
     </nav>

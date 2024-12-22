@@ -16,7 +16,8 @@ else:
 db.init_app(app)
 migrate.init_app(app, db)
 
-@app.route('/')
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
 
