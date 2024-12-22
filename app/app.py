@@ -8,7 +8,7 @@ from routes.top import top_route
 from routes.matches import matches_route
 
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='/')
-if os.getenv('RENDER'):
+if os.getenv('DATABASE_URL'):
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
