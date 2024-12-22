@@ -9,11 +9,13 @@ elote==0.1.0
 Flask==3.1.0
 Flask-Migrate==4.0.7
 Flask-SQLAlchemy==3.1.1
+gunicorn==23.0.0
 idna==3.10
 itsdangerous==2.2.0
 Jinja2==3.1.4
 Mako==1.3.8
 MarkupSafe==3.0.2
+packaging==24.2
 psycopg2==2.9.10
 requests==2.32.3
 soupsieve==2.6
