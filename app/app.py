@@ -1,7 +1,6 @@
 import os
-from datetime import datetime
 from sqlalchemy.sql import text
-from flask import Flask, send_from_directory, request, jsonify
+from flask import Flask, send_from_directory
 from extensions import db, migrate
 from models import CurrentRating, Athlete, MatchParticipant, Division, Match, Event
 from routes.top import top_route
@@ -16,9 +15,12 @@ else:
 db.init_app(app)
 migrate.init_app(app, db)
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def index(path):
+@app.route('/')
+def index():
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.errorhandler(404)
+def not_found(e):
     return send_from_directory(app.static_folder, 'index.html')
 
 RATINGS_PAGE_SIZE = 30
