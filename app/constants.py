@@ -4,6 +4,21 @@ PURPLE = 'PURPLE'
 BLUE = 'BLUE'
 WHITE = 'WHITE'
 
+def translate_belt(belt):
+    if belt == 'AZUL':
+        return BLUE
+    if belt == 'BRANCA':
+        return WHITE
+    if belt == 'MARROM':
+        return BROWN
+    if belt == 'PRETA':
+        return BLACK
+    if belt == 'ROXA':
+        return PURPLE
+    if belt not in [BLACK, BROWN, PURPLE, BLUE, WHITE]:
+        raise ValueError('Invalid belt')
+    return belt
+
 ROOSTER = 'Rooster'
 LIGHT_FEATHER = 'Light Feather'
 FEATHER = 'Feather'
@@ -14,6 +29,31 @@ HEAVY = 'Heavy'
 SUPER_HEAVY = 'Super Heavy'
 ULTRA_HEAVY = 'Ultra Heavy'
 OPEN_CLASS = 'Open Class'
+
+def translate_weight(weight):
+    if weight == 'Absoluto':
+        return OPEN_CLASS
+    if weight == 'Leve':
+        return LIGHT
+    if weight == 'Médio':
+        return MIDDLE
+    if weight == 'MeioPesado':
+        return MEDIUM_HEAVY
+    if weight == 'Pena':
+        return FEATHER
+    if weight == 'Pesadíssimo':
+        return ULTRA_HEAVY
+    if weight == 'Pesado':
+        return HEAVY
+    if weight == 'Pluma':
+        return LIGHT_FEATHER
+    if weight == 'Super Pesado':
+        return SUPER_HEAVY
+    if weight == 'Galo':
+        return ROOSTER
+    if weight not in [ROOSTER, LIGHT_FEATHER, FEATHER, LIGHT, MIDDLE, MEDIUM_HEAVY, HEAVY, SUPER_HEAVY, ULTRA_HEAVY, OPEN_CLASS]:
+        raise ValueError('Invalid weight')
+    return weight
 
 weight_class_order = [
     ROOSTER,
