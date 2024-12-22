@@ -3,7 +3,6 @@ import debounce from 'lodash/debounce';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import './DBFilters.css';
-import { set } from 'lodash';
 
 interface SectionProps {
   title: string;
