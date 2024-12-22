@@ -6,7 +6,7 @@ from constants import (
     MALE, FEMALE,
     ADULT, MASTER_1, MASTER_2, MASTER_3, MASTER_4, MASTER_5, MASTER_6, MASTER_7, JUVENILE_1, JUVENILE_2,
     WHITE, BLUE, PURPLE, BROWN, BLACK,
-    ROOSTER, LIGHT_FEATHER, FEATHER, LIGHT, MIDDLE, MEDIUM_HEAVY, HEAVY, SUPER_HEAVY, ULTRA_HEAVY, OPEN_CLASS
+    ROOSTER, LIGHT_FEATHER, FEATHER, LIGHT, MIDDLE, MEDIUM_HEAVY, HEAVY, SUPER_HEAVY, ULTRA_HEAVY, OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
 )
 from models import Athlete, MatchParticipant, Division, Match, Event
 
@@ -196,6 +196,8 @@ def matches():
         weights.append(ULTRA_HEAVY)
     if weight_open_class:
         weights.append(OPEN_CLASS)
+        weights.append(OPEN_CLASS_LIGHT)
+        weights.append(OPEN_CLASS_HEAVY)
     if len(weights):
         filters += 'AND d.weight IN (' + ", ".join(f"'{w}'" for w in weights) + ')\n'
 

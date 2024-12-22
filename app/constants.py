@@ -29,6 +29,8 @@ HEAVY = 'Heavy'
 SUPER_HEAVY = 'Super Heavy'
 ULTRA_HEAVY = 'Ultra Heavy'
 OPEN_CLASS = 'Open Class'
+OPEN_CLASS_LIGHT = 'Open Class Light'
+OPEN_CLASS_HEAVY = 'Open Class Heavy'
 
 def translate_weight(weight):
     if weight == 'Absoluto':
@@ -51,7 +53,9 @@ def translate_weight(weight):
         return SUPER_HEAVY
     if weight == 'Galo':
         return ROOSTER
-    if weight not in [ROOSTER, LIGHT_FEATHER, FEATHER, LIGHT, MIDDLE, MEDIUM_HEAVY, HEAVY, SUPER_HEAVY, ULTRA_HEAVY, OPEN_CLASS]:
+    if weight not in [ROOSTER, LIGHT_FEATHER, FEATHER, LIGHT, MIDDLE,
+                      MEDIUM_HEAVY, HEAVY, SUPER_HEAVY, ULTRA_HEAVY,
+                      OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY]:
         raise ValueError('Invalid weight')
     return weight
 
@@ -81,6 +85,9 @@ MASTER_6 = 'Master 6'
 MASTER_7 = 'Master 7'
 
 def check_age(age):
+    # sometimes juvenile age groups are combined
+    if age == JUVENILE_PREFIX:
+        return JUVENILE_2
     if age not in [JUVENILE_1, JUVENILE_2, ADULT, MASTER_1, MASTER_2, MASTER_3, MASTER_4, MASTER_5, MASTER_6, MASTER_7]:
         raise ValueError('Invalid age')
 

@@ -80,7 +80,7 @@ def unrated_open_match(db, division, red_athlete_id, blue_athlete_id):
         Division.gi == division.gi,
         Division.gender == division.gender,
         Division.age == division.age,
-        Division.weight != 'Open Class',
+        ~Division.weight.startswith(OPEN_CLASS),
         Match.rated == True,
         MatchParticipant.athlete_id == red_athlete_id
     ).order_by(Match.happened_at.desc()).first()
@@ -88,7 +88,7 @@ def unrated_open_match(db, division, red_athlete_id, blue_athlete_id):
         Division.gi == division.gi,
         Division.gender == division.gender,
         Division.age == division.age,
-        Division.weight != 'Open Class',
+        ~Division.weight.startswith(OPEN_CLASS),
         Match.rated == True,
         MatchParticipant.athlete_id == blue_athlete_id
     ).order_by(Match.happened_at.desc()).first()
