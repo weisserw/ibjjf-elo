@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import axios, { AxiosResponse } from 'axios';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
+import DBFilters, { FilterValues } from './DBFilters';
 import "./DBTable.css"
 
 interface Row {
@@ -32,11 +33,13 @@ function DBTable(props: EloTableProps) {
   const [data, setData] = useState<Row[]>([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [filters, setFilters] = useState<FilterValues>({});
 
   useEffect(() => {
     axios.get<Results>('/api/matches', {
       params: {
         gi: props.gi ? 'true' : 'false',
+        ...filters,
         page: page
       }
     }).then((response: AxiosResponse<Results>) => {
@@ -51,7 +54,7 @@ function DBTable(props: EloTableProps) {
       console.error(exception)
       setLoading(false)
     })
-  }, [props.gi, page]);
+  }, [props.gi, filters, page]);
 
   const shortEvent = (row: Row) => {
     if (row.event.length > 32) {
@@ -101,6 +104,7 @@ function DBTable(props: EloTableProps) {
 
   return (
     <div>
+      <DBFilters filters={filters} setFilters={setFilters} />
       <div className="table-container is-hidden-touch">
         <table className={classNames("table db-table is-striped", {"is-narrow": !loading && !!data.length})}>
           <thead>
@@ -221,7 +225,10 @@ function DBTable(props: EloTableProps) {
         <a href="#" className={classNames("pagination-previous", {"is-disabled": page === 1})} onClick={onPreviousPage}>Previous</a>
         <a href="#" className={classNames("pagination-next", {"is-disabled": page === totalPages})} onClick={onNextPage}>Next</a>
         <ul className="pagination-list">
-          {renderPageLink(1)}
+          {
+            data.length > 0 &&
+            renderPageLink(1)
+          }
           {
             totalPages > 3 && page > 3 &&
             <li>

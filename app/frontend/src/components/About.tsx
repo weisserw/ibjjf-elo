@@ -117,7 +117,7 @@ function About() {
         </p>
         <p className="content">
           The rating system is less accurate when a competitor has not competed in a long time. To prevent stale ratings from appearing on the front page,
-          we only show competitors who have competed in the last two years. If these competitors compete again, they will reappear on the front page
+          we only show competitors who have competed in the last three years. If these competitors compete again, they will reappear on the front page
           and the system will temporarily increase their K factor to reflect the uncertainty in their rating.
         </p>
         <p className="content">

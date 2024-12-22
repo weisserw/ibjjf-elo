@@ -1,0 +1,61 @@
+.box.accordion-box {
+  padding: 12px;
+  padding-bottom: 0;
+}
+
+.box.accordion-box.open {
+  padding-bottom: 12px;
+}
+
+.accordion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding-bottom: 10px;
+}
+
+.accordion-icon {
+  cursor: pointer;
+}
+
+.accordion-section {
+  margin-bottom: 10px;
+}
+
+.section-title {
+  font-size: 14px;
+}
+
+.section-divider {
+  border: 0;
+  height: 1px;
+  background-color: #dbdbdb;
+  margin: 1px;
+  margin-bottom: 8px;
+}
+
+.checkbox-filters {
+  align-items: center;
+}
+
+.checkbox-filter input {
+  margin-right: 5px;
+}
+
+.clear-all-button {
+  margin-bottom: 10px;
+}
+
+.date-range, .rating-range {
+  display: flex;
+  align-items: center;
+}
+
+.date-range-separator, .rating-range-separator {
+  margin: 0 10px;
+}
+
+.date-input, .rating-input {
+  width: 150px;
+}
