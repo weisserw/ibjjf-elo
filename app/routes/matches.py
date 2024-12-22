@@ -270,7 +270,11 @@ def matches():
             division = Division(gi=row['gi'], gender=row['gender'], age=row['age'], belt=row['belt'], weight=row['weight'])
             event = Event(name=row['event_name'])
 
-            happened_at = datetime.fromisoformat(row['happened_at'])
+            # sqlite returns a string for datetime fields, but postgres returns a datetime object
+            if isinstance(row['happened_at'], str):
+                happened_at = datetime.fromisoformat(row['happened_at'])
+            else:
+                happened_at = row['happened_at']
 
             current_match = Match(id=row['id'], happened_at=happened_at, division=division, event=event)
 
