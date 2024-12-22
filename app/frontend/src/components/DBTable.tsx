@@ -49,7 +49,7 @@ function DBTable(props: EloTableProps) {
       setLoading(false)
 
       if (response.data.rows.length === 0 && page > 1) {
-        setPage(page - 1)
+        setPage(1)
       }
     }).catch((exception) => {
       console.error(exception)
