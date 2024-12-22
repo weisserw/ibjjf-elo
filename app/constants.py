@@ -79,3 +79,14 @@ MASTER_4 = 'Master 4'
 MASTER_5 = 'Master 5'
 MASTER_6 = 'Master 6'
 MASTER_7 = 'Master 7'
+
+def check_age(age):
+    if age not in [JUVENILE_1, JUVENILE_2, ADULT, MASTER_1, MASTER_2, MASTER_3, MASTER_4, MASTER_5, MASTER_6, MASTER_7]:
+        raise ValueError('Invalid age')
+
+MALE = 'Male'
+FEMALE = 'Female'
+
+def check_gender(gender):
+    if gender not in (MALE, FEMALE):
+        raise ValueError('Invalid gender')

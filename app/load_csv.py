@@ -7,7 +7,7 @@ from datetime import datetime
 from app import db, app
 from models import Event, Division, Athlete, Team, Match, MatchParticipant
 from current import generate_current_ratings
-from constants import translate_belt, translate_weight
+from constants import translate_belt, translate_weight, check_gender, check_age
 
 def get_or_create(session, model, update=None, **kwargs):
     instance = session.query(model).filter_by(**kwargs).first()
@@ -38,6 +38,9 @@ def process_file(csv_file_path):
             for row in rows:
                 belt = translate_belt(row['Belt'])
                 weight = translate_weight(row['Weight'])
+
+                check_gender(row['Gender'])
+                check_age(row['Age'])
 
                 event = get_or_create(db.session, Event, dict(name=row['Tournament Name']), ibjjf_id=row['Tournament ID'])
                 division = get_or_create(db.session, Division, None, gi=row['Gi'] == 'true', gender=row['Gender'], age=row['Age'], belt=belt, weight=weight)
