@@ -137,7 +137,7 @@ function EloTable(props: EloTableProps) {
   }
 
   const debouncedSetNameFilterSearch = useCallback(
-    debounce((value: string) => setNameFilterSearch(value), 300),
+    debounce((value: string) => setNameFilterSearch(value), 500),
     []
   );
 

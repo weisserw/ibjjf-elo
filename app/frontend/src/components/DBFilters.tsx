@@ -1,7 +1,9 @@
-import { useState, ReactNode, useCallback } from 'react';
+import { useState, ReactNode } from 'react';
 import debounce from 'lodash/debounce';
 import classNames from 'classnames';
+import dayjs from 'dayjs';
 import './DBFilters.css';
+import { set } from 'lodash';
 
 interface SectionProps {
   title: string;
@@ -64,7 +66,7 @@ interface DBFiltersProps {
 }
 
 function DBFilters(props: DBFiltersProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [athleteName, setAthleteName] = useState(props.filters.athlete_name || '');
   const [eventName, setEventName] = useState(props.filters.event_name || '');
   const [ratingStart, setRatingStart] = useState(props.filters.rating_start || '');
@@ -94,7 +96,7 @@ function DBFilters(props: DBFiltersProps) {
     props.setFilters(newFilters);
   }
 
-  const debouncedOnChange = useCallback(debounce(onChange, 300), []);
+  const debouncedOnChange = debounce(onChange, 500);
 
   return (
     <div className={classNames("box accordion-box", {"open": isOpen})}>
@@ -125,7 +127,10 @@ function DBFilters(props: DBFiltersProps) {
                   </span>
                 </div>
                 <div className="control">
-                  <button className="button is-small is-light" onClick={onClearProps.bind(null, ['athlete_name'])}>Clear</button>
+                  <button className="button is-small is-light" onClick={() => {
+                    setAthleteName('');
+                    onClearProps(['athlete_name']);
+                  }}>Clear</button>
                 </div>
               </div>
             </Section>
@@ -146,7 +151,10 @@ function DBFilters(props: DBFiltersProps) {
                   </span>
                 </div>
                 <div className="control">
-                  <button className="button is-small is-light" onClick={onClearProps.bind(null, ['event_name'])}>Clear</button>
+                  <button className="button is-small is-light" onClick={() => {
+                    setEventName('');
+                    onClearProps(['event_name']);
+                  }}>Clear</button>
                 </div>
               </div>
             </Section>
@@ -230,8 +238,8 @@ function DBFilters(props: DBFiltersProps) {
                   <input
                     className="input is-small date-input"
                     type="date"
-                    value={props.filters.date_start || ''}
-                    onChange={(e) => onChange('date_start', e.target.value)}
+                    value={props.filters.date_start ? dayjs(props.filters.date_start).format('YYYY-MM-DD') : ''}
+                    onChange={(e) => onChange('date_start', dayjs(e.target.value).toISOString())}
                   />
                   <span className="icon is-small is-left">
                     <i className="fas fa-calendar"></i>
@@ -242,8 +250,8 @@ function DBFilters(props: DBFiltersProps) {
                   <input
                     className="input is-small date-input"
                     type="date"
-                    value={props.filters.date_end || ''}
-                    onChange={(e) => onChange('date_end', e.target.value)}
+                    value={props.filters.date_end ? dayjs(props.filters.date_end).format('YYYY-MM-DD') : ''}
+                    onChange={(e) => onChange('date_end', dayjs(e.target.value).toISOString())}
                   />
                   <span className="icon is-small is-left">
                     <i className="fas fa-calendar"></i>
@@ -280,7 +288,11 @@ function DBFilters(props: DBFiltersProps) {
                   />
                 </div>
                 <div className="control">
-                  <button className="button is-small is-light" onClick={onClearProps.bind(null, ['rating_start', 'rating_end'])}>Clear</button>
+                  <button className="button is-small is-light" onClick={() => {
+                    setRatingStart('');
+                    setRatingEnd('');
+                    onClearProps(['rating_start', 'rating_end']);
+                  }}>Clear</button>
                 </div>
               </div>
             </Section>

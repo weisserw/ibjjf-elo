@@ -7,10 +7,6 @@ td.empty-row {
     white-space: nowrap;
 }
 
-.pagination-margin {
-  margin-bottom: 20px;
-}
-
 div.card.db-row-card {
   margin-bottom: 10px;
 }

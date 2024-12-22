@@ -3,6 +3,7 @@ import axios, { AxiosResponse } from 'axios';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import DBFilters, { FilterValues } from './DBFilters';
+import DBPagination from './DBPagination';
 import "./DBTable.css"
 
 interface Row {
@@ -80,16 +81,6 @@ function DBTable(props: EloTableProps) {
   const onPageClick = (pageNumber: number, event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
     setPage(pageNumber)
-  }
-
-  const renderPageLink = (pageNumber: number) => {
-    return (
-      <li>
-        <a href="#" className={classNames("pagination-link", {"is-current": page === pageNumber})} onClick={(event) => onPageClick(pageNumber, event)}>
-          {pageNumber}
-        </a>
-      </li>
-    );
   }
 
   const outcomeClass = (startRating: number, endRating: number) => {
@@ -221,44 +212,11 @@ function DBTable(props: EloTableProps) {
           ))
         }
       </div>
-      <nav className="pagination pagination-margin" role="navigation">
-        <a href="#" className={classNames("pagination-previous", {"is-disabled": page === 1})} onClick={onPreviousPage}>Previous</a>
-        <a href="#" className={classNames("pagination-next", {"is-disabled": page === totalPages})} onClick={onNextPage}>Next</a>
-        <ul className="pagination-list">
-          {
-            data.length > 0 &&
-            renderPageLink(1)
-          }
-          {
-            totalPages > 3 && page > 3 &&
-            <li>
-              <span className="pagination-ellipsis">&hellip;</span>
-            </li>
-          }
-          {
-            totalPages > 3 && page > 2 &&
-            renderPageLink(page - 1)
-          }
-          {
-            totalPages > 2 && page > 1 && page < totalPages &&
-            renderPageLink(page)
-          }
-          {
-            totalPages > 3 && page < totalPages - 1 &&
-            renderPageLink(page + 1)
-          }
-          {
-            totalPages > 4 && page < totalPages - 2 &&
-            <li>
-              <span className="pagination-ellipsis">&hellip;</span>
-            </li>
-          }
-          {
-            totalPages > 4 &&
-            renderPageLink(totalPages)
-          }
-        </ul>
-      </nav>
+      {
+        !loading && data.length > 0 && (
+          <DBPagination page={page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
+        )
+      }
     </div>
   )
 }
