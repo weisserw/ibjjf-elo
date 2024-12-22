@@ -22,11 +22,11 @@ function About() {
 
           <ul>
             <li>The IBJJF's ranking system is based on medals won in IBJJF tournaments. While we applaud the IBJJF for adopting
-              and using an objective ranking system to seed their tournaments, there are some drawbacks to the current system; for example,
+              an objective ranking system to seed their tournaments, there are some drawbacks to their current system; for example,
               in divisions with fewer average competitors where default medals are common, an athlete's ranking is more reflective of their
               willingness to compete than their actual skill. We hope that this app encourages the IBJJF to adopt some sort of skill-based
-              ranking system, which will be both fairer and provide more useful information to competitors.</li>
-            <li>The IBJJF has adopted the practice of deleting all individual match results from its database soon after events end.
+              ranking system, which will be fairer and provide more useful information to competitors.</li>
+            <li>The IBJJF has adopted the practice of deleting all individual match results (other than podium finishes) from its database soon after events end.
               These results contain a wealth of information of interest to competitors, coaches, and fans. This app aims to preserve
               this information and make it accessible to the public.
             </li>
@@ -39,13 +39,7 @@ function About() {
           A: We would like to support other competitions in the future, but we are starting with the IBJJF because it is the largest and most prestigious jiu-jitsu organization in the world.
         </p>
         <p className="content">
-          <strong>Q: Why use the Elo system when better rating systems exist?</strong>
-        </p>
-        <p className="content">
-          A: Since Elo invented his rating system, many statisticians have developed alternate systems with additional features.
-          However, some of these features are not necessary for our purposes. For example, because the IBJJF does not normally
-          record how a match was decided (points, submission, etc.), we cannot use a feature of a rating system that takes into account
-          a margin of victory.
+          <strong>Q: Why use the Elo system when other skill-based rating systems exist?</strong>
         </p>
         <p className="content">
           The main reason we use the Elo system is its simplicity, which makes it easy to understand. This aligns with our goal of keeping
@@ -55,16 +49,16 @@ function About() {
           <strong>Q: I see a problem with one of my match results or my rating. What should I do?</strong>
         </p>
         <p className="content">
-          A: Please contact us at <strong>???</strong> and we will investigate the issue and make a fix if one is warranted.
+          A: Please DM <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">ibjjfrankings on Instagram</a> and we will investigate the issue and make a fix if one is warranted.
         </p>
         <p className="content">
           <strong>Q: How far back in time does your database go?</strong>
         </p>
         <p className="content">
           A: Unfortunately, since we are starting from scratch, we only have access to historical data for a limited number of competitors.
-          For most competitors, match data will accumulate starting in December 2024, and we hope to keep a comprehensive record of matches
-          from that point forward. Although the rating system won't be as accurate until more data is accumulated, over time it will become
-          more reliable.
+          For most competitors, match data will accumulate starting from December 2024, and we hope to keep a comprehensive record of matches
+          from that point forward. Although the rating system won't be as accurate until more data is accumulated, it will become more reliable
+          over time.
         </p>
         <p className="content">
           <strong>Q: How do you determine the ratings for each belt?</strong>
@@ -126,12 +120,6 @@ function About() {
         <p className="content">
           A: Your rating and your rank are two different things. Your rating is a reflection of your ability to win competition matches. 
           Your rank is a reflection of your progress in jiu-jitsu as determined by your instructor. The two are not necessarily related.
-        </p>
-        <p className="content">
-          <strong>Q: Are you going to track kids divisions?</strong>
-        </p>
-        <p className="content">
-          A: We have decided not to track age divisions below Juvenile 1 at this time.
         </p>
       </div>
     </section>
