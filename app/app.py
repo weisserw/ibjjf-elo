@@ -26,5 +26,7 @@ MATCH_PAGE_SIZE = 12
 app.register_blueprint(top_route)
 app.register_blueprint(matches_route)
 
+application = app
+
 if __name__ == '__main__':
     app.run()
