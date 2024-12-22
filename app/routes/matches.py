@@ -135,7 +135,7 @@ def matches():
     if gender_female:
         genders.append(FEMALE)
     if len(genders):
-        filters += f'AND d.gender IN ({", ".join(f"'{g}'" for g in genders)})\n'
+        filters += 'AND d.gender IN (' + ", ".join(f"'{g}'" for g in genders) + ')\n'
 
     ages = []
     if age_adult:
@@ -159,7 +159,7 @@ def matches():
     if age_juvenile2:
         ages.append(JUVENILE_2)
     if len(ages):
-        filters += f'AND d.age IN ({", ".join(f"'{a}'" for a in ages)})\n'
+        filters += 'AND d.age IN (' + ", ".join(f"'{a}'" for a in ages) + ')\n'
 
     belts = []
     if belt_white:
@@ -173,7 +173,7 @@ def matches():
     if belt_black:
         belts.append(BLACK)
     if len(belts):
-        filters += f'AND d.belt IN ({", ".join(f"'{b}'" for b in belts)})\n'
+        filters += 'AND d.belt IN (' + ", ".join(f"'{b}'" for b in belts) + ')\n'
 
     weights = []
     if weight_rooster:
@@ -197,7 +197,7 @@ def matches():
     if weight_open_class:
         weights.append(OPEN_CLASS)
     if len(weights):
-        filters += f'AND d.weight IN ({", ".join(f"'{w}'" for w in weights)})\n'
+        filters += 'AND d.weight IN (' + ", ".join(f"'{w}'" for w in weights) + ')\n'
 
     if date_start:
         filters += 'AND m.happened_at >= :date_start\n'
