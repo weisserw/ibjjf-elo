@@ -40,7 +40,7 @@ def process_file(csv_file_path):
                 weight = translate_weight(row['Weight'])
 
                 check_gender(row['Gender'])
-                check_age(row['Age'])
+                translate_age(row['Age'])
 
                 event = get_or_create(db.session, Event, dict(name=row['Tournament Name']), ibjjf_id=row['Tournament ID'])
                 division = get_or_create(db.session, Division, None, gi=row['Gi'] == 'true', gender=row['Gender'], age=row['Age'], belt=belt, weight=weight)
