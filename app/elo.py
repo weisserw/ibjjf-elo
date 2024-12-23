@@ -67,7 +67,7 @@ def compute_k_factor(num_matches):
         return 64
     elif num_matches < 7:
         return 48
-    elif num_matches < 9:
+    else:
         return 32
 
 
