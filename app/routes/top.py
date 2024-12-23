@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from extensions import db
 from sqlalchemy.sql import exists
-from models import CurrentRating, Athlete, MatchParticipant, Match, Division
+from models import AthleteRating, Athlete, MatchParticipant, Match, Division
 
 top_route = Blueprint('top_route', __name__)
 
@@ -21,11 +21,11 @@ def top():
     
     gi = gi.lower() == 'true'
 
-    query = db.session.query(CurrentRating).join(Athlete).filter(
-        CurrentRating.gender == gender,
-        CurrentRating.age == age,
-        CurrentRating.belt == belt,
-        CurrentRating.gi == gi
+    query = db.session.query(AthleteRating).join(Athlete).filter(
+        AthleteRating.gender == gender,
+        AthleteRating.age == age,
+        AthleteRating.belt == belt,
+        AthleteRating.gi == gi
     )
 
     if name:
@@ -48,7 +48,7 @@ def top():
             exists().where(Athlete.id == subquery.c.id)
         )
 
-    query = query.order_by(CurrentRating.rating.desc(), CurrentRating.match_happened_at.desc()).limit(RATINGS_PAGE_SIZE)
+    query = query.order_by(AthleteRating.rating.desc(), AthleteRating.match_happened_at.desc()).limit(RATINGS_PAGE_SIZE)
 
     results = query.all()
 

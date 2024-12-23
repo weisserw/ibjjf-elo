@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, Integer, DateTime, ForeignKey, Text, Float, Index
+from sqlalchemy import Column, String, Boolean, Integer, DateTime, ForeignKey, Text, Float, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from extensions import db
@@ -90,9 +90,10 @@ class MatchParticipant(db.Model):
         Index('ix_match_participants_team_id', 'team_id'),
     )
 
-class CurrentRating(db.Model):
-    __tablename__ = 'current_ratings'
-    athlete_id = Column(UUID(as_uuid=True), ForeignKey('athletes.id'), primary_key=True)
+class AthleteRating(db.Model):
+    __tablename__ = 'athlete_ratings'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    athlete_id = Column(UUID(as_uuid=True), ForeignKey('athletes.id'), nullable=False)
     rating = Column(Float, nullable=False)
     gender = Column(String, nullable=False)
     age = Column(String, nullable=False)
@@ -103,7 +104,8 @@ class CurrentRating(db.Model):
     athlete = relationship("Athlete", lazy='joined')
 
     __table_args__ = (
-        Index('ix_current_ratings_athlete_id', 'athlete_id'),
-        Index('ix_current_ratings_rating', 'rating'),
-        Index('ix_current_ratings_all', 'gender', 'age', 'belt', 'gi'),
+        Index('ix_athlete_ratings_athlete_id', 'athlete_id'),
+        Index('ix_athlete_ratings_rating', 'rating'),
+        Index('ix_athlete_ratings_all', 'gender', 'age', 'belt', 'gi'),
+        UniqueConstraint('athlete_id', 'gender', 'age', 'gi', name='uq_athlete_ratings_athlete_gender_age_gi'),
     )

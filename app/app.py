@@ -2,7 +2,7 @@ import os
 from sqlalchemy.sql import text
 from flask import Flask, send_from_directory
 from extensions import db, migrate
-from models import CurrentRating, Athlete, MatchParticipant, Division, Match, Event
+from models import AthleteRating, Athlete, MatchParticipant, Division, Match, Event
 from routes.top import top_route
 from routes.matches import matches_route
 
