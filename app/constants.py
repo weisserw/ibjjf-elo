@@ -35,6 +35,10 @@ OPEN_CLASS_HEAVY = 'Open Class Heavy'
 def translate_weight(weight):
     if weight == 'Absoluto':
         return OPEN_CLASS
+    if weight == 'Absoluto Leve':
+        return OPEN_CLASS_LIGHT
+    if weight == 'Absoluto Pesado':
+        return OPEN_CLASS_HEAVY
     if weight == 'Leve':
         return LIGHT
     if weight == 'Médio':
