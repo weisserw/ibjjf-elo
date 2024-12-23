@@ -37,7 +37,7 @@ def main():
                 belt = category.find('span', class_='category-card__belt-label').get_text(strip=True)
                 weight = category.find('span', class_='category-card__weight-label').get_text(strip=True)
 
-                if not (age.lower().startswith('master') or age.lower().startswith('juvenile') or age.lower() == 'adult'):
+                if not (age.lower().startswith('master') or age.lower().startswith('juvenil') or age.lower().startswith('adult')):
                     continue
 
                 categoryurl = f'https://www.bjjcompsystem.com{link}'

@@ -7,7 +7,7 @@ from datetime import datetime
 from app import db, app
 from models import Event, Division, Athlete, Team, Match, MatchParticipant
 from current import generate_current_ratings
-from constants import translate_belt, translate_weight, check_gender, check_age
+from constants import translate_belt, translate_weight, check_gender, translate_age
 
 def get_or_create(session, model, update=None, **kwargs):
     instance = session.query(model).filter_by(**kwargs).first()

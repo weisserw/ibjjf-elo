@@ -84,10 +84,11 @@ MASTER_5 = 'Master 5'
 MASTER_6 = 'Master 6'
 MASTER_7 = 'Master 7'
 
-def check_age(age):
-    # sometimes juvenile age groups are combined
-    if age == JUVENILE_PREFIX:
+def translate_age(age):
+    if age == JUVENILE_PREFIX or age == 'Juvenil':
         return JUVENILE_2
+    if age == 'Adulto':
+        return ADULT
     if age not in [JUVENILE_1, JUVENILE_2, ADULT, MASTER_1, MASTER_2, MASTER_3, MASTER_4, MASTER_5, MASTER_6, MASTER_7]:
         raise ValueError('Invalid age')
 
