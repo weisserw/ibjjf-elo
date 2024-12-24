@@ -1,5 +1,5 @@
 from models import Match, MatchParticipant, Division
-from constants import BLACK, BROWN, PURPLE, BLUE, WHITE, OPEN_CLASS, weight_class_order
+from constants import ADULT, BLACK, BROWN, PURPLE, BLUE, WHITE, OPEN_CLASS, weight_class_order
 
 # EloCompetitor class based on Elote
 
@@ -71,7 +71,7 @@ def compute_k_factor(num_matches):
         return 32
 
 
-def unrated_open_match(db, division, red_athlete_id, blue_athlete_id):
+def unrated_open_match(db, match_id, happened_at, division, red_athlete_id, blue_athlete_id):
     if division.weight != OPEN_CLASS:
         return False
 
@@ -82,23 +82,25 @@ def unrated_open_match(db, division, red_athlete_id, blue_athlete_id):
         Division.age == division.age,
         ~Division.weight.startswith(OPEN_CLASS),
         Match.rated == True,
-        MatchParticipant.athlete_id == red_athlete_id
-    ).order_by(Match.happened_at.desc()).first()
+        MatchParticipant.athlete_id == red_athlete_id,
+        (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
+    ).order_by(Match.happened_at.desc(), Match.id.desc()).first()
     blue_last_non_open_division = db.session.query(Division).join(Match).join(MatchParticipant).filter(
         Division.gi == division.gi,
         Division.gender == division.gender,
         Division.age == division.age,
         ~Division.weight.startswith(OPEN_CLASS),
         Match.rated == True,
-        MatchParticipant.athlete_id == blue_athlete_id
-    ).order_by(Match.happened_at.desc()).first()
+        MatchParticipant.athlete_id == blue_athlete_id,
+        (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
+    ).order_by(Match.happened_at.desc(), Match.id.desc()).first()
 
     # if one of the athletes has no non-open class matches, in theory we could not rate the
     # match since we don't know their real weight class, but this messes us up for the first
-    # few tournaments because championships do the open class first, so we're going to allow this
-    # for now and maybe come back and change it later
+    # few tournaments because championships do the open class first, so we're going to rate them
+    # for now for adult black belts only and maybe come back and change it later
     if red_last_non_open_division is None or blue_last_non_open_division is None:
-        return False
+        return not (division.age == ADULT and division.belt == BLACK)
 
     # look up the index in the weight class order for each athlete
     red_weight_index = weight_class_order.index(red_last_non_open_division.weight)
@@ -118,15 +120,15 @@ def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_win
         Division.gender == division.gender,
         Division.age == division.age,
         MatchParticipant.athlete_id == red_athlete_id,
-         (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
-    ).order_by(Match.happened_at.desc()).first()
+        (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
+    ).order_by(Match.happened_at.desc(), Match.id.desc()).first()
     blue_last_match = db.session.query(MatchParticipant).join(Match).join(Division).filter(
         Division.gi == division.gi,
         Division.gender == division.gender,
         Division.age == division.age,
         MatchParticipant.athlete_id == blue_athlete_id,
-         (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
-    ).order_by(Match.happened_at.desc()).first()
+        (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
+    ).order_by(Match.happened_at.desc(), Match.id.desc()).first()
 
     # get the number of rated matches played by each athlete in the same division
     red_match_count = db.session.query(MatchParticipant).join(Match).join(Division).filter(
@@ -135,7 +137,7 @@ def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_win
         Division.gender == division.gender,
         Division.age == division.age,
         MatchParticipant.athlete_id == red_athlete_id,
-         (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
+        (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
     ).count()
     blue_match_count = db.session.query(MatchParticipant).join(Match).join(Division).filter(
         Match.rated == True,
@@ -143,7 +145,7 @@ def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_win
         Division.gender == division.gender,
         Division.age == division.age,
         MatchParticipant.athlete_id == blue_athlete_id,
-         (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
+        (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
     ).count()
 
     # if the athlete has no previous matches, use the default rating for their belt
@@ -164,7 +166,7 @@ def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_win
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
         rated = False
-    elif unrated_open_match(db, division, red_athlete_id, blue_athlete_id):
+    elif unrated_open_match(db, match_id, happened_at, division, red_athlete_id, blue_athlete_id):
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
         rated = False
