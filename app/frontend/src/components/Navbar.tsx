@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import classNames from 'classnames';
+import logoImage from '/src/assets/logo.jpg'
 import './Navbar.css';
 
 function Navbar() {
@@ -16,6 +17,9 @@ function Navbar() {
   return (
     <nav className="navbar">
       <div className="navbar-brand">
+        <Link className="navbar-item logo" to="/">
+          <img src={logoImage} alt="Logo" />
+        </Link>
         <h1 className="navbar-item">
           IBJJFRankings.com
         </h1>

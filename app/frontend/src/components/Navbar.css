@@ -4,3 +4,11 @@ h1.navbar-item {
   color: #333;
   margin-right: 80px;
 }
+
+.navbar-item.logo {
+  padding: 0;
+}
+
+.navbar-item.logo img {
+  max-height: 52px;
+}
