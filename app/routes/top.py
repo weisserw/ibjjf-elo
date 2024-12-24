@@ -45,7 +45,7 @@ def top():
             .subquery()
         )
 
-        # ...or have lost a match in this division and have no matches in any other division
+        # ...or have lost a match in this division and have no winning matches in any other division
         subquery_match = (
             db.session.query(MatchParticipant.athlete_id)
             .join(Match)
@@ -61,7 +61,8 @@ def top():
             .join(Match)
             .join(Division)
             .filter(
-                not_(Division.weight.in_([weight, OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY]))
+                not_(Division.weight.in_([weight, OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY])),
+                MatchParticipant.winner == True
             )
             .subquery()
         )
