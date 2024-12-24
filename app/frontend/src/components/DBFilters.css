@@ -65,10 +65,6 @@
   align-items: center;
 }
 
-.date-range-separator, .rating-range-separator {
-  margin: 0 10px;
-}
-
 .date-input, .rating-input {
   width: 150px;
 }

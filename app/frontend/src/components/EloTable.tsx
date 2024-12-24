@@ -152,7 +152,7 @@ function EloTable(props: EloTableProps) {
 
   return (
     <div>
-      <div className="columns is-mobile">
+      <div className="columns">
         <div className="column">
           <div className="field">
             <label className="label">Gender</label>
