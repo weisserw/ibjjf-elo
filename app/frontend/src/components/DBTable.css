@@ -13,10 +13,15 @@ div.card.db-row-card {
 
 .db-row-card div.column {
   white-space: nowrap;
+  padding: 4px 10px;
+}
+
+.db-row-card .card-content {
+  overflow-x: hidden;
 }
 
 .db-row-card div.date-box {
   position: absolute;
   right: 10px;
-  top: 0px;
+  top: -4px;
 }

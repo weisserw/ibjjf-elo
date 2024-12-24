@@ -192,7 +192,7 @@ function DBTable(props: EloTableProps) {
                   <div className="column">
                     <strong>Winner:</strong> {row.winner} {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>
                   </div>
-                  <div className="column">
+                  <div className="column has-text-right-tablet">
                     <strong>Loser:</strong> {row.loser} {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>
                   </div>
                 </div>
