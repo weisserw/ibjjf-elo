@@ -13,6 +13,9 @@ function About() {
           The app is a work in progress and is being developed by <a href="https://www.facebook.com/Trumpetdanbjj" target="_blank" rel="noopener noreferrer">Dan Lukehart</a> and <a href="https://www.instagram.com/weisserwill/" target="_blank" rel="noopener noreferrer">Will Weisser</a>. The source code is available on <a href="https://github.com/weisserw/ibjjf-elo">GitHub</a>.
           Ratings may be subject to change as the app is developed and improved.
         </p>
+        <p className="content">
+          We host and maintain this app as a free service to the jiu-jitsu community. If you would like to support us, please consider <a href="https://ko-fi.com/ibjjfrankings" target="_blank" rel="noopener noreferrer">donating</a>.
+        </p>
         <h1 className="title">FAQ</h1>
         <p className="content">
           <strong>Q: Why do we need an IBJJF ranking app when the IBJJF has its own ranking system?</strong>

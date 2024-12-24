@@ -4,6 +4,8 @@ This is the source code for a web app to track matches in IBJJF tournaments and 
 
 The URL for the production app is https://ibjjfrankings.com/
 
+If you wish to contribute to this project, please see the Issues page for a list of outstanding feature requests, or you can [donate](https://ko-fi.com/ibjjfrankings).
+
 This app is built with the following technologies:
 
 * The frontend is React with Typescript, with a build system created by [Vite](https://vite.dev/).
