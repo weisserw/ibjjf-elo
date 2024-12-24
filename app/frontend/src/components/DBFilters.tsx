@@ -9,6 +9,7 @@ import './DBFilters.css';
 interface SectionProps {
   title: string;
   isOpen: boolean;
+  isBold: boolean;
   setIsOpen(isOpen: boolean): void;
   children?: ReactNode;
 }
@@ -16,7 +17,7 @@ interface SectionProps {
 function Section(props: SectionProps) {
   return (
     <div className="accordion-section">
-      <h5 className="section-title" onClick={() => props.setIsOpen(!props.isOpen)}>
+      <h5 className={classNames("section-title", {"section-title-bold": props.isBold})} onClick={() => props.setIsOpen(!props.isOpen)}>
         {props.title}
         <span className={`accordion-icon ${props.isOpen ? 'is-active' : ''}`}>
           <i className={`fas fa-angle-${props.isOpen ? 'up' : 'down'}`}></i>
@@ -71,6 +72,10 @@ export interface FilterValues {
 
 type FilterKeys = keyof FilterValues;
 
+type DivisionFilterKeys = {
+  [K in FilterKeys]: K extends `gender_${string}` | `age_${string}` | `belt_${string}` | `weight_${string}` ? K : never
+}[FilterKeys];
+
 interface DBFiltersProps {
   filters: FilterValues;
   setFilters(filters: FilterValues): void;
@@ -89,6 +94,12 @@ function DBFilters(props: DBFiltersProps) {
   const [athleteSuggestions, setAthleteSuggestions] = useState<string[]>([]);
   const [eventSuggestions, setEventSuggestions] = useState<string[]>([]);
 
+  const anyFiltersSet = Object.values(props.filters).some(value => value !== undefined);
+
+  const anyDivisionFiltersSet = (Object.keys(props.filters) as FilterKeys[]).filter(
+    key => key.startsWith('gender_') || key.startsWith('age_') || key.startsWith('belt_') || key.startsWith('weight_')
+  ).map(key => props.filters[key]).some(value => value !== undefined);
+
   const toggleAccordion = () => {
     setIsOpen(!isOpen);
   };
@@ -99,6 +110,18 @@ function DBFilters(props: DBFiltersProps) {
       delete newFilters[prop];
     }
     props.setFilters(newFilters);
+  }
+
+  const onClearOrAll = (propnames: DivisionFilterKeys[]) => {
+    if (propnames.some(prop => props.filters[prop])) {
+      onClearProps(propnames);
+    } else {
+      const newFilters = { ...props.filters };
+      for (const prop of propnames) {
+        newFilters[prop] = true;
+      }
+      props.setFilters(newFilters);
+    }
   }
 
   const onChange = (key: FilterKeys, value: any) => {
@@ -125,14 +148,26 @@ function DBFilters(props: DBFiltersProps) {
     <div className={classNames("box accordion-box", {"open": isOpen})}>
       <div className="accordion">
         <header className="accordion-header" onClick={toggleAccordion}>
-          <p>Filters</p>
+          {
+            anyFiltersSet ?
+              <p><strong>Filters</strong></p>
+            :
+              <p>Filters</p>
+          }
           <span className={`accordion-icon ${isOpen ? 'is-active' : ''}`}>
             <i className={`fas fa-angle-${isOpen ? 'up' : 'down'}`}></i>
           </span>
         </header>
         {isOpen && (
           <div className="accordion-body">
-            <Section title="Athlete" isOpen={isAthleteOpen} setIsOpen={setIsAthleteOpen}>
+            <Section title="Athlete"
+                     isOpen={isAthleteOpen}
+                     setIsOpen={setIsAthleteOpen}
+                     isBold={
+                        !!props.filters.athlete_name ||
+                        !!props.filters.rating_start ||
+                        !!props.filters.rating_end
+                     }>
               <div className="field is-grouped">
                 <div className="control is-expanded">
                   <Autosuggest suggestions={athleteSuggestions}
@@ -193,7 +228,14 @@ function DBFilters(props: DBFiltersProps) {
                 </div>
               </div>
             </Section>
-            <Section title="Event" isOpen={isEventOpen} setIsOpen={setIsEventOpen}>
+            <Section title="Event"
+                     isOpen={isEventOpen}
+                     setIsOpen={setIsEventOpen}
+                     isBold={
+                        !!props.filters.event_name ||
+                        !!props.filters.date_start ||
+                        !!props.filters.date_end
+                     }>
               <div className="field is-grouped">
                 <div className="control is-expanded">
                   <Autosuggest suggestions={eventSuggestions}
@@ -248,7 +290,10 @@ function DBFilters(props: DBFiltersProps) {
                 </div>
               </div>
             </Section>
-            <Section title="Division" isOpen={isDivisionOpen} setIsOpen={setIsDivisionOpen}>
+            <Section title="Division"
+                     isOpen={isDivisionOpen}
+                     setIsOpen={setIsDivisionOpen}
+                     isBold={anyDivisionFiltersSet}>
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Gender:</label>
                 {['Male', 'Female'].map(gender => {
@@ -264,7 +309,9 @@ function DBFilters(props: DBFiltersProps) {
                     </label>
                   );
                 })}
-                <button className="button is-small is-light" onClick={onClearProps.bind(null, ['gender_male', 'gender_female'])}>Clear</button>
+                <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['gender_male', 'gender_female'])}>
+                  {(props.filters.gender_male || props.filters.gender_female) ? 'Clear' : 'All'}
+                </button>
               </div>
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Age:</label>
@@ -281,7 +328,9 @@ function DBFilters(props: DBFiltersProps) {
                     </label>
                   );
                 })}
-                <button className="button is-small is-light" onClick={onClearProps.bind(null, ['age_adult', 'age_master1', 'age_master2', 'age_master3', 'age_master4', 'age_master5', 'age_master6', 'age_master7', 'age_juvenile1', 'age_juvenile2'])}>Clear</button>
+                <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['age_adult', 'age_master1', 'age_master2', 'age_master3', 'age_master4', 'age_master5', 'age_master6', 'age_master7', 'age_juvenile1', 'age_juvenile2'])}>
+                  {(props.filters.age_adult || props.filters.age_master1 || props.filters.age_master2 || props.filters.age_master3 || props.filters.age_master4 || props.filters.age_master5 || props.filters.age_master6 || props.filters.age_master7 || props.filters.age_juvenile1 || props.filters.age_juvenile2) ? 'Clear' : 'All'}
+                </button>
               </div>
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Belt:</label>
@@ -298,7 +347,9 @@ function DBFilters(props: DBFiltersProps) {
                     </label>
                   );
                 })}
-                <button className="button is-small is-light" onClick={onClearProps.bind(null, ['belt_white', 'belt_blue', 'belt_purple', 'belt_brown', 'belt_black'])}>Clear</button>
+                <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['belt_white', 'belt_blue', 'belt_purple', 'belt_brown', 'belt_black'])}>
+                  {(props.filters.belt_white || props.filters.belt_blue || props.filters.belt_purple || props.filters.belt_brown || props.filters.belt_black) ? 'Clear' : 'All'}
+                </button>
               </div>
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Weight:</label>
@@ -317,7 +368,9 @@ function DBFilters(props: DBFiltersProps) {
                     </label>
                   );
                 })}
-                <button className="button is-small is-light" onClick={onClearProps.bind(null, ['weight_rooster', 'weight_light_feather', 'weight_feather', 'weight_light', 'weight_middle', 'weight_medium_heavy', 'weight_heavy', 'weight_super_heavy', 'weight_ultra_heavy', 'weight_open_class'])}>Clear</button>
+                <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['weight_rooster', 'weight_light_feather', 'weight_feather', 'weight_light', 'weight_middle', 'weight_medium_heavy', 'weight_heavy', 'weight_super_heavy', 'weight_ultra_heavy', 'weight_open_class'])}>
+                  {(props.filters.weight_rooster || props.filters.weight_light_feather || props.filters.weight_feather || props.filters.weight_light || props.filters.weight_middle || props.filters.weight_medium_heavy || props.filters.weight_heavy || props.filters.weight_super_heavy || props.filters.weight_ultra_heavy || props.filters.weight_open_class) ? 'Clear' : 'All'}
+                </button>
               </div>
             </Section>
           </div>

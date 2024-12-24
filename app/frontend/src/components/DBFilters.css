@@ -30,6 +30,11 @@
   justify-content: space-between;
 }
 
+.section-title-bold {
+  font-weight: var(--bulma-strong-weight);
+  color: var(--bulma-strong-color);
+}
+
 .section-divider {
   border: 0;
   height: 1px;
