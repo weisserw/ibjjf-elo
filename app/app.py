@@ -5,6 +5,8 @@ from extensions import db, migrate
 from models import AthleteRating, Athlete, MatchParticipant, Division, Match, Event
 from routes.top import top_route
 from routes.matches import matches_route
+from routes.athletes import athletes_route
+from routes.events import events_route
 
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='/')
 if os.getenv('DATABASE_URL'):
@@ -28,6 +30,8 @@ MATCH_PAGE_SIZE = 12
 
 app.register_blueprint(top_route)
 app.register_blueprint(matches_route)
+app.register_blueprint(athletes_route)
+app.register_blueprint(events_route)
 
 application = app
 

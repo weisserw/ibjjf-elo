@@ -11,9 +11,9 @@ interface PaginationProps {
 }
 
 function DBPagination({page, totalPages, onPageClick, onPreviousPage, onNextPage}: PaginationProps) {
-  const renderPageLink = (pageNumber: number) => {
+  const renderPageLink = (pageNumber: number, key: number) => {
     return (
-      <li>
+      <li key={key}>
         <a href="#" className={classNames("pagination-link", {"is-current": page === pageNumber})} onClick={(event) => onPageClick(pageNumber, event)}>
           {pageNumber}
         </a>
@@ -21,47 +21,47 @@ function DBPagination({page, totalPages, onPageClick, onPreviousPage, onNextPage
     );
   }
 
-  const renderEllipsis = () => {
+  const renderEllipsis = (key: number) => {
     return (
-      <li>
+      <li key={key}>
         <span className="pagination-ellipsis">&hellip;</span>
       </li>
     );
   }
 
   const elements: ReactNode[] = [];
-  elements.push(renderPageLink(1));
+  elements.push(renderPageLink(1, elements.length));
   if (page !== 1 && page !== totalPages) {
     if (page - 1 > 2) {
-      elements.push(renderEllipsis());
+      elements.push(renderEllipsis(elements.length));
     }
     if (page - 1 > 1) {
-      elements.push(renderPageLink(page - 1));
+      elements.push(renderPageLink(page - 1, elements.length));
     }
-    elements.push(renderPageLink(page));
+    elements.push(renderPageLink(page, elements.length));
     if (page + 1 < totalPages) {
-      elements.push(renderPageLink(page + 1));
+      elements.push(renderPageLink(page + 1, elements.length));
     }
     if (page + 1 < totalPages - 1) {
-      elements.push(renderEllipsis());
+      elements.push(renderEllipsis(elements.length));
     }
   } else if (page === 1) {
     if (totalPages > 2) {
-      elements.push(renderPageLink(2));
+      elements.push(renderPageLink(2, elements.length));
     }
     if (totalPages > 3) {
-      elements.push(renderEllipsis());
+      elements.push(renderEllipsis(elements.length));
     }
   } else if (page === totalPages) {
     if (totalPages > 3) {
-      elements.push(renderEllipsis());
+      elements.push(renderEllipsis(elements.length));
     }
     if (totalPages > 2) {
-      elements.push(renderPageLink(totalPages - 1));
+      elements.push(renderPageLink(totalPages - 1, elements.length));
     }
   }
   if (totalPages > 1) {
-    elements.push(renderPageLink(totalPages));
+    elements.push(renderPageLink(totalPages, elements.length));
   }
 
   return (

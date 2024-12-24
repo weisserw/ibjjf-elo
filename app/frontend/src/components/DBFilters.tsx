@@ -2,6 +2,8 @@ import { useState, ReactNode } from 'react';
 import debounce from 'lodash/debounce';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
+import Autosuggest from 'react-autosuggest';
+import axios from 'axios';
 import './DBFilters.css';
 
 interface SectionProps {
@@ -72,6 +74,7 @@ type FilterKeys = keyof FilterValues;
 interface DBFiltersProps {
   filters: FilterValues;
   setFilters(filters: FilterValues): void;
+  gi: boolean;
 }
 
 function DBFilters(props: DBFiltersProps) {
@@ -83,6 +86,8 @@ function DBFilters(props: DBFiltersProps) {
   const [eventName, setEventName] = useState(props.filters.event_name || '');
   const [ratingStart, setRatingStart] = useState(props.filters.rating_start || '');
   const [ratingEnd, setRatingEnd] = useState(props.filters.rating_end || '');
+  const [athleteSuggestions, setAthleteSuggestions] = useState<string[]>([]);
+  const [eventSuggestions, setEventSuggestions] = useState<string[]>([]);
 
   const toggleAccordion = () => {
     setIsOpen(!isOpen);
@@ -106,6 +111,16 @@ function DBFilters(props: DBFiltersProps) {
 
   const debouncedOnChange = debounce(onChange, 750);
 
+  const getAthleteSuggestions = async ({ value }: { value: string }) => {
+    const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
+    setAthleteSuggestions(response.data);
+  }
+
+  const getEventSuggestions = async ({ value }: { value: string }) => {
+    const response = await axios.get(`/api/events?search=${encodeURIComponent(value)}&gi=${props.gi}`);
+    setEventSuggestions(response.data);
+  }
+
   return (
     <div className={classNames("box accordion-box", {"open": isOpen})}>
       <div className="accordion">
@@ -119,20 +134,22 @@ function DBFilters(props: DBFiltersProps) {
           <div className="accordion-body">
             <Section title="Athlete" isOpen={isAthleteOpen} setIsOpen={setIsAthleteOpen}>
               <div className="field is-grouped">
-                <div className="control has-icons-left is-expanded">
-                  <input
-                    className="input is-small"
-                    type="text"
-                    value={athleteName}
-                    placeholder="Athlete Name"
-                    onChange={(e) => {
-                      setAthleteName(e.target.value);
-                      debouncedOnChange('athlete_name', e.target.value);
-                    }}
-                  />
-                  <span className="icon is-small is-left">
-                    <i className="fas fa-filter"></i>
-                  </span>
+                <div className="control is-expanded">
+                  <Autosuggest suggestions={athleteSuggestions}
+                               onSuggestionsFetchRequested={getAthleteSuggestions}
+                               onSuggestionsClearRequested={() => setAthleteSuggestions([])}
+                               multiSection={false}
+                               getSuggestionValue={(suggestion) => suggestion}
+                               renderSuggestion={(suggestion) => suggestion}
+                               inputProps={{
+                                 className: "input is-small",
+                                 value: athleteName,
+                                 placeholder: "Athlete Name",
+                                 onChange: (_: any, { newValue }) => {
+                                   setAthleteName(newValue);
+                                   debouncedOnChange('athlete_name', newValue);
+                                 }
+                               }} />
                 </div>
                 <div className="control">
                   <button className="button is-small is-light" onClick={() => {
@@ -178,20 +195,22 @@ function DBFilters(props: DBFiltersProps) {
             </Section>
             <Section title="Event" isOpen={isEventOpen} setIsOpen={setIsEventOpen}>
               <div className="field is-grouped">
-                <div className="control has-icons-left is-expanded">
-                  <input
-                    className="input is-small"
-                    type="text"
-                    placeholder="Event Name"
-                    value={eventName}
-                    onChange={(e) => {
-                      setEventName(e.target.value);
-                      debouncedOnChange('event_name', e.target.value);
-                    }}
-                  />
-                  <span className="icon is-small is-left">
-                    <i className="fas fa-filter"></i>
-                  </span>
+                <div className="control is-expanded">
+                  <Autosuggest suggestions={eventSuggestions}
+                               onSuggestionsFetchRequested={getEventSuggestions}
+                               onSuggestionsClearRequested={() => setEventSuggestions([])}
+                               multiSection={false}
+                               getSuggestionValue={(suggestion) => suggestion}
+                               renderSuggestion={(suggestion) => suggestion}
+                               inputProps={{
+                                 className: "input is-small",
+                                 value: eventName,
+                                 placeholder: "Event Name",
+                                 onChange: (_: any, { newValue }) => {
+                                   setEventName(newValue);
+                                   debouncedOnChange('event_name', newValue);
+                                 }
+                               }} />
                 </div>
                 <div className="control">
                   <button className="button is-small is-light" onClick={() => {

@@ -95,7 +95,7 @@ function DBTable(props: EloTableProps) {
 
   return (
     <div>
-      <DBFilters filters={filters} setFilters={setFilters} />
+      <DBFilters gi={props.gi} filters={filters} setFilters={setFilters} />
       <div className="table-container is-hidden-touch">
         <table className={classNames("table db-table is-striped", {"is-narrow": !loading && !!data.length})}>
           <thead>
