@@ -9,7 +9,7 @@ def generate_current_ratings(db):
     if os.getenv('DATABASE_URL'):
         id_generate = 'gen_random_uuid()'
     else:
-        id_generate = 'athlete_id || '-' || gender || '-' || age || '-' || gi'
+        id_generate = "athlete_id || '-' || gender || '-' || age || '-' || gi"
 
     db.session.execute(text(f'''
         INSERT INTO athlete_ratings (id, athlete_id, rating, gender, age, belt, gi, match_happened_at)

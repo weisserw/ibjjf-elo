@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'app'))
+
 import csv
 import argparse
-from elo import compute_ratings
+from ratings import recompute_all_ratings
 from datetime import datetime
 from app import db, app
 from models import Event, Division, Athlete, Team, Match, MatchParticipant
@@ -30,10 +35,12 @@ def process_file(csv_file_path):
             reader = csv.DictReader(csvfile, delimiter=',')
             rows = sorted(reader, key=lambda row: row['Date'])
 
+            gi = None
             if len(rows):
                 event = db.session.query(Event).filter_by(ibjjf_id=rows[0]['Tournament ID']).first()
                 if event is not None:
                     db.session.query(Match).filter(Match.event_id == event.id).delete()
+                gi = rows[0]['Gi'] == 'true'
 
             for row in rows:
                 belt = translate_belt(row['Belt'])
@@ -49,22 +56,11 @@ def process_file(csv_file_path):
                 red_team = get_or_create(db.session, Team, None, name=row['Red Team'])
                 blue_team = get_or_create(db.session, Team, None, name=row['Blue Team'])
 
-                rated, red_start_rating, red_end_rating, blue_start_rating, blue_end_rating = compute_ratings(
-                    db,
-                    division,
-                    red_athlete.id,
-                    row['Red Winner'] == 'true',
-                    row['Red Note'],
-                    blue_athlete.id,
-                    row['Blue Winner'] == 'true',
-                    row['Blue Note']
-                )
-
                 match = Match(
                     happened_at=datetime.strptime(row['Date'], '%Y-%m-%dT%H:%M:%S'),
                     event_id=event.id,
                     division_id=division.id,
-                    rated=rated
+                    rated=False
                 )
                 db.session.add(match)
                 db.session.flush()
@@ -77,8 +73,8 @@ def process_file(csv_file_path):
                     red=True,
                     winner=row['Red Winner'] == 'true',
                     note=row['Red Note'],
-                    start_rating=red_start_rating,
-                    end_rating=red_end_rating
+                    start_rating=0,
+                    end_rating=0
                 )
                 db.session.add(red_participant)
                 blue_participant = MatchParticipant(
@@ -89,13 +85,14 @@ def process_file(csv_file_path):
                     red=False,
                     winner=row['Blue Winner'] == 'true',
                     note=row['Blue Note'],
-                    start_rating=blue_start_rating,
-                    end_rating=blue_end_rating
+                    start_rating=0,
+                    end_rating=0
                 )
                 db.session.add(blue_participant)
-            db.session.commit()
 
-            generate_current_ratings(db)
+            if gi is not None:
+                recompute_all_ratings(db, gi)
+
             db.session.commit()
 
 if __name__ == '__main__':

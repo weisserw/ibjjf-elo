@@ -7,10 +7,12 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 
 def main():
-    parser = argparse.ArgumentParser(description='Scrape tournament matches.')
+    parser = argparse.ArgumentParser(description='Pull tournament matches from bjjcompsystem.com')
     parser.add_argument('tournament_id', type=str, help='The ID of the tournament')
     parser.add_argument('tournament_name', type=str, help='The name of the tournament')
-    parser.add_argument('--nogi', action='store_true', help='Specifies a no-gi tournament')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--nogi', action='store_false', dest='gi', help='Specifies a no-gi tournament')
+    group.add_argument('--gi', action='store_true', dest='gi', help='Specifies a gi tournament')
     args = parser.parse_args()
 
     urls = [('Male', f'https://www.bjjcompsystem.com/tournaments/{args.tournament_id}/categories'),
@@ -89,7 +91,7 @@ def main():
                     blue_competitor_note = blue_competitor_description.find('i', class_='match-card__disqualification')
                     blue_competitor_note = blue_competitor_note['title'] if blue_competitor_note else ''
 
-                    writer.writerow([args.tournament_id, args.tournament_name, link, 'false' if args.nogi else 'true', gender, age, belt, weight, match_datetime_iso, red_competitor_id, red_competitor_seed, 'false' if red_competitor_loser else 'true', red_competitor_name, red_competitor_team, red_competitor_note, blue_competitor_id, blue_competitor_seed, 'false' if blue_competitor_loser else 'true', blue_competitor_name, blue_competitor_team, blue_competitor_note])
+                    writer.writerow([args.tournament_id, args.tournament_name, link, 'true' if args.gi else 'false', gender, age, belt, weight, match_datetime_iso, red_competitor_id, red_competitor_seed, 'false' if red_competitor_loser else 'true', red_competitor_name, red_competitor_team, red_competitor_note, blue_competitor_id, blue_competitor_seed, 'false' if blue_competitor_loser else 'true', blue_competitor_name, blue_competitor_team, blue_competitor_note])
                     file.flush()
 
     print(f"Wrote data to {output_file}")

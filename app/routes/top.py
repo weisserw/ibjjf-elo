@@ -21,7 +21,7 @@ def top():
     
     gi = gi.lower() == 'true'
 
-    query = db.session.query(AthleteRating).join(Athlete).filter(
+    query = db.session.query(Athlete.name, AthleteRating.rating).select_from(AthleteRating).join(Athlete).filter(
         AthleteRating.gender == gender,
         AthleteRating.age == age,
         AthleteRating.belt == belt,
@@ -61,7 +61,7 @@ def top():
             rank = index + 1
         response.append({
             "rank": rank,
-            "name": result.athlete.name,
+            "name": result.name,
             "rating": rounded_rating
         })
         previous_rating = rounded_rating

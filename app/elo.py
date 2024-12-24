@@ -110,20 +110,22 @@ def unrated_open_match(db, division, red_athlete_id, blue_athlete_id):
 
     return False
 
-def compute_ratings(db, division, red_athlete_id, red_winner, red_note, blue_athlete_id, blue_winner, blue_note):
+def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_winner, red_note, blue_athlete_id, blue_winner, blue_note):
     # get the last match played by each athlete in the same division by querying the matches table
     # in reverse date order
     red_last_match = db.session.query(MatchParticipant).join(Match).join(Division).filter(
         Division.gi == division.gi,
         Division.gender == division.gender,
         Division.age == division.age,
-        MatchParticipant.athlete_id == red_athlete_id
+        MatchParticipant.athlete_id == red_athlete_id,
+         (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
     ).order_by(Match.happened_at.desc()).first()
     blue_last_match = db.session.query(MatchParticipant).join(Match).join(Division).filter(
         Division.gi == division.gi,
         Division.gender == division.gender,
         Division.age == division.age,
-        MatchParticipant.athlete_id == blue_athlete_id
+        MatchParticipant.athlete_id == blue_athlete_id,
+         (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
     ).order_by(Match.happened_at.desc()).first()
 
     # get the number of rated matches played by each athlete in the same division
@@ -132,14 +134,16 @@ def compute_ratings(db, division, red_athlete_id, red_winner, red_note, blue_ath
         Division.gi == division.gi,
         Division.gender == division.gender,
         Division.age == division.age,
-        MatchParticipant.athlete_id == red_athlete_id
+        MatchParticipant.athlete_id == red_athlete_id,
+         (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
     ).count()
     blue_match_count = db.session.query(MatchParticipant).join(Match).join(Division).filter(
         Match.rated == True,
         Division.gi == division.gi,
         Division.gender == division.gender,
         Division.age == division.age,
-        MatchParticipant.athlete_id == blue_athlete_id
+        MatchParticipant.athlete_id == blue_athlete_id,
+         (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
     ).count()
 
     # if the athlete has no previous matches, use the default rating for their belt
