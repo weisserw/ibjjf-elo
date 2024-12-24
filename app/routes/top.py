@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
 from extensions import db
-from sqlalchemy.sql import exists
+from sqlalchemy.sql import exists, not_
 from models import AthleteRating, Athlete, MatchParticipant, Match, Division
+from constants import OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
 
 top_route = Blueprint('top_route', __name__)
 
@@ -32,9 +33,9 @@ def top():
         query = query.filter(Athlete.name.ilike(f'%{name}%'))
 
     if weight:
-        subquery = (
-            db.session.query(Athlete.id)
-            .join(MatchParticipant)
+        # to qualify for a weight class, the athlete must have either won a match in this division...
+        subquery_winner = (
+            db.session.query(MatchParticipant.athlete_id)
             .join(Match)
             .join(Division)
             .filter(
@@ -44,12 +45,36 @@ def top():
             .subquery()
         )
 
+        # ...or have lost a match in this division and have no matches in any other division
+        subquery_match = (
+            db.session.query(MatchParticipant.athlete_id)
+            .join(Match)
+            .join(Division)
+            .filter(
+                Division.weight == weight,
+                MatchParticipant.winner == False
+            )
+            .subquery()
+        )
+        subquery_other_weights = (
+            db.session.query(MatchParticipant.athlete_id)
+            .join(Match)
+            .join(Division)
+            .filter(
+                not_(Division.weight.in_([weight, OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY]))
+            )
+            .subquery()
+        )
+
         query = query.filter(
-            exists().where(Athlete.id == subquery.c.id)
+            exists().where(Athlete.id == subquery_winner.c.athlete_id) |
+            (
+                exists().where(Athlete.id == subquery_match.c.athlete_id) &
+                not_(exists().where(Athlete.id == subquery_other_weights.c.athlete_id))
+            )
         )
 
     query = query.order_by(AthleteRating.rating.desc(), AthleteRating.match_happened_at.desc()).limit(RATINGS_PAGE_SIZE)
-
     results = query.all()
 
     response = []
