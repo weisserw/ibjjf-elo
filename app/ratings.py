@@ -2,7 +2,7 @@ from models import Match, MatchParticipant, Division
 from elo import compute_ratings
 from current import generate_current_ratings
 
-def recompute_all_ratings(db, gi, gender=None, age=None):
+def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None):
     query = db.session.query(Match).join(MatchParticipant).join(Division).filter(
         Division.gi == gi
     )
@@ -11,6 +11,8 @@ def recompute_all_ratings(db, gi, gender=None, age=None):
         query = query.filter(Division.gender == gender)
     if age is not None:
         query = query.filter(Division.age == age)
+    if start_date is not None:
+        query = query.filter(Match.happened_at >= start_date)
     
     count = 0
     for match in query.order_by(Match.happened_at, Match.id).all():

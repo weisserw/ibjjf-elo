@@ -11,7 +11,6 @@ from ratings import recompute_all_ratings
 from datetime import datetime
 from app import db, app
 from models import Event, Division, Athlete, Team, Match, MatchParticipant
-from current import generate_current_ratings
 from constants import translate_belt, translate_weight, check_gender, translate_age
 
 def get_or_create(session, model, update=None, **kwargs):
@@ -34,6 +33,7 @@ def process_file(csv_file_path):
         with open(csv_file_path, newline='') as csvfile:
             reader = csv.DictReader(csvfile, delimiter=',')
             rows = sorted(reader, key=lambda row: row['Date'])
+            earliest_date = None
 
             gi = None
             if len(rows):
@@ -43,6 +43,9 @@ def process_file(csv_file_path):
                 gi = rows[0]['Gi'] == 'true'
 
             for row in rows:
+                if earliest_date is None or row['Date'] < earliest_date:
+                    earliest_date = row['Date']
+
                 belt = translate_belt(row['Belt'])
                 weight = translate_weight(row['Weight'])
 
@@ -91,7 +94,7 @@ def process_file(csv_file_path):
                 db.session.add(blue_participant)
 
             if gi is not None:
-                recompute_all_ratings(db, gi)
+                recompute_all_ratings(db, gi, start_date=datetime.strptime(earliest_date, '%Y-%m-%dT%H:%M:%S'))
 
             db.session.commit()
 
