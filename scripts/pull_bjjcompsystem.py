@@ -15,6 +15,14 @@ def main():
     group.add_argument('--gi', action='store_true', dest='gi', help='Specifies a gi tournament')
     args = parser.parse_args()
 
+    tournament_name_lower = args.tournament_name.lower()
+
+    # Check for "no gi" or "no-gi" in the tournament name
+    if ('no gi' in tournament_name_lower or 'no-gi' in tournament_name_lower) and args.gi:
+        input("Warning: This tournament name indicates it is no-gi, but you are importing it as gi. Press Enter to continue or Ctrl-C to abort.\n")
+    elif not ('no gi' in tournament_name_lower or 'no-gi' in tournament_name_lower) and not args.gi:
+        input("Warning: The tournament name does not indicate no-gi, but you are importing it as no-gi. Press Enter to continue or Ctrl-C to abort.\n")
+
     urls = [('Male', f'https://www.bjjcompsystem.com/tournaments/{args.tournament_id}/categories'),
             ('Female', f'https://www.bjjcompsystem.com/tournaments/{args.tournament_id}/categories?gender_id=2')]
 
