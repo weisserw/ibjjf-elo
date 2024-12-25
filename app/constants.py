@@ -95,6 +95,7 @@ def translate_age(age):
         return ADULT
     if age not in [JUVENILE_1, JUVENILE_2, ADULT, MASTER_1, MASTER_2, MASTER_3, MASTER_4, MASTER_5, MASTER_6, MASTER_7]:
         raise ValueError('Invalid age')
+    return age
 
 MALE = 'Male'
 FEMALE = 'Female'
