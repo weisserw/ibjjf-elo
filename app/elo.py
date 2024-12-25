@@ -50,6 +50,12 @@ BELT_DEFAULT_RATING = {
     WHITE: 800
 }
 
+# the amount of "ghost rating points" to add to the rating of an athlete in the open class,
+# the index is the difference in weight classes
+HANDICAPS = [
+    0, 70, 240, 380, 510
+]
+
 no_match_strings = [
     'Disqualified by no show',
     'Disqualified by overweight'
@@ -62,8 +68,8 @@ def match_didnt_happen(note1, note2):
     return False
 
 
-def compute_k_factor(num_matches):
-    if num_matches < 5:
+def compute_k_factor(num_matches, handicap):
+    if num_matches < 5 or handicap > 0:
         return 64
     elif num_matches < 7:
         return 48
@@ -71,9 +77,9 @@ def compute_k_factor(num_matches):
         return 32
 
 
-def unrated_open_match(db, match_id, happened_at, division, red_athlete_id, blue_athlete_id):
+def open_handicaps(db, match_id, happened_at, division, red_athlete_id, blue_athlete_id):
     if division.weight != OPEN_CLASS:
-        return False
+        return True, 0, 0
 
     # get the last rated non-open class match for each athlete
     red_last_non_open_division = db.session.query(Division).join(Match).join(MatchParticipant).filter(
@@ -95,22 +101,30 @@ def unrated_open_match(db, match_id, happened_at, division, red_athlete_id, blue
         (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
     ).order_by(Match.happened_at.desc(), Match.id.desc()).first()
 
-    # if one of the athletes has no non-open class matches, in theory we could not rate the
-    # match since we don't know their real weight class, but this messes us up for the first
-    # few tournaments because championships do the open class first, so we're going to rate them
-    # for now for adult black belts only and maybe come back and change it later
+    # if one of the athletes has no non-open class matches, treat it as an equal match in adult black belt,
+    # otherwise don't rate it
     if red_last_non_open_division is None or blue_last_non_open_division is None:
-        return not (division.age == ADULT and division.belt == BLACK)
+        if division.age == ADULT and division.belt == BLACK:
+            return True, 0, 0
+        else:
+            return False, 0, 0
 
     # look up the index in the weight class order for each athlete
     red_weight_index = weight_class_order.index(red_last_non_open_division.weight)
     blue_weight_index = weight_class_order.index(blue_last_non_open_division.weight)
 
-    # if the weight classes more than 2 apart, don't rate the match
-    if abs(red_weight_index - blue_weight_index) > 2:
-        return True
+    weight_difference = abs(red_weight_index - blue_weight_index) 
+    if weight_difference >= len(HANDICAPS):
+        weight_difference = len(HANDICAPS) - 1
 
-    return False
+    red_handicap = 0
+    blue_handicap = 0
+    if red_weight_index < blue_weight_index:
+        red_handicap = HANDICAPS[weight_difference]
+    else:
+        blue_handicap = HANDICAPS[weight_difference]
+
+    return True, red_handicap, blue_handicap
 
 def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_winner, red_note, blue_athlete_id, blue_winner, blue_note):
     # get the last match played by each athlete in the same division by querying the matches table
@@ -176,30 +190,33 @@ def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_win
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
         rated = False
-    elif unrated_open_match(db, match_id, happened_at, division, red_athlete_id, blue_athlete_id):
-        red_end_rating = red_start_rating
-        blue_end_rating = blue_start_rating
-        rated = False
     else:
-        red_k_factor = compute_k_factor(red_match_count)
-        blue_k_factor = compute_k_factor(blue_match_count)
+        rated_open, red_handicap, blue_handicap = open_handicaps(db, match_id, happened_at, division, red_athlete_id, blue_athlete_id)
 
-        k_factor = (red_k_factor + blue_k_factor) / 2
-
-        red_elo = EloCompetitor(red_start_rating, k_factor)
-        blue_elo = EloCompetitor(blue_start_rating, k_factor)
-
-        if red_winner:
-            red_elo.beat(blue_elo)
-        else:
-            blue_elo.beat(red_elo)
-
-        red_end_rating = red_elo.rating
-        blue_end_rating = blue_elo.rating
-
-        # don't subtract points from winners
-        if (red_end_rating < red_start_rating and red_winner) or (blue_end_rating < blue_start_rating and blue_winner):
+        if not rated_open:
             red_end_rating = red_start_rating
             blue_end_rating = blue_start_rating
+            rated = False
+        else:
+            red_k_factor = compute_k_factor(red_match_count, red_handicap)
+            blue_k_factor = compute_k_factor(blue_match_count, blue_handicap)
+
+            k_factor = (red_k_factor + blue_k_factor) / 2
+
+            red_elo = EloCompetitor(red_start_rating + red_handicap, k_factor)
+            blue_elo = EloCompetitor(blue_start_rating + blue_handicap, k_factor)
+
+            if red_winner:
+                red_elo.beat(blue_elo)
+            else:
+                blue_elo.beat(red_elo)
+
+            red_end_rating = red_elo.rating
+            blue_end_rating = blue_elo.rating
+
+            # don't subtract points from winners
+            if (red_end_rating < red_start_rating and red_winner) or (blue_end_rating < blue_start_rating and blue_winner):
+                red_end_rating = red_start_rating
+                blue_end_rating = blue_start_rating
 
     return rated, red_start_rating, red_end_rating, blue_start_rating, blue_end_rating
