@@ -152,8 +152,8 @@ function EloTable(props: EloTableProps) {
 
   return (
     <div>
-      <div className="columns">
-        <div className="column">
+      <div className="columns is-mobile is-multiline">
+        <div className="column is-half-mobile">
           <div className="field">
             <label className="label">Gender</label>
             <div className="select">
@@ -164,7 +164,7 @@ function EloTable(props: EloTableProps) {
             </div>
           </div>
         </div>
-        <div className="column">
+        <div className="column is-half-mobile">
           <div className="field">
             <label className="label">Age</label>
             <div className="select">
@@ -183,7 +183,7 @@ function EloTable(props: EloTableProps) {
             </div>
           </div>
         </div>
-        <div className="column">
+        <div className="column is-half-mobile">
           <div className="field">
             <label className="label">Belt</label>
             <div className="select">
@@ -197,7 +197,7 @@ function EloTable(props: EloTableProps) {
             </div>
           </div>
         </div>
-        <div className="column">
+        <div className="column is-half-mobile">
           <div className="field">
             <label className="label">Weight</label>
             <div className="select">
