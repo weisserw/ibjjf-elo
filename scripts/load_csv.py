@@ -50,10 +50,10 @@ def process_file(csv_file_path):
                 weight = translate_weight(row['Weight'])
 
                 check_gender(row['Gender'])
-                translate_age(row['Age'])
+                age = translate_age(row['Age'])
 
                 event = get_or_create(db.session, Event, dict(name=row['Tournament Name']), ibjjf_id=row['Tournament ID'])
-                division = get_or_create(db.session, Division, None, gi=row['Gi'] == 'true', gender=row['Gender'], age=row['Age'], belt=belt, weight=weight)
+                division = get_or_create(db.session, Division, None, gi=row['Gi'] == 'true', gender=row['Gender'], age=age, belt=belt, weight=weight)
                 red_athlete = get_or_create(db.session, Athlete, dict(name=row['Red Name']), ibjjf_id=row['Red ID'])
                 blue_athlete = get_or_create(db.session, Athlete, dict(name=row['Blue Name']), ibjjf_id=row['Blue ID'])
                 red_team = get_or_create(db.session, Team, None, name=row['Red Team'])
