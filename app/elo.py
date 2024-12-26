@@ -275,10 +275,8 @@ def compute_ratings(db, event_id, match_id, division, happened_at, red_athlete_i
 
             log.debug(f"Red k factor: %s, blue k factor: %s", red_k_factor, blue_k_factor)
 
-            k_factor = (red_k_factor + blue_k_factor) / 2
-
-            red_elo = EloCompetitor(red_start_rating + red_handicap, k_factor)
-            blue_elo = EloCompetitor(blue_start_rating + blue_handicap, k_factor)
+            red_elo = EloCompetitor(red_start_rating + red_handicap, red_k_factor)
+            blue_elo = EloCompetitor(blue_start_rating + blue_handicap, blue_k_factor)
 
             log.debug("Start ratings with handicap: red %s, blue %s", red_elo.rating, blue_elo.rating)
 
