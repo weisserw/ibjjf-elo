@@ -211,8 +211,8 @@ def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_win
             else:
                 blue_elo.beat(red_elo)
 
-            red_end_rating = red_elo.rating
-            blue_end_rating = blue_elo.rating
+            red_end_rating = red_elo.rating - red_handicap
+            blue_end_rating = blue_elo.rating - blue_handicap
 
             # don't subtract points from winners
             if (red_end_rating < red_start_rating and red_winner) or (blue_end_rating < blue_start_rating and blue_winner):
