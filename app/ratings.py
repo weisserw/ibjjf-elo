@@ -1,6 +1,9 @@
+import logging
 from models import Match, MatchParticipant, Division
 from elo import compute_ratings
 from current import generate_current_ratings
+
+log = logging.getLogger('ibjjf')
 
 def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None):
     query = db.session.query(Match).join(MatchParticipant).join(Division).filter(
@@ -17,13 +20,13 @@ def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None):
     count = 0
     for match in query.order_by(Match.happened_at, Match.id).all():
         if len(match.participants) != 2:
-            print(f"Match {match.id} has {len(match.participants)} participants, skipping")
+            log.info(f"Match {match.id} has {len(match.participants)} participants, skipping")
             continue
 
         count += 1
 
         red, blue = match.participants
-        rated, red_start_rating, red_end_rating, blue_start_rating, blue_end_rating = compute_ratings(db, match.id, match.division, match.happened_at, red.athlete_id, red.winner, red.note, blue.athlete_id, blue.winner, blue.note)
+        rated, red_start_rating, red_end_rating, blue_start_rating, blue_end_rating = compute_ratings(db, match.event_id, match.id, match.division, match.happened_at, red.athlete_id, red.winner, red.note, blue.athlete_id, blue.winner, blue.note)
 
         changed = False
 
@@ -46,6 +49,7 @@ def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None):
         if changed:
             db.session.flush()
 
+    log.info("Regenerating ranking board...")
     generate_current_ratings(db)
 
     return count

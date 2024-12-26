@@ -1,5 +1,8 @@
-from models import Match, MatchParticipant, Division
-from constants import ADULT, BLACK, BROWN, PURPLE, BLUE, WHITE, OPEN_CLASS, weight_class_order
+import logging
+from models import Match, MatchParticipant, Division, DefaultGold
+from constants import ADULT, BLACK, BROWN, PURPLE, BLUE, WHITE, OPEN_CLASS, OPEN_CLASS_HEAVY, OPEN_CLASS_LIGHT, weight_class_order
+
+log = logging.getLogger('ibjjf')
 
 # EloCompetitor class based on Elote
 
@@ -58,7 +61,8 @@ HANDICAPS = [
 
 no_match_strings = [
     'Disqualified by no show',
-    'Disqualified by overweight'
+    'Disqualified by overweight',
+    'Disqualified by acima do peso',
 ]
 
 def match_didnt_happen(note1, note2):
@@ -68,8 +72,8 @@ def match_didnt_happen(note1, note2):
     return False
 
 
-def compute_k_factor(num_matches, handicap):
-    if num_matches < 5 or handicap > 0:
+def compute_k_factor(num_matches):
+    if num_matches < 5:
         return 64
     elif num_matches < 7:
         return 48
@@ -77,45 +81,95 @@ def compute_k_factor(num_matches, handicap):
         return 32
 
 
-def open_handicaps(db, match_id, happened_at, division, red_athlete_id, blue_athlete_id):
-    if division.weight != OPEN_CLASS:
+def open_handicaps(db, event_id, happened_at, division, red_athlete_id, blue_athlete_id):
+    if division.weight not in (OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY):
+        log.debug('Not an open class match')
         return True, 0, 0
 
     # get the last rated non-open class match for each athlete
-    red_last_non_open_division = db.session.query(Division).join(Match).join(MatchParticipant).filter(
+    red_last_non_open_division = db.session.query(
+        Division.weight, Match.happened_at
+    ).select_from(Division).join(Match).join(MatchParticipant).filter(
         Division.gi == division.gi,
         Division.gender == division.gender,
         Division.age == division.age,
         ~Division.weight.startswith(OPEN_CLASS),
         Match.rated == True,
         MatchParticipant.athlete_id == red_athlete_id,
-        (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
+        (Match.happened_at < happened_at) | (Match.event_id == event_id)
     ).order_by(Match.happened_at.desc(), Match.id.desc()).first()
-    blue_last_non_open_division = db.session.query(Division).join(Match).join(MatchParticipant).filter(
+    red_last_default_gold = db.session.query(
+        Division.weight, DefaultGold.happened_at
+    ).select_from(Division).join(DefaultGold).filter(
+        Division.gi == division.gi,
+        Division.gender == division.gender,
+        Division.age == division.age,
+        ~Division.weight.startswith(OPEN_CLASS),
+        DefaultGold.athlete_id == red_athlete_id,
+        (DefaultGold.happened_at < happened_at) | (DefaultGold.event_id == event_id)
+    ).order_by(DefaultGold.happened_at.desc()).first()
+    blue_last_non_open_division = db.session.query(
+        Division.weight, Match.happened_at
+    ).select_from(Division).join(Match).join(MatchParticipant).filter(
         Division.gi == division.gi,
         Division.gender == division.gender,
         Division.age == division.age,
         ~Division.weight.startswith(OPEN_CLASS),
         Match.rated == True,
         MatchParticipant.athlete_id == blue_athlete_id,
-        (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
+        (Match.happened_at < happened_at) | (Match.event_id == event_id)
     ).order_by(Match.happened_at.desc(), Match.id.desc()).first()
+    blue_last_default_gold = db.session.query(
+        Division.weight, DefaultGold.happened_at
+    ).select_from(Division).join(DefaultGold).filter(
+        Division.gi == division.gi,
+        Division.gender == division.gender,
+        Division.age == division.age,
+        ~Division.weight.startswith(OPEN_CLASS),
+        DefaultGold.athlete_id == blue_athlete_id,
+        (DefaultGold.happened_at < happened_at) | (DefaultGold.event_id == event_id)
+    ).order_by(DefaultGold.happened_at.desc()).first()
 
-    # if one of the athletes has no non-open class matches, treat it as an equal match in adult black belt,
-    # otherwise don't rate it
-    if red_last_non_open_division is None or blue_last_non_open_division is None:
+    # if one of the athletes has no non-open class matches or default golds,
+    # treat it as an equal match in adult black belt, otherwise don't rate it
+    if (red_last_non_open_division is None and red_last_default_gold is None) or \
+       (blue_last_non_open_division is None and blue_last_default_gold is None):
         if division.age == ADULT and division.belt == BLACK:
+            log.debug('No non-open class matches or default golds in adult black belt, treating as equal match')
             return True, 0, 0
         else:
+            log.debug('No non-open class matches or default golds, not rating')
             return False, 0, 0
 
+    if red_last_default_gold is None:
+        red_weight = red_last_non_open_division.weight
+    elif red_last_non_open_division is None:
+        red_weight = red_last_default_gold.weight
+    elif red_last_default_gold.happened_at > red_last_non_open_division.happened_at:
+        red_weight = red_last_default_gold.weight
+    else:
+        red_weight = red_last_non_open_division.weight
+
+    if blue_last_default_gold is None:
+        blue_weight = blue_last_non_open_division.weight
+    elif blue_last_non_open_division is None:
+        blue_weight = blue_last_default_gold.weight
+    elif blue_last_default_gold.happened_at > blue_last_non_open_division.happened_at:
+        blue_weight = blue_last_default_gold.weight
+    else:
+        blue_weight = blue_last_non_open_division.weight
+
+    log.debug('Open class match, red weight: %s, blue weight: %s', red_weight, blue_weight)
+
     # look up the index in the weight class order for each athlete
-    red_weight_index = weight_class_order.index(red_last_non_open_division.weight)
-    blue_weight_index = weight_class_order.index(blue_last_non_open_division.weight)
+    red_weight_index = weight_class_order.index(red_weight)
+    blue_weight_index = weight_class_order.index(blue_weight)
 
     weight_difference = abs(red_weight_index - blue_weight_index) 
     if weight_difference >= len(HANDICAPS):
         weight_difference = len(HANDICAPS) - 1
+
+    log.debug('Weight difference: %s', weight_difference)
 
     red_handicap = 0
     blue_handicap = 0
@@ -125,9 +179,14 @@ def open_handicaps(db, match_id, happened_at, division, red_athlete_id, blue_ath
     else:
         red_handicap = HANDICAPS[weight_difference]
 
+    log.debug('Red handicap: %s, blue handicap: %s', red_handicap, blue_handicap)
+
     return True, red_handicap, blue_handicap
 
-def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_winner, red_note, blue_athlete_id, blue_winner, blue_note):
+def compute_ratings(db, event_id, match_id, division, happened_at, red_athlete_id, red_winner, red_note, blue_athlete_id, blue_winner, blue_note):
+    log.debug("Computing ratings for match %s, division %s, happened at %s, red winner: %s, blue winner: %s, red note: %s, blue note: %s",
+              match_id, division.to_json(), happened_at, red_winner, blue_winner, red_note, blue_note)
+
     # get the last match played by each athlete in the same division by querying the matches table
     # in reverse date order
     red_last_match = db.session.query(MatchParticipant).join(Match).join(Division).filter(
@@ -163,6 +222,13 @@ def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_win
         (Match.happened_at < happened_at) | ((Match.happened_at == happened_at) & (Match.id < match_id))
     ).count()
 
+    if red_last_match is not None:
+        log.debug("Red last match: %s", red_last_match.to_json())
+    if blue_last_match is not None:
+        log.debug("Blue last match: %s", blue_last_match.to_json())
+    log.debug("Red match count: %s", red_match_count)
+    log.debug("Blue match count: %s", blue_match_count)
+
     # if the athlete has no previous matches, use the default rating for their belt
     if red_last_match is None:
         red_start_rating = BELT_DEFAULT_RATING[division.belt]
@@ -173,6 +239,8 @@ def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_win
         blue_start_rating = BELT_DEFAULT_RATING[division.belt]
     else:
         blue_start_rating = blue_last_match.end_rating
+
+    log.debug("Start ratings: red %s, blue %s", red_start_rating, blue_start_rating)
 
     rated = True
 
@@ -187,25 +255,32 @@ def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_win
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
         rated = False
+        log.debug("Match was a draw, not rating")
     if match_didnt_happen(red_note, blue_note):
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
         rated = False
+        log.debug("Match didn't happen, not rating")
     else:
-        rated_open, red_handicap, blue_handicap = open_handicaps(db, match_id, happened_at, division, red_athlete_id, blue_athlete_id)
+        rated_open, red_handicap, blue_handicap = open_handicaps(db, event_id, happened_at, division, red_athlete_id, blue_athlete_id)
 
         if not rated_open:
             red_end_rating = red_start_rating
             blue_end_rating = blue_start_rating
             rated = False
+            log.debug("Unrated open class match, not rating")
         else:
-            red_k_factor = compute_k_factor(red_match_count, red_handicap)
-            blue_k_factor = compute_k_factor(blue_match_count, blue_handicap)
+            red_k_factor = compute_k_factor(red_match_count)
+            blue_k_factor = compute_k_factor(blue_match_count)
+
+            log.debug(f"Red k factor: %s, blue k factor: %s", red_k_factor, blue_k_factor)
 
             k_factor = (red_k_factor + blue_k_factor) / 2
 
             red_elo = EloCompetitor(red_start_rating + red_handicap, k_factor)
             blue_elo = EloCompetitor(blue_start_rating + blue_handicap, k_factor)
+
+            log.debug("Start ratings with handicap: red %s, blue %s", red_elo.rating, blue_elo.rating)
 
             if red_winner:
                 red_elo.beat(blue_elo)
@@ -215,16 +290,21 @@ def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_win
             red_end_rating = red_elo.rating - red_handicap
             blue_end_rating = blue_elo.rating - blue_handicap
 
+            log.debug("End ratings: red %s, blue %s", red_end_rating, blue_end_rating)
+
             # don't subtract points from winners
             if (red_end_rating < red_start_rating and red_winner) or (blue_end_rating < blue_start_rating and blue_winner):
                 red_end_rating = red_start_rating
                 blue_end_rating = blue_start_rating
+                log.debug("Winner lost points, not changing ratings")
 
             # don't let ratings go below 0, hard to image a scenario where this would happen
             # but hey...
             if red_end_rating < 0:
                 red_end_rating = 0
+                log.debug("Red rating went below 0, setting to 0")
             if blue_end_rating < 0:
                 blue_end_rating = 0
+                log.debug("Blue rating went below 0, setting to 0")
 
     return rated, red_start_rating, red_end_rating, blue_start_rating, blue_end_rating

@@ -1,13 +1,25 @@
 import os
-from sqlalchemy.sql import text
+import logging
 from flask import Flask, send_from_directory
 from extensions import db, migrate
-from models import AthleteRating, Athlete, MatchParticipant, Division, Match, Event
 from routes.top import top_route
 from routes.matches import matches_route
 from routes.athletes import athletes_route
 from routes.events import events_route
 
+logger = logging.getLogger('ibjjf')
+log_level = logging.DEBUG if os.getenv('DEBUG') else logging.INFO
+logger.setLevel(log_level)
+ch = logging.StreamHandler()
+ch.setLevel(log_level)
+formatter = logging.Formatter(
+    '%(asctime)s:%(filename)s:%(lineno)d:%(levelname)s:%(message)s',
+    datefmt='%Y-%m-%dT%H:%M:%S'
+)
+ch.setFormatter(formatter)
+
+# Add the handler to the logger
+logger.addHandler(ch)
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='/')
 if os.getenv('DATABASE_URL'):
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')

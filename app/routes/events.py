@@ -30,7 +30,6 @@ def events():
         Event.name.ilike(f'%{search}%'),
         exists().where(Event.id == subquery_gi.c.event_id)
     ).order_by(Event.name).limit(MAX_RESULTS)
-    print(query.statement)
     results = query.all()
 
     response = [result.name for result in results]
