@@ -120,9 +120,10 @@ def open_handicaps(db, match_id, happened_at, division, red_athlete_id, blue_ath
     red_handicap = 0
     blue_handicap = 0
     if red_weight_index < blue_weight_index:
-        red_handicap = HANDICAPS[weight_difference]
-    else:
+        # if red weighs less, add points to blue's rating
         blue_handicap = HANDICAPS[weight_difference]
+    else:
+        red_handicap = HANDICAPS[weight_difference]
 
     return True, red_handicap, blue_handicap
 
@@ -218,5 +219,12 @@ def compute_ratings(db, match_id, division, happened_at, red_athlete_id, red_win
             if (red_end_rating < red_start_rating and red_winner) or (blue_end_rating < blue_start_rating and blue_winner):
                 red_end_rating = red_start_rating
                 blue_end_rating = blue_start_rating
+
+            # don't let ratings go below 0, hard to image a scenario where this would happen
+            # but hey...
+            if red_end_rating < 0:
+                red_end_rating = 0
+            if blue_end_rating < 0:
+                blue_end_rating = 0
 
     return rated, red_start_rating, red_end_rating, blue_start_rating, blue_end_rating
