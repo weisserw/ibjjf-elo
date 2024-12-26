@@ -99,15 +99,9 @@ function About() {
           because the advantage of being a heavier weight would not be accounted for.
         </p>
         <p className="content">
-          For this reason, we rate open class matches thusly:
-          <ul>
-            <li>When two competitors meet in the open class, we look at the last weight division they competed in and made weight for.</li>
-            <li>If the weight divisions are less than two divisions apart, we rank the match like any other.</li>
-            <li>If the weight divisions are further apart, we still record the match but do not change the competitor's ratings.</li>
-          </ul>
-        </p>
-        <p className="content">
-           This system is a compromise until we have more data and can confidently modify the algorithm to correct for weight differences.
+          For this reason, for most open class matches we apply a handicap when calculating ratings. The handicap is based on the weight difference between
+          the competitors and may change over time as we gather more data. With the handicap applied, a larger competitor will gain fewer rating points
+          for a win and lose more for a loss, and vice versa for the smaller competitor.
         </p>
         <p className="content">
           <strong>Q: Why are some highly rated competitors not shown on the front page?</strong>
