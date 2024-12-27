@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios, { AxiosResponse } from 'axios';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
-import DBFilters, { FilterValues } from './DBFilters';
+import DBFilters, { FilterValues, type OpenFilters } from './DBFilters';
 import DBPagination from './DBPagination';
 import "./DBTable.css"
 
@@ -29,6 +29,8 @@ interface EloTableProps {
   gi: boolean
   filters: FilterValues
   setFilters: (filters: FilterValues) => void
+  openFilters: OpenFilters
+  setOpenFilters: (openFilters: OpenFilters) => void
 }
 
 function DBTable(props: EloTableProps) {
@@ -96,7 +98,11 @@ function DBTable(props: EloTableProps) {
 
   return (
     <div>
-      <DBFilters gi={props.gi} filters={props.filters} setFilters={props.setFilters} />
+      <DBFilters gi={props.gi}
+                 filters={props.filters}
+                 setFilters={props.setFilters}
+                 openFilters={props.openFilters}
+                 setOpenFilters={props.setOpenFilters} />
       <div className="table-container is-hidden-touch">
         <table className={classNames("table db-table is-striped", {"is-narrow": !loading && !!data.length})}>
           <thead>

@@ -1,10 +1,12 @@
 import GiTabs, { TabName } from './GiTabs';
 import DBTable from './DBTable';
-import { FilterValues } from './DBFilters';
+import { FilterValues, type OpenFilters } from './DBFilters';
 
 interface DatabaseProps {
   filters: FilterValues;
   setFilters: (filters: FilterValues) => void;
+  openFilters: OpenFilters;
+  setOpenFilters: (openFilters: OpenFilters) => void;
   activeTab: TabName;
   setActiveTab: (activeTab: TabName) => void;
 }

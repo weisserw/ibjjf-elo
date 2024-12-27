@@ -5,11 +5,12 @@ import Ratings from './components/Ratings';
 import Database from './components/Database';
 import About from './components/About';
 import NotFound from './components/NotFound';
-import { FilterValues } from './components/DBFilters';
+import { FilterValues, type OpenFilters } from './components/DBFilters';
 import type { TabName } from './components/GiTabs';
 
 function App() {
   const [filters, setFilters] = useState<FilterValues>({});
+  const [openFilters, setOpenFilters] = useState<OpenFilters>({athlete: true, event: false, division: false});
   const [activeTab, setActiveTab] = useState<TabName>('Gi')
 
   return (
@@ -23,7 +24,12 @@ function App() {
         <main style={{ flex: '1' }}>
           <Routes>
             <Route path="/" element={<Ratings activeTab={activeTab} setActiveTab={setActiveTab} />} />
-            <Route path="/database" element={<Database filters={filters} setFilters={setFilters} activeTab={activeTab} setActiveTab={setActiveTab} />} />
+            <Route path="/database" element={<Database filters={filters}
+                                                       setFilters={setFilters}
+                                                       openFilters={openFilters}
+                                                       setOpenFilters={setOpenFilters}
+                                                       activeTab={activeTab}
+                                                       setActiveTab={setActiveTab} />} />
             <Route path="/about" element={<About />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

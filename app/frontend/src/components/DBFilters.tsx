@@ -76,17 +76,22 @@ type DivisionFilterKeys = {
   [K in FilterKeys]: K extends `gender_${string}` | `age_${string}` | `belt_${string}` | `weight_${string}` ? K : never
 }[FilterKeys];
 
+export interface OpenFilters {
+  athlete: boolean;
+  event: boolean;
+  division: boolean;
+}
+
 interface DBFiltersProps {
   filters: FilterValues;
   setFilters(filters: FilterValues): void;
   gi: boolean;
+  openFilters: OpenFilters;
+  setOpenFilters(openFilters: OpenFilters): void;
 }
 
 function DBFilters(props: DBFiltersProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const [isAthleteOpen, setIsAthleteOpen] = useState(true);
-  const [isEventOpen, setIsEventOpen] = useState(false);
-  const [isDivisionOpen, setIsDivisionOpen] = useState(false);
   const [athleteName, setAthleteName] = useState(props.filters.athlete_name || '');
   const [eventName, setEventName] = useState(props.filters.event_name || '');
   const [ratingStart, setRatingStart] = useState(props.filters.rating_start || '');
@@ -161,8 +166,8 @@ function DBFilters(props: DBFiltersProps) {
         {isOpen && (
           <div className="accordion-body">
             <Section title="Athlete"
-                     isOpen={isAthleteOpen}
-                     setIsOpen={setIsAthleteOpen}
+                     isOpen={props.openFilters.athlete}
+                     setIsOpen={(isOpen: boolean) => props.setOpenFilters({ ...props.openFilters, athlete: isOpen })}
                      isBold={
                         !!props.filters.athlete_name ||
                         !!props.filters.rating_start ||
@@ -229,8 +234,8 @@ function DBFilters(props: DBFiltersProps) {
               </div>
             </Section>
             <Section title="Event"
-                     isOpen={isEventOpen}
-                     setIsOpen={setIsEventOpen}
+                     isOpen={props.openFilters.event}
+                     setIsOpen={(isOpen: boolean) => props.setOpenFilters({ ...props.openFilters, event: isOpen })}
                      isBold={
                         !!props.filters.event_name ||
                         !!props.filters.date_start ||
@@ -291,8 +296,8 @@ function DBFilters(props: DBFiltersProps) {
               </div>
             </Section>
             <Section title="Division"
-                     isOpen={isDivisionOpen}
-                     setIsOpen={setIsDivisionOpen}
+                     isOpen={props.openFilters.division}
+                     setIsOpen={(isOpen: boolean) => props.setOpenFilters({ ...props.openFilters, division: isOpen })}
                      isBold={anyDivisionFiltersSet}>
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Gender:</label>
