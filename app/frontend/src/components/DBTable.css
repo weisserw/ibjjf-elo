@@ -17,7 +17,7 @@ div.card.db-row-card {
 }
 
 .db-row-card .card-content {
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 
 .db-row-card div.date-box {
