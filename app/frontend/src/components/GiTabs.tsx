@@ -1,8 +1,10 @@
 import classNames from "classnames"
 
+export type TabName = 'Gi' | 'No Gi'
+
 interface GiTabsProps {
-  setActiveTab: (tab: string) => void
-  activeTab: string
+  setActiveTab: (tab: TabName) => void
+  activeTab: TabName
 }
 
 function GiTabs(props: GiTabsProps) {

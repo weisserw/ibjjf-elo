@@ -27,6 +27,8 @@ interface Results {
 
 interface EloTableProps {
   gi: boolean
+  filters: FilterValues
+  setFilters: (filters: FilterValues) => void
 }
 
 function DBTable(props: EloTableProps) {
@@ -34,13 +36,12 @@ function DBTable(props: EloTableProps) {
   const [data, setData] = useState<Row[]>([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const [filters, setFilters] = useState<FilterValues>({});
 
   useEffect(() => {
     axios.get<Results>('/api/matches', {
       params: {
         gi: props.gi ? 'true' : 'false',
-        ...filters,
+        ...props.filters,
         page: page
       }
     }).then((response: AxiosResponse<Results>) => {
@@ -55,7 +56,7 @@ function DBTable(props: EloTableProps) {
       console.error(exception)
       setLoading(false)
     })
-  }, [props.gi, filters, page]);
+  }, [props.gi, props.filters, page]);
 
   const shortEvent = (row: Row) => {
     if (row.event.length > 32) {
@@ -95,7 +96,7 @@ function DBTable(props: EloTableProps) {
 
   return (
     <div>
-      <DBFilters gi={props.gi} filters={filters} setFilters={setFilters} />
+      <DBFilters gi={props.gi} filters={props.filters} setFilters={props.setFilters} />
       <div className="table-container is-hidden-touch">
         <table className={classNames("table db-table is-striped", {"is-narrow": !loading && !!data.length})}>
           <thead>

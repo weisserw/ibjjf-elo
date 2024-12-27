@@ -1,11 +1,17 @@
+import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Ratings from './components/Ratings';
 import Database from './components/Database';
 import About from './components/About';
 import NotFound from './components/NotFound';
+import { FilterValues } from './components/DBFilters';
+import type { TabName } from './components/GiTabs';
 
 function App() {
+  const [filters, setFilters] = useState<FilterValues>({});
+  const [activeTab, setActiveTab] = useState<TabName>('Gi')
+
   return (
     <Router>
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -16,8 +22,8 @@ function App() {
         </header>
         <main style={{ flex: '1' }}>
           <Routes>
-            <Route path="/" element={<Ratings />} />
-            <Route path="/database" element={<Database />} />
+            <Route path="/" element={<Ratings activeTab={activeTab} setActiveTab={setActiveTab} />} />
+            <Route path="/database" element={<Database filters={filters} setFilters={setFilters} activeTab={activeTab} setActiveTab={setActiveTab} />} />
             <Route path="/about" element={<About />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

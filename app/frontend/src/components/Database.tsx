@@ -1,13 +1,19 @@
-import {useState} from 'react';
-import GiTabs from './GiTabs';
+import GiTabs, { TabName } from './GiTabs';
 import DBTable from './DBTable';
+import { FilterValues } from './DBFilters';
 
-function Database() {
-  const [activeTab, setActiveTab] = useState('Gi')
+interface DatabaseProps {
+  filters: FilterValues;
+  setFilters: (filters: FilterValues) => void;
+  activeTab: TabName;
+  setActiveTab: (activeTab: TabName) => void;
+}
+
+function Database(props: DatabaseProps) {
   return (
     <div className="container">
-      <GiTabs setActiveTab={setActiveTab} activeTab={activeTab} />
-      <DBTable gi={activeTab === 'Gi'} />
+      <GiTabs setActiveTab={props.setActiveTab} activeTab={props.activeTab} />
+      <DBTable gi={props.activeTab === 'Gi'} {...props} />
     </div>
   )
 }
