@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
 import { debounce } from 'lodash'
+import { FilterValues } from './DBFilters';
 import "./EloTable.css"
 
 const juvenileRanks = [
@@ -63,6 +65,7 @@ interface Row {
 
 interface EloTableProps {
   gi: boolean
+  setFilters: (filters: FilterValues) => void
 }
 
 function EloTable(props: EloTableProps) {
@@ -74,6 +77,7 @@ function EloTable(props: EloTableProps) {
   const [nameFilterSearch, setNameFilterSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<Row[]>([])
+  const navigate = useNavigate();
 
   useEffect(() => {
     setLoading(true)
@@ -145,6 +149,13 @@ function EloTable(props: EloTableProps) {
     setNameFilter(event.target.value)
     debouncedSetNameFilterSearch(event.target.value)
   }
+
+  const onNameClick = (e: React.MouseEvent, name: string) => {
+    e.preventDefault();
+  
+    props.setFilters({ athlete_name: name });
+    navigate('/database');
+  };
 
   const ranks = isJuvenileAge(age) ? juvenileRanks : adultRanks;
 
@@ -257,11 +268,15 @@ function EloTable(props: EloTableProps) {
               )
             }
             {
-              !loading && !!data.length && data.map((row: Row) => (
-                <tr key={row.rank}>
+              !loading && !!data.length && data.map((row: Row, index) => (
+                <tr key={index}>
                   <td className="has-text-right">{row.rank}</td>
                   <td className="has-text-right">&nbsp;</td>
-                  <td>{row.name}</td>
+                  <td>
+                    <a href="#" onClick={e => onNameClick(e, row.name)}>
+                      {row.name}
+                    </a>
+                  </td>
                   <td className="has-text-right">{row.rating}</td>
                   <td className="has-text-right">&nbsp;</td>
                 </tr>

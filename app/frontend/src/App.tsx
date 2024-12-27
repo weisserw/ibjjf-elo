@@ -23,7 +23,7 @@ function App() {
         </header>
         <main style={{ flex: '1' }}>
           <Routes>
-            <Route path="/" element={<Ratings activeTab={activeTab} setActiveTab={setActiveTab} />} />
+            <Route path="/" element={<Ratings setFilters={setFilters} activeTab={activeTab} setActiveTab={setActiveTab} />} />
             <Route path="/database" element={<Database filters={filters}
                                                        setFilters={setFilters}
                                                        openFilters={openFilters}
