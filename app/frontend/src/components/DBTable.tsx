@@ -96,6 +96,14 @@ function DBTable(props: EloTableProps) {
     }
   }
 
+  const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {
+    event.preventDefault()
+    props.setFilters({
+      athlete_name: name,
+    });
+    props.setOpenFilters({athlete: true, event: false, division: false});
+  }
+
   return (
     <div>
       <DBFilters gi={props.gi}
@@ -145,9 +153,9 @@ function DBTable(props: EloTableProps) {
             {
               !loading && !!data.length && data.map((row: Row) => (
                 <tr key={row.id}>
-                  <td>{row.winner}</td>
+                  <td><a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a></td>
                   <td>{row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span></td>
-                  <td>{row.loser}</td>
+                  <td><a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a></td>
                   <td>{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span></td>
                   <td className="has-tooltip-multiline" data-tooltip={row.event}>
                     {shortEvent(row)}
@@ -197,10 +205,10 @@ function DBTable(props: EloTableProps) {
               <div className="card-content">
                 <div className="columns">
                   <div className="column">
-                    <strong>Winner:</strong> {row.winner} {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>
+                    <strong>Winner:</strong> <a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a> {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>
                   </div>
                   <div className="column has-text-right-tablet">
-                    <strong>Loser:</strong> {row.loser} {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>
+                    <strong>Loser:</strong> <a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a> {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>
                   </div>
                 </div>
                 <div className="columns">

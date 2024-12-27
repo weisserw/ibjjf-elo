@@ -1,6 +1,6 @@
 import GiTabs, { TabName } from './GiTabs';
 import DBTable from './DBTable';
-import { FilterValues, type OpenFilters } from './DBFilters';
+import type { FilterValues, OpenFilters } from './DBFilters';
 
 interface DatabaseProps {
   filters: FilterValues;

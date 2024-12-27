@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
 import { debounce } from 'lodash'
-import { FilterValues } from './DBFilters';
+import { FilterValues, type OpenFilters } from './DBFilters';
 import "./EloTable.css"
 
 const juvenileRanks = [
@@ -66,6 +66,7 @@ interface Row {
 interface EloTableProps {
   gi: boolean
   setFilters: (filters: FilterValues) => void
+  setOpenFilters: (openFilters: OpenFilters) => void
 }
 
 function EloTable(props: EloTableProps) {
@@ -77,7 +78,7 @@ function EloTable(props: EloTableProps) {
   const [nameFilterSearch, setNameFilterSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<Row[]>([])
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
   useEffect(() => {
     setLoading(true)
@@ -154,6 +155,7 @@ function EloTable(props: EloTableProps) {
     e.preventDefault();
   
     props.setFilters({ athlete_name: name });
+    props.setOpenFilters({athlete: true, event: false, division: false});
     navigate('/database');
   };
 

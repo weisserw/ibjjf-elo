@@ -5,7 +5,7 @@ import Ratings from './components/Ratings';
 import Database from './components/Database';
 import About from './components/About';
 import NotFound from './components/NotFound';
-import { FilterValues, type OpenFilters } from './components/DBFilters';
+import type { FilterValues, OpenFilters } from './components/DBFilters';
 import type { TabName } from './components/GiTabs';
 
 function App() {
@@ -23,7 +23,7 @@ function App() {
         </header>
         <main style={{ flex: '1' }}>
           <Routes>
-            <Route path="/" element={<Ratings setFilters={setFilters} activeTab={activeTab} setActiveTab={setActiveTab} />} />
+            <Route path="/" element={<Ratings setFilters={setFilters} setOpenFilters={setOpenFilters} activeTab={activeTab} setActiveTab={setActiveTab} />} />
             <Route path="/database" element={<Database filters={filters}
                                                        setFilters={setFilters}
                                                        openFilters={openFilters}

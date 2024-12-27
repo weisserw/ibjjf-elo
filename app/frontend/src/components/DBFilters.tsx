@@ -1,4 +1,4 @@
-import { useState, ReactNode } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import debounce from 'lodash/debounce';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
@@ -130,6 +130,7 @@ function DBFilters(props: DBFiltersProps) {
   }
 
   const onChange = (key: FilterKeys, value: any) => {
+    console.log(key, value);
     const newFilters = { ...props.filters, [key]: value };
     if (value === '' || value === false) {
       delete newFilters[key];
@@ -137,7 +138,30 @@ function DBFilters(props: DBFiltersProps) {
     props.setFilters(newFilters);
   }
 
-  const debouncedOnChange = debounce(onChange, 750);
+  const debouncedOnChange = useCallback(debounce(onChange, 750, {trailing: true}), []);
+
+  // Set the control state for debounced controls
+  // when the filters change
+  useEffect(() => {
+    if (props.filters.athlete_name !== athleteName) {
+      setAthleteName(props.filters.athlete_name || '');
+    }
+  }, [props.filters.athlete_name]);
+  useEffect(() => {
+    if (props.filters.event_name !== eventName) {
+      setEventName(props.filters.event_name || '');
+    }
+  }, [props.filters.event_name]);
+  useEffect(() => {
+    if (props.filters.rating_start !== ratingStart) {
+      setRatingStart(props.filters.rating_start || '');
+    }
+  }, [props.filters.rating_start]);
+  useEffect(() => {
+    if (props.filters.rating_end !== ratingEnd) {
+      setRatingEnd(props.filters.rating_end || '');
+    }
+  }, [props.filters.rating_end]);
 
   const getAthleteSuggestions = async ({ value }: { value: string }) => {
     const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
