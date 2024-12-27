@@ -123,6 +123,12 @@ function About() {
           A: Your rating and your rank are two different things. Your rating is a reflection of your ability to win competition matches. 
           Your rank is a reflection of your progress in jiu-jitsu as determined by your instructor. The two are not necessarily related.
         </p>
+        <p className="content">
+          <strong>Q: Are you going to track kids divisions?</strong>
+        </p>
+        <p className="content">
+          A: We have decided not to track age divisions below Juvenile 1 at this time.
+        </p>
       </div>
     </section>
   );
