@@ -16,7 +16,7 @@ def translate_belt(belt):
     if belt == 'ROXA':
         return PURPLE
     if belt not in [BLACK, BROWN, PURPLE, BLUE, WHITE]:
-        raise ValueError('Invalid belt')
+        raise ValueError('Invalid belt ' + belt)
     return belt
 
 ROOSTER = 'Rooster'
@@ -60,7 +60,7 @@ def translate_weight(weight):
     if weight not in [ROOSTER, LIGHT_FEATHER, FEATHER, LIGHT, MIDDLE,
                       MEDIUM_HEAVY, HEAVY, SUPER_HEAVY, ULTRA_HEAVY,
                       OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY]:
-        raise ValueError('Invalid weight')
+        raise ValueError('Invalid weight ' + weight)
     return weight
 
 weight_class_order = [
@@ -94,7 +94,7 @@ def translate_age(age):
     if age == 'Adulto':
         return ADULT
     if age not in [JUVENILE_1, JUVENILE_2, ADULT, MASTER_1, MASTER_2, MASTER_3, MASTER_4, MASTER_5, MASTER_6, MASTER_7]:
-        raise ValueError('Invalid age')
+        raise ValueError('Invalid age ' + age)
     return age
 
 MALE = 'Male'
@@ -102,4 +102,4 @@ FEMALE = 'Female'
 
 def check_gender(gender):
     if gender not in (MALE, FEMALE):
-        raise ValueError('Invalid gender')
+        raise ValueError('Invalid gender ' + gender)
