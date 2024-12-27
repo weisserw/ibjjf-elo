@@ -24,7 +24,7 @@ const adultRanks = [
 const adultRanksValues = adultRanks.map(rank => rank.toUpperCase())
 
 const femaleWeights = [{
-  name: 'All',
+  name: 'P4P',
   value: ''
 }, {
   name: 'Rooster',
