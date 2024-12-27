@@ -16,6 +16,11 @@ function About() {
         <p className="content">
           We host and maintain this app as a free service to the jiu-jitsu community. If you would like to support us, please consider <a href="https://ko-fi.com/ibjjfrankings" target="_blank" rel="noopener noreferrer">donating</a>.
         </p>
+        <p className="content">
+          If you would like a copy of our source data for research purposes, <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">contact us</a> and we'll be happy to help. You have permission to use
+          such data or screenshots from this site in articles, blog posts, and other media, but we ask that you credit IBJJFRankings.com. Because of our free and open nature and the work put into this app, we ask that you refrain from using our data
+          for other purposes without asking, especially the custom jiu-jitsu ELO ratings we calculate.
+        </p>
         <h1 className="title">FAQ</h1>
         <p className="content">
           <strong>Q: Why do we need an IBJJF ranking app when the IBJJF has its own ranking system?</strong>
