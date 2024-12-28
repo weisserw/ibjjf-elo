@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
-import requests
 import csv
 import traceback
 import sys
 import gzip
-from datetime import datetime
-from bs4 import BeautifulSoup
 import os
 import gspread
 from google.oauth2.service_account import Credentials
@@ -15,7 +12,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
 # Google API setup
-SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets']
+SCOPES = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets']
 SERVICE_ACCOUNT_FILE = '/etc/secrets/service-account.json'
 
 def get_folder_id(drive_service, folder_name):
@@ -77,19 +74,15 @@ def main():
         args = parser.parse_args()
 
         for csv_file_path in args.csv_files:
-            # Make a gzip copy of the file
             with open(csv_file_path, 'rb') as f_in:
                 with gzip.open(f"{csv_file_path}.gz", 'wb') as f_out:
                     f_out.writelines(f_in)
-            
-            # Upload to Google Drive
-            upload_to_drive("{csv_file_path}.gz")
-            print(f"File uploaded to Google Drive.")
+            try:
+                upload_to_drive(f"{csv_file_path}.gz")
+                print(f"File uploaded to Google Drive.")
+            finally:
+                os.remove(f"{csv_file_path}.gz")
 
-            # Delete the gzip file
-            os.remove(f"{csv_file_path}.gz")
-
-            # Create Google Sheet and get the link
             with open(csv_file_path, 'r') as file:
                 reader = csv.reader(file)
                 data = list(reader)

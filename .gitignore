@@ -1,4 +1,5 @@
 *.csv
+*.csv.gz
 .python-version
 __pycache__/
 app/instance/
