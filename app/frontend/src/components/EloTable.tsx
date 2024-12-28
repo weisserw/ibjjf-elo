@@ -275,7 +275,7 @@ function EloTable(props: EloTableProps) {
                          getSuggestionValue={(suggestion) => suggestion}
                          renderSuggestion={(suggestion) => suggestion}
                          inputProps={{
-                           className: "input is-small",
+                           className: "input",
                            value: nameFilter,
                            placeholder: "Enter Name...",
                            onChange: (_: any, { newValue }) => {
