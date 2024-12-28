@@ -5,6 +5,7 @@ import requests
 import csv
 import traceback
 import sys
+import gzip
 from datetime import datetime
 from bs4 import BeautifulSoup
 import os
@@ -200,9 +201,17 @@ def main():
             print(f"Total matches recorded: {total_matches}, Total default golds recorded: {total_defaults}, Total divisions processed: {total_categories}")
 
         if os.getenv('ENABLE_GOOGLE_API') == 'true':
+            # Make a gzip copy of the file
+            with open(output_file, 'rb') as f_in:
+                with gzip.open(f"{output_file}.gz", 'wb') as f_out:
+                    f_out.writelines(f_in)
+            
             # Upload to Google Drive
-            upload_to_drive(output_file)
+            upload_to_drive("{output_file}.gz")
             print(f"File uploaded to Google Drive.")
+
+            # Delete the gzip file
+            os.remove(f"{output_file}.gz")
 
             # Create Google Sheet and get the link
             with open(output_file, 'r') as file:
