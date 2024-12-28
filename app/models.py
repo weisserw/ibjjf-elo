@@ -152,18 +152,20 @@ class AthleteRating(db.Model):
     __tablename__ = 'athlete_ratings'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     athlete_id = Column(UUID(as_uuid=True), ForeignKey('athletes.id'), nullable=False)
-    rating = Column(Float, nullable=False)
     gender = Column(String, nullable=False)
     age = Column(String, nullable=False)
     belt = Column(String, nullable=False)
     gi = Column(Boolean, nullable=False)
+    weight = Column(String, nullable=True)
+    rating = Column(Float, nullable=False)
     match_happened_at = Column(DateTime, nullable=False)
+    rank = Column(Integer, nullable=True)
 
     athlete = relationship("Athlete", lazy='joined')
 
     __table_args__ = (
         Index('ix_athlete_ratings_athlete_id', 'athlete_id'),
         Index('ix_athlete_ratings_rating', 'rating'),
-        Index('ix_athlete_ratings_all', 'gender', 'age', 'belt', 'gi'),
-        UniqueConstraint('athlete_id', 'gender', 'age', 'gi', name='uq_athlete_ratings_athlete_gender_age_gi'),
+        Index('ix_athlete_ratings_all', 'gender', 'age', 'belt', 'gi', 'weight'),
+        UniqueConstraint('athlete_id', 'gender', 'age', 'gi', 'weight', name='uq_athlete_ratings_athlete_gender_age_gi'),
     )

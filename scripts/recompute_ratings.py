@@ -44,10 +44,9 @@ def main():
                 return -1
 
     with app.app_context():
-        count = recompute_all_ratings(db, args.gi, gender=args.gender, age=args.age, start_date=start_date)
+        recompute_all_ratings(db, args.gi, gender=args.gender, age=args.age, start_date=start_date)
 
         db.session.commit()
-        print(f"Computed ratings for {count} matches")
 
     return 0
 

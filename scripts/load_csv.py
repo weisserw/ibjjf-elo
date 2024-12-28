@@ -126,10 +126,8 @@ def process_file(csv_file_path):
                         )
                         db.session.add(blue_participant)
 
-                computed = 0
                 if gi is not None:
-                    computed = recompute_all_ratings(db, gi, start_date=datetime.strptime(earliest_date, '%Y-%m-%dT%H:%M:%S'))
-                print(f"Computed {computed} match ratings")
+                    recompute_all_ratings(db, gi, start_date=datetime.strptime(earliest_date, '%Y-%m-%dT%H:%M:%S'))
 
                 db.session.commit()
     except Exception as e:
