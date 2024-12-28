@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
 import { debounce } from 'lodash'
 import { FilterValues, type OpenFilters } from './DBFilters';
+import DBPagination from './DBPagination';
+import Autosuggest from 'react-autosuggest';
 import "./EloTable.css"
 
 const juvenileRanks = [
@@ -63,6 +65,11 @@ interface Row {
   rating: number
 }
 
+interface Results {
+  rows: Row[]
+  totalPages: number
+}
+
 interface EloTableProps {
   gi: boolean
   setFilters: (filters: FilterValues) => void
@@ -76,29 +83,43 @@ function EloTable(props: EloTableProps) {
   const [weight, setWeight] = useState('')
   const [nameFilter, setNameFilter] = useState('')
   const [nameFilterSearch, setNameFilterSearch] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [data, setData] = useState<Row[]>([])
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [athleteSuggestions, setAthleteSuggestions] = useState<string[]>([])
+
   const navigate = useNavigate()
 
   useEffect(() => {
-    setLoading(true)
-    axios.get<Row[]>('/api/top', {
+    axios.get<Results>('/api/top', {
       params: {
         gender,
         age,
         belt,
         weight,
         name: nameFilterSearch,
-        gi: props.gi ? 'true' : 'false'
+        gi: props.gi ? 'true' : 'false',
+        page
       }
-    }).then((response: AxiosResponse<Row[]>) => {
-      setData(response.data)
+    }).then((response: AxiosResponse<Results>) => {
+      setData(response.data.rows)
+      setTotalPages(response.data.totalPages)
       setLoading(false)
+
+      if (response.data.rows.length === 0 && page > 1) {
+        setPage(1)
+      }
     }).catch((exception) => {
       console.error(exception)
       setLoading(false)
     })
-  }, [gender, age, belt, weight, nameFilterSearch, props.gi]);
+  }, [gender, age, belt, weight, nameFilterSearch, props.gi, page]);
+
+  const getAthleteSuggestions = async ({ value }: { value: string }) => {
+    const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
+    setAthleteSuggestions(response.data);
+  }
 
   const isJuvenileAge = (age: string) => {
     return age.startsWith('Juvenile')
@@ -146,9 +167,9 @@ function EloTable(props: EloTableProps) {
     []
   );
 
-  const onNameFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setNameFilter(event.target.value)
-    debouncedSetNameFilterSearch(event.target.value)
+  const onNameFilterChange = (value: string) => {
+    setNameFilter(value)
+    debouncedSetNameFilterSearch(value)
   }
 
   const onNameClick = (e: React.MouseEvent, name: string) => {
@@ -158,6 +179,25 @@ function EloTable(props: EloTableProps) {
     props.setOpenFilters({athlete: true, event: false, division: false});
     navigate('/database');
   };
+
+  const onNextPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    if (page < totalPages) {
+      setPage(page + 1)
+    }
+  }
+
+  const onPreviousPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    if (page > 1) {
+      setPage(page - 1)
+    }
+  }
+
+  const onPageClick = (pageNumber: number, event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    setPage(pageNumber)
+  }
 
   const ranks = isJuvenileAge(age) ? juvenileRanks : adultRanks;
 
@@ -227,21 +267,29 @@ function EloTable(props: EloTableProps) {
       </div>
       <div>
         <div className="field">
-          <div className="control has-icons-left">
-            <input className="input" type="text" placeholder="Enter name..." value={nameFilter} onChange={onNameFilterChange} />
-            <span className="icon is-left">
-              <i className="fa-solid fa-filter"></i>
-            </span>
+          <div className="control ">
+            <Autosuggest suggestions={athleteSuggestions}
+                         onSuggestionsFetchRequested={getAthleteSuggestions}
+                         onSuggestionsClearRequested={() => setAthleteSuggestions([])}
+                         multiSection={false}
+                         getSuggestionValue={(suggestion) => suggestion}
+                         renderSuggestion={(suggestion) => suggestion}
+                         inputProps={{
+                           className: "input is-small",
+                           value: nameFilter,
+                           placeholder: "Enter Name...",
+                           onChange: (_: any, { newValue }) => {
+                            onNameFilterChange(newValue)
+                           }
+                         }} />
           </div>
         </div>
         <table className="table is-fullwidth table-margin">
           <thead>
             <tr>
               <th className="has-text-right">#</th>
-              <th className="has-text-right">↑↓</th>
               <th>Name</th>
               <th className="has-text-right">Rating</th>
-              <th className="has-text-right">+/-</th>
             </tr>
           </thead>
           <tbody>
@@ -273,20 +321,23 @@ function EloTable(props: EloTableProps) {
               !loading && !!data.length && data.map((row: Row, index) => (
                 <tr key={index}>
                   <td className="has-text-right">{row.rank}</td>
-                  <td className="has-text-right">&nbsp;</td>
                   <td>
                     <a href="#" onClick={e => onNameClick(e, row.name)}>
                       {row.name}
                     </a>
                   </td>
                   <td className="has-text-right">{row.rating}</td>
-                  <td className="has-text-right">&nbsp;</td>
                 </tr>
               ))
             }
           </tbody>
         </table>
       </div>
+      {
+        !loading && data.length > 0 && (
+          <DBPagination page={page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
+        )
+      }
     </div>
   )
 }

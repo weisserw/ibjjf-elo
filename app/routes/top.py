@@ -1,3 +1,4 @@
+import math
 from flask import Blueprint, request, jsonify
 from extensions import db
 from sqlalchemy.sql import exists, not_
@@ -16,6 +17,7 @@ def top():
     gi = request.args.get('gi')
     weight = request.args.get('weight') or ''
     name = request.args.get('name')
+    page = request.args.get('page') or 1
 
     if not all([gender, age, belt, gi]):
         return jsonify({"error": "Missing mandatory query parameters"}), 400
@@ -33,9 +35,15 @@ def top():
     if name:
         query = query.filter(Athlete.name.ilike(f'%{name}%'))
 
-    query = query.order_by(AthleteRating.rank, AthleteRating.match_happened_at.desc()).limit(RATINGS_PAGE_SIZE)
+    totalCount = query.count()
+
+    query = query.order_by(AthleteRating.rank, AthleteRating.match_happened_at.desc()).limit(RATINGS_PAGE_SIZE).offset((int(page) - 1) * RATINGS_PAGE_SIZE)
     results = query.all()
 
     response = [{"rank": result.rank, "name": result.name, "rating": round(result.rating)} for result in results]
 
-    return jsonify(response)
+    print(totalCount)
+    return jsonify({
+        "rows": response,
+        "totalPages": math.ceil(totalCount / RATINGS_PAGE_SIZE)
+    })

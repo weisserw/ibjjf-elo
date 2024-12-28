@@ -1,3 +1,4 @@
+import math
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from sqlalchemy.sql import text
@@ -306,5 +307,5 @@ def matches():
 
     return jsonify({
         "rows": response,
-        "totalPages": totalCount // MATCH_PAGE_SIZE + 1
+        "totalPages": math.ceil(totalCount / MATCH_PAGE_SIZE)
     })
