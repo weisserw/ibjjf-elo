@@ -79,7 +79,7 @@ def main():
                     f_out.writelines(f_in)
             try:
                 upload_to_drive(f"{csv_file_path}.gz")
-                print(f"File uploaded to Google Drive.")
+                print(f"{csv_file_path}: File uploaded to Google Drive.")
             finally:
                 os.remove(f"{csv_file_path}.gz")
 
@@ -87,7 +87,7 @@ def main():
                 reader = csv.reader(file)
                 data = list(reader)
             sheet_link = create_google_sheet(csv_file_path, data)
-            print(f"Google Sheet Created: {sheet_link}")
+            print(f"{csv_file_path}: Google Sheet Created: {sheet_link}")
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
