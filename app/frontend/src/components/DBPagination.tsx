@@ -5,12 +5,13 @@ import "./DBPagination.css";
 interface PaginationProps {
   page: number
   totalPages: number
+  loading: boolean
   onPageClick: (page: number, event: React.MouseEvent<HTMLAnchorElement>) => void
   onPreviousPage: (event: React.MouseEvent<HTMLAnchorElement>) => void
   onNextPage: (event: React.MouseEvent<HTMLAnchorElement>) => void
 }
 
-function DBPagination({page, totalPages, onPageClick, onPreviousPage, onNextPage}: PaginationProps) {
+function DBPagination({page, totalPages, onPageClick, onPreviousPage, onNextPage, loading}: PaginationProps) {
   const renderPageLink = (pageNumber: number, key: number) => {
     return (
       <li key={key}>
@@ -71,6 +72,9 @@ function DBPagination({page, totalPages, onPageClick, onPreviousPage, onNextPage
       <ul className="pagination-list">
         {elements}
       </ul>
+      {
+        loading && <div className="pagination-loader loader"/>
+      }
     </nav>
   );
 }

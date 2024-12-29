@@ -1,3 +1,8 @@
 .pagination-margin {
   margin-bottom: 20px;
 }
+
+.pagination-loader {
+  order: 1;
+  margin-right: 10px;
+}

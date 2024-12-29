@@ -84,6 +84,7 @@ function EloTable(props: EloTableProps) {
   const [nameFilter, setNameFilter] = useState('')
   const [nameFilterSearch, setNameFilterSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [reloading, setReloading] = useState(false)
   const [data, setData] = useState<Row[]>([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -92,6 +93,7 @@ function EloTable(props: EloTableProps) {
   const navigate = useNavigate()
 
   useEffect(() => {
+    setReloading(true)
     axios.get<Results>('/api/top', {
       params: {
         gender,
@@ -106,6 +108,7 @@ function EloTable(props: EloTableProps) {
       setData(response.data.rows)
       setTotalPages(response.data.totalPages)
       setLoading(false)
+      setReloading(false)
 
       if (response.data.rows.length === 0 && page > 1) {
         setPage(1)
@@ -113,6 +116,7 @@ function EloTable(props: EloTableProps) {
     }).catch((exception) => {
       console.error(exception)
       setLoading(false)
+      setReloading(false)
     })
   }, [gender, age, belt, weight, nameFilterSearch, props.gi, page]);
 
@@ -335,7 +339,7 @@ function EloTable(props: EloTableProps) {
       </div>
       {
         !loading && data.length > 0 && (
-          <DBPagination page={page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
+          <DBPagination loading={reloading} page={page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
         )
       }
     </div>

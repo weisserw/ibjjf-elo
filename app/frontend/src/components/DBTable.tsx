@@ -35,11 +35,13 @@ interface EloTableProps {
 
 function DBTable(props: EloTableProps) {
   const [loading, setLoading] = useState(true)
+  const [reloading, setReloading] = useState(false)
   const [data, setData] = useState<Row[]>([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
   useEffect(() => {
+    setReloading(true)
     axios.get<Results>('/api/matches', {
       params: {
         gi: props.gi ? 'true' : 'false',
@@ -50,6 +52,7 @@ function DBTable(props: EloTableProps) {
       setData(response.data.rows)
       setTotalPages(response.data.totalPages)
       setLoading(false)
+      setReloading(false)
 
       if (response.data.rows.length === 0 && page > 1) {
         setPage(1)
@@ -57,6 +60,7 @@ function DBTable(props: EloTableProps) {
     }).catch((exception) => {
       console.error(exception)
       setLoading(false)
+      setReloading(false)
     })
   }, [props.gi, props.filters, page]);
 
@@ -229,7 +233,7 @@ function DBTable(props: EloTableProps) {
       </div>
       {
         !loading && data.length > 0 && (
-          <DBPagination page={page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
+          <DBPagination loading={reloading} page={page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
         )
       }
     </div>
