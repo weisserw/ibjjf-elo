@@ -6,7 +6,7 @@ from current import generate_current_ratings
 
 log = logging.getLogger('ibjjf')
 
-def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None):
+def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None, rerank=True):
     query = db.session.query(Match).join(MatchParticipant).join(Division).filter(
         Division.gi == gi
     )
@@ -20,7 +20,7 @@ def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None):
 
     count = query.count() // 2
 
-    with Bar(f'Recomputing athlete ratings', max=count) as bar:
+    with Bar(f'Recomputing athlete {"gi" if gi else "no-gi"} ratings', max=count) as bar:
         for match in query.order_by(Match.happened_at, Match.id).all():
             bar.next()
 
@@ -54,7 +54,8 @@ def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None):
             if changed:
                 db.session.flush()
 
-    log.info("Regenerating ranking board...")
-    generate_current_ratings(db)
+    if rerank:
+        log.info("Regenerating ranking board...")
+        generate_current_ratings(db)
 
     return count

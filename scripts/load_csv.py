@@ -35,99 +35,116 @@ def process_file(csv_file_path):
         with app.app_context():
             with open(csv_file_path, newline='') as csvfile:
                 reader = csv.DictReader(csvfile, delimiter=',')
-                rows = sorted(reader, key=lambda row: row['Date'])
+
+                rows_by_tournament = {}
+                count = 0
+                for row in reader:
+                    if row['Tournament ID'] not in rows_by_tournament:
+                        rows_by_tournament[row['Tournament ID']] = []
+                    rows_by_tournament[row['Tournament ID']].append(row)
+                    count += 1
+
                 earliest_date = None
+                has_gi = False
+                has_nogi = False
 
-                gi = None
-                if len(rows):
-                    event = db.session.query(Event).filter_by(ibjjf_id=rows[0]['Tournament ID']).first()
-                    if event is not None:
-                        db.session.query(Match).filter(Match.event_id == event.id).delete()
-                        db.session.query(DefaultGold).filter(DefaultGold.event_id == event.id).delete()
-                    gi = rows[0]['Gi'] == 'true'
+                with Bar(f'Processing {csv_file_path}', max=count) as bar:
+                    for tournament_id, rows in rows_by_tournament.items():
+                        rows = sorted(rows, key=lambda row: (row['Date']))
 
-                # default golds dont normally come with timestamps. we allow them to have one in the csv file
-                # but in the normal case that they don't, we just use the day of the first timestamp in the file
-                default_gold_date = None
-                for row in rows:
-                    if row['Date']:
-                        default_gold_date = datetime.strptime(row['Date'][:10] + 'T00:00:00', '%Y-%m-%dT%H:%M:%S')
-                        break
+                        event = db.session.query(Event).filter_by(ibjjf_id=tournament_id).first()
+                        if event is not None:
+                            db.session.query(Match).filter(Match.event_id == event.id).delete()
+                            db.session.query(DefaultGold).filter(DefaultGold.event_id == event.id).delete()
+                        if rows[0]['Gi'] == 'true':
+                            has_gi = True
+                        else:
+                            has_nogi = True
 
-                with Bar(f'Processing {csv_file_path}', max=len(rows)) as bar:
-                    for row in rows:
-                        bar.next()
-
-                        belt = translate_belt(row['Belt'])
-                        weight = translate_weight(row['Weight'])
-
-                        check_gender(row['Gender'])
-                        age = translate_age(row['Age'])
-
-                        event = get_or_create(db.session, Event, dict(name=row['Tournament Name']), ibjjf_id=row['Tournament ID'])
-                        division = get_or_create(db.session, Division, None, gi=row['Gi'] == 'true', gender=row['Gender'], age=age, belt=belt, weight=weight)
-                        red_athlete = get_or_create(db.session, Athlete, dict(name=row['Red Name']), ibjjf_id=row['Red ID'])
-                        red_team = get_or_create(db.session, Team, None, name=row['Red Team'])
-
-                        if row['Blue ID'] == 'DEFAULT_GOLD':
-                            default_happened_at = default_gold_date
+                        # default golds dont normally come with timestamps. we allow them to have one in the csv file
+                        # but in the normal case that they don't, we just use the day of the first timestamp in the file
+                        default_gold_date = None
+                        for row in rows:
                             if row['Date']:
-                                default_happened_at = datetime.strptime(row['Date'], '%Y-%m-%dT%H:%M:%S')
-                            if default_happened_at is None:
+                                default_gold_date = datetime.strptime(row['Date'][:10] + 'T00:00:00', '%Y-%m-%dT%H:%M:%S')
+                                break
+
+
+                        for row in rows:
+                            bar.next()
+
+                            belt = translate_belt(row['Belt'])
+                            weight = translate_weight(row['Weight'])
+
+                            check_gender(row['Gender'])
+                            age = translate_age(row['Age'])
+
+                            event = get_or_create(db.session, Event, dict(name=row['Tournament Name']), ibjjf_id=row['Tournament ID'])
+                            division = get_or_create(db.session, Division, None, gi=row['Gi'] == 'true', gender=row['Gender'], age=age, belt=belt, weight=weight)
+                            red_athlete = get_or_create(db.session, Athlete, dict(name=row['Red Name']), ibjjf_id=row['Red ID'])
+                            red_team = get_or_create(db.session, Team, None, name=row['Red Team'])
+
+                            if row['Blue ID'] == 'DEFAULT_GOLD':
+                                default_happened_at = default_gold_date
+                                if row['Date']:
+                                    default_happened_at = datetime.strptime(row['Date'], '%Y-%m-%dT%H:%M:%S')
+                                if default_happened_at is None:
+                                    continue
+                                default_gold = DefaultGold(
+                                    happened_at=default_happened_at,
+                                    event_id=event.id,
+                                    division_id=division.id,
+                                    athlete_id=red_athlete.id,
+                                    team_id=red_team.id
+                                )
+                                db.session.add(default_gold)
+                                db.session.flush()
                                 continue
-                            default_gold = DefaultGold(
-                                happened_at=default_happened_at,
+
+                            blue_team = get_or_create(db.session, Team, None, name=row['Blue Team'])
+                            blue_athlete = get_or_create(db.session, Athlete, dict(name=row['Blue Name']), ibjjf_id=row['Blue ID'])
+
+                            if earliest_date is None or row['Date'] < earliest_date:
+                                earliest_date = row['Date']
+
+                            match = Match(
+                                happened_at=datetime.strptime(row['Date'], '%Y-%m-%dT%H:%M:%S'),
                                 event_id=event.id,
                                 division_id=division.id,
-                                athlete_id=red_athlete.id,
-                                team_id=red_team.id
+                                rated=False
                             )
-                            db.session.add(default_gold)
+                            db.session.add(match)
                             db.session.flush()
-                            continue
 
-                        blue_team = get_or_create(db.session, Team, None, name=row['Blue Team'])
-                        blue_athlete = get_or_create(db.session, Athlete, dict(name=row['Blue Name']), ibjjf_id=row['Blue ID'])
+                            red_participant = MatchParticipant(
+                                match_id=match.id,
+                                athlete_id=red_athlete.id,
+                                team_id=red_team.id,
+                                seed=row['Red Seed'],
+                                red=True,
+                                winner=row['Red Winner'] == 'true',
+                                note=row['Red Note'],
+                                start_rating=0,
+                                end_rating=0
+                            )
+                            db.session.add(red_participant)
+                            blue_participant = MatchParticipant(
+                                match_id=match.id,
+                                athlete_id=blue_athlete.id,
+                                team_id=blue_team.id,
+                                seed=row['Blue Seed'],
+                                red=False,
+                                winner=row['Blue Winner'] == 'true',
+                                note=row['Blue Note'],
+                                start_rating=0,
+                                end_rating=0
+                            )
+                            db.session.add(blue_participant)
 
-                        if earliest_date is None or row['Date'] < earliest_date:
-                            earliest_date = row['Date']
-
-                        match = Match(
-                            happened_at=datetime.strptime(row['Date'], '%Y-%m-%dT%H:%M:%S'),
-                            event_id=event.id,
-                            division_id=division.id,
-                            rated=False
-                        )
-                        db.session.add(match)
-                        db.session.flush()
-
-                        red_participant = MatchParticipant(
-                            match_id=match.id,
-                            athlete_id=red_athlete.id,
-                            team_id=red_team.id,
-                            seed=row['Red Seed'],
-                            red=True,
-                            winner=row['Red Winner'] == 'true',
-                            note=row['Red Note'],
-                            start_rating=0,
-                            end_rating=0
-                        )
-                        db.session.add(red_participant)
-                        blue_participant = MatchParticipant(
-                            match_id=match.id,
-                            athlete_id=blue_athlete.id,
-                            team_id=blue_team.id,
-                            seed=row['Blue Seed'],
-                            red=False,
-                            winner=row['Blue Winner'] == 'true',
-                            note=row['Blue Note'],
-                            start_rating=0,
-                            end_rating=0
-                        )
-                        db.session.add(blue_participant)
-
-                if gi is not None:
-                    recompute_all_ratings(db, gi, start_date=datetime.strptime(earliest_date, '%Y-%m-%dT%H:%M:%S'))
+                if has_gi:
+                    recompute_all_ratings(db, True, start_date=datetime.strptime(earliest_date, '%Y-%m-%dT%H:%M:%S'), rerank=not has_nogi)
+                if has_nogi:
+                    recompute_all_ratings(db, False, start_date=datetime.strptime(earliest_date, '%Y-%m-%dT%H:%M:%S'), rerank=True)
 
                 db.session.commit()
     except Exception as e:
