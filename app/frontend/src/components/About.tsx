@@ -4,7 +4,8 @@ function About() {
       <div className="container">
         <h1 className="title">About This App</h1>
         <p className="content">
-          IBJJFRankings.com ranks competitors and provides a comprehensive database of matches in events run by the <a href="https://ibjjf.com/" target="_blank" rel="noopener noreferrer">International Braziliation Jiu-Jitsu Federation</a>.
+          IBJJFRankings.com ranks competitors and provides a comprehensive database of matches in events run by the <a href="https://ibjjf.com/" target="_blank" rel="noopener noreferrer">International Braziliation Jiu-Jitsu Federation</a>. We are an independant
+          site and are not affiliated with the IBJJF.
         </p>
         <p className="content">
           Competitors are rated using the <a href="https://en.wikipedia.org/wiki/Elo_rating_system" target="_blank" rel="noopener noreferrer">Elo rating system</a>, which is a method for calculating the relative skill levels of players in two-player games such as chess. The app allows users to search for competitors, view their ratings, and see their match history.
