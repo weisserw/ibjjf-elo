@@ -2,7 +2,15 @@ import { useState, useEffect } from 'react'
 import axios, { AxiosResponse } from 'axios';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
-import DBFilters, { FilterValues, type OpenFilters } from './DBFilters';
+import DBFilters, {
+  FilterValues,
+  ageToFilter,
+  genderToFilter,
+  beltToFilter,
+  weightToFilter,
+  type FilterKeys,
+  type OpenFilters
+} from './DBFilters';
 import DBPagination from './DBPagination';
 import "./DBTable.css"
 
@@ -115,6 +123,30 @@ function DBTable(props: EloTableProps) {
     props.setOpenFilters({athlete: true, event: false, division: false});
   }
 
+  const eventClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {
+    event.preventDefault()
+    props.setFilters({
+      event_name: name,
+    });
+    props.setOpenFilters({athlete: false, event: true, division: false});
+  }
+
+  const divisionClicked = (event: React.MouseEvent<HTMLAnchorElement>, row: Row) => {
+    event.preventDefault()
+    const newFilters = {...props.filters};
+    const keys: FilterKeys[] = Object.keys(newFilters) as FilterKeys[];
+    for (const key of keys.filter(key => key.startsWith('age_') || key.startsWith('gender_') || key.startsWith('belt_') || key.startsWith('weight_'))) {
+      delete newFilters[key];
+    }
+    newFilters[ageToFilter(row.age)] = true;
+    newFilters[genderToFilter(row.gender)] = true;
+    newFilters[beltToFilter(row.belt)] = true;
+    newFilters[weightToFilter(row.weight)] = true;
+
+    props.setFilters(newFilters);
+    props.setOpenFilters({...props.openFilters, division: true});
+  }
+
   const weightWithTooltip = (row: Row, bottom: boolean) => {
     if (row.weight.startsWith('Open Class')) {
       return (
@@ -193,9 +225,11 @@ function DBTable(props: EloTableProps) {
                   <td><a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a></td>
                   <td>{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{unratedAsterisk(row, index === 0)}</td>
                   <td className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": index === 0})} data-tooltip={shortEvent(row) !== row.event ? row.event : undefined}>
-                    {shortEvent(row)}
+                    <a href="#" onClick={e => eventClicked(e, row.event)}>{shortEvent(row)}</a>
                   </td>
-                  <td>{row.age} / {row.gender} / {row.belt} / {weightWithTooltip(row, false)}</td>
+                  <td>
+                    <a href="#" onClick={e => divisionClicked(e, row)}>{row.age} / {row.gender} / {row.belt} / {weightWithTooltip(row, index === 0)}</a>
+                  </td>
                   <td>{dayjs(row.date).format('MMM D YYYY, h:mma')}</td>
                   <td>{row.notes}</td>
                 </tr>
@@ -248,10 +282,10 @@ function DBTable(props: EloTableProps) {
                 </div>
                 <div className="columns">
                   <div className="column">
-                    {row.event}
+                    <a href="#" onClick={e => eventClicked(e, row.event)}>{row.event}</a>
                   </div>
                   <div className="column has-text-right-tablet">
-                    {row.age} / {row.gender} / {row.belt} / {weightWithTooltip(row, false)}
+                    <a href="#" onClick={e => divisionClicked(e, row)}>{row.age} / {row.gender} / {row.belt} / {weightWithTooltip(row, false)}</a>
                   </div>
                 </div>
                 {row.notes &&

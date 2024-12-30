@@ -70,7 +70,7 @@ export interface FilterValues {
   rating_end?: number;
 }
 
-type FilterKeys = keyof FilterValues;
+export type FilterKeys = keyof FilterValues;
 
 type DivisionFilterKeys = {
   [K in FilterKeys]: K extends `gender_${string}` | `age_${string}` | `belt_${string}` | `weight_${string}` ? K : never
@@ -88,6 +88,19 @@ interface DBFiltersProps {
   gi: boolean;
   openFilters: OpenFilters;
   setOpenFilters(openFilters: OpenFilters): void;
+}
+
+export const ageToFilter = (age: string) => `age_${age.toLowerCase().replace(' ', '')}` as DivisionFilterKeys;
+
+export const genderToFilter = (gender: string) => `gender_${gender.toLowerCase()}` as DivisionFilterKeys;
+
+export const beltToFilter = (belt: string) => `belt_${belt.toLowerCase()}` as DivisionFilterKeys;
+
+export const weightToFilter = (weight: string): DivisionFilterKeys => {
+  if (weight === 'Open Class Light' || weight === 'Open Class Heavy') {
+    return weightToFilter('Open Class');
+  }
+  return `weight_${weight.toLowerCase().replace(' ', '_')}` as DivisionFilterKeys;
 }
 
 function DBFilters(props: DBFiltersProps) {
@@ -326,7 +339,7 @@ function DBFilters(props: DBFiltersProps) {
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Age:</label>
                 {['Adult', 'Master 1', 'Master 2', 'Master 3', 'Master 4', 'Master 5', 'Master 6', 'Master 7', 'Juvenile 1', 'Juvenile 2'].map(age => {
-                  const key = `age_${age.toLowerCase().replace(' ', '')}` as FilterKeys;
+                  const key = ageToFilter(age);
                   return (
                     <label key={age} className="checkbox checkbox-filter">
                       <input
@@ -345,7 +358,7 @@ function DBFilters(props: DBFiltersProps) {
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Gender:</label>
                 {['Male', 'Female'].map(gender => {
-                  const key = `gender_${gender.toLowerCase()}` as FilterKeys;
+                  const key = genderToFilter(gender);
                   return (
                     <label key={gender} className="checkbox checkbox-filter">
                       <input
@@ -364,7 +377,7 @@ function DBFilters(props: DBFiltersProps) {
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Belt:</label>
                 {['White', 'Blue', 'Purple', 'Brown', 'Black'].map(belt => {
-                  const key = `belt_${belt.toLowerCase()}` as FilterKeys;
+                  const key = beltToFilter(belt);
                   return (
                     <label key={belt} className="checkbox checkbox-filter">
                       <input
@@ -385,7 +398,7 @@ function DBFilters(props: DBFiltersProps) {
                 {['Rooster', 'Light Feather', 'Feather', 'Light', 'Middle',
                   'Medium Heavy', 'Heavy', 'Super Heavy', 'Ultra Heavy', 'Open Class'
                 ].map(weight => {
-                  const key = `weight_${weight.toLowerCase().replace(' ', '_')}` as FilterKeys;
+                  const key = weightToFilter(weight);
                   return (
                     <label key={weight} className="checkbox checkbox-filter">
                       <input
