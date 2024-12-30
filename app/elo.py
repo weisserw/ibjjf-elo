@@ -25,7 +25,7 @@ class EloCompetitor:
     _base_rating = 400
     _k_factor = 32
 
-    def __init__(self, initial_rating: float = 400, k_factor: float = 32):
+    def __init__(self, initial_rating: float = 400, k_factor: int = 32):
         self._rating = initial_rating
         self._k_factor = k_factor
 
@@ -243,7 +243,9 @@ def compute_ratings(
     blue_athlete_id: str,
     blue_winner: bool,
     blue_note: str,
-) -> Tuple[bool, Optional[str], int, int, int, int, Optional[str], Optional[str]]:
+) -> Tuple[
+    bool, Optional[str], float, float, float, float, Optional[str], Optional[str]
+]:
     log.debug(
         "Computing ratings for match %s, division %s, happened at %s, red winner: %s, blue winner: %s, red note: %s, blue note: %s",
         match_id,
@@ -344,6 +346,9 @@ def compute_ratings(
     unrated_reason = None
     red_weight = None
     blue_weight = None
+
+    red_end_rating: float
+    blue_end_rating: float
 
     # calculate the new ratings
     if red_winner == blue_winner:
