@@ -1,4 +1,7 @@
 import logging
+from typing import Tuple, Optional
+from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
 from models import Match, MatchParticipant, Division, DefaultGold
 from constants import (
     ADULT,
@@ -27,23 +30,23 @@ class EloCompetitor:
         self._k_factor = k_factor
 
     @property
-    def transformed_rating(self):
+    def transformed_rating(self) -> float:
         return 10 ** (self._rating / self._base_rating)
 
     @property
-    def rating(self):
+    def rating(self) -> float:
         return self._rating
 
     @rating.setter
-    def rating(self, value):
+    def rating(self, value: float) -> None:
         self._rating = value
 
-    def expected_score(self, competitor):
+    def expected_score(self, competitor: "EloCompetitor") -> float:
         return self.transformed_rating / (
             competitor.transformed_rating + self.transformed_rating
         )
 
-    def beat(self, competitor):
+    def beat(self, competitor: "EloCompetitor") -> None:
         win_es = self.expected_score(competitor)
         lose_es = competitor.expected_score(self)
 
@@ -51,7 +54,7 @@ class EloCompetitor:
 
         competitor.rating = competitor.rating + self._k_factor * (0 - lose_es)
 
-    def tied(self, competitor):
+    def tied(self, competitor: "EloCompetitor") -> None:
         win_es = self.expected_score(competitor)
         lose_es = competitor.expected_score(self)
 
@@ -73,14 +76,14 @@ no_match_strings = [
 ]
 
 
-def match_didnt_happen(note1, note2):
+def match_didnt_happen(note1: str, note2: str) -> bool:
     for no_match_string in no_match_strings:
         if no_match_string in note1 or no_match_string in note2:
             return True
     return False
 
 
-def compute_k_factor(num_matches):
+def compute_k_factor(num_matches: int) -> int:
     if num_matches < 5:
         return 64
     elif num_matches < 7:
@@ -90,8 +93,13 @@ def compute_k_factor(num_matches):
 
 
 def open_handicaps(
-    db, event_id, happened_at, division, red_athlete_id, blue_athlete_id
-):
+    db: SQLAlchemy,
+    event_id: str,
+    happened_at: datetime,
+    division: Division,
+    red_athlete_id: str,
+    blue_athlete_id: str,
+) -> Tuple[bool, int, int, Optional[str], Optional[str]]:
     if division.weight not in (OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY):
         log.debug("Not an open class match")
         return True, 0, 0, None, None
@@ -224,18 +232,18 @@ def open_handicaps(
 
 
 def compute_ratings(
-    db,
-    event_id,
-    match_id,
-    division,
-    happened_at,
-    red_athlete_id,
-    red_winner,
-    red_note,
-    blue_athlete_id,
-    blue_winner,
-    blue_note,
-):
+    db: SQLAlchemy,
+    event_id: str,
+    match_id: str,
+    division: Division,
+    happened_at: datetime,
+    red_athlete_id: str,
+    red_winner: bool,
+    red_note: str,
+    blue_athlete_id: str,
+    blue_winner: bool,
+    blue_note: str,
+) -> Tuple[bool, Optional[str], int, int, int, int, Optional[str], Optional[str]]:
     log.debug(
         "Computing ratings for match %s, division %s, happened at %s, red winner: %s, blue winner: %s, red note: %s, blue note: %s",
         match_id,

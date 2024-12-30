@@ -5,7 +5,7 @@ BLUE = "BLUE"
 WHITE = "WHITE"
 
 
-def translate_belt(belt):
+def translate_belt(belt: str) -> str:
     if belt == "AZUL":
         return BLUE
     if belt == "BRANCA":
@@ -35,7 +35,7 @@ OPEN_CLASS_LIGHT = "Open Class Light"
 OPEN_CLASS_HEAVY = "Open Class Heavy"
 
 
-def translate_weight(weight):
+def translate_weight(weight: str) -> str:
     if weight == "Absoluto":
         return OPEN_CLASS
     if weight == "Absoluto Leve":
@@ -104,7 +104,7 @@ MASTER_6 = "Master 6"
 MASTER_7 = "Master 7"
 
 
-def translate_age(age):
+def translate_age(age: str) -> str:
     if age == JUVENILE_PREFIX or age == "Juvenil":
         return JUVENILE_2
     if age == "Adulto":
@@ -129,6 +129,6 @@ MALE = "Male"
 FEMALE = "Female"
 
 
-def check_gender(gender):
+def check_gender(gender: str) -> None:
     if gender not in (MALE, FEMALE):
         raise ValueError("Invalid gender " + gender)

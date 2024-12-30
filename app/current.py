@@ -1,9 +1,10 @@
-from sqlalchemy import text
-from constants import OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
 import os
+from sqlalchemy import text
+from flask_sqlalchemy import SQLAlchemy
+from constants import OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
 
 
-def generate_current_ratings(db):
+def generate_current_ratings(db: SQLAlchemy) -> None:
     db.session.execute(
         text(
             """

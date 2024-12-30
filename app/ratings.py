@@ -1,4 +1,7 @@
 import logging
+from typing import Optional
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 from progress.bar import Bar
 from models import Match, MatchParticipant, Division
 from elo import compute_ratings
@@ -7,7 +10,14 @@ from current import generate_current_ratings
 log = logging.getLogger("ibjjf")
 
 
-def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None, rerank=True):
+def recompute_all_ratings(
+    db: SQLAlchemy,
+    gi: bool,
+    gender: Optional[str] = None,
+    age: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    rerank: bool = True,
+) -> int:
     query = (
         db.session.query(Match)
         .join(MatchParticipant)
