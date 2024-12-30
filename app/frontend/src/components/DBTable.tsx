@@ -125,15 +125,17 @@ function DBTable(props: EloTableProps) {
 
   const eventClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {
     event.preventDefault()
-    props.setFilters({
-      event_name: name,
-    });
-    props.setOpenFilters({athlete: false, event: true, division: false});
+    const newFilters = {...props.filters};
+    delete newFilters.athlete_name;
+    newFilters.event_name = name;
+    props.setFilters(newFilters);
+    props.setOpenFilters({...props.openFilters, event: true});
   }
 
   const divisionClicked = (event: React.MouseEvent<HTMLAnchorElement>, row: Row) => {
     event.preventDefault()
     const newFilters = {...props.filters};
+    delete newFilters.athlete_name;
     const keys: FilterKeys[] = Object.keys(newFilters) as FilterKeys[];
     for (const key of keys.filter(key => key.startsWith('age_') || key.startsWith('gender_') || key.startsWith('belt_') || key.startsWith('weight_'))) {
       delete newFilters[key];
