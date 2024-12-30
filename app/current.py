@@ -2,17 +2,26 @@ from sqlalchemy import text
 from constants import OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
 import os
 
+
 def generate_current_ratings(db):
-    db.session.execute(text('''
+    db.session.execute(
+        text(
+            """
         DELETE FROM athlete_ratings
-    '''))
+    """
+        )
+    )
 
-    if os.getenv('DATABASE_URL'):
-        id_generate = 'gen_random_uuid()'
+    if os.getenv("DATABASE_URL"):
+        id_generate = "gen_random_uuid()"
     else:
-        id_generate = "athlete_id || '-' || gender || '-' || age || '-' || gi || '-' || weight"
+        id_generate = (
+            "athlete_id || '-' || gender || '-' || age || '-' || gi || '-' || weight"
+        )
 
-    db.session.execute(text(f'''
+    db.session.execute(
+        text(
+            f"""
         INSERT INTO athlete_ratings (id, athlete_id, gender, age, belt, gi, weight, rating, match_happened_at, rank)
         WITH
         athlete_max_belts AS (
@@ -159,8 +168,11 @@ def generate_current_ratings(db):
             happened_at,
             RANK() OVER (PARTITION BY gender, age, belt, gi, weight ORDER BY ROUND(end_rating) DESC) AS rank
             FROM ratings
-    '''), {
-        'OPEN_CLASS': OPEN_CLASS,
-        'OPEN_CLASS_LIGHT': OPEN_CLASS_LIGHT,
-        'OPEN_CLASS_HEAVY': OPEN_CLASS_HEAVY
-    })
+    """
+        ),
+        {
+            "OPEN_CLASS": OPEN_CLASS,
+            "OPEN_CLASS_LIGHT": OPEN_CLASS_LIGHT,
+            "OPEN_CLASS_HEAVY": OPEN_CLASS_HEAVY,
+        },
+    )

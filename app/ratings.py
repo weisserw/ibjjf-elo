@@ -4,11 +4,15 @@ from models import Match, MatchParticipant, Division
 from elo import compute_ratings
 from current import generate_current_ratings
 
-log = logging.getLogger('ibjjf')
+log = logging.getLogger("ibjjf")
+
 
 def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None, rerank=True):
-    query = db.session.query(Match).join(MatchParticipant).join(Division).filter(
-        Division.gi == gi
+    query = (
+        db.session.query(Match)
+        .join(MatchParticipant)
+        .join(Division)
+        .filter(Division.gi == gi)
     )
 
     if gender is not None:
@@ -20,18 +24,43 @@ def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None, rerank
 
     count = query.count() // 2
 
-    with Bar(f'Recomputing athlete {"gi" if gi else "no-gi"} ratings', max=count) as bar:
+    with Bar(
+        f'Recomputing athlete {"gi" if gi else "no-gi"} ratings', max=count
+    ) as bar:
         for match in query.order_by(Match.happened_at, Match.id).all():
             bar.next()
 
             if len(match.participants) != 2:
-                log.info(f"Match {match.id} has {len(match.participants)} participants, skipping")
+                log.info(
+                    f"Match {match.id} has {len(match.participants)} participants, skipping"
+                )
                 continue
 
             count += 1
 
             red, blue = match.participants
-            rated, unrated_reason, red_start_rating, red_end_rating, blue_start_rating, blue_end_rating, red_weight_for_open, blue_weight_for_open = compute_ratings(db, match.event_id, match.id, match.division, match.happened_at, red.athlete_id, red.winner, red.note, blue.athlete_id, blue.winner, blue.note)
+            (
+                rated,
+                unrated_reason,
+                red_start_rating,
+                red_end_rating,
+                blue_start_rating,
+                blue_end_rating,
+                red_weight_for_open,
+                blue_weight_for_open,
+            ) = compute_ratings(
+                db,
+                match.event_id,
+                match.id,
+                match.division,
+                match.happened_at,
+                red.athlete_id,
+                red.winner,
+                red.note,
+                blue.athlete_id,
+                blue.winner,
+                blue.note,
+            )
 
             changed = False
 

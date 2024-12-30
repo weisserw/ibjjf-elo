@@ -4,131 +4,157 @@ from datetime import datetime
 from sqlalchemy.sql import text
 from extensions import db
 from constants import (
-    MALE, FEMALE,
-    ADULT, MASTER_1, MASTER_2, MASTER_3, MASTER_4, MASTER_5, MASTER_6, MASTER_7, JUVENILE_1, JUVENILE_2,
-    WHITE, BLUE, PURPLE, BROWN, BLACK,
-    ROOSTER, LIGHT_FEATHER, FEATHER, LIGHT, MIDDLE, MEDIUM_HEAVY, HEAVY, SUPER_HEAVY, ULTRA_HEAVY, OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
+    MALE,
+    FEMALE,
+    ADULT,
+    MASTER_1,
+    MASTER_2,
+    MASTER_3,
+    MASTER_4,
+    MASTER_5,
+    MASTER_6,
+    MASTER_7,
+    JUVENILE_1,
+    JUVENILE_2,
+    WHITE,
+    BLUE,
+    PURPLE,
+    BROWN,
+    BLACK,
+    ROOSTER,
+    LIGHT_FEATHER,
+    FEATHER,
+    LIGHT,
+    MIDDLE,
+    MEDIUM_HEAVY,
+    HEAVY,
+    SUPER_HEAVY,
+    ULTRA_HEAVY,
+    OPEN_CLASS,
+    OPEN_CLASS_LIGHT,
+    OPEN_CLASS_HEAVY,
 )
 from models import Athlete, MatchParticipant, Division, Match, Event
 
-matches_route = Blueprint('matches_route', __name__)
+matches_route = Blueprint("matches_route", __name__)
 
 MATCH_PAGE_SIZE = 12
 
-@matches_route.route('/api/matches')
+
+@matches_route.route("/api/matches")
 def matches():
-    gi = request.args.get('gi')
-    athlete_name = request.args.get('athlete_name')
-    event_name = request.args.get('event_name')
-    gender_male = request.args.get('gender_male')
-    gender_female = request.args.get('gender_female')
-    age_adult = request.args.get('age_adult')
-    age_master1 = request.args.get('age_master1')
-    age_master2 = request.args.get('age_master2')
-    age_master3 = request.args.get('age_master3')
-    age_master4 = request.args.get('age_master4')
-    age_master5 = request.args.get('age_master5')
-    age_master6 = request.args.get('age_master6')
-    age_master7 = request.args.get('age_master7')
-    age_juvenile1 = request.args.get('age_juvenile1')
-    age_juvenile2 = request.args.get('age_juvenile2')
-    belt_white = request.args.get('belt_white')
-    belt_blue = request.args.get('belt_blue')
-    belt_purple = request.args.get('belt_purple')
-    belt_brown = request.args.get('belt_brown')
-    belt_black = request.args.get('belt_black')
-    weight_rooster = request.args.get('weight_rooster')
-    weight_light_feather = request.args.get('weight_light_feather')
-    weight_feather = request.args.get('weight_feather')
-    weight_light = request.args.get('weight_light')
-    weight_middle = request.args.get('weight_middle')
-    weight_medium_heavy = request.args.get('weight_medium_heavy')
-    weight_heavy = request.args.get('weight_heavy')
-    weight_super_heavy = request.args.get('weight_super_heavy')
-    weight_ultra_heavy = request.args.get('weight_ultra_heavy')
-    weight_open_class = request.args.get('weight_open_class')
-    date_start = request.args.get('date_start')
-    date_end = request.args.get('date_end')
-    rating_start = request.args.get('rating_start')
-    rating_end = request.args.get('rating_end')
-    page = request.args.get('page') or 1
+    gi = request.args.get("gi")
+    athlete_name = request.args.get("athlete_name")
+    event_name = request.args.get("event_name")
+    gender_male = request.args.get("gender_male")
+    gender_female = request.args.get("gender_female")
+    age_adult = request.args.get("age_adult")
+    age_master1 = request.args.get("age_master1")
+    age_master2 = request.args.get("age_master2")
+    age_master3 = request.args.get("age_master3")
+    age_master4 = request.args.get("age_master4")
+    age_master5 = request.args.get("age_master5")
+    age_master6 = request.args.get("age_master6")
+    age_master7 = request.args.get("age_master7")
+    age_juvenile1 = request.args.get("age_juvenile1")
+    age_juvenile2 = request.args.get("age_juvenile2")
+    belt_white = request.args.get("belt_white")
+    belt_blue = request.args.get("belt_blue")
+    belt_purple = request.args.get("belt_purple")
+    belt_brown = request.args.get("belt_brown")
+    belt_black = request.args.get("belt_black")
+    weight_rooster = request.args.get("weight_rooster")
+    weight_light_feather = request.args.get("weight_light_feather")
+    weight_feather = request.args.get("weight_feather")
+    weight_light = request.args.get("weight_light")
+    weight_middle = request.args.get("weight_middle")
+    weight_medium_heavy = request.args.get("weight_medium_heavy")
+    weight_heavy = request.args.get("weight_heavy")
+    weight_super_heavy = request.args.get("weight_super_heavy")
+    weight_ultra_heavy = request.args.get("weight_ultra_heavy")
+    weight_open_class = request.args.get("weight_open_class")
+    date_start = request.args.get("date_start")
+    date_end = request.args.get("date_end")
+    rating_start = request.args.get("rating_start")
+    rating_end = request.args.get("rating_end")
+    page = request.args.get("page") or 1
 
     if gi is None:
         return jsonify({"error": "Missing mandatory query parameter"}), 400
-    
+
     if gi:
-        gi = gi.lower() == 'true'
+        gi = gi.lower() == "true"
     if gender_male:
-        gender_male = gender_male.lower() == 'true'
+        gender_male = gender_male.lower() == "true"
     if gender_female:
-        gender_female = gender_female.lower() == 'true'
+        gender_female = gender_female.lower() == "true"
     if age_adult:
-        age_adult = age_adult.lower() == 'true'
+        age_adult = age_adult.lower() == "true"
     if age_master1:
-        age_master1 = age_master1.lower() == 'true'
+        age_master1 = age_master1.lower() == "true"
     if age_master2:
-        age_master2 = age_master2.lower() == 'true'
+        age_master2 = age_master2.lower() == "true"
     if age_master3:
-        age_master3 = age_master3.lower() == 'true'
+        age_master3 = age_master3.lower() == "true"
     if age_master4:
-        age_master4 = age_master4.lower() == 'true'
+        age_master4 = age_master4.lower() == "true"
     if age_master5:
-        age_master5 = age_master5.lower() == 'true'
+        age_master5 = age_master5.lower() == "true"
     if age_master6:
-        age_master6 = age_master6.lower() == 'true'
+        age_master6 = age_master6.lower() == "true"
     if age_master7:
-        age_master7 = age_master7.lower() == 'true'
+        age_master7 = age_master7.lower() == "true"
     if age_juvenile1:
-        age_juvenile1 = age_juvenile1.lower() == 'true'
+        age_juvenile1 = age_juvenile1.lower() == "true"
     if age_juvenile2:
-        age_juvenile2 = age_juvenile2.lower() == 'true'
+        age_juvenile2 = age_juvenile2.lower() == "true"
     if belt_white:
-        belt_white = belt_white.lower() == 'true'
+        belt_white = belt_white.lower() == "true"
     if belt_blue:
-        belt_blue = belt_blue.lower() == 'true'
+        belt_blue = belt_blue.lower() == "true"
     if belt_purple:
-        belt_purple = belt_purple.lower() == 'true'
+        belt_purple = belt_purple.lower() == "true"
     if belt_brown:
-        belt_brown = belt_brown.lower() == 'true'
+        belt_brown = belt_brown.lower() == "true"
     if belt_black:
-        belt_black = belt_black.lower() == 'true'
+        belt_black = belt_black.lower() == "true"
     if weight_rooster:
-        weight_rooster = weight_rooster.lower() == 'true'
+        weight_rooster = weight_rooster.lower() == "true"
     if weight_light_feather:
-        weight_light_feather = weight_light_feather.lower() == 'true'
+        weight_light_feather = weight_light_feather.lower() == "true"
     if weight_feather:
-        weight_feather = weight_feather.lower() == 'true'
+        weight_feather = weight_feather.lower() == "true"
     if weight_light:
-        weight_light = weight_light.lower() == 'true'
+        weight_light = weight_light.lower() == "true"
     if weight_middle:
-        weight_middle = weight_middle.lower() == 'true'
+        weight_middle = weight_middle.lower() == "true"
     if weight_medium_heavy:
-        weight_medium_heavy = weight_medium_heavy.lower() == 'true'
+        weight_medium_heavy = weight_medium_heavy.lower() == "true"
     if weight_heavy:
-        weight_heavy = weight_heavy.lower() == 'true'
+        weight_heavy = weight_heavy.lower() == "true"
     if weight_super_heavy:
-        weight_super_heavy = weight_super_heavy.lower() == 'true'
+        weight_super_heavy = weight_super_heavy.lower() == "true"
     if weight_ultra_heavy:
-        weight_ultra_heavy = weight_ultra_heavy.lower() == 'true'
+        weight_ultra_heavy = weight_ultra_heavy.lower() == "true"
     if weight_open_class:
-        weight_open_class = weight_open_class.lower() == 'true'
+        weight_open_class = weight_open_class.lower() == "true"
 
-    params = {'gi': gi}
+    params = {"gi": gi}
 
-    filters = ''
+    filters = ""
 
     if athlete_name:
-        filters += '''AND EXISTS (
+        filters += """AND EXISTS (
             SELECT 1
             FROM athletes a
             JOIN match_participants mp ON a.id = mp.athlete_id
             WHERE mp.match_id = m.id AND LOWER(a.name) LIKE :athlete_name
         )
-        '''
-        params['athlete_name'] = f'%{athlete_name.lower()}%'
+        """
+        params["athlete_name"] = f"%{athlete_name.lower()}%"
     if event_name:
-        filters += 'AND LOWER(e.name) LIKE :event_name\n'
-        params['event_name'] = f'%{event_name.lower()}%'
+        filters += "AND LOWER(e.name) LIKE :event_name\n"
+        params["event_name"] = f"%{event_name.lower()}%"
 
     genders = []
     if gender_male:
@@ -136,7 +162,7 @@ def matches():
     if gender_female:
         genders.append(FEMALE)
     if len(genders):
-        filters += 'AND d.gender IN (' + ", ".join(f"'{g}'" for g in genders) + ')\n'
+        filters += "AND d.gender IN (" + ", ".join(f"'{g}'" for g in genders) + ")\n"
 
     ages = []
     if age_adult:
@@ -160,7 +186,7 @@ def matches():
     if age_juvenile2:
         ages.append(JUVENILE_2)
     if len(ages):
-        filters += 'AND d.age IN (' + ", ".join(f"'{a}'" for a in ages) + ')\n'
+        filters += "AND d.age IN (" + ", ".join(f"'{a}'" for a in ages) + ")\n"
 
     belts = []
     if belt_white:
@@ -174,7 +200,7 @@ def matches():
     if belt_black:
         belts.append(BLACK)
     if len(belts):
-        filters += 'AND d.belt IN (' + ", ".join(f"'{b}'" for b in belts) + ')\n'
+        filters += "AND d.belt IN (" + ", ".join(f"'{b}'" for b in belts) + ")\n"
 
     weights = []
     if weight_rooster:
@@ -200,35 +226,35 @@ def matches():
         weights.append(OPEN_CLASS_LIGHT)
         weights.append(OPEN_CLASS_HEAVY)
     if len(weights):
-        filters += 'AND d.weight IN (' + ", ".join(f"'{w}'" for w in weights) + ')\n'
+        filters += "AND d.weight IN (" + ", ".join(f"'{w}'" for w in weights) + ")\n"
 
     if date_start:
-        filters += 'AND m.happened_at >= :date_start\n'
-        params['date_start'] = datetime.fromisoformat(date_start)
+        filters += "AND m.happened_at >= :date_start\n"
+        params["date_start"] = datetime.fromisoformat(date_start)
     if date_end:
-        filters += 'AND m.happened_at <= :date_end\n'
-        params['date_end'] = datetime.fromisoformat(date_end)
+        filters += "AND m.happened_at <= :date_end\n"
+        params["date_end"] = datetime.fromisoformat(date_end)
 
     if rating_start is not None:
         rating_start_int = int(rating_start)
-        filters += '''AND EXISTS (
+        filters += """AND EXISTS (
             SELECT 1
             FROM match_participants mp
             WHERE mp.match_id = m.id AND (mp.start_rating >= :rating_start OR mp.end_rating >= :rating_start)
         )
-        '''
-        params['rating_start'] = rating_start_int
+        """
+        params["rating_start"] = rating_start_int
     if rating_end is not None:
         rating_end_int = int(rating_end)
-        filters += '''AND EXISTS (
+        filters += """AND EXISTS (
             SELECT 1
             FROM match_participants mp
             WHERE mp.match_id = m.id AND (mp.start_rating <= :rating_end OR mp.end_rating <= :rating_end)
         )
-        '''
-        params['rating_end'] = rating_end_int
+        """
+        params["rating_end"] = rating_end_int
 
-    sql = f'''
+    sql = f"""
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
             mp.winner, mp.start_rating, mp.end_rating, a.name, mp.note, m.rated, m.unrated_reason, mp.weight_for_open
         FROM matches m
@@ -238,53 +264,74 @@ def matches():
         JOIN athletes a ON mp.athlete_id = a.id
         WHERE d.gi = :gi
         {filters}
-    '''
+    """
 
-    totalCount = db.session.execute(text(f'''
+    totalCount = (
+        db.session.execute(
+            text(
+                f"""
         SELECT COUNT(*) FROM (
             {sql}
-        )'''), params).scalar_one() // 2
+        )"""
+            ),
+            params,
+        ).scalar_one()
+        // 2
+    )
 
-    params['limit'] = MATCH_PAGE_SIZE * 2
-    params['offset'] = (int(page) - 1) * MATCH_PAGE_SIZE * 2
-    results = db.session.execute(text(f'''
+    params["limit"] = MATCH_PAGE_SIZE * 2
+    params["offset"] = (int(page) - 1) * MATCH_PAGE_SIZE * 2
+    results = db.session.execute(
+        text(
+            f"""
         {sql}
         ORDER BY m.happened_at DESC, m.id DESC
         LIMIT :limit OFFSET :offset
-        '''), params)
+        """
+        ),
+        params,
+    )
 
     response = []
     current_match = None
     for result in results:
         row = result._mapping
 
-        if current_match is None or current_match.id != row['id']:
-            division = Division(gi=row['gi'], gender=row['gender'], age=row['age'], belt=row['belt'], weight=row['weight'])
-            event = Event(name=row['event_name'])
+        if current_match is None or current_match.id != row["id"]:
+            division = Division(
+                gi=row["gi"],
+                gender=row["gender"],
+                age=row["age"],
+                belt=row["belt"],
+                weight=row["weight"],
+            )
+            event = Event(name=row["event_name"])
 
             # sqlite returns a string for datetime fields, but postgres returns a datetime object
-            if isinstance(row['happened_at'], str):
-                happened_at = datetime.fromisoformat(row['happened_at'])
+            if isinstance(row["happened_at"], str):
+                happened_at = datetime.fromisoformat(row["happened_at"])
             else:
-                happened_at = row['happened_at']
+                happened_at = row["happened_at"]
 
             current_match = Match(
-                id=row['id'],
+                id=row["id"],
                 happened_at=happened_at,
                 division=division,
                 event=event,
-                rated=row['rated'], 
-                unrated_reason=row['unrated_reason']
+                rated=row["rated"],
+                unrated_reason=row["unrated_reason"],
             )
 
-        current_match.participants.append(MatchParticipant(
-            winner=row['winner'],
-            start_rating=row['start_rating'],
-            end_rating=row['end_rating'],
-            athlete=Athlete(name=row['name']),
-            note=row['note'],
-            weight_for_open=row['weight_for_open'],
-        ))
+        current_match.participants.append(
+            MatchParticipant(
+                winner=row["winner"],
+                start_rating=row["start_rating"],
+                end_rating=row["end_rating"],
+                athlete=Athlete(name=row["name"]),
+                note=row["note"],
+                weight_for_open=row["weight_for_open"],
+            )
+        )
 
         if len(current_match.participants) == 2:
             winner = None
@@ -299,28 +346,29 @@ def matches():
                 winner = current_match.participants[0]
                 loser = current_match.participants[1]
 
-            response.append({
-                "id": current_match.id,
-                "winner": winner.athlete.name,
-                "winnerStartRating": round(winner.start_rating),
-                "winnerEndRating": round(winner.end_rating),
-                "winnerWeightForOpen": winner.weight_for_open,
-                "loser": loser.athlete.name,
-                "loserStartRating": round(loser.start_rating),
-                "loserEndRating": round(loser.end_rating),
-                "loserWeightForOpen": loser.weight_for_open,
-                "event": current_match.event.name,
-                "age": current_match.division.age,
-                "gender": current_match.division.gender,
-                "belt": current_match.division.belt,
-                "weight": current_match.division.weight,
-                "date": current_match.happened_at.isoformat(),
-                "rated": current_match.rated,
-                "unratedReason": current_match.unrated_reason,
-                "notes": loser.note or winner.note
-            })
+            response.append(
+                {
+                    "id": current_match.id,
+                    "winner": winner.athlete.name,
+                    "winnerStartRating": round(winner.start_rating),
+                    "winnerEndRating": round(winner.end_rating),
+                    "winnerWeightForOpen": winner.weight_for_open,
+                    "loser": loser.athlete.name,
+                    "loserStartRating": round(loser.start_rating),
+                    "loserEndRating": round(loser.end_rating),
+                    "loserWeightForOpen": loser.weight_for_open,
+                    "event": current_match.event.name,
+                    "age": current_match.division.age,
+                    "gender": current_match.division.gender,
+                    "belt": current_match.division.belt,
+                    "weight": current_match.division.weight,
+                    "date": current_match.happened_at.isoformat(),
+                    "rated": current_match.rated,
+                    "unratedReason": current_match.unrated_reason,
+                    "notes": loser.note or winner.note,
+                }
+            )
 
-    return jsonify({
-        "rows": response,
-        "totalPages": math.ceil(totalCount / MATCH_PAGE_SIZE)
-    })
+    return jsonify(
+        {"rows": response, "totalPages": math.ceil(totalCount / MATCH_PAGE_SIZE)}
+    )
