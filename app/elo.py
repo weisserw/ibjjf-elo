@@ -84,7 +84,7 @@ def compute_k_factor(num_matches):
 def open_handicaps(db, event_id, happened_at, division, red_athlete_id, blue_athlete_id):
     if division.weight not in (OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY):
         log.debug('Not an open class match')
-        return True, 0, 0
+        return True, 0, 0, None, None
 
     # get the last rated non-open class match for each athlete
     red_last_non_open_division = db.session.query(
@@ -136,10 +136,10 @@ def open_handicaps(db, event_id, happened_at, division, red_athlete_id, blue_ath
        (blue_last_non_open_division is None and blue_last_default_gold is None):
         if division.age == ADULT and division.belt == BLACK:
             log.debug('No non-open class matches or default golds in adult black belt, treating as equal match')
-            return True, 0, 0
+            return True, 0, 0, None, None
         else:
             log.debug('No non-open class matches or default golds, not rating')
-            return False, 0, 0
+            return False, 0, 0, None, None
 
     if red_last_default_gold is None:
         red_weight = red_last_non_open_division.weight
@@ -181,9 +181,21 @@ def open_handicaps(db, event_id, happened_at, division, red_athlete_id, blue_ath
 
     log.debug('Red handicap: %s, blue handicap: %s', red_handicap, blue_handicap)
 
-    return True, red_handicap, blue_handicap
+    return True, red_handicap, blue_handicap, red_weight, blue_weight
 
-def compute_ratings(db, event_id, match_id, division, happened_at, red_athlete_id, red_winner, red_note, blue_athlete_id, blue_winner, blue_note):
+def compute_ratings(
+        db,
+        event_id,
+        match_id,
+        division,
+        happened_at,
+        red_athlete_id,
+        red_winner,
+        red_note,
+        blue_athlete_id,
+        blue_winner,
+        blue_note
+):
     log.debug("Computing ratings for match %s, division %s, happened at %s, red winner: %s, blue winner: %s, red note: %s, blue note: %s",
               match_id, division.to_json(), happened_at, red_winner, blue_winner, red_note, blue_note)
 
@@ -243,6 +255,9 @@ def compute_ratings(db, event_id, match_id, division, happened_at, red_athlete_i
     log.debug("Start ratings: red %s, blue %s", red_start_rating, blue_start_rating)
 
     rated = True
+    unrated_reason = None
+    red_weight = None
+    blue_weight = None
 
     # calculate the new ratings
     if red_winner == blue_winner:
@@ -255,19 +270,22 @@ def compute_ratings(db, event_id, match_id, division, happened_at, red_athlete_i
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
         rated = False
+        unrated_reason = 'Winner not recorded'
         log.debug("Match was a draw, not rating")
     if match_didnt_happen(red_note, blue_note):
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
         rated = False
+        unrated_reason = 'Athlete did not participate'
         log.debug("Match didn't happen, not rating")
     else:
-        rated_open, red_handicap, blue_handicap = open_handicaps(db, event_id, happened_at, division, red_athlete_id, blue_athlete_id)
+        rated_open, red_handicap, blue_handicap, red_weight, blue_weight = open_handicaps(db, event_id, happened_at, division, red_athlete_id, blue_athlete_id)
 
         if not rated_open:
             red_end_rating = red_start_rating
             blue_end_rating = blue_start_rating
             rated = False
+            unrated_reason = 'Unable to determine athlete weight classes for open class match'
             log.debug("Unrated open class match, not rating")
         else:
             red_k_factor = compute_k_factor(red_match_count)
@@ -305,4 +323,13 @@ def compute_ratings(db, event_id, match_id, division, happened_at, red_athlete_i
                 blue_end_rating = 0
                 log.debug("Blue rating went below 0, setting to 0")
 
-    return rated, red_start_rating, red_end_rating, blue_start_rating, blue_end_rating
+    return (
+        rated,
+        unrated_reason,
+        red_start_rating,
+        red_end_rating,
+        blue_start_rating,
+        blue_end_rating,
+        red_weight,
+        blue_weight
+    )

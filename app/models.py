@@ -99,6 +99,7 @@ class Match(db.Model):
     event_id = Column(UUID(as_uuid=True), ForeignKey('events.id'), nullable=False)
     division_id = Column(UUID(as_uuid=True), ForeignKey('divisions.id'), nullable=False)
     rated = Column(Boolean, nullable=False)
+    unrated_reason = Column(String, nullable=True)
 
     participants = relationship("MatchParticipant", lazy='joined')
     division = relationship("Division", lazy='joined')
@@ -122,6 +123,7 @@ class MatchParticipant(db.Model):
     note = Column(Text)
     start_rating = Column(Float, nullable=False)
     end_rating = Column(Float, nullable=False)
+    weight_for_open = Column(String, nullable=True)
 
     athlete = relationship("Athlete", lazy='joined')
 
@@ -137,6 +139,7 @@ class MatchParticipant(db.Model):
             'note': self.note,
             'start_rating': self.start_rating,
             'end_rating': self.end_rating,
+            'weight_for_open': self.weight_for_open,
         }
 
     def to_json(self):

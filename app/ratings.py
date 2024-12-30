@@ -31,7 +31,7 @@ def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None, rerank
             count += 1
 
             red, blue = match.participants
-            rated, red_start_rating, red_end_rating, blue_start_rating, blue_end_rating = compute_ratings(db, match.event_id, match.id, match.division, match.happened_at, red.athlete_id, red.winner, red.note, blue.athlete_id, blue.winner, blue.note)
+            rated, unrated_reason, red_start_rating, red_end_rating, blue_start_rating, blue_end_rating, red_weight_for_open, blue_weight_for_open = compute_ratings(db, match.event_id, match.id, match.division, match.happened_at, red.athlete_id, red.winner, red.note, blue.athlete_id, blue.winner, blue.note)
 
             changed = False
 
@@ -47,8 +47,17 @@ def recompute_all_ratings(db, gi, gender=None, age=None, start_date=None, rerank
             if blue.end_rating != blue_end_rating:
                 blue.end_rating = blue_end_rating
                 changed = True
+            if red.weight_for_open != red_weight_for_open:
+                red.weight_for_open = red_weight_for_open
+                changed = True
+            if blue.weight_for_open != blue_weight_for_open:
+                blue.weight_for_open = blue_weight_for_open
+                changed = True
             if match.rated != rated:
                 match.rated = rated
+                changed = True
+            if match.unrated_reason != unrated_reason:
+                match.unrated_reason = unrated_reason
                 changed = True
 
             if changed:

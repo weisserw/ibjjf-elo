@@ -230,7 +230,7 @@ def matches():
 
     sql = f'''
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
-            mp.winner, mp.start_rating, mp.end_rating, a.name, mp.note
+            mp.winner, mp.start_rating, mp.end_rating, a.name, mp.note, m.rated, m.unrated_reason, mp.weight_for_open
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
         JOIN events e ON m.event_id = e.id
@@ -268,14 +268,22 @@ def matches():
             else:
                 happened_at = row['happened_at']
 
-            current_match = Match(id=row['id'], happened_at=happened_at, division=division, event=event)
+            current_match = Match(
+                id=row['id'],
+                happened_at=happened_at,
+                division=division,
+                event=event,
+                rated=row['rated'], 
+                unrated_reason=row['unrated_reason']
+            )
 
         current_match.participants.append(MatchParticipant(
             winner=row['winner'],
             start_rating=row['start_rating'],
             end_rating=row['end_rating'],
             athlete=Athlete(name=row['name']),
-            note=row['note']
+            note=row['note'],
+            weight_for_open=row['weight_for_open'],
         ))
 
         if len(current_match.participants) == 2:
@@ -296,12 +304,19 @@ def matches():
                 "winner": winner.athlete.name,
                 "winnerStartRating": round(winner.start_rating),
                 "winnerEndRating": round(winner.end_rating),
+                "winnerWeightForOpen": winner.weight_for_open,
                 "loser": loser.athlete.name,
                 "loserStartRating": round(loser.start_rating),
                 "loserEndRating": round(loser.end_rating),
+                "loserWeightForOpen": loser.weight_for_open,
                 "event": current_match.event.name,
-                "division": current_match.division.display_name(),
+                "age": current_match.division.age,
+                "gender": current_match.division.gender,
+                "belt": current_match.division.belt,
+                "weight": current_match.division.weight,
                 "date": current_match.happened_at.isoformat(),
+                "rated": current_match.rated,
+                "unratedReason": current_match.unrated_reason,
                 "notes": loser.note or winner.note
             })
 

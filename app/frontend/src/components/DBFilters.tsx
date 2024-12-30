@@ -324,25 +324,6 @@ function DBFilters(props: DBFiltersProps) {
                      setIsOpen={(isOpen: boolean) => props.setOpenFilters({ ...props.openFilters, division: isOpen })}
                      isBold={anyDivisionFiltersSet}>
               <div className="checkbox-filters checkboxes">
-                <label className="filter-group-label">Gender:</label>
-                {['Male', 'Female'].map(gender => {
-                  const key = `gender_${gender.toLowerCase()}` as FilterKeys;
-                  return (
-                    <label key={gender} className="checkbox checkbox-filter">
-                      <input
-                        type="checkbox"
-                        checked={!!props.filters[key]}
-                        onChange={(e) => onChange(key, e.target.checked)}
-                      />
-                      {gender}
-                    </label>
-                  );
-                })}
-                <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['gender_male', 'gender_female'])}>
-                  {(props.filters.gender_male || props.filters.gender_female) ? 'Clear' : 'All'}
-                </button>
-              </div>
-              <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Age:</label>
                 {['Adult', 'Master 1', 'Master 2', 'Master 3', 'Master 4', 'Master 5', 'Master 6', 'Master 7', 'Juvenile 1', 'Juvenile 2'].map(age => {
                   const key = `age_${age.toLowerCase().replace(' ', '')}` as FilterKeys;
@@ -359,6 +340,25 @@ function DBFilters(props: DBFiltersProps) {
                 })}
                 <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['age_adult', 'age_master1', 'age_master2', 'age_master3', 'age_master4', 'age_master5', 'age_master6', 'age_master7', 'age_juvenile1', 'age_juvenile2'])}>
                   {(props.filters.age_adult || props.filters.age_master1 || props.filters.age_master2 || props.filters.age_master3 || props.filters.age_master4 || props.filters.age_master5 || props.filters.age_master6 || props.filters.age_master7 || props.filters.age_juvenile1 || props.filters.age_juvenile2) ? 'Clear' : 'All'}
+                </button>
+              </div>
+              <div className="checkbox-filters checkboxes">
+                <label className="filter-group-label">Gender:</label>
+                {['Male', 'Female'].map(gender => {
+                  const key = `gender_${gender.toLowerCase()}` as FilterKeys;
+                  return (
+                    <label key={gender} className="checkbox checkbox-filter">
+                      <input
+                        type="checkbox"
+                        checked={!!props.filters[key]}
+                        onChange={(e) => onChange(key, e.target.checked)}
+                      />
+                      {gender}
+                    </label>
+                  );
+                })}
+                <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['gender_male', 'gender_female'])}>
+                  {(props.filters.gender_male || props.filters.gender_female) ? 'Clear' : 'All'}
                 </button>
               </div>
               <div className="checkbox-filters checkboxes">
