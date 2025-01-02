@@ -16,11 +16,21 @@ from pull import headers, pull_tournament
 def main():
     try:
         parser = argparse.ArgumentParser(
-            description="Pull tournament matches from bjjcompsystem.com"
+            description="Pull tournament matches from archive.org"
         )
         parser.add_argument("tournament_id", type=str, help="The ID of the tournament")
         parser.add_argument(
             "tournament_name", type=str, help="The name of the tournament"
+        )
+        parser.add_argument(
+            "year",
+            type=int,
+            help="The year of the tournament",
+        )
+        parser.add_argument(
+            "url",
+            type=str,
+            help="The URL for the tournament on archive.org",
         )
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument(
@@ -51,22 +61,16 @@ def main():
                 "Warning: The tournament name does not indicate no-gi, but you are importing it as no-gi. Press Enter to continue or Ctrl-C to abort.\n"
             )
 
-        urls = [
-            (
-                f"https://www.bjjcompsystem.com/tournaments/{args.tournament_id}/categories",
-                "Male",
-            ),
-            (
-                f"https://www.bjjcompsystem.com/tournaments/{args.tournament_id}/categories?gender_id=2",
-                "Female",
-            ),
-        ]
-
         output_file = f"{args.tournament_id}.{args.tournament_name.replace(' ', '_')}.{datetime.now().strftime('%Y%m%d%H%M')}.csv"
 
         with open(output_file, mode="w", newline="") as file:
             writer = csv.writer(file)
             writer.writerow(headers)
+
+            urls = [
+                (args.url, "Male"),
+                (args.url + "?gender_id=2", "Female"),
+            ]
 
             pull_tournament(
                 file,
@@ -75,8 +79,8 @@ def main():
                 args.tournament_name,
                 args.gi,
                 urls,
-                "https://www.bjjcompsystem.com",
-                datetime.now().year,
+                "https://web.archive.org",
+                args.year,
             )
         print(f"Wrote data to {output_file}")
     except Exception as e:
