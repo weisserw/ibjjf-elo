@@ -143,9 +143,16 @@ def pull_tournament(
                 if match_when:
                     match_datetime = match_when.get_text(strip=True)
 
+                    if re.search(
+                        r"^(mon|tue|wed|thu|fri|sat|sun)\s", match_datetime, re.I
+                    ):
+                        format = "%m/%d %I:%M %p"
+                    else:
+                        format = "%d/%m %I:%M %p"
+
                     match_datetime = re.sub(
                         r"^(mon|tue|wed|thu|fri|sat|sun|seg|ter|qua|qui|sex|sáb|sab|dom)\s|(at|às)\s",
-                        "",
+                        format,
                         match_datetime,
                         flags=re.I,
                     )
