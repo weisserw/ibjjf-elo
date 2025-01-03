@@ -1,19 +1,30 @@
 import time
 import requests
+from requests.adapters import HTTPAdapter
 from datetime import datetime
 from bs4 import BeautifulSoup
+import re
 
 
-def rate_limit_get(url):
-    count = 0
-    response = requests.get(url)
-    while response.status_code == 429:
-        print(f"Rate limited, waiting {10 * (2 ** count)} seconds")
-        time.sleep(10 * (2**count))
-        count += 1
-        response = requests.get(url)
-
-    return response
+def rate_limit_get(session, url, limit, raise_on_error):
+    if limit:
+        time.sleep(limit)
+    count = 1
+    while True:
+        try:
+            return session.get(url, timeout=30)
+        except requests.exceptions.ConnectionError:
+            if raise_on_error:
+                raise
+            print(f"Connection error, retrying in {30 * count} seconds", flush=True)
+            time.sleep(30 * count)
+            count += 1
+        except requests.exceptions.Timeout:
+            if raise_on_error:
+                raise
+            print(f"Timeout error, retrying in {30 * count} seconds", flush=True)
+            time.sleep(30 * count)
+            count += 1
 
 
 headers = [
@@ -42,19 +53,38 @@ headers = [
 
 
 def pull_tournament(
-    file, writer, tournament_id, tournament_name, gi, urls, base_url, year
+    file,
+    writer,
+    tournament_id,
+    tournament_name,
+    gi,
+    urls,
+    base_url,
+    year,
+    limit=None,
+    raise_on_error=True,
 ):
     total_matches = 0
     total_defaults = 0
     total_categories = 0
 
+    s = requests.Session()
+    if not raise_on_error:
+        s.mount(base_url, HTTPAdapter(max_retries=0))
+
     for url, gender in urls:
-        print(f"Fetching data for {gender} categories from {url}")
-        response = rate_limit_get(url)
+        print(f"Fetching data for {gender} categories from {url}", flush=True)
+        response = rate_limit_get(s, url, limit, raise_on_error)
 
         if response.status_code != 200:
-            print(f"Failed to retrieve data for {url}: {response.status_code}")
-            return
+            if raise_on_error:
+                raise Exception(
+                    f"Failed to retrieve data for {url}: {response.status_code}"
+                )
+            print(
+                f"Failed to retrieve data for {url}: {response.status_code}", flush=True
+            )
+            continue
 
         soup = BeautifulSoup(response.content, "html.parser")
 
@@ -86,15 +116,22 @@ def pull_tournament(
 
             total_categories += 1
 
-            print(f"Fetching data for {age} / {belt} / {weight} from {link}")
+            print(
+                f"Fetching data for {age} / {belt} / {weight} from {link}", flush=True
+            )
 
             categoryurl = f"{base_url}{link}"
-            response = rate_limit_get(categoryurl)
+            response = rate_limit_get(s, categoryurl, limit, raise_on_error)
             if response.status_code != 200:
+                if raise_on_error:
+                    raise Exception(
+                        f"Failed to retrieve data for {url}: {response.status_code}"
+                    )
                 print(
-                    f"Failed to retrieve data for {categoryurl}: {response.status_code}"
+                    f"Failed to retrieve data for {categoryurl}: {response.status_code}",
+                    flush=True,
                 )
-                return
+                continue
 
             category_soup = BeautifulSoup(response.content, "html.parser")
             matches = category_soup.find_all("div", class_="tournament-category__match")
@@ -105,8 +142,16 @@ def pull_tournament(
                 match_when = match.find("div", class_="bracket-match-header__when")
                 if match_when:
                     match_datetime = match_when.get_text(strip=True)
+
+                    match_datetime = re.sub(
+                        r"^(mon|tue|wed|thu|fri|sat|sun|seg|ter|qua|qui|sex|sáb|sab|dom)\s|(at|às)\s",
+                        "",
+                        match_datetime,
+                        flags=re.I,
+                    )
+
                     match_datetime_parsed = datetime.strptime(
-                        match_datetime, "%a %m/%d at %I:%M %p"
+                        match_datetime, "%m/%d %I:%M %p"
                     )
                     match_datetime_parsed = match_datetime_parsed.replace(year=year)
                     match_datetime_iso = match_datetime_parsed.strftime(
@@ -235,8 +280,10 @@ def pull_tournament(
                 total_matches += 1
 
             print(
-                f"Recorded {category_matches} matches and {category_defaults} default golds for {age} / {belt} / {weight}"
+                f"Recorded {category_matches} matches and {category_defaults} default golds for {age} / {belt} / {weight}",
+                flush=True,
             )
     print(
-        f"Total matches recorded: {total_matches}, Total default golds recorded: {total_defaults}, Total divisions processed: {total_categories}"
+        f"Total matches recorded: {total_matches}, Total default golds recorded: {total_defaults}, Total divisions processed: {total_categories}",
+        flush=True,
     )

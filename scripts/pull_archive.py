@@ -81,6 +81,8 @@ def main():
                 urls,
                 "https://web.archive.org",
                 args.year,
+                5,
+                False,
             )
         print(f"Wrote data to {output_file}")
     except Exception as e:
