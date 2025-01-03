@@ -152,14 +152,12 @@ def pull_tournament(
 
                     match_datetime = re.sub(
                         r"^(mon|tue|wed|thu|fri|sat|sun|seg|ter|qua|qui|sex|sáb|sab|dom)\s|(at|às)\s",
-                        format,
+                        "",
                         match_datetime,
                         flags=re.I,
                     )
 
-                    match_datetime_parsed = datetime.strptime(
-                        match_datetime, "%m/%d %I:%M %p"
-                    )
+                    match_datetime_parsed = datetime.strptime(match_datetime, format)
                     match_datetime_parsed = match_datetime_parsed.replace(year=year)
                     match_datetime_iso = match_datetime_parsed.strftime(
                         "%Y-%m-%dT%H:%M:%S"
