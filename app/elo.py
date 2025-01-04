@@ -1,10 +1,10 @@
 import logging
 from typing import Tuple, Optional
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from flask_sqlalchemy import SQLAlchemy
 from models import Match, MatchParticipant, Division, DefaultGold
 from constants import (
-    ADULT,
     BLACK,
     BROWN,
     PURPLE,
@@ -192,7 +192,9 @@ def open_handicaps(
             blue_weight = blue_last_non_open_division.weight
         elif blue_last_non_open_division is None:
             blue_weight = blue_last_default_gold.weight
-        elif blue_last_default_gold.happened_at > blue_last_non_open_division.happened_at:
+        elif (
+            blue_last_default_gold.happened_at > blue_last_non_open_division.happened_at
+        ):
             blue_weight = blue_last_default_gold.weight
         else:
             blue_weight = blue_last_non_open_division.weight
@@ -200,9 +202,7 @@ def open_handicaps(
     # if one of the athletes has no non-open class matches or default golds,
     # treat it as an equal match
     if red_weight is None or blue_weight is None:
-        log.debug(
-            "No non-open class matches or default golds, treating as equal match"
-        )
+        log.debug("No non-open class matches or default golds, treating as equal match")
         return True, 0, 0, red_weight, blue_weight
 
     log.debug(
@@ -291,7 +291,9 @@ def compute_ratings(
         .first()
     )
 
-    # get the number of rated matches played by each athlete in the same division
+    # get the number of rated matches played by each athlete in the same division in the last 3 years
+    three_years_prior = happened_at - relativedelta(years=3)
+
     red_match_count = (
         db.session.query(MatchParticipant)
         .join(Match)
@@ -304,6 +306,7 @@ def compute_ratings(
             MatchParticipant.athlete_id == red_athlete_id,
             (Match.happened_at < happened_at)
             | ((Match.happened_at == happened_at) & (Match.id < match_id)),
+            Match.happened_at > three_years_prior,
         )
         .count()
     )
@@ -319,6 +322,7 @@ def compute_ratings(
             MatchParticipant.athlete_id == blue_athlete_id,
             (Match.happened_at < happened_at)
             | ((Match.happened_at == happened_at) & (Match.id < match_id)),
+            Match.happened_at > three_years_prior,
         )
         .count()
     )
@@ -383,9 +387,7 @@ def compute_ratings(
         red_k_factor = compute_k_factor(red_match_count, unknown_open)
         blue_k_factor = compute_k_factor(blue_match_count, unknown_open)
 
-        log.debug(
-            "Red k factor: %s, blue k factor: %s", red_k_factor, blue_k_factor
-        )
+        log.debug("Red k factor: %s, blue k factor: %s", red_k_factor, blue_k_factor)
 
         red_elo = EloCompetitor(red_start_rating + red_handicap, red_k_factor)
         blue_elo = EloCompetitor(blue_start_rating + blue_handicap, blue_k_factor)
