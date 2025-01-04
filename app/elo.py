@@ -395,7 +395,7 @@ def compute_ratings(
                 f"Athlete was promoted one belt and is below default rating, adding {PROMOTION_RATING_BUMP} to rating"
             )
             blue_start_rating = blue_last_match.end_rating + PROMOTION_RATING_BUMP
-        red_rating_note = (
+        blue_rating_note = (
             "Promoted from "
             + blue_last_match.match.division.belt
             + " to "
