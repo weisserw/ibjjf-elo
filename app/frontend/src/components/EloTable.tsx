@@ -4,60 +4,9 @@ import axios, { AxiosResponse } from 'axios';
 import { debounce } from 'lodash'
 import { FilterValues, type OpenFilters } from './DBFilters';
 import DBPagination from './DBPagination';
+import EloFilters from './EloFilters';
 import Autosuggest from 'react-autosuggest';
 import "./EloTable.css"
-
-const juvenileRanks = [
-  'White',
-  'Blue',
-  'Purple',
-]
-
-const juvenileRanksValues = juvenileRanks.map(rank => rank.toUpperCase())
-
-const adultRanks = [
-  'White',
-  'Blue',
-  'Purple',
-  'Brown',
-  'Black',
-]
-
-const adultRanksValues = adultRanks.map(rank => rank.toUpperCase())
-
-const femaleWeights = [{
-  name: 'P4P',
-  value: ''
-}, {
-  name: 'Rooster',
-  value: 'Rooster'
-}, {
-  name: 'Light Feather',
-  value: 'Light Feather'
-}, {
-  name: 'Feather',
-  value: 'Feather'
-}, {
-  name: 'Light',
-  value: 'Light'
-}, {
-  name: 'Middle',
-  value: 'Middle'
-}, {
-  name: 'Medium Heavy',
-  value: 'Medium Heavy'
-}, {
-  name: 'Heavy',
-  value: 'Heavy'
-}, {
-  name: 'Super Heavy',
-  value: 'Super Heavy'
-}];
-
-const maleWeights = femaleWeights.concat([{
-  name: 'Ultra Heavy',
-  value: 'Ultra Heavy'
-}]);
 
 interface Row {
   rank: number
@@ -72,17 +21,22 @@ interface Results {
 
 interface EloTableProps {
   gi: boolean
+  gender: string
+  age: string
+  belt: string
+  weight: string
+  nameFilter: string
+  setGender: (value: string) => void
+  setAge: (value: string) => void
+  setBelt: (value: string) => void
+  setWeight: (value: string) => void
+  setNameFilter: (name: string) => void
   setFilters: (filters: FilterValues) => void
   setOpenFilters: (openFilters: OpenFilters) => void
 }
 
 function EloTable(props: EloTableProps) {
-  const [gender, setGender] = useState('Male')
-  const [age, setAge] = useState('Adult')
-  const [belt, setBelt] = useState('BLACK')
-  const [weight, setWeight] = useState('')
-  const [nameFilter, setNameFilter] = useState('')
-  const [nameFilterSearch, setNameFilterSearch] = useState('')
+  const [nameFilterSearch, setNameFilterSearch] = useState(props.nameFilter)
   const [loading, setLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
   const [data, setData] = useState<Row[]>([])
@@ -96,13 +50,13 @@ function EloTable(props: EloTableProps) {
     setReloading(true)
     axios.get<Results>('/api/top', {
       params: {
-        gender,
-        age,
-        belt,
-        weight,
-        name: nameFilterSearch,
+        gender: props.gender,
+        age: props.age,
+        belt: props.belt,
+        weight: props.weight,
+        name: props.nameFilter,
         gi: props.gi ? 'true' : 'false',
-        page
+        page,
       }
     }).then((response: AxiosResponse<Results>) => {
       setData(response.data.rows)
@@ -118,62 +72,21 @@ function EloTable(props: EloTableProps) {
       setLoading(false)
       setReloading(false)
     })
-  }, [gender, age, belt, weight, nameFilterSearch, props.gi, page]);
+  }, [props.gender, props.age, props.belt, props.weight, props.nameFilter, props.gi, page]);
 
   const getAthleteSuggestions = async ({ value }: { value: string }) => {
     const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
     setAthleteSuggestions(response.data);
   }
 
-  const isJuvenileAge = (age: string) => {
-    return age.startsWith('Juvenile')
-  }
-
-  const isAdultAge = (age: string) => {
-    return !isJuvenileAge(age)
-  }
-
-  const onGenderChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setGender(event.target.value)
-
-    if (event.target.value === 'Female' && weight === 'Ultra Heavy') {
-      setWeight('')
-    }
-  }
-
-  const defaultBelt = (age: string) => {
-    if (isAdultAge(age)) {
-      return 'BLACK';
-    } else {
-      return 'BLUE';
-    }
-  }
-
-  const onAgeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setAge(event.target.value)
-
-    if ((isJuvenileAge(event.target.value) && juvenileRanksValues.indexOf(belt) !== -1)
-      || (isAdultAge(event.target.value) && adultRanksValues.indexOf(belt) === -1)) {
-      setBelt(defaultBelt(event.target.value))
-    }
-  }
-
-  const onBeltChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setBelt(event.target.value)
-  }
-
-  const onWeightChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setWeight(event.target.value)
-  }
-
-  const debouncedSetNameFilterSearch = useCallback(
-    debounce((value: string) => setNameFilterSearch(value), 750),
+  const debouncedSetNameFilter = useCallback(
+    debounce((value: string) => props.setNameFilter(value), 750),
     []
   );
 
   const onNameFilterChange = (value: string) => {
-    setNameFilter(value)
-    debouncedSetNameFilterSearch(value)
+    setNameFilterSearch(value)
+    debouncedSetNameFilter(value)
   }
 
   const onNameClick = (e: React.MouseEvent, name: string) => {
@@ -203,72 +116,9 @@ function EloTable(props: EloTableProps) {
     setPage(pageNumber)
   }
 
-  const ranks = isJuvenileAge(age) ? juvenileRanks : adultRanks;
-
-  const weights = gender === 'Male' ? maleWeights : femaleWeights;
-
   return (
     <div>
-      <div className="columns is-mobile is-multiline">
-        <div className="column is-half-mobile">
-          <div className="field">
-            <label className="label">Gender</label>
-            <div className="select">
-              <select value={gender} onChange={onGenderChange}>
-                <option>Male</option>
-                <option>Female</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div className="column is-half-mobile">
-          <div className="field">
-            <label className="label">Age</label>
-            <div className="select">
-              <select value={age} onChange={onAgeChange}>
-                <option>Juvenile 1</option>
-                <option>Juvenile 2</option>
-                <option>Adult</option>
-                <option>Master 1</option>
-                <option>Master 2</option>
-                <option>Master 3</option>
-                <option>Master 4</option>
-                <option>Master 5</option>
-                <option>Master 6</option>
-                <option>Master 7</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div className="column is-half-mobile">
-          <div className="field">
-            <label className="label">Belt</label>
-            <div className="select">
-              <select value={belt} onChange={onBeltChange}>
-                {
-                  ranks.map(rank => (
-                    <option key={rank} value={rank.toUpperCase()}>{rank}</option>
-                  ))
-                }
-              </select>
-            </div>
-          </div>
-        </div>
-        <div className="column is-half-mobile">
-          <div className="field">
-            <label className="label">Weight</label>
-            <div className="select">
-              <select value={weight} onChange={onWeightChange}>
-                {
-                  weights.map(({ name, value }) => (
-                    <option key={value} value={value}>{name}</option>
-                  ))
-                }
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
+      <EloFilters gender={props.gender} setGender={props.setGender} age={props.age} setAge={props.setAge} belt={props.belt} setBelt={props.setBelt} weight={props.weight} setWeight={props.setWeight} />
       <div>
         <div className="field">
           <div className="control ">
@@ -280,7 +130,7 @@ function EloTable(props: EloTableProps) {
                          renderSuggestion={(suggestion) => suggestion}
                          inputProps={{
                            className: "input",
-                           value: nameFilter,
+                           value: nameFilterSearch,
                            placeholder: "Enter Name...",
                            onChange: (_: any, { newValue }) => {
                             onNameFilterChange(newValue)

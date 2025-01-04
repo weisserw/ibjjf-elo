@@ -235,6 +235,7 @@ def open_handicaps(
 
 PROMOTION_RATING_BUMP = 250
 
+
 def compute_ratings(
     db: SQLAlchemy,
     event_id: str,
@@ -343,33 +344,57 @@ def compute_ratings(
     # if the athlete has no previous matches, use the default rating for their belt
     if red_last_match is None:
         red_start_rating = BELT_DEFAULT_RATING[division.belt]
-    elif red_last_match.match.division.belt != division.belt and red_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]:
+    elif (
+        red_last_match.match.division.belt != division.belt
+        and red_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
+    ):
         previous_belt_num = belt_order.index(red_last_match.match.division.belt)
         current_belt_num = belt_order.index(division.belt)
 
         if current_belt_num - previous_belt_num > 1:
-            log.debug("Athlete was promoted more than one belt and is below default rating, using default rating")
+            log.debug(
+                "Athlete was promoted more than one belt and is below default rating, using default rating"
+            )
             red_start_rating = BELT_DEFAULT_RATING[division.belt]
         else:
-            log.debug(f"Athlete was promoted one belt and is below default rating, adding {PROMOTION_RATING_BUMP} to rating")
+            log.debug(
+                f"Athlete was promoted one belt and is below default rating, adding {PROMOTION_RATING_BUMP} to rating"
+            )
             red_start_rating = red_last_match.end_rating + PROMOTION_RATING_BUMP
-        red_rating_note = "Promoted from " + red_last_match.match.division.belt + " to " + division.belt
+        red_rating_note = (
+            "Promoted from "
+            + red_last_match.match.division.belt
+            + " to "
+            + division.belt
+        )
     else:
         red_start_rating = red_last_match.end_rating
 
     if blue_last_match is None:
         blue_start_rating = BELT_DEFAULT_RATING[division.belt]
-    elif blue_last_match.match.division.belt != division.belt and blue_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]:
+    elif (
+        blue_last_match.match.division.belt != division.belt
+        and blue_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
+    ):
         previous_belt_num = belt_order.index(blue_last_match.match.division.belt)
         current_belt_num = belt_order.index(division.belt)
 
         if current_belt_num - previous_belt_num > 1:
-            log.debug("Athlete was promoted more than one belt and is below default rating, using default rating")
+            log.debug(
+                "Athlete was promoted more than one belt and is below default rating, using default rating"
+            )
             blue_start_rating = BELT_DEFAULT_RATING[division.belt]
         else:
-            log.debug(f"Athlete was promoted one belt and is below default rating, adding {PROMOTION_RATING_BUMP} to rating")
+            log.debug(
+                f"Athlete was promoted one belt and is below default rating, adding {PROMOTION_RATING_BUMP} to rating"
+            )
             blue_start_rating = blue_last_match.end_rating + PROMOTION_RATING_BUMP
-        red_rating_note = "Promoted from " + blue_last_match.match.division.belt + " to " + division.belt
+        red_rating_note = (
+            "Promoted from "
+            + blue_last_match.match.division.belt
+            + " to "
+            + division.belt
+        )
     else:
         blue_start_rating = blue_last_match.end_rating
 

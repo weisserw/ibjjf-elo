@@ -12,6 +12,11 @@ function App() {
   const [filters, setFilters] = useState<FilterValues>({});
   const [openFilters, setOpenFilters] = useState<OpenFilters>({athlete: true, event: false, division: false});
   const [activeTab, setActiveTab] = useState<TabName>('Gi')
+  const [rankingGender, setRankingGender] = useState('Male')
+  const [rankingAge, setRankingAge] = useState('Adult')
+  const [rankingBelt, setRankingBelt] = useState('BLACK')
+  const [rankingWeight, setRankingWeight] = useState('')
+  const [rankingNameFilter, setRankingNameFilter] = useState('')
 
   return (
     <Router>
@@ -23,7 +28,21 @@ function App() {
         </header>
         <main style={{ flex: '1' }}>
           <Routes>
-            <Route path="/" element={<Ratings setFilters={setFilters} setOpenFilters={setOpenFilters} activeTab={activeTab} setActiveTab={setActiveTab} />} />
+            <Route path="/" element={<Ratings setFilters={setFilters}
+                                              setOpenFilters={setOpenFilters}
+                                              activeTab={activeTab}
+                                              setActiveTab={setActiveTab}
+                                              gender={rankingGender}
+                                              setGender={setRankingGender}
+                                              age={rankingAge}
+                                              setAge={setRankingAge}
+                                              belt={rankingBelt}
+                                              setBelt={setRankingBelt}
+                                              weight={rankingWeight}
+                                              setWeight={setRankingWeight}
+                                              nameFilter={rankingNameFilter}
+                                              setNameFilter={setRankingNameFilter}
+                                              />} />
             <Route path="/database" element={<Database filters={filters}
                                                        setFilters={setFilters}
                                                        openFilters={openFilters}
