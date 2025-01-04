@@ -233,6 +233,12 @@ def open_handicaps(
     return False, red_handicap, blue_handicap, red_weight, blue_weight
 
 
+def append_rating_note(note: Optional[str], add_note: str) -> str:
+    if note is None:
+        return add_note
+    return note + ", " + add_note
+
+
 PROMOTION_RATING_BUMP = 250
 
 
@@ -418,13 +424,23 @@ def compute_ratings(
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
         rated = False
-        red_rating_note = blue_rating_note = "Unrated: winner not recorded"
+        red_rating_note = append_rating_note(
+            red_rating_note, "Unrated: winner not recorded"
+        )
+        blue_rating_note = append_rating_note(
+            blue_rating_note, "Unrated: winner not recorded"
+        )
         log.debug("Match was a draw, not rating")
     if match_didnt_happen(red_note, blue_note):
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
         rated = False
-        red_rating_note = blue_rating_note = "Unrated: athlete did not participate"
+        red_rating_note = append_rating_note(
+            red_rating_note, "Unrated: athlete did not participate"
+        )
+        blue_rating_note = append_rating_note(
+            blue_rating_note, "Unrated: athlete did not participate"
+        )
         log.debug("Match didn't happen, not rating")
     else:
         unknown_open, red_handicap, blue_handicap, red_weight, blue_weight = (
