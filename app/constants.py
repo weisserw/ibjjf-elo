@@ -4,6 +4,8 @@ PURPLE = "PURPLE"
 BLUE = "BLUE"
 WHITE = "WHITE"
 
+belt_order = [WHITE, BLUE, PURPLE, BROWN, BLACK]
+
 
 def translate_belt(belt: str) -> str:
     if belt == "AZUL":

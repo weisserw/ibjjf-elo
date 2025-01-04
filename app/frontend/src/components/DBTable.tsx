@@ -20,10 +20,12 @@ interface Row {
   winnerStartRating: number
   winnerEndRating: number
   winnerWeightForOpen: string | null
+  winnerRatingNote: string | null
   loser: string
   loserStartRating: number
   loserEndRating: number
   loserWeightForOpen: string | null
+  loserRatingNote: string | null
   event: string
   age: string
   gender: string
@@ -31,7 +33,6 @@ interface Row {
   weight: string
   date: string
   rated: boolean
-  unratedReason: string | null
   notes: string
 }
 
@@ -170,10 +171,10 @@ function DBTable(props: EloTableProps) {
     }
   }
 
-  const unratedAsterisk = (row: Row, bottom: boolean) => {
-    if (!row.rated) {
+  const ratingAsterisk = (note: string | null, bottom: boolean) => {
+    if (note) {
       return (
-        <span className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": bottom})} data-tooltip={`Unrated: ${row.unratedReason}`}>
+        <span className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": bottom})} data-tooltip={note}>
           <strong>*</strong>
         </span>
       )
@@ -232,9 +233,9 @@ function DBTable(props: EloTableProps) {
               !loading && !!data.length && data.map((row: Row, index: number) => (
                 <tr key={row.id}>
                   <td><a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a></td>
-                  <td>{row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{unratedAsterisk(row, index === 0)}</td>
+                  <td>{row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}</td>
                   <td><a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a></td>
-                  <td>{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{unratedAsterisk(row, index === 0)}</td>
+                  <td>{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, index === 0)}</td>
                   <td className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": index === 0})} data-tooltip={shortEvent(row) !== row.event ? row.event : undefined}>
                     <a href="#" onClick={e => eventClicked(e, row.event)}>{shortEvent(row)}</a>
                   </td>
@@ -287,10 +288,10 @@ function DBTable(props: EloTableProps) {
                 <div className="card-content">
                   <div className="columns">
                     <div className="column">
-                      <strong>Winner:</strong> <a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a> {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{unratedAsterisk(row, true)}
+                      <strong>Winner:</strong> <a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a> {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, true)}
                     </div>
                     <div className="column has-text-right-tablet">
-                      <strong>Loser:</strong> <a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a> {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{unratedAsterisk(row, true)}
+                      <strong>Loser:</strong> <a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a> {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, true)}
                     </div>
                   </div>
                   <div className="columns">

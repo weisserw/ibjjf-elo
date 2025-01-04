@@ -95,9 +95,9 @@ class DefaultGold(db.Model):
     athlete_id = Column(UUID(as_uuid=True), ForeignKey("athletes.id"), nullable=False)
     team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False)
 
-    division = relationship("Division", lazy="joined")
-    athlete = relationship("Athlete", lazy="joined")
-    event = relationship("Event", lazy="joined")
+    division = relationship("Division", lazy="joined", viewonly=True)
+    athlete = relationship("Athlete", lazy="joined", viewonly=True)
+    event = relationship("Event", lazy="joined", viewonly=True)
 
     __table_args__ = (
         Index("ix_default_golds_event_id", "event_id"),
@@ -115,11 +115,10 @@ class Match(db.Model):
     event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False)
     division_id = Column(UUID(as_uuid=True), ForeignKey("divisions.id"), nullable=False)
     rated = Column(Boolean, nullable=False)
-    unrated_reason = Column(String, nullable=True)
 
-    participants = relationship("MatchParticipant", lazy="joined")
-    division = relationship("Division", lazy="joined")
-    event = relationship("Event", lazy="joined")
+    participants = relationship("MatchParticipant", lazy="joined", viewonly=True)
+    division = relationship("Division", lazy="joined", viewonly=True)
+    event = relationship("Event", lazy="joined", viewonly=True)
 
     __table_args__ = (
         Index("ix_matches_event_id", "event_id"),
@@ -140,11 +139,13 @@ class MatchParticipant(db.Model):
     red = Column(Boolean, nullable=False)
     winner = Column(Boolean, nullable=False)
     note = Column(Text)
+    rating_note = Column(Text)
     start_rating = Column(Float, nullable=False)
     end_rating = Column(Float, nullable=False)
     weight_for_open = Column(String, nullable=True)
 
-    athlete = relationship("Athlete", lazy="joined")
+    athlete = relationship("Athlete", lazy="joined", viewonly=True)
+    match = relationship("Match", lazy="joined", viewonly=True)
 
     def to_dict(self):
         return {
@@ -184,7 +185,7 @@ class AthleteRating(db.Model):
     match_happened_at = Column(DateTime, nullable=False)
     rank = Column(Integer, nullable=True)
 
-    athlete = relationship("Athlete", lazy="joined")
+    athlete = relationship("Athlete", lazy="joined", viewonly=True)
 
     __table_args__ = (
         Index("ix_athlete_ratings_athlete_id", "athlete_id"),

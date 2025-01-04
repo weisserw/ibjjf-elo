@@ -51,13 +51,14 @@ def recompute_all_ratings(
             red, blue = match.participants
             (
                 rated,
-                unrated_reason,
                 red_start_rating,
                 red_end_rating,
                 blue_start_rating,
                 blue_end_rating,
                 red_weight_for_open,
                 blue_weight_for_open,
+                red_rating_note,
+                blue_rating_note,
             ) = compute_ratings(
                 db,
                 match.event_id,
@@ -92,11 +93,14 @@ def recompute_all_ratings(
             if blue.weight_for_open != blue_weight_for_open:
                 blue.weight_for_open = blue_weight_for_open
                 changed = True
+            if red.rating_note != red_rating_note:
+                red.rating_note = red_rating_note
+                changed = True
+            if blue.rating_note != blue_rating_note:
+                blue.rating_note = blue_rating_note
+                changed = True
             if match.rated != rated:
                 match.rated = rated
-                changed = True
-            if match.unrated_reason != unrated_reason:
-                match.unrated_reason = unrated_reason
                 changed = True
 
             if changed:

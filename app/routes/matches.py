@@ -256,7 +256,7 @@ def matches():
 
     sql = f"""
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
-            mp.winner, mp.start_rating, mp.end_rating, a.name, mp.note, m.rated, m.unrated_reason, mp.weight_for_open
+            mp.winner, mp.start_rating, mp.end_rating, a.name, mp.note, m.rated, mp.rating_note, mp.weight_for_open
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
         JOIN events e ON m.event_id = e.id
@@ -319,7 +319,6 @@ def matches():
                 division=division,
                 event=event,
                 rated=row["rated"],
-                unrated_reason=row["unrated_reason"],
             )
 
         current_match.participants.append(
@@ -330,6 +329,7 @@ def matches():
                 athlete=Athlete(name=row["name"]),
                 note=row["note"],
                 weight_for_open=row["weight_for_open"],
+                rating_note=row["rating_note"],
             )
         )
 
@@ -364,8 +364,9 @@ def matches():
                     "weight": current_match.division.weight,
                     "date": current_match.happened_at.isoformat(),
                     "rated": current_match.rated,
-                    "unratedReason": current_match.unrated_reason,
                     "notes": loser.note or winner.note,
+                    "winnerRatingNote": winner.rating_note,
+                    "loserRatingNote": loser.rating_note,
                 }
             )
 
