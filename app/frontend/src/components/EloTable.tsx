@@ -26,6 +26,7 @@ interface EloTableProps {
   belt: string
   weight: string
   nameFilter: string
+  page: number
   setGender: (value: string) => void
   setAge: (value: string) => void
   setBelt: (value: string) => void
@@ -33,6 +34,7 @@ interface EloTableProps {
   setNameFilter: (name: string) => void
   setFilters: (filters: FilterValues) => void
   setOpenFilters: (openFilters: OpenFilters) => void
+  setPage: (page: number) => void
 }
 
 function EloTable(props: EloTableProps) {
@@ -40,7 +42,6 @@ function EloTable(props: EloTableProps) {
   const [loading, setLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
   const [data, setData] = useState<Row[]>([])
-  const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [athleteSuggestions, setAthleteSuggestions] = useState<string[]>([])
 
@@ -56,7 +57,7 @@ function EloTable(props: EloTableProps) {
         weight: props.weight,
         name: props.nameFilter,
         gi: props.gi ? 'true' : 'false',
-        page,
+        page: props.page,
       }
     }).then((response: AxiosResponse<Results>) => {
       setData(response.data.rows)
@@ -64,15 +65,15 @@ function EloTable(props: EloTableProps) {
       setLoading(false)
       setReloading(false)
 
-      if (response.data.rows.length === 0 && page > 1) {
-        setPage(1)
+      if (response.data.totalPages < props.page) {
+        props.setPage(1)
       }
     }).catch((exception) => {
       console.error(exception)
       setLoading(false)
       setReloading(false)
     })
-  }, [props.gender, props.age, props.belt, props.weight, props.nameFilter, props.gi, page]);
+  }, [props.gender, props.age, props.belt, props.weight, props.nameFilter, props.gi, props.page]);
 
   const getAthleteSuggestions = async ({ value }: { value: string }) => {
     const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
@@ -99,21 +100,21 @@ function EloTable(props: EloTableProps) {
 
   const onNextPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    if (page < totalPages) {
-      setPage(page + 1)
+    if (props.page < totalPages) {
+      props.setPage(props.page + 1)
     }
   }
 
   const onPreviousPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    if (page > 1) {
-      setPage(page - 1)
+    if (props.page > 1) {
+      props.setPage(props.page - 1)
     }
   }
 
   const onPageClick = (pageNumber: number, event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    setPage(pageNumber)
+    props.setPage(pageNumber)
   }
 
   return (
@@ -189,7 +190,7 @@ function EloTable(props: EloTableProps) {
       </div>
       {
         !loading && data.length > 0 && (
-          <DBPagination loading={reloading} page={page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
+          <DBPagination loading={reloading} page={props.page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
         )
       }
     </div>

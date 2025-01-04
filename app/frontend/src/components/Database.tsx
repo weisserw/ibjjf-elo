@@ -9,6 +9,8 @@ interface DatabaseProps {
   setOpenFilters: (openFilters: OpenFilters) => void;
   activeTab: TabName;
   setActiveTab: (activeTab: TabName) => void;
+  page: number;
+  setPage: (page: number) => void;
 }
 
 function Database(props: DatabaseProps) {

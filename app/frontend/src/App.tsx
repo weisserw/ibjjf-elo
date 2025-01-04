@@ -17,6 +17,8 @@ function App() {
   const [rankingBelt, setRankingBelt] = useState('BLACK')
   const [rankingWeight, setRankingWeight] = useState('')
   const [rankingNameFilter, setRankingNameFilter] = useState('')
+  const [rankingPage, setRankingPage] = useState(1)
+  const [dbPage, setDbPage] = useState(1)
 
   return (
     <Router>
@@ -42,13 +44,18 @@ function App() {
                                               setWeight={setRankingWeight}
                                               nameFilter={rankingNameFilter}
                                               setNameFilter={setRankingNameFilter}
+                                              page={rankingPage}
+                                              setPage={setRankingPage}
                                               />} />
             <Route path="/database" element={<Database filters={filters}
                                                        setFilters={setFilters}
                                                        openFilters={openFilters}
                                                        setOpenFilters={setOpenFilters}
                                                        activeTab={activeTab}
-                                                       setActiveTab={setActiveTab} />} />
+                                                       setActiveTab={setActiveTab}
+                                                       page={dbPage}
+                                                       setPage={setDbPage}
+                                                       />} />
             <Route path="/about" element={<About />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

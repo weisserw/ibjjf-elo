@@ -143,7 +143,6 @@ function DBFilters(props: DBFiltersProps) {
   }
 
   const onChange = (key: FilterKeys, value: any) => {
-    console.log(key, value);
     const newFilters = { ...props.filters, [key]: value };
     if (value === '' || value === false) {
       delete newFilters[key];

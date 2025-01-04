@@ -44,16 +44,17 @@ interface Results {
 interface EloTableProps {
   gi: boolean
   filters: FilterValues
+  page: number
   setFilters: (filters: FilterValues) => void
   openFilters: OpenFilters
   setOpenFilters: (openFilters: OpenFilters) => void
+  setPage: (page: number) => void
 }
 
 function DBTable(props: EloTableProps) {
   const [loading, setLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
   const [data, setData] = useState<Row[]>([])
-  const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
   useEffect(() => {
@@ -62,7 +63,7 @@ function DBTable(props: EloTableProps) {
       params: {
         gi: props.gi ? 'true' : 'false',
         ...props.filters,
-        page: page
+        page: props.page
       }
     }).then((response: AxiosResponse<Results>) => {
       setData(response.data.rows)
@@ -70,15 +71,15 @@ function DBTable(props: EloTableProps) {
       setLoading(false)
       setReloading(false)
 
-      if (response.data.rows.length === 0 && page > 1) {
-        setPage(1)
+      if (response.data.totalPages < props.page) {
+        props.setPage(1)
       }
     }).catch((exception) => {
       console.error(exception)
       setLoading(false)
       setReloading(false)
     })
-  }, [props.gi, props.filters, page]);
+  }, [props.gi, props.filters, props.page]);
 
   const shortEvent = (row: Row) => {
     if (row.event.length > 32) {
@@ -89,21 +90,21 @@ function DBTable(props: EloTableProps) {
 
   const onNextPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    if (page < totalPages) {
-      setPage(page + 1)
+    if (props.page < totalPages) {
+      props.setPage(props.page + 1)
     }
   }
 
   const onPreviousPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    if (page > 1) {
-      setPage(page - 1)
+    if (props.page > 1) {
+      props.setPage(props.page - 1)
     }
   }
 
   const onPageClick = (pageNumber: number, event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    setPage(pageNumber)
+    props.setPage(pageNumber)
   }
 
   const outcomeClass = (startRating: number, endRating: number) => {
@@ -317,7 +318,7 @@ function DBTable(props: EloTableProps) {
       </div>
       {
         !loading && data.length > 0 && (
-          <DBPagination loading={reloading} page={page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
+          <DBPagination loading={reloading} page={props.page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
         )
       }
     </div>
