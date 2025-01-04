@@ -149,10 +149,19 @@ function DBTable(props: EloTableProps) {
     props.setOpenFilters({...props.openFilters, division: true});
   }
 
-  const weightWithTooltip = (row: Row, bottom: boolean) => {
+  const openWeightHintText = (row: Row) => {
     if (row.weight.startsWith('Open Class')) {
+      return `Weight classes: ${row.winnerWeightForOpen ?? 'Unknown'} vs ${row.loserWeightForOpen  ?? 'Unknown'}`
+    } else {
+      return undefined
+    }
+  }
+
+  const weightWithTooltip = (row: Row, bottom: boolean) => {
+    const hintText = openWeightHintText(row);
+    if (hintText) {
       return (
-        <span className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": bottom})} data-tooltip={`Weight classes: ${row.winnerWeightForOpen ?? 'Unknown'} vs ${row.loserWeightForOpen  ?? 'Unknown'}`}>
+        <span className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": bottom})} data-tooltip={hintText}>
           {row.weight}
         </span>
       )
@@ -268,34 +277,41 @@ function DBTable(props: EloTableProps) {
           )
         }
         {
-          !loading && !!data.length && data.map((row: Row) => (
-            <div key={row.id} className="card db-row-card">
-              <div className="date-box">
-                {dayjs(row.date).format('MMM D YYYY, h:mma')}
-              </div>
-              <div className="card-content">
-                <div className="columns">
-                  <div className="column">
-                    <strong>Winner:</strong> <a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a> {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{unratedAsterisk(row, true)}
-                  </div>
-                  <div className="column has-text-right-tablet">
-                    <strong>Loser:</strong> <a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a> {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{unratedAsterisk(row, true)}
-                  </div>
+          !loading && !!data.length && data.map((row: Row) => {
+            const weightHintText = openWeightHintText(row);
+            return (
+              <div key={row.id} className="card db-row-card">
+                <div className="date-box">
+                  {dayjs(row.date).format('MMM D YYYY, h:mma')}
                 </div>
-                <div className="columns">
-                  <div className="column">
-                    <a href="#" onClick={e => eventClicked(e, row.event)}>{row.event}</a>
+                <div className="card-content">
+                  <div className="columns">
+                    <div className="column">
+                      <strong>Winner:</strong> <a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a> {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{unratedAsterisk(row, true)}
+                    </div>
+                    <div className="column has-text-right-tablet">
+                      <strong>Loser:</strong> <a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a> {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{unratedAsterisk(row, true)}
+                    </div>
                   </div>
-                  <div className="column has-text-right-tablet">
-                    <a href="#" onClick={e => divisionClicked(e, row)}>{row.age} / {row.gender} / {row.belt} / {weightWithTooltip(row, false)}</a>
+                  <div className="columns">
+                    <div className="column">
+                      <a href="#" onClick={e => eventClicked(e, row.event)}>{row.event}</a>
+                    </div>
+                    <div className="column has-text-right-tablet">
+                      <a href="#" onClick={e => divisionClicked(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
+                    </div>
                   </div>
+                  {weightHintText &&
+                    <p className="has-text-right">{weightHintText}</p>
+                  }
+                  {row.notes &&
+                    <p>{row.notes}</p>
+                  }
                 </div>
-                {row.notes &&
-                  <p>{row.notes}</p>
-                }
               </div>
-            </div>
-          ))
+              );
+            }
+          )
         }
       </div>
       {
