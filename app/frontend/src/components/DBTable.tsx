@@ -303,16 +303,18 @@ function DBTable(props: EloTableProps) {
                       <a href="#" onClick={e => divisionClicked(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
                     </div>
                   </div>
-                  <div className="columns">
-                    <div className="column">
-                      {weightHintText &&
-                        <p>{weightHintText}</p>
-                      }
-                      {row.notes &&
-                        <p>{row.notes}</p>
-                      }
+                  {(weightHintText || row.notes) &&
+                    <div className="columns">
+                      <div className="column">
+                        {weightHintText &&
+                          <p>{weightHintText}</p>
+                        }
+                        {row.notes &&
+                          <p>{row.notes}</p>
+                        }
+                      </div>
                     </div>
-                  </div>
+                  }
                 </div>
               </div>
               );
