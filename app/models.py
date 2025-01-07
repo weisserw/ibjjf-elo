@@ -27,7 +27,7 @@ class JSONEncoder(json.JSONEncoder):
 class Event(db.Model):
     __tablename__ = "events"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    ibjjf_id = Column(String, unique=True, nullable=False)
+    ibjjf_id = Column(String, unique=True, nullable=True)
     name = Column(String, nullable=False)
 
     __table_args__ = (
@@ -69,7 +69,7 @@ class Division(db.Model):
 class Athlete(db.Model):
     __tablename__ = "athletes"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    ibjjf_id = Column(String, unique=True, nullable=False)
+    ibjjf_id = Column(String, unique=True, nullable=True)
     name = Column(String, nullable=False)
 
     __table_args__ = (

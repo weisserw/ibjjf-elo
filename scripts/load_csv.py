@@ -16,23 +16,60 @@ from models import Event, Division, Athlete, Team, Match, MatchParticipant, Defa
 from constants import translate_belt, translate_weight, check_gender, translate_age
 
 
-def get_or_create(session, model, update=None, **kwargs):
+def get_event(session, ibjjf_id, name):
+    if not ibjjf_id:
+        return session.query(Event).filter_by(name=name).first()
+
+    instance = session.query(Event).filter_by(ibjjf_id=ibjjf_id).first()
+    if instance:
+        if name and name != instance.name:
+            instance.name = name
+            session.flush()
+        return instance
+    instance = session.query(Event).filter_by(name=name).first()
+    if instance:
+        instance.ibjjf_id = ibjjf_id
+        session.flush()
+        return instance
+    return None
+
+
+def get_or_create_event_or_athlete(session, model, ibjjf_id, name):
+    if not ibjjf_id:
+        instance = session.query(model).filter_by(name=name).first()
+        if instance:
+            return instance
+        else:
+            instance = model(ibjjf_id=None, name=name)
+            session.add(instance)
+            session.flush()
+            return instance
+    else:
+        instance = session.query(model).filter_by(ibjjf_id=ibjjf_id).first()
+        if instance:
+            if name and name != instance.name:
+                instance.name = name
+                session.flush()
+            return instance
+        else:
+            instance = get_or_create_event_or_athlete(session, model, "", name)
+            instance.ibjjf_id = ibjjf_id
+            session.flush()
+            return instance
+
+
+def get_or_create(session, model, **kwargs):
     instance = session.query(model).filter_by(**kwargs).first()
     if instance:
-        if update:
-            for key, value in update.items():
-                setattr(instance, key, value)
         return instance
     else:
-        combined = dict(update or {}, **kwargs)
-
-        instance = model(**combined)
+        instance = model(**kwargs)
         session.add(instance)
         session.flush()
         return instance
 
 
-def process_file(csv_file_path):
+def process_file(csv_file_path, no_scores):
     try:
         with app.app_context():
             with open(csv_file_path, newline="") as csvfile:
@@ -41,9 +78,10 @@ def process_file(csv_file_path):
                 rows_by_tournament = {}
                 count = 0
                 for row in reader:
-                    if row["Tournament ID"] not in rows_by_tournament:
-                        rows_by_tournament[row["Tournament ID"]] = []
-                    rows_by_tournament[row["Tournament ID"]].append(row)
+                    unique_id = f'{row["Tournament ID"]}:{row["Tournament Name"]}'
+                    if unique_id not in rows_by_tournament:
+                        rows_by_tournament[unique_id] = []
+                    rows_by_tournament[unique_id].append(row)
                     count += 1
 
                 earliest_date = None
@@ -51,14 +89,13 @@ def process_file(csv_file_path):
                 has_nogi = False
 
                 with Bar(f"Processing {csv_file_path}", max=count) as bar:
-                    for tournament_id, rows in rows_by_tournament.items():
+                    for rows in rows_by_tournament.values():
                         rows = sorted(rows, key=lambda row: (row["Date"]))
 
-                        event = (
-                            db.session.query(Event)
-                            .filter_by(ibjjf_id=tournament_id)
-                            .first()
-                        )
+                        tournament_id = rows[0]["Tournament ID"]
+                        tournament_name = rows[0]["Tournament Name"]
+
+                        event = get_event(db.session, tournament_id, tournament_name)
                         if event is not None:
                             db.session.query(Match).filter(
                                 Match.event_id == event.id
@@ -66,7 +103,7 @@ def process_file(csv_file_path):
                             db.session.query(DefaultGold).filter(
                                 DefaultGold.event_id == event.id
                             ).delete()
-                        if rows[0]["Gi"] == "true":
+                        if rows[0]["Gi"].lower() == "true":
                             has_gi = True
                         else:
                             has_nogi = True
@@ -90,30 +127,29 @@ def process_file(csv_file_path):
                             check_gender(row["Gender"])
                             age = translate_age(row["Age"])
 
-                            event = get_or_create(
+                            event = get_or_create_event_or_athlete(
                                 db.session,
                                 Event,
-                                dict(name=row["Tournament Name"]),
-                                ibjjf_id=row["Tournament ID"],
+                                row["Tournament ID"],
+                                row["Tournament Name"],
                             )
                             division = get_or_create(
                                 db.session,
                                 Division,
-                                None,
-                                gi=row["Gi"] == "true",
+                                gi=row["Gi"].lower() == "true",
                                 gender=row["Gender"],
                                 age=age,
                                 belt=belt,
                                 weight=weight,
                             )
-                            red_athlete = get_or_create(
+                            red_athlete = get_or_create_event_or_athlete(
                                 db.session,
                                 Athlete,
-                                dict(name=row["Red Name"]),
-                                ibjjf_id=row["Red ID"],
+                                row["Red ID"],
+                                row["Red Name"],
                             )
                             red_team = get_or_create(
-                                db.session, Team, None, name=row["Red Team"]
+                                db.session, Team, name=row["Red Team"]
                             )
 
                             if row["Blue ID"] == "DEFAULT_GOLD":
@@ -136,13 +172,13 @@ def process_file(csv_file_path):
                                 continue
 
                             blue_team = get_or_create(
-                                db.session, Team, None, name=row["Blue Team"]
+                                db.session, Team, name=row["Blue Team"]
                             )
-                            blue_athlete = get_or_create(
+                            blue_athlete = get_or_create_event_or_athlete(
                                 db.session,
                                 Athlete,
-                                dict(name=row["Blue Name"]),
-                                ibjjf_id=row["Blue ID"],
+                                row["Blue ID"],
+                                row["Blue Name"],
                             )
 
                             if earliest_date is None or row["Date"] < earliest_date:
@@ -165,7 +201,7 @@ def process_file(csv_file_path):
                                 team_id=red_team.id,
                                 seed=row["Red Seed"],
                                 red=True,
-                                winner=row["Red Winner"] == "true",
+                                winner=row["Red Winner"].lower() == "true",
                                 note=row["Red Note"],
                                 start_rating=0,
                                 end_rating=0,
@@ -177,14 +213,14 @@ def process_file(csv_file_path):
                                 team_id=blue_team.id,
                                 seed=row["Blue Seed"],
                                 red=False,
-                                winner=row["Blue Winner"] == "true",
+                                winner=row["Blue Winner"].lower() == "true",
                                 note=row["Blue Note"],
                                 start_rating=0,
                                 end_rating=0,
                             )
                             db.session.add(blue_participant)
 
-                if has_gi:
+                if has_gi and not no_scores:
                     recompute_all_ratings(
                         db,
                         True,
@@ -193,7 +229,7 @@ def process_file(csv_file_path):
                         ),
                         rerank=not has_nogi,
                     )
-                if has_nogi:
+                if has_nogi and not no_scores:
                     recompute_all_ratings(
                         db,
                         False,
@@ -214,7 +250,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "csv_files", metavar="csv_file", type=str, nargs="+", help="CSV file paths"
     )
+    parser.add_argument(
+        "--no-scores",
+        action="store_true",
+        help="Do not recompute scores after loading",
+    )
     args = parser.parse_args()
 
     for csv_file_path in args.csv_files:
-        process_file(csv_file_path)
+        process_file(csv_file_path, args.no_scores)
