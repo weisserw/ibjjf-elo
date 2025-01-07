@@ -122,7 +122,7 @@ function EloTable(props: EloTableProps) {
       <EloFilters gender={props.gender} setGender={props.setGender} age={props.age} setAge={props.setAge} belt={props.belt} setBelt={props.setBelt} weight={props.weight} setWeight={props.setWeight} />
       <div>
         <div className="field">
-          <div className="control ">
+          <div className="control has-icons-left">
             <Autosuggest suggestions={athleteSuggestions}
                          onSuggestionsFetchRequested={getAthleteSuggestions}
                          onSuggestionsClearRequested={() => setAthleteSuggestions([])}
@@ -132,11 +132,14 @@ function EloTable(props: EloTableProps) {
                          inputProps={{
                            className: "input",
                            value: nameFilterSearch,
-                           placeholder: "Enter Name...",
+                           placeholder: "Search Within Division",
                            onChange: (_: any, { newValue }) => {
                             onNameFilterChange(newValue)
                            }
                          }} />
+            <span className="icon is-small is-left">
+              <i className="fas fa-filter"></i>
+            </span>
           </div>
         </div>
         <table className="table is-fullwidth table-margin">
