@@ -414,13 +414,8 @@ def compute_ratings(
     blue_end_rating: float
 
     # calculate the new ratings
-    if red_winner == blue_winner:
-        # there are two ways you could in theory have a draw: either both athletes are disqualified,
-        # or the match wasn't finished yet when we pulled the data, so neither athlete has been marked as the loser.
-
-        # the IBJJF doesn't seem to have a way to represent the former on their site, and we don't have a good way to show
-        # draws in the UI at the moment either, so in either case we're just going to skip rating the match since its probably
-        # a case of bad data
+    if red_winner and blue_winner:
+        # match wasn't finished yet when we pulled the data, so neither athlete has been marked as the loser.
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
         rated = False
@@ -430,8 +425,8 @@ def compute_ratings(
         blue_rating_note = append_rating_note(
             blue_rating_note, "Unrated: winner not recorded"
         )
-        log.debug("Match was a draw, not rating")
-    if match_didnt_happen(red_note, blue_note):
+        log.debug("Match had two winners, not rating")
+    elif match_didnt_happen(red_note, blue_note):
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
         rated = False
@@ -466,7 +461,15 @@ def compute_ratings(
             blue_elo.rating,
         )
 
-        if red_winner:
+        if not red_winner and not blue_winner:
+            red_elo.tied(blue_elo)
+            red_rating_note = append_rating_note(
+                red_rating_note, "Neither athlete won, rating as a tie"
+            )
+            blue_rating_note = append_rating_note(
+                blue_rating_note, "Neither athlete won, rating as a tie"
+            )
+        elif red_winner:
             red_elo.beat(blue_elo)
         else:
             blue_elo.beat(red_elo)
