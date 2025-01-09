@@ -14,16 +14,22 @@ from datetime import datetime
 from app import db, app
 from models import Event, Division, Athlete, Team, Match, MatchParticipant, DefaultGold
 from constants import translate_belt, translate_weight, check_gender, translate_age
+from normalize import normalize
 
 
 def get_event(session, ibjjf_id, name):
+    normalized_name = normalize(name)
+
     if not ibjjf_id:
-        return session.query(Event).filter_by(name=name).first()
+        return session.query(Event).filter_by(normalized_name=normalized_name).first()
 
     instance = session.query(Event).filter_by(ibjjf_id=ibjjf_id).first()
     if instance:
-        if name and name != instance.name:
+        if name and (
+            name != instance.name or normalized_name != instance.normalized_name
+        ):
             instance.name = name
+            instance.normalized_name = normalized_name
             session.flush()
         return instance
     instance = session.query(Event).filter_by(name=name).first()
@@ -35,20 +41,27 @@ def get_event(session, ibjjf_id, name):
 
 
 def get_or_create_event_or_athlete(session, model, ibjjf_id, name):
+    normalized_name = normalize(name)
+
     if not ibjjf_id:
-        instance = session.query(model).filter_by(name=name).first()
+        instance = (
+            session.query(model).filter_by(normalized_name=normalized_name).first()
+        )
         if instance:
             return instance
         else:
-            instance = model(ibjjf_id=None, name=name)
+            instance = model(ibjjf_id=None, name=name, normalized_name=normalized_name)
             session.add(instance)
             session.flush()
             return instance
     else:
         instance = session.query(model).filter_by(ibjjf_id=ibjjf_id).first()
         if instance:
-            if name and name != instance.name:
+            if name and (
+                name != instance.name or normalized_name != instance.normalized_name
+            ):
                 instance.name = name
+                instance.normalized_name = normalized_name
                 session.flush()
             return instance
         else:
@@ -56,6 +69,18 @@ def get_or_create_event_or_athlete(session, model, ibjjf_id, name):
             instance.ibjjf_id = ibjjf_id
             session.flush()
             return instance
+
+
+def get_or_create_team(session, name):
+    normalized_name = normalize(name)
+    instance = session.query(Team).filter_by(normalized_name=normalized_name).first()
+    if instance:
+        return instance
+    else:
+        instance = Team(name=name, normalized_name=normalized_name)
+        session.add(instance)
+        session.flush()
+        return instance
 
 
 def get_or_create(session, model, **kwargs):

@@ -35,6 +35,7 @@ from constants import (
     OPEN_CLASS_HEAVY,
 )
 from models import Athlete, MatchParticipant, Division, Match, Event
+from normalize import normalize
 
 matches_route = Blueprint("matches_route", __name__)
 
@@ -148,13 +149,13 @@ def matches():
             SELECT 1
             FROM athletes a
             JOIN match_participants mp ON a.id = mp.athlete_id
-            WHERE mp.match_id = m.id AND LOWER(a.name) LIKE :athlete_name
+            WHERE mp.match_id = m.id AND a.normalized_name LIKE :athlete_name
         )
         """
-        params["athlete_name"] = f"%{athlete_name.lower()}%"
+        params["athlete_name"] = f"%{normalize(athlete_name)}%"
     if event_name:
-        filters += "AND LOWER(e.name) LIKE :event_name\n"
-        params["event_name"] = f"%{event_name.lower()}%"
+        filters += "AND e.normalized_name LIKE :event_name\n"
+        params["event_name"] = f"%{normalize(event_name)}%"
 
     genders = []
     if gender_male:

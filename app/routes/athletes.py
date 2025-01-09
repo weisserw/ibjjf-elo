@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from extensions import db
 from models import Athlete
+from normalize import normalize
 
 athletes_route = Blueprint("athletes_route", __name__)
 
@@ -9,11 +10,11 @@ MAX_RESULTS = 50
 
 @athletes_route.route("/api/athletes")
 def athletes():
-    search = request.args.get("search", "")
+    search = normalize(request.args.get("search", ""))
 
     query = (
         db.session.query(Athlete.name)
-        .filter(Athlete.name.ilike(f"{search}%"))
+        .filter(Athlete.normalized_name.like(f"{search}%"))
         .order_by(Athlete.name)
         .limit(MAX_RESULTS)
     )
@@ -25,7 +26,7 @@ def athletes():
         remaining_count = MAX_RESULTS - len(results)
         additional_query = (
             db.session.query(Athlete.name)
-            .filter(Athlete.name.ilike(f"%{search}%"))
+            .filter(Athlete.normalized_name.like(f"%{search}%"))
             .order_by(Athlete.name)
             .limit(remaining_count)
         )

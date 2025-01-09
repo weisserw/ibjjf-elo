@@ -2,6 +2,7 @@ import math
 from flask import Blueprint, request, jsonify
 from extensions import db
 from models import AthleteRating, Athlete
+from normalize import normalize
 
 top_route = Blueprint("top_route", __name__)
 
@@ -37,7 +38,7 @@ def top():
     )
 
     if name:
-        query = query.filter(Athlete.name.ilike(f"%{name}%"))
+        query = query.filter(Athlete.normalized_name.like(f"%{normalize(name)}%"))
 
     totalCount = query.count()
 

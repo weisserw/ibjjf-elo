@@ -29,10 +29,11 @@ class Event(db.Model):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     ibjjf_id = Column(String, unique=True, nullable=True)
     name = Column(String, nullable=False)
+    normalized_name = Column(String, nullable=False)
 
     __table_args__ = (
         Index("ix_events_ibjjf_id", "ibjjf_id"),
-        Index("ix_events_name", "name"),
+        Index("ix_events_normalized_name", "normalized_name"),
     )
 
 
@@ -71,10 +72,11 @@ class Athlete(db.Model):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     ibjjf_id = Column(String, unique=True, nullable=True)
     name = Column(String, nullable=False)
+    normalized_name = Column(String, nullable=False)
 
     __table_args__ = (
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),
-        Index("ix_athletes_name", "name"),
+        Index("ix_athletes_normalized_name", "normalized_name"),
     )
 
 
@@ -82,8 +84,9 @@ class Team(db.Model):
     __tablename__ = "teams"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
+    normalized_name = Column(String, nullable=False)
 
-    __table_args__ = (Index("ix_teams_name", "name"),)
+    __table_args__ = (Index("ix_teams_normalized_name", "normalized_name"),)
 
 
 class DefaultGold(db.Model):

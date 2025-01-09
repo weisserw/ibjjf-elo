@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from sqlalchemy.sql import exists
 from extensions import db
 from models import Event, Match, Division
+from normalize import normalize
 
 events_route = Blueprint("events_route", __name__)
 
@@ -10,7 +11,7 @@ MAX_RESULTS = 50
 
 @events_route.route("/api/events")
 def events():
-    search = request.args.get("search", "")
+    search = normalize(request.args.get("search", ""))
     gi = request.args.get("gi")
 
     if gi is None:
@@ -30,7 +31,7 @@ def events():
     query = (
         db.session.query(Event.name)
         .filter(
-            Event.name.ilike(f"%{search}%"),
+            Event.normalized_name.like(f"%{search}%"),
             exists().where(Event.id == subquery_gi.c.event_id),
         )
         .order_by(Event.name)
