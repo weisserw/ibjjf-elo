@@ -93,8 +93,7 @@ function About() {
           <strong>Q: Will my rating get reset when I change my weight, rank or age division?</strong>
         </p>
         <p className="content">
-          A: Your rating stays with you regardless of weight or rank. Different age divisions are treated as separate pools of competitors,
-          so your rating will not carry over from one age division to another. Gi and no-gi are also given separate ratings.
+          A: Your rating stays with you regardless of weight, rank, or age. Gi and no-gi are given separate ratings.
         </p>
         <p className="content">
           <strong>Q: What about open class?</strong>

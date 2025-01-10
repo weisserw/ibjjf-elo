@@ -2,6 +2,7 @@ import logging
 from typing import Tuple, Optional
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from sqlalchemy import text
 from flask_sqlalchemy import SQLAlchemy
 from models import Match, MatchParticipant, Division, DefaultGold
 from constants import (
@@ -15,6 +16,7 @@ from constants import (
     OPEN_CLASS_LIGHT,
     weight_class_order,
     belt_order,
+    age_order,
 )
 
 log = logging.getLogger("ibjjf")
@@ -116,7 +118,6 @@ def open_handicaps(
         .filter(
             Division.gi == division.gi,
             Division.gender == division.gender,
-            Division.age == division.age,
             ~Division.weight.startswith(OPEN_CLASS),
             Match.rated == True,
             MatchParticipant.athlete_id == red_athlete_id,
@@ -132,7 +133,6 @@ def open_handicaps(
         .filter(
             Division.gi == division.gi,
             Division.gender == division.gender,
-            Division.age == division.age,
             ~Division.weight.startswith(OPEN_CLASS),
             DefaultGold.athlete_id == red_athlete_id,
             (DefaultGold.happened_at < happened_at)
@@ -149,7 +149,6 @@ def open_handicaps(
         .filter(
             Division.gi == division.gi,
             Division.gender == division.gender,
-            Division.age == division.age,
             ~Division.weight.startswith(OPEN_CLASS),
             Match.rated == True,
             MatchParticipant.athlete_id == blue_athlete_id,
@@ -165,7 +164,6 @@ def open_handicaps(
         .filter(
             Division.gi == division.gi,
             Division.gender == division.gender,
-            Division.age == division.age,
             ~Division.weight.startswith(OPEN_CLASS),
             DefaultGold.athlete_id == blue_athlete_id,
             (DefaultGold.happened_at < happened_at)
@@ -268,6 +266,8 @@ def compute_ratings(
         blue_note,
     )
 
+    younger_ages = age_order[: age_order.index(division.age)]
+
     # get the last match played by each athlete in the same division by querying the matches table
     # in reverse date order
     red_last_match = (
@@ -285,6 +285,41 @@ def compute_ratings(
         .order_by(Match.happened_at.desc(), Match.id.desc())
         .first()
     )
+    if red_last_match is None:
+        # if the athlete has no previous matches at this age, look for a younger age division to fork their rating from
+        red_last_match = (
+            db.session.query(MatchParticipant)
+            .join(Match)
+            .join(Division)
+            .filter(
+                Division.gi == division.gi,
+                Division.gender == division.gender,
+                Division.age.in_(younger_ages),
+                MatchParticipant.athlete_id == red_athlete_id,
+                (Match.happened_at < happened_at)
+                | ((Match.happened_at == happened_at) & (Match.id < match_id)),
+            )
+            .order_by(
+                text(
+                    """
+                CASE WHEN age = 'Juvenile' THEN 1
+                     WHEN age = 'Adult' THEN 2
+                     WHEN age = 'Master 1' THEN 3
+                     WHEN age = 'Master 2' THEN 4
+                     WHEN age = 'Master 3' THEN 5
+                     WHEN age = 'Master 4' THEN 6
+                     WHEN age = 'Master 5' THEN 7
+                     WHEN age = 'Master 6' THEN 8
+                     WHEN age = 'Master 7' THEN 9
+                END DESC
+            """
+                ),
+                Match.happened_at.desc(),
+                Match.id.desc(),
+            )
+            .first()
+        )
+
     blue_last_match = (
         db.session.query(MatchParticipant)
         .join(Match)
@@ -300,6 +335,39 @@ def compute_ratings(
         .order_by(Match.happened_at.desc(), Match.id.desc())
         .first()
     )
+    if blue_last_match is None:
+        blue_last_match = (
+            db.session.query(MatchParticipant)
+            .join(Match)
+            .join(Division)
+            .filter(
+                Division.gi == division.gi,
+                Division.gender == division.gender,
+                Division.age.in_(younger_ages),
+                MatchParticipant.athlete_id == blue_athlete_id,
+                (Match.happened_at < happened_at)
+                | ((Match.happened_at == happened_at) & (Match.id < match_id)),
+            )
+            .order_by(
+                text(
+                    """
+                CASE WHEN age = 'Juvenile' THEN 1
+                     WHEN age = 'Adult' THEN 2
+                     WHEN age = 'Master 1' THEN 3
+                     WHEN age = 'Master 2' THEN 4
+                     WHEN age = 'Master 3' THEN 5
+                     WHEN age = 'Master 4' THEN 6
+                     WHEN age = 'Master 5' THEN 7
+                     WHEN age = 'Master 6' THEN 8
+                     WHEN age = 'Master 7' THEN 9
+                END DESC
+            """
+                ),
+                Match.happened_at.desc(),
+                Match.id.desc(),
+            )
+            .first()
+        )
 
     # get the number of rated matches played by each athlete in the same division in the last 3 years
     three_years_prior = happened_at - relativedelta(years=3)
@@ -312,7 +380,6 @@ def compute_ratings(
             Match.rated == True,
             Division.gi == division.gi,
             Division.gender == division.gender,
-            Division.age == division.age,
             MatchParticipant.athlete_id == red_athlete_id,
             (Match.happened_at < happened_at)
             | ((Match.happened_at == happened_at) & (Match.id < match_id)),
@@ -328,7 +395,6 @@ def compute_ratings(
             Match.rated == True,
             Division.gi == division.gi,
             Division.gender == division.gender,
-            Division.age == division.age,
             MatchParticipant.athlete_id == blue_athlete_id,
             (Match.happened_at < happened_at)
             | ((Match.happened_at == happened_at) & (Match.id < match_id)),

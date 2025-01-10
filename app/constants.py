@@ -105,6 +105,19 @@ MASTER_6 = "Master 6"
 MASTER_7 = "Master 7"
 
 
+age_order = [
+    JUVENILE,
+    ADULT,
+    MASTER_1,
+    MASTER_2,
+    MASTER_3,
+    MASTER_4,
+    MASTER_5,
+    MASTER_6,
+    MASTER_7,
+]
+
+
 def translate_age(age: str) -> str:
     if age == "Juvenil" or age == "Juvenile 1" or age == "Juvenile 2":
         return JUVENILE
