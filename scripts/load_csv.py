@@ -173,8 +173,8 @@ def process_file(csv_file_path, no_scores):
                                 row["Red ID"],
                                 row["Red Name"],
                             )
-                            red_team = get_or_create(
-                                db.session, Team, name=row["Red Team"]
+                            red_team = get_or_create_team(
+                                db.session, row["Red Team"]
                             )
 
                             if row["Blue ID"] == "DEFAULT_GOLD":
@@ -196,8 +196,8 @@ def process_file(csv_file_path, no_scores):
                                 db.session.flush()
                                 continue
 
-                            blue_team = get_or_create(
-                                db.session, Team, name=row["Blue Team"]
+                            blue_team = get_or_create_team(
+                                db.session, row["Blue Team"]
                             )
                             blue_athlete = get_or_create_event_or_athlete(
                                 db.session,
