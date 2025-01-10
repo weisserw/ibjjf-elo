@@ -66,7 +66,7 @@ interface EloFiltersProps {
 
 function EloFilters(props: EloFiltersProps) {
   const isJuvenileAge = (age: string) => {
-    return age.startsWith('Juvenile')
+    return age === 'Juvenile'
   }
 
   const isAdultAge = (age: string) => {
@@ -128,8 +128,7 @@ function EloFilters(props: EloFiltersProps) {
           <label className="label">Age</label>
           <div className="select">
             <select value={props.age} onChange={onAgeChange}>
-              <option>Juvenile 1</option>
-              <option>Juvenile 2</option>
+              <option>Juvenile</option>
               <option>Adult</option>
               <option>Master 1</option>
               <option>Master 2</option>

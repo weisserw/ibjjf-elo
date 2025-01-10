@@ -14,8 +14,7 @@ from constants import (
     MASTER_5,
     MASTER_6,
     MASTER_7,
-    JUVENILE_1,
-    JUVENILE_2,
+    JUVENILE,
     WHITE,
     BLUE,
     PURPLE,
@@ -57,8 +56,7 @@ def matches():
     age_master5 = request.args.get("age_master5")
     age_master6 = request.args.get("age_master6")
     age_master7 = request.args.get("age_master7")
-    age_juvenile1 = request.args.get("age_juvenile1")
-    age_juvenile2 = request.args.get("age_juvenile2")
+    age_juvenile = request.args.get("age_juvenile")
     belt_white = request.args.get("belt_white")
     belt_blue = request.args.get("belt_blue")
     belt_purple = request.args.get("belt_purple")
@@ -105,10 +103,8 @@ def matches():
         age_master6 = age_master6.lower() == "true"
     if age_master7:
         age_master7 = age_master7.lower() == "true"
-    if age_juvenile1:
-        age_juvenile1 = age_juvenile1.lower() == "true"
-    if age_juvenile2:
-        age_juvenile2 = age_juvenile2.lower() == "true"
+    if age_juvenile:
+        age_juvenile = age_juvenile.lower() == "true"
     if belt_white:
         belt_white = belt_white.lower() == "true"
     if belt_blue:
@@ -182,10 +178,8 @@ def matches():
         ages.append(MASTER_6)
     if age_master7:
         ages.append(MASTER_7)
-    if age_juvenile1:
-        ages.append(JUVENILE_1)
-    if age_juvenile2:
-        ages.append(JUVENILE_2)
+    if age_juvenile:
+        ages.append(JUVENILE)
     if len(ages):
         filters += "AND d.age IN (" + ", ".join(f"'{a}'" for a in ages) + ")\n"
 

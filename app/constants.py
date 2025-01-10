@@ -92,9 +92,8 @@ weight_class_order = [
     ULTRA_HEAVY,
 ]
 
-JUVENILE_1 = "Juvenile 1"
-JUVENILE_2 = "Juvenile 2"
-JUVENILE_PREFIX = "Juvenile"
+
+JUVENILE = "Juvenile"
 ADULT = "Adult"
 MASTER_PREFIX = "Master"
 MASTER_1 = "Master 1"
@@ -107,13 +106,12 @@ MASTER_7 = "Master 7"
 
 
 def translate_age(age: str) -> str:
-    if age == JUVENILE_PREFIX or age == "Juvenil":
-        return JUVENILE_2
+    if age == "Juvenil" or age == "Juvenile 1" or age == "Juvenile 2":
+        return JUVENILE
     if age == "Adulto":
         return ADULT
     if age not in [
-        JUVENILE_1,
-        JUVENILE_2,
+        JUVENILE,
         ADULT,
         MASTER_1,
         MASTER_2,

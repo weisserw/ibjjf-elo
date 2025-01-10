@@ -128,7 +128,7 @@ function About() {
           <strong>Q: Are you going to track kids divisions?</strong>
         </p>
         <p className="content">
-          A: We have decided not to track age divisions below Juvenile 1 at this time.
+          A: We have decided not to track age divisions below Juvenile at this time.
         </p>
       </div>
     </section>

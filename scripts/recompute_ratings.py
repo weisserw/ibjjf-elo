@@ -19,8 +19,7 @@ from constants import (
     MASTER_5,
     MASTER_6,
     MASTER_7,
-    JUVENILE_1,
-    JUVENILE_2,
+    JUVENILE,
 )
 from app import db, app
 
@@ -59,11 +58,10 @@ def main():
         MASTER_5,
         MASTER_6,
         MASTER_7,
-        JUVENILE_1,
-        JUVENILE_2,
+        JUVENILE,
     ):
         print(
-            f"Invalid age. Must be one of {ADULT}, {MASTER_1}, {MASTER_2}, {MASTER_3}, {MASTER_4}, {MASTER_5}, {MASTER_6}, {MASTER_7}, {JUVENILE_1}, {JUVENILE_2}"
+            f"Invalid age. Must be one of {ADULT}, {MASTER_1}, {MASTER_2}, {MASTER_3}, {MASTER_4}, {MASTER_5}, {MASTER_6}, {MASTER_7}, {JUVENILE}"
         )
         return -1
 
