@@ -1,3 +1,4 @@
+import "./EloFilters.css"
 
 const juvenileRanks = [
   'White',
@@ -112,7 +113,7 @@ function EloFilters(props: EloFiltersProps) {
   return (
     <div className="columns is-mobile is-multiline">
       <div className="column is-half-mobile">
-        <div className="field">
+        <div className="field mobile-margin">
           <label className="label">Gender</label>
           <div className="select">
             <select value={props.gender} onChange={onGenderChange}>
@@ -142,7 +143,7 @@ function EloFilters(props: EloFiltersProps) {
         </div>
       </div>
       <div className="column is-half-mobile">
-        <div className="field">
+        <div className="field mobile-margin">
           <label className="label">Belt</label>
           <div className="select">
             <select value={props.belt} onChange={onBeltChange}>
