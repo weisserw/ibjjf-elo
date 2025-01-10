@@ -8,10 +8,10 @@ function About() {
           site and are not affiliated with the IBJJF.
         </p>
         <p className="content">
-          Competitors are rated using the <a href="https://en.wikipedia.org/wiki/Elo_rating_system" target="_blank" rel="noopener noreferrer">Elo rating system</a>, which is a method for calculating the relative skill levels of players in two-player games such as chess. The app allows users to search for competitors, view their ratings, and see their match history.
+          Competitors are rated using the <a href="https://en.wikipedia.org/wiki/Elo_rating_system" target="_blank" rel="noopener noreferrer">Elo rating system</a>, which is a method for calculating the relative skill levels of players in two-player games such as chess. We allow users to search for competitors, view their ratings, and see their match history.
         </p>
         <p className="content">
-          The app is a work in progress and is being developed by <a href="https://www.facebook.com/Trumpetdanbjj" target="_blank" rel="noopener noreferrer">Dan Lukehart</a> and <a href="https://www.instagram.com/weisserwill/" target="_blank" rel="noopener noreferrer">Will Weisser</a>. The source code is available on <a href="https://github.com/weisserw/ibjjf-elo">GitHub</a>.
+          This app is a work in progress and is being developed by <a href="https://www.facebook.com/Trumpetdanbjj" target="_blank" rel="noopener noreferrer">Dan Lukehart</a> and <a href="https://www.instagram.com/weisserwill/" target="_blank" rel="noopener noreferrer">Will Weisser</a>. The source code is available on <a href="https://github.com/weisserw/ibjjf-elo">GitHub</a>.
           Ratings may be subject to change as the app is developed and improved.
         </p>
         <p className="content">
@@ -20,7 +20,7 @@ function About() {
         <p className="content">
           If you would like a copy of our source data for research purposes, <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">contact us</a> and we'll be happy to help. You have permission to use
           such data or screenshots from this site in articles, blog posts, and other media, but we ask that you credit IBJJFRankings.com. Because of our free and open nature and the work put into this app, we ask that you refrain from using our data
-          for other purposes without asking, especially the custom jiu-jitsu ELO ratings we calculate.
+          for other purposes without asking, especially the custom jiu-jitsu Elo ratings we calculate.
         </p>
         <h1 className="title">FAQ</h1>
         <p className="content">
