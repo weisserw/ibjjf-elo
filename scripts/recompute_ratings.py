@@ -11,15 +11,6 @@ from ratings import recompute_all_ratings
 from constants import (
     MALE,
     FEMALE,
-    ADULT,
-    MASTER_1,
-    MASTER_2,
-    MASTER_3,
-    MASTER_4,
-    MASTER_5,
-    MASTER_6,
-    MASTER_7,
-    JUVENILE,
 )
 from app import db, app
 
@@ -39,7 +30,6 @@ def main():
         "--gi", action="store_true", dest="gi", help="Use this flag to indicate gi."
     )
     parser.add_argument("--gender", type=str, help="Filter by gender.")
-    parser.add_argument("--age", type=str, help="Filter by age.")
     parser.add_argument(
         "--start-date", type=str, help="Don't rate matches earlier than date."
     )
@@ -48,21 +38,6 @@ def main():
 
     if args.gender and args.gender not in (MALE, FEMALE):
         print(f"Invalid gender. Must be one of {MALE}, {FEMALE}")
-        return -1
-    if args.age and args.age not in (
-        ADULT,
-        MASTER_1,
-        MASTER_2,
-        MASTER_3,
-        MASTER_4,
-        MASTER_5,
-        MASTER_6,
-        MASTER_7,
-        JUVENILE,
-    ):
-        print(
-            f"Invalid age. Must be one of {ADULT}, {MASTER_1}, {MASTER_2}, {MASTER_3}, {MASTER_4}, {MASTER_5}, {MASTER_6}, {MASTER_7}, {JUVENILE}"
-        )
         return -1
 
     start_date = None
@@ -79,9 +54,7 @@ def main():
                 return -1
 
     with app.app_context():
-        recompute_all_ratings(
-            db, args.gi, gender=args.gender, age=args.age, start_date=start_date
-        )
+        recompute_all_ratings(db, args.gi, gender=args.gender, start_date=start_date)
 
         db.session.commit()
 

@@ -211,7 +211,7 @@ def process_file(csv_file_path, no_scores):
                                 ),
                                 event_id=event.id,
                                 division_id=division.id,
-                                rated=False,
+                                rated=True,
                             )
                             db.session.add(match)
                             db.session.flush()

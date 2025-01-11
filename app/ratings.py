@@ -14,7 +14,6 @@ def recompute_all_ratings(
     db: SQLAlchemy,
     gi: bool,
     gender: Optional[str] = None,
-    age: Optional[str] = None,
     start_date: Optional[datetime] = None,
     rerank: bool = True,
 ) -> int:
@@ -27,8 +26,6 @@ def recompute_all_ratings(
 
     if gender is not None:
         query = query.filter(Division.gender == gender)
-    if age is not None:
-        query = query.filter(Division.age == age)
     if start_date is not None:
         query = query.filter(Match.happened_at >= start_date)
 
