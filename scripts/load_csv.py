@@ -15,6 +15,7 @@ from app import db, app
 from models import Event, Division, Athlete, Team, Match, MatchParticipant, DefaultGold
 from constants import translate_belt, translate_weight, check_gender, translate_age
 from normalize import normalize
+from elo import match_didnt_happen
 
 
 def get_event(session, ibjjf_id, name):
@@ -205,13 +206,21 @@ def process_file(csv_file_path, no_scores):
                             if earliest_date is None or row["Date"] < earliest_date:
                                 earliest_date = row["Date"]
 
+                            happened = (
+                                not match_didnt_happen(
+                                    row["Red Note"], row["Blue Note"]
+                                ),
+                            )
+                            red_winner = row["Red Winner"].lower() == "true"
+                            blue_winner = row["Blue Winner"].lower() == "true"
+
                             match = Match(
                                 happened_at=datetime.strptime(
                                     row["Date"], "%Y-%m-%dT%H:%M:%S"
                                 ),
                                 event_id=event.id,
                                 division_id=division.id,
-                                rated=True,
+                                rated=happened and not (red_winner and blue_winner),
                             )
                             db.session.add(match)
                             db.session.flush()
@@ -222,7 +231,7 @@ def process_file(csv_file_path, no_scores):
                                 team_id=red_team.id,
                                 seed=row["Red Seed"],
                                 red=True,
-                                winner=row["Red Winner"].lower() == "true",
+                                winner=red_winner,
                                 note=row["Red Note"],
                                 start_rating=0,
                                 end_rating=0,
@@ -234,7 +243,7 @@ def process_file(csv_file_path, no_scores):
                                 team_id=blue_team.id,
                                 seed=row["Blue Seed"],
                                 red=False,
-                                winner=row["Blue Winner"].lower() == "true",
+                                winner=blue_winner,
                                 note=row["Blue Note"],
                                 start_rating=0,
                                 end_rating=0,
