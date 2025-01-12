@@ -1,6 +1,6 @@
 #!/bin/bash
 
-output=$(./scripts/pull_bjjcompsystem.py "$@")
+output=$(./scripts/pull_bjjcompsystem.py "$@" | tee /dev/tty)
 if [ $? -ne 0 ]; then
   echo "Error: ./scripts/pull_bjjcompsystem.py failed"
   exit 1
