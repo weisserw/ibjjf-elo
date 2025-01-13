@@ -54,7 +54,15 @@ def main():
                 return -1
 
     with app.app_context():
-        recompute_all_ratings(db, args.gi, gender=args.gender, start_date=start_date)
+        recompute_all_ratings(
+            db,
+            args.gi,
+            gender=args.gender,
+            start_date=start_date,
+            rerank=True,
+            rerankgi=args.gi,
+            reranknogi=not args.gi,
+        )
 
         db.session.commit()
 

@@ -6,13 +6,20 @@ from flask_sqlalchemy import SQLAlchemy
 from constants import OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
 
 
-def generate_current_ratings(db: SQLAlchemy) -> None:
+def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
     three_years_ago = datetime.now() - relativedelta(years=3)
+
+    if gi and nogi:
+        gi_in = "true, false"
+    elif gi:
+        gi_in = "true"
+    elif nogi:
+        gi_in = "false"
 
     db.session.execute(
         text(
-            """
-            DELETE FROM athlete_ratings
+            f"""
+            DELETE FROM athlete_ratings where gi in ({gi_in})
             """
         )
     )
@@ -39,7 +46,6 @@ def generate_current_ratings(db: SQLAlchemy) -> None:
             FROM matches m
             JOIN match_participants mp ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
-            WHERE m.happened_at >= :three_years_ago
             GROUP BY mp.athlete_id
         ), athlete_belts AS (
             SELECT CASE WHEN mb.belt_num = 1 THEN 'WHITE'
@@ -62,6 +68,7 @@ def generate_current_ratings(db: SQLAlchemy) -> None:
             JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
             WHERE mp.winner = TRUE
             AND m.happened_at >= :three_years_ago
+            AND d.gi in ({gi_in})
         ), athlete_lost_matches AS (
             SELECT DISTINCT
                 mp.athlete_id,
@@ -76,6 +83,7 @@ def generate_current_ratings(db: SQLAlchemy) -> None:
             JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
             WHERE mp.winner = FALSE
             AND m.happened_at >= :three_years_ago
+            AND d.gi in ({gi_in})
         ), athlete_weights_no_p4p AS (
             SELECT DISTINCT
                 mp.athlete_id,
@@ -146,6 +154,7 @@ def generate_current_ratings(db: SQLAlchemy) -> None:
             JOIN match_participants mp ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
             JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
+            WHERE d.gi in ({gi_in})
         ), ratings AS (
             SELECT
                 rm.athlete_id,

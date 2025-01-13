@@ -16,6 +16,8 @@ def recompute_all_ratings(
     gender: Optional[str] = None,
     start_date: Optional[datetime] = None,
     rerank: bool = True,
+    rerankgi: bool = True,
+    reranknogi: bool = True,
 ) -> int:
     query = (
         db.session.query(Match)
@@ -103,8 +105,14 @@ def recompute_all_ratings(
             if changed:
                 db.session.flush()
 
-    if rerank:
-        log.info("Regenerating ranking board...")
-        generate_current_ratings(db)
+    if rerank and (rerankgi or reranknogi):
+        if rerankgi and reranknogi:
+            desc = "gi/no-gi"
+        elif rerankgi:
+            desc = "gi"
+        else:
+            desc = "no-gi"
+        log.info(f"Regenerating {desc} ranking board...")
+        generate_current_ratings(db, rerankgi, reranknogi)
 
     return count

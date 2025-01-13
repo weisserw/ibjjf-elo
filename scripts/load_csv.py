@@ -258,6 +258,8 @@ def process_file(csv_file_path, no_scores):
                             earliest_date, "%Y-%m-%dT%H:%M:%S"
                         ),
                         rerank=not has_nogi,
+                        rerankgi=True,
+                        reranknogi=False,
                     )
                 if has_nogi and not no_scores:
                     recompute_all_ratings(
@@ -267,6 +269,8 @@ def process_file(csv_file_path, no_scores):
                             earliest_date, "%Y-%m-%dT%H:%M:%S"
                         ),
                         rerank=True,
+                        rerankgi=has_gi,
+                        reranknogi=True,
                     )
 
                 db.session.commit()
