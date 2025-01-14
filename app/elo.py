@@ -473,11 +473,14 @@ def compute_ratings(
     log.debug("Start ratings: red %s, blue %s", red_start_rating, blue_start_rating)
 
     rated = True
-    red_weight = None
-    blue_weight = None
-
     red_end_rating: float
     blue_end_rating: float
+
+    unknown_open, red_handicap, blue_handicap, red_weight, blue_weight = (
+        open_handicaps(
+            db, event_id, happened_at, division, red_athlete_id, blue_athlete_id
+        )
+    )
 
     # calculate the new ratings
     if red_winner and blue_winner:
@@ -504,12 +507,6 @@ def compute_ratings(
         )
         log.debug("Match didn't happen, not rating")
     else:
-        unknown_open, red_handicap, blue_handicap, red_weight, blue_weight = (
-            open_handicaps(
-                db, event_id, happened_at, division, red_athlete_id, blue_athlete_id
-            )
-        )
-
         if unknown_open:
             log.debug("Open class match with unknown weights, using minimum k factor")
 
