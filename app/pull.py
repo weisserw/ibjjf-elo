@@ -105,15 +105,6 @@ def pull_tournament(
                 "span", class_="category-card__weight-label"
             ).get_text(strip=True)
 
-            age_lower = age.lower()
-
-            if not (
-                age_lower.startswith("master")
-                or age_lower.startswith("juvenil")
-                or age_lower.startswith("adult")
-            ):
-                continue
-
             total_categories += 1
 
             print(

@@ -13,7 +13,7 @@ from ratings import recompute_all_ratings
 from datetime import datetime
 from app import db, app
 from models import Event, Division, Athlete, Team, Match, MatchParticipant, DefaultGold
-from constants import translate_belt, translate_weight, check_gender, translate_age
+from constants import translate_belt, translate_weight, check_gender, translate_age, JUVENILE, ADULT, MASTER_PREFIX
 from normalize import normalize
 from elo import match_didnt_happen
 
@@ -152,6 +152,13 @@ def process_file(csv_file_path, no_scores):
 
                             check_gender(row["Gender"])
                             age = translate_age(row["Age"])
+
+                            if not (
+                                age.startswith(MASTER_PREFIX)
+                                or age == JUVENILE
+                                or age == ADULT
+                            ):
+                                continue
 
                             event = get_or_create_event_or_athlete(
                                 db.session,
