@@ -168,6 +168,11 @@ def process_file(csv_file_path, no_scores):
                             ):
                                 continue
 
+                            red_winner = row["Red Winner"].lower() == "true"
+                            blue_winner = row["Blue Winner"].lower() == "true"
+                            if red_winner and blue_winner:
+                                continue # match hasn't finished, don't import
+
                             event = get_or_create_event_or_athlete(
                                 db.session,
                                 Event,
@@ -226,8 +231,6 @@ def process_file(csv_file_path, no_scores):
                                     row["Red Note"], row["Blue Note"]
                                 ),
                             )
-                            red_winner = row["Red Winner"].lower() == "true"
-                            blue_winner = row["Blue Winner"].lower() == "true"
 
                             match = Match(
                                 happened_at=datetime.strptime(
