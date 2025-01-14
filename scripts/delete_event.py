@@ -10,11 +10,13 @@ from app import db, app
 from models import Event, Match, DefaultGold
 from normalize import normalize
 
+
 def delete_event(event):
     db.session.query(Match).filter(Match.event_id == event.id).delete()
     db.session.query(DefaultGold).filter(DefaultGold.event_id == event.id).delete()
     db.session.delete(event)
     db.session.commit()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Delete an event and its related data")
@@ -31,13 +33,19 @@ if __name__ == "__main__":
             event = db.session.query(Event).filter_by(ibjjf_id=args.id).first()
         else:
             normalized_name = normalize(args.name)
-            event = db.session.query(Event).filter_by(normalized_name=normalized_name).first()
+            event = (
+                db.session.query(Event)
+                .filter_by(normalized_name=normalized_name)
+                .first()
+            )
 
         if not event:
             print("Event not found.")
             sys.exit(1)
 
-        confirm = input(f"Are you sure you want to delete the event '{event.name}'? (yes/no): ")
+        confirm = input(
+            f"Are you sure you want to delete the event '{event.name}'? (yes/no): "
+        )
         if confirm.lower() == "yes":
             delete_event(event)
             print("Event and related data deleted.")

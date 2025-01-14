@@ -321,10 +321,13 @@ def compute_ratings(
             .first()
         )
 
-        if red_last_match is not None and red_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]:
+        if (
+            red_last_match is not None
+            and red_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
+        ):
             log.debug(
                 "Red athlete has no matches at this age and younger age is below default rating (%s), using default rating",
-                red_last_match.end_rating
+                red_last_match.end_rating,
             )
             red_last_match = None
 
@@ -378,7 +381,10 @@ def compute_ratings(
             .first()
         )
 
-        if blue_last_match is not None and blue_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]:
+        if (
+            blue_last_match is not None
+            and blue_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
+        ):
             log.debug(
                 "Blue athlete has no matches at this age and younger age is below default rating (%s), using default rating",
                 blue_last_match.end_rating,
