@@ -7,7 +7,7 @@ from constants import OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
 
 
 def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
-    three_years_ago = datetime.now() - relativedelta(years=3)
+    activity_period = datetime.now() - relativedelta(years=1.08)
 
     if gi and nogi:
         gi_in = "true, false"
