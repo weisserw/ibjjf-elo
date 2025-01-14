@@ -7,7 +7,7 @@ from constants import OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
 
 
 def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
-    three_years_ago = datetime.now() - relativedelta(years=3)
+    activity_period = datetime.now() - relativedelta(years=1, months=1)
 
     if gi and nogi:
         gi_in = "true, false"
@@ -67,7 +67,7 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
             JOIN divisions d ON d.id = m.division_id
             JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
             WHERE mp.winner = TRUE
-            AND m.happened_at >= :three_years_ago
+            AND m.happened_at >= :activity_period
             AND d.gi in ({gi_in})
         ), athlete_lost_matches AS (
             SELECT DISTINCT
@@ -82,7 +82,7 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
             JOIN divisions d ON d.id = m.division_id
             JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
             WHERE mp.winner = FALSE
-            AND m.happened_at >= :three_years_ago
+            AND m.happened_at >= :activity_period
             AND d.gi in ({gi_in})
         ), athlete_weights_no_p4p AS (
             SELECT DISTINCT
@@ -191,6 +191,6 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
             "OPEN_CLASS": OPEN_CLASS,
             "OPEN_CLASS_LIGHT": OPEN_CLASS_LIGHT,
             "OPEN_CLASS_HEAVY": OPEN_CLASS_HEAVY,
-            "three_years_ago": three_years_ago,
+            "activity_period": activity_period,
         },
     )
