@@ -18,9 +18,6 @@ from constants import (
     translate_weight,
     check_gender,
     translate_age,
-    JUVENILE,
-    ADULT,
-    MASTER_PREFIX,
 )
 from normalize import normalize
 from elo import match_didnt_happen
@@ -155,18 +152,15 @@ def process_file(csv_file_path, no_scores):
                         for row in rows:
                             bar.next()
 
+                            try:
+                                age = translate_age(row["Age"])
+                            except ValueError:
+                                continue  # kids ages raise ValueError
+
                             belt = translate_belt(row["Belt"])
                             weight = translate_weight(row["Weight"])
 
                             check_gender(row["Gender"])
-                            age = translate_age(row["Age"])
-
-                            if not (
-                                age.startswith(MASTER_PREFIX)
-                                or age == JUVENILE
-                                or age == ADULT
-                            ):
-                                continue
 
                             red_winner = row["Red Winner"].lower() == "true"
                             blue_winner = row["Blue Winner"].lower() == "true"
