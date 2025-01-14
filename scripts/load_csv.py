@@ -13,7 +13,15 @@ from ratings import recompute_all_ratings
 from datetime import datetime
 from app import db, app
 from models import Event, Division, Athlete, Team, Match, MatchParticipant, DefaultGold
-from constants import translate_belt, translate_weight, check_gender, translate_age, JUVENILE, ADULT, MASTER_PREFIX
+from constants import (
+    translate_belt,
+    translate_weight,
+    check_gender,
+    translate_age,
+    JUVENILE,
+    ADULT,
+    MASTER_PREFIX,
+)
 from normalize import normalize
 from elo import match_didnt_happen
 

@@ -476,10 +476,8 @@ def compute_ratings(
     red_end_rating: float
     blue_end_rating: float
 
-    unknown_open, red_handicap, blue_handicap, red_weight, blue_weight = (
-        open_handicaps(
-            db, event_id, happened_at, division, red_athlete_id, blue_athlete_id
-        )
+    unknown_open, red_handicap, blue_handicap, red_weight, blue_weight = open_handicaps(
+        db, event_id, happened_at, division, red_athlete_id, blue_athlete_id
     )
 
     # calculate the new ratings
