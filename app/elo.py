@@ -70,7 +70,7 @@ BELT_DEFAULT_RATING = {BLACK: 2000, BROWN: 1700, PURPLE: 1400, BLUE: 1100, WHITE
 
 # the amount of "ghost rating points" to add to the rating of an athlete in the open class,
 # the index is the difference in weight classes
-HANDICAPS = [0, 53, 69, 105, 137, 159, 218, 323, 395]
+HANDICAPS = [0, 85, 123, 164, 200, 296, 382, 491, 511]
 
 no_match_strings = [
     "Disqualified by no show",
