@@ -2,7 +2,6 @@ import logging
 from typing import Tuple, Optional
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import text
 from flask_sqlalchemy import SQLAlchemy
 from models import Match, MatchParticipant, Division, DefaultGold
 from constants import (
@@ -14,6 +13,15 @@ from constants import (
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
     OPEN_CLASS_LIGHT,
+    JUVENILE,
+    ADULT,
+    MASTER_1,
+    MASTER_2,
+    MASTER_3,
+    MASTER_4,
+    MASTER_5,
+    MASTER_6,
+    MASTER_7,
     weight_class_order,
     belt_order,
     age_order,
@@ -66,11 +74,75 @@ class EloCompetitor:
         competitor.rating = competitor.rating + self._k_factor * (0.5 - lose_es)
 
 
-BELT_DEFAULT_RATING = {BLACK: 2000, BROWN: 1700, PURPLE: 1400, BLUE: 1100, WHITE: 800}
+BLACK_DEFAULT_RATINGS = {
+    ADULT: 2000,
+    MASTER_1: 1963,
+    MASTER_2: 1939,
+    MASTER_3: 1906,
+    MASTER_4: 1878,
+    MASTER_5: 1835,
+    MASTER_6: 1780,
+    MASTER_7: 1723,
+}
+
+BROWN_DEFAULT_RATINGS = {
+    ADULT: 1700,
+    MASTER_1: 1663,
+    MASTER_2: 1639,
+    MASTER_3: 1606,
+    MASTER_4: 1578,
+    MASTER_5: 1535,
+    MASTER_6: 1480,
+    MASTER_7: 1423,
+}
+
+PURPLE_DEFAULT_RATINGS = {
+    JUVENILE: 1400,
+    ADULT: 1400,
+    MASTER_1: 1363,
+    MASTER_2: 1339,
+    MASTER_3: 1306,
+    MASTER_4: 1278,
+    MASTER_5: 1235,
+    MASTER_6: 1180,
+    MASTER_7: 1123,
+}
+
+BLUE_DEFAULT_RATINGS = {
+    JUVENILE: 1100,
+    ADULT: 1100,
+    MASTER_1: 1063,
+    MASTER_2: 1039,
+    MASTER_3: 1006,
+    MASTER_4: 978,
+    MASTER_5: 935,
+    MASTER_6: 880,
+    MASTER_7: 823,
+}
+
+WHITE_DEFAULT_RATINGS = {
+    JUVENILE: 800,
+    ADULT: 800,
+    MASTER_1: 763,
+    MASTER_2: 739,
+    MASTER_3: 706,
+    MASTER_4: 678,
+    MASTER_5: 635,
+    MASTER_6: 580,
+    MASTER_7: 523,
+}
+
+DEFAULT_RATINGS = {
+    BLACK: BLACK_DEFAULT_RATINGS,
+    BROWN: BROWN_DEFAULT_RATINGS,
+    PURPLE: PURPLE_DEFAULT_RATINGS,
+    BLUE: BLUE_DEFAULT_RATINGS,
+    WHITE: WHITE_DEFAULT_RATINGS,
+}
 
 # the amount of "ghost rating points" to add to the rating of an athlete in the open class,
 # the index is the difference in weight classes
-HANDICAPS = [0, 85, 123, 164, 200, 296, 382, 491, 511]
+WEIGHT_HANDICAPS = [0, 85, 123, 164, 200, 296, 382, 491, 511]
 
 no_match_strings = [
     "Disqualified by no show",
@@ -213,8 +285,8 @@ def open_handicaps(
     blue_weight_index = weight_class_order.index(blue_weight)
 
     weight_difference = abs(red_weight_index - blue_weight_index)
-    if weight_difference >= len(HANDICAPS):
-        weight_difference = len(HANDICAPS) - 1
+    if weight_difference >= len(WEIGHT_HANDICAPS):
+        weight_difference = len(WEIGHT_HANDICAPS) - 1
 
     log.debug("Weight difference: %s", weight_difference)
 
@@ -222,9 +294,9 @@ def open_handicaps(
     blue_handicap = 0
     if red_weight_index < blue_weight_index:
         # if red weighs less, add points to blue's rating
-        blue_handicap = HANDICAPS[weight_difference]
+        blue_handicap = WEIGHT_HANDICAPS[weight_difference]
     else:
-        red_handicap = HANDICAPS[weight_difference]
+        red_handicap = WEIGHT_HANDICAPS[weight_difference]
 
     log.debug("Red handicap: %s, blue handicap: %s", red_handicap, blue_handicap)
 
@@ -266,10 +338,9 @@ def compute_ratings(
         blue_note,
     )
 
-    younger_ages = age_order[: age_order.index(division.age)]
+    same_or_higher_ages = age_order[age_order.index(division.age) :]
 
-    # get the last match played by each athlete in the same division by querying the matches table
-    # in reverse date order
+    # get the last match played by each athlete in any age division and in the same age division
     red_last_match = (
         db.session.query(MatchParticipant)
         .join(Match)
@@ -277,7 +348,6 @@ def compute_ratings(
         .filter(
             Division.gi == division.gi,
             Division.gender == division.gender,
-            Division.age == division.age,
             MatchParticipant.athlete_id == red_athlete_id,
             (Match.happened_at < happened_at)
             | ((Match.happened_at == happened_at) & (Match.id < match_id)),
@@ -285,51 +355,25 @@ def compute_ratings(
         .order_by(Match.happened_at.desc(), Match.id.desc())
         .first()
     )
-    if red_last_match is None:
-        log.debug("Red athlete has no matches at this age, looking for younger age")
-        # if the athlete has no previous matches at this age, look for a younger age division to fork their rating from
-        red_last_match = (
-            db.session.query(MatchParticipant)
-            .join(Match)
-            .join(Division)
-            .filter(
-                Division.gi == division.gi,
-                Division.gender == division.gender,
-                Division.age.in_(younger_ages),
-                MatchParticipant.athlete_id == red_athlete_id,
-                (Match.happened_at < happened_at)
-                | ((Match.happened_at == happened_at) & (Match.id < match_id)),
+    red_same_or_higher_age_match = None
+    if red_last_match is not None:
+        if red_last_match.match.division.age == division.age:
+            red_same_or_higher_age_match = red_last_match
+        else:
+            red_same_or_higher_age_match = (
+                db.session.query(MatchParticipant)
+                .join(Match)
+                .join(Division)
+                .filter(
+                    Division.gi == division.gi,
+                    Division.gender == division.gender,
+                    Division.age.in_(same_or_higher_ages),
+                    MatchParticipant.athlete_id == red_athlete_id,
+                    (Match.happened_at < happened_at)
+                    | ((Match.happened_at == happened_at) & (Match.id < match_id)),
+                )
+                .first()
             )
-            .order_by(
-                text(
-                    """
-                CASE WHEN age = 'Juvenile' THEN 1
-                     WHEN age = 'Adult' THEN 2
-                     WHEN age = 'Master 1' THEN 3
-                     WHEN age = 'Master 2' THEN 4
-                     WHEN age = 'Master 3' THEN 5
-                     WHEN age = 'Master 4' THEN 6
-                     WHEN age = 'Master 5' THEN 7
-                     WHEN age = 'Master 6' THEN 8
-                     WHEN age = 'Master 7' THEN 9
-                END DESC
-            """
-                ),
-                Match.happened_at.desc(),
-                Match.id.desc(),
-            )
-            .first()
-        )
-
-        if (
-            red_last_match is not None
-            and red_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
-        ):
-            log.debug(
-                "Red athlete has no matches at this age and younger age is below default rating (%s), using default rating",
-                red_last_match.end_rating,
-            )
-            red_last_match = None
 
     blue_last_match = (
         db.session.query(MatchParticipant)
@@ -338,7 +382,6 @@ def compute_ratings(
         .filter(
             Division.gi == division.gi,
             Division.gender == division.gender,
-            Division.age == division.age,
             MatchParticipant.athlete_id == blue_athlete_id,
             (Match.happened_at < happened_at)
             | ((Match.happened_at == happened_at) & (Match.id < match_id)),
@@ -346,50 +389,25 @@ def compute_ratings(
         .order_by(Match.happened_at.desc(), Match.id.desc())
         .first()
     )
-    if blue_last_match is None:
-        log.debug("Blue athlete has no matches at this age, looking for younger age")
-        blue_last_match = (
-            db.session.query(MatchParticipant)
-            .join(Match)
-            .join(Division)
-            .filter(
-                Division.gi == division.gi,
-                Division.gender == division.gender,
-                Division.age.in_(younger_ages),
-                MatchParticipant.athlete_id == blue_athlete_id,
-                (Match.happened_at < happened_at)
-                | ((Match.happened_at == happened_at) & (Match.id < match_id)),
+    blue_same_or_higher_age_match = None
+    if blue_last_match is not None:
+        if blue_last_match.match.division.age == division.age:
+            blue_same_or_higher_age_match = blue_last_match
+        else:
+            blue_same_or_higher_age_match = (
+                db.session.query(MatchParticipant)
+                .join(Match)
+                .join(Division)
+                .filter(
+                    Division.gi == division.gi,
+                    Division.gender == division.gender,
+                    Division.age.in_(same_or_higher_ages),
+                    MatchParticipant.athlete_id == blue_athlete_id,
+                    (Match.happened_at < happened_at)
+                    | ((Match.happened_at == happened_at) & (Match.id < match_id)),
+                )
+                .first()
             )
-            .order_by(
-                text(
-                    """
-                CASE WHEN age = 'Juvenile' THEN 1
-                     WHEN age = 'Adult' THEN 2
-                     WHEN age = 'Master 1' THEN 3
-                     WHEN age = 'Master 2' THEN 4
-                     WHEN age = 'Master 3' THEN 5
-                     WHEN age = 'Master 4' THEN 6
-                     WHEN age = 'Master 5' THEN 7
-                     WHEN age = 'Master 6' THEN 8
-                     WHEN age = 'Master 7' THEN 9
-                END DESC
-            """
-                ),
-                Match.happened_at.desc(),
-                Match.id.desc(),
-            )
-            .first()
-        )
-
-        if (
-            blue_last_match is not None
-            and blue_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
-        ):
-            log.debug(
-                "Blue athlete has no matches at this age and younger age is below default rating (%s), using default rating",
-                blue_last_match.end_rating,
-            )
-            blue_last_match = None
 
     # get the number of rated matches played by each athlete in the same division in the last 3 years
     three_years_prior = happened_at - relativedelta(years=3)
@@ -435,12 +453,13 @@ def compute_ratings(
     red_rating_note = None
     blue_rating_note = None
 
-    # if the athlete has no previous matches, use the default rating for their belt
+    # if the athlete has no previous matches, use the default rating
     if red_last_match is None:
-        red_start_rating = BELT_DEFAULT_RATING[division.belt]
+        log.debug("Red athlete has no previous matches, using default rating")
+        red_start_rating = DEFAULT_RATINGS[division.belt][division.age]
     elif (
         red_last_match.match.division.belt != division.belt
-        and red_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
+        and red_last_match.end_rating < DEFAULT_RATINGS[division.belt][division.age]
     ):
         previous_belt_num = belt_order.index(red_last_match.match.division.belt)
         current_belt_num = belt_order.index(division.belt)
@@ -449,26 +468,38 @@ def compute_ratings(
             log.debug(
                 "Athlete was promoted more than one belt and is below default rating, using default rating"
             )
-            red_start_rating = BELT_DEFAULT_RATING[division.belt]
+            red_start_rating = DEFAULT_RATINGS[division.belt][division.age]
         else:
             log.debug(
                 f"Athlete was promoted one belt and is below default rating, adding {PROMOTION_RATING_BUMP} to rating"
             )
             red_start_rating = red_last_match.end_rating + PROMOTION_RATING_BUMP
         red_rating_note = (
-            "Promoted from "
-            + red_last_match.match.division.belt
-            + " to "
-            + division.belt
+            f"Promoted from {red_last_match.match.division.belt} to {division.belt}"
         )
+    elif (
+        age_order.index(red_last_match.match.division.age)
+        < age_order.index(division.age)
+        and red_same_or_higher_age_match is None
+        and red_last_match.end_rating
+        <= DEFAULT_RATINGS[red_last_match.match.division.belt][
+            red_last_match.match.division.age
+        ]
+    ):
+        log.debug(
+            "Red athlete is in higher age division for the first time and is below or equal to default rating of previous division, using default rating"
+        )
+        red_start_rating = DEFAULT_RATINGS[division.belt][division.age]
+        red_rating_note = f"Adjusted rating for new age division {division.age}"
     else:
         red_start_rating = red_last_match.end_rating
 
     if blue_last_match is None:
-        blue_start_rating = BELT_DEFAULT_RATING[division.belt]
+        log.debug("Blue athlete has no previous matches, using default rating")
+        blue_start_rating = DEFAULT_RATINGS[division.belt][division.age]
     elif (
         blue_last_match.match.division.belt != division.belt
-        and blue_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
+        and blue_last_match.end_rating < DEFAULT_RATINGS[division.belt][division.age]
     ):
         previous_belt_num = belt_order.index(blue_last_match.match.division.belt)
         current_belt_num = belt_order.index(division.belt)
@@ -477,18 +508,29 @@ def compute_ratings(
             log.debug(
                 "Athlete was promoted more than one belt and is below default rating, using default rating"
             )
-            blue_start_rating = BELT_DEFAULT_RATING[division.belt]
+            blue_start_rating = DEFAULT_RATINGS[division.belt][division.age]
         else:
             log.debug(
                 f"Athlete was promoted one belt and is below default rating, adding {PROMOTION_RATING_BUMP} to rating"
             )
             blue_start_rating = blue_last_match.end_rating + PROMOTION_RATING_BUMP
         blue_rating_note = (
-            "Promoted from "
-            + blue_last_match.match.division.belt
-            + " to "
-            + division.belt
+            f"Promoted from {blue_last_match.match.division.belt} to {division.belt}"
         )
+    elif (
+        age_order.index(blue_last_match.match.division.age)
+        < age_order.index(division.age)
+        and blue_same_or_higher_age_match is None
+        and blue_last_match.end_rating
+        <= DEFAULT_RATINGS[blue_last_match.match.division.belt][
+            blue_last_match.match.division.age
+        ]
+    ):
+        log.debug(
+            "Blue athlete is in higher age division for the first time and is below or equal to default rating of previous division, using default rating"
+        )
+        blue_start_rating = DEFAULT_RATINGS[division.belt][division.age]
+        blue_rating_note = f"Adjusted rating for new age division {division.age}"
     else:
         blue_start_rating = blue_last_match.end_rating
 
