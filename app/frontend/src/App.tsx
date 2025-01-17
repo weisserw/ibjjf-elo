@@ -62,7 +62,7 @@ function App() {
         </main>
         <footer className="footer" style={{ fontSize: '0.75rem', textAlign: 'right', padding: '0.5rem 1rem' }}>
           <div className="content">
-            <p>© 2024 IBJJJFRankings.com</p>
+            <p>© 2025 IBJJJFRankings.com</p>
           </div>
         </footer>
       </div>
