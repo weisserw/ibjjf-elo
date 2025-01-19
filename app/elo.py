@@ -86,17 +86,29 @@ BLACK_DEFAULT_RATINGS = {
 }
 
 BROWN_DEFAULT_RATINGS = {
-    ADULT: 1700,
-    MASTER_1: 1663,
-    MASTER_2: 1639,
-    MASTER_3: 1606,
-    MASTER_4: 1578,
-    MASTER_5: 1535,
-    MASTER_6: 1480,
-    MASTER_7: 1423,
+    ADULT: 1800,
+    MASTER_1: 1763,
+    MASTER_2: 1739,
+    MASTER_3: 1706,
+    MASTER_4: 1678,
+    MASTER_5: 1635,
+    MASTER_6: 1580,
+    MASTER_7: 1523,
 }
 
 PURPLE_DEFAULT_RATINGS = {
+    JUVENILE: 1600,
+    ADULT: 1600,
+    MASTER_1: 1563,
+    MASTER_2: 1539,
+    MASTER_3: 1506,
+    MASTER_4: 1478,
+    MASTER_5: 1435,
+    MASTER_6: 1380,
+    MASTER_7: 1323,
+}
+
+BLUE_DEFAULT_RATINGS = {
     JUVENILE: 1400,
     ADULT: 1400,
     MASTER_1: 1363,
@@ -108,28 +120,16 @@ PURPLE_DEFAULT_RATINGS = {
     MASTER_7: 1123,
 }
 
-BLUE_DEFAULT_RATINGS = {
-    JUVENILE: 1100,
-    ADULT: 1100,
-    MASTER_1: 1063,
-    MASTER_2: 1039,
-    MASTER_3: 1006,
-    MASTER_4: 978,
-    MASTER_5: 935,
-    MASTER_6: 880,
-    MASTER_7: 823,
-}
-
 WHITE_DEFAULT_RATINGS = {
-    JUVENILE: 800,
-    ADULT: 800,
-    MASTER_1: 763,
-    MASTER_2: 739,
-    MASTER_3: 706,
-    MASTER_4: 678,
-    MASTER_5: 635,
-    MASTER_6: 580,
-    MASTER_7: 523,
+    JUVENILE: 1200,
+    ADULT: 1200,
+    MASTER_1: 1163,
+    MASTER_2: 1139,
+    MASTER_3: 1106,
+    MASTER_4: 1078,
+    MASTER_5: 1035,
+    MASTER_6: 980,
+    MASTER_7: 923,
 }
 
 DEFAULT_RATINGS = {
@@ -309,7 +309,7 @@ def append_rating_note(note: Optional[str], add_note: str) -> str:
     return note + ", " + add_note
 
 
-PROMOTION_RATING_BUMP = 250
+PROMOTION_RATING_BUMP = 150
 
 
 def compute_ratings(
