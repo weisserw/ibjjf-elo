@@ -3,7 +3,7 @@ from typing import Optional
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from progress.bar import Bar
-from models import Match, MatchParticipant, Division
+from models import Match, Division
 from elo import compute_ratings
 from current import generate_current_ratings
 
@@ -19,24 +19,19 @@ def recompute_all_ratings(
     rerankgi: bool = True,
     reranknogi: bool = True,
 ) -> int:
-    query = (
-        db.session.query(Match)
-        .join(MatchParticipant)
-        .join(Division)
-        .filter(Division.gi == gi)
-    )
+    query = db.session.query(Match).join(Division).filter(Division.gi == gi)
 
     if gender is not None:
         query = query.filter(Division.gender == gender)
     if start_date is not None:
         query = query.filter(Match.happened_at >= start_date)
 
-    count = query.count() // 2
+    count = query.count()
 
     with Bar(
         f'Recomputing athlete {"gi" if gi else "no-gi"} ratings', max=count
     ) as bar:
-        for match in query.order_by(Match.happened_at, Match.id).all():
+        for match in query.order_by(Match.happened_at, Match.id):
             bar.next()
 
             if len(match.participants) != 2:
