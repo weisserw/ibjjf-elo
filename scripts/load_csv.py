@@ -269,6 +269,7 @@ def process_file(csv_file_path, no_scores):
                         start_date=datetime.strptime(
                             earliest_date, "%Y-%m-%dT%H:%M:%S"
                         ),
+                        score=True,
                         rerank=not has_nogi,
                         rerankgi=True,
                         reranknogi=False,
@@ -280,6 +281,7 @@ def process_file(csv_file_path, no_scores):
                         start_date=datetime.strptime(
                             earliest_date, "%Y-%m-%dT%H:%M:%S"
                         ),
+                        score=True,
                         rerank=True,
                         rerankgi=has_gi,
                         reranknogi=True,

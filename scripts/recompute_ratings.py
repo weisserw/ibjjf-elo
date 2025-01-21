@@ -19,19 +19,21 @@ def main():
     parser = argparse.ArgumentParser(
         description="Recompute ratings with optional filters."
     )
-    group = parser.add_mutually_exclusive_group(required=True)
+    group = parser.add_mutually_exclusive_group()
     group.add_argument(
         "--nogi",
-        action="store_false",
-        dest="gi",
-        help="Use this flag to indicate no gi.",
+        action="store_true",
+        help="Use this flag to compute only no gi.",
     )
     group.add_argument(
-        "--gi", action="store_true", dest="gi", help="Use this flag to indicate gi."
+        "--gi", action="store_true", help="Use this flag to compute only gi."
     )
     parser.add_argument("--gender", type=str, help="Filter by gender.")
     parser.add_argument(
         "--start-date", type=str, help="Don't rate matches earlier than date."
+    )
+    parser.add_argument(
+        "--rank-only", action="store_true", help="Only recompute ranks, not scores."
     )
 
     args = parser.parse_args()
@@ -54,15 +56,38 @@ def main():
                 return -1
 
     with app.app_context():
-        recompute_all_ratings(
-            db,
-            args.gi,
-            gender=args.gender,
-            start_date=start_date,
-            rerank=True,
-            rerankgi=args.gi,
-            reranknogi=not args.gi,
-        )
+        if (not args.gi and not args.nogi) or (args.gi and args.nogi):
+            recompute_all_ratings(
+                db,
+                True,
+                gender=args.gender,
+                start_date=start_date,
+                score=not args.rank_only,
+                rerank=not args.nogi,
+                rerankgi=True,
+                reranknogi=False,
+            )
+            recompute_all_ratings(
+                db,
+                False,
+                gender=args.gender,
+                start_date=start_date,
+                score=not args.rank_only,
+                rerank=True,
+                rerankgi=args.gi,
+                reranknogi=True,
+            )
+        else:
+            recompute_all_ratings(
+                db,
+                args.gi,
+                gender=args.gender,
+                start_date=start_date,
+                score=not args.rank_only,
+                rerank=True,
+                rerankgi=args.gi,
+                reranknogi=not args.gi,
+            )
 
         db.session.commit()
 
