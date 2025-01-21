@@ -7,6 +7,7 @@ import sys
 import gzip
 import os
 import gspread
+import json
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -16,7 +17,11 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/spreadsheets",
 ]
-SERVICE_ACCOUNT_FILE = "/etc/secrets/service-account.json"
+
+
+def get_credentials_from_env():
+    service_account_info = json.loads(os.getenv("GC_SERVICE_ACCOUNT"))
+    return Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
 
 
 def get_folder_id(drive_service, folder_name):
@@ -29,9 +34,7 @@ def get_folder_id(drive_service, folder_name):
 
 
 def upload_to_drive(file_path):
-    credentials = Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES
-    )
+    credentials = get_credentials_from_env()
     drive_service = build("drive", "v3", credentials=credentials)
 
     folder_id = get_folder_id(drive_service, "IBJJF CSV Files")
@@ -47,9 +50,7 @@ def upload_to_drive(file_path):
 
 
 def create_google_sheet(filename, data):
-    credentials = Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES
-    )
+    credentials = get_credentials_from_env()
     drive_service = build("drive", "v3", credentials=credentials)
     sheets_service = build("sheets", "v4", credentials=credentials)
     gc = gspread.authorize(credentials)
