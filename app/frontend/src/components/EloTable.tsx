@@ -146,7 +146,7 @@ function EloTable(props: EloTableProps) {
     if (diff > 0) {
       return `+${diff.toLocaleString()}`;
     } else {
-      return (-diff).toLocaleString();
+      return diff.toLocaleString();
     }
   }
 
