@@ -10,8 +10,10 @@ import "./EloTable.css"
 
 interface Row {
   rank: number
+  previous_rank: number | null
   name: string
   rating: number
+  previous_rating: number | null
 }
 
 interface Results {
@@ -25,12 +27,14 @@ interface EloTableProps {
   age: string
   belt: string
   weight: string
+  changed: boolean
   nameFilter: string
   page: number
   setGender: (value: string) => void
   setAge: (value: string) => void
   setBelt: (value: string) => void
   setWeight: (value: string) => void
+  setChanged: (value: boolean) => void
   setNameFilter: (name: string) => void
   setFilters: (filters: FilterValues) => void
   setOpenFilters: (openFilters: OpenFilters) => void
@@ -55,6 +59,7 @@ function EloTable(props: EloTableProps) {
         age: props.age,
         belt: props.belt,
         weight: props.weight,
+        changed: props.changed ? 'true' : 'false',
         name: props.nameFilter,
         gi: props.gi ? 'true' : 'false',
         page: props.page,
@@ -73,7 +78,7 @@ function EloTable(props: EloTableProps) {
       setLoading(false)
       setReloading(false)
     })
-  }, [props.gender, props.age, props.belt, props.weight, props.nameFilter, props.gi, props.page]);
+  }, [props.gender, props.age, props.belt, props.weight, props.changed, props.nameFilter, props.gi, props.page]);
 
   const getAthleteSuggestions = async ({ value }: { value: string }) => {
     const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
@@ -117,9 +122,62 @@ function EloTable(props: EloTableProps) {
     props.setPage(pageNumber)
   }
 
+  const rankChange = (row: Row) => {
+    if (ratingChange(row) === '' || row.previous_rank === null || (row.rank === row.previous_rank)) {
+      return '';
+    }
+
+    const diff = row.rank - row.previous_rank;
+
+    if (diff < 0) {
+      return `↑${(-diff).toLocaleString()}`;
+    } else {
+      return `↓${diff.toLocaleString()}`;
+    }
+  }
+
+  const ratingChange = (row: Row) => {
+    if (row.previous_rating === null || (row.rating === row.previous_rating)) {
+      return '';
+    }
+
+    const diff = row.rating - row.previous_rating;
+
+    if (diff > 0) {
+      return `+${diff.toLocaleString()}`;
+    } else {
+      return (-diff).toLocaleString();
+    }
+  }
+
+  const changeClass = (start: number | null, end: number, reverse: boolean) => {
+    if (start === null || start === end) {
+      return 'has-text-right';
+    }
+
+    let diff = end - start;
+    if (reverse) { diff *= -1; }
+
+    if (diff > 0) {
+      return 'has-text-right has-text-success';
+    } else {
+      return 'has-text-right has-text-danger';
+    }
+  }
+
+
   return (
     <div>
-      <EloFilters gender={props.gender} setGender={props.setGender} age={props.age} setAge={props.setAge} belt={props.belt} setBelt={props.setBelt} weight={props.weight} setWeight={props.setWeight} />
+      <EloFilters gender={props.gender}
+                  setGender={props.setGender}
+                  age={props.age}
+                  setAge={props.setAge}
+                  belt={props.belt}
+                  setBelt={props.setBelt}
+                  weight={props.weight}
+                  setWeight={props.setWeight}
+                  changed={props.changed}
+                  setChanged={props.setChanged} />
       <div>
         <div className="field">
           <div className="control has-icons-left">
@@ -146,8 +204,10 @@ function EloTable(props: EloTableProps) {
           <thead>
             <tr>
               <th className="has-text-right">#</th>
+              <th className="has-text-right">↑↓</th>
               <th>Name</th>
               <th className="has-text-right">Rating</th>
+              <th className="has-text-right">+/-</th>
             </tr>
           </thead>
           <tbody>
@@ -179,12 +239,14 @@ function EloTable(props: EloTableProps) {
               !loading && !!data.length && data.map((row: Row, index) => (
                 <tr key={index}>
                   <td className="has-text-right">{row.rank}</td>
+                  <td className={changeClass(row.previous_rank, row.rank, true)}>{rankChange(row)}</td>
                   <td>
                     <a href="#" onClick={e => onNameClick(e, row.name)}>
                       {row.name}
                     </a>
                   </td>
                   <td className="has-text-right">{row.rating}</td>
+                  <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
                 </tr>
               ))
             }

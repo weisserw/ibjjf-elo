@@ -57,11 +57,13 @@ interface EloFiltersProps {
   age: string;
   belt: string;
   weight: string;
+  changed: boolean;
 
   setGender: (value: string) => void;
   setAge: (value: string) => void;
   setBelt: (value: string) => void;
   setWeight: (value: string) => void;
+  setChanged: (value: boolean) => void;
 }
 
 function EloFilters(props: EloFiltersProps) {
@@ -112,7 +114,7 @@ function EloFilters(props: EloFiltersProps) {
 
   return (
     <div className="columns is-mobile is-multiline">
-      <div className="column is-half-mobile">
+      <div className="column is-third-mobile">
         <div className="field mobile-margin">
           <label className="label">Gender</label>
           <div className="select">
@@ -123,7 +125,7 @@ function EloFilters(props: EloFiltersProps) {
           </div>
         </div>
       </div>
-      <div className="column is-half-mobile">
+      <div className="column is-third-mobile">
         <div className="field">
           <label className="label">Age</label>
           <div className="select">
@@ -141,8 +143,8 @@ function EloFilters(props: EloFiltersProps) {
           </div>
         </div>
       </div>
-      <div className="column is-half-mobile">
-        <div className="field mobile-margin">
+      <div className="column is-third-mobile">
+        <div className="field">
           <label className="label">Belt</label>
           <div className="select">
             <select value={props.belt} onChange={onBeltChange}>
@@ -156,7 +158,7 @@ function EloFilters(props: EloFiltersProps) {
         </div>
       </div>
       <div className="column is-half-mobile">
-        <div className="field">
+        <div className="field mobile-margin">
           <label className="label">Weight</label>
           <div className="select">
             <select value={props.weight} onChange={onWeightChange}>
@@ -166,6 +168,16 @@ function EloFilters(props: EloFiltersProps) {
                 ))
               }
             </select>
+          </div>
+        </div>
+      </div>
+      <div className="column is-half-mobile">
+        <div className="field checkbox-margin">
+          <div className="control">
+            <label className="checkbox">
+              <input type="checkbox" checked={props.changed} onChange={() => props.setChanged(!props.changed)} />
+              &nbsp;Changed Only
+            </label>
           </div>
         </div>
       </div>

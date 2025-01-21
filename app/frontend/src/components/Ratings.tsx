@@ -8,12 +8,14 @@ interface RatingsProps {
   age: string
   belt: string
   weight: string
+  changed: boolean
   nameFilter: string
   page: number
   setGender: (value: string) => void
   setAge: (value: string) => void
   setBelt: (value: string) => void
   setWeight: (value: string) => void
+  setChanged: (value: boolean) => void
   setNameFilter: (name: string) => void
   setActiveTab: (activeTab: TabName) => void
   setFilters: (filters: FilterValues) => void
@@ -37,6 +39,8 @@ function Ratings(props: RatingsProps) {
                 setBelt={props.setBelt}
                 weight={props.weight}
                 setWeight={props.setWeight}
+                changed={props.changed}
+                setChanged={props.setChanged}
                 nameFilter={props.nameFilter}
                 setNameFilter={props.setNameFilter}
                 setPage={props.setPage}

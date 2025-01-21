@@ -1,6 +1,7 @@
 import math
 from flask import Blueprint, request, jsonify
 from extensions import db
+from sqlalchemy import func
 from models import AthleteRating, Athlete
 from normalize import normalize
 
@@ -17,15 +18,23 @@ def top():
     gi = request.args.get("gi")
     weight = request.args.get("weight") or ""
     name = request.args.get("name")
+    changed = request.args.get("changed")
     page = request.args.get("page") or 1
 
     if not all([gender, age, belt, gi]):
         return jsonify({"error": "Missing mandatory query parameters"}), 400
 
     gi = gi.lower() == "true"
+    changed = changed and changed.lower() == "true"
 
     query = (
-        db.session.query(Athlete.name, AthleteRating.rating, AthleteRating.rank)
+        db.session.query(
+            Athlete.name,
+            AthleteRating.rating,
+            AthleteRating.rank,
+            AthleteRating.previous_rating,
+            AthleteRating.previous_rank,
+        )
         .select_from(AthleteRating)
         .join(Athlete)
         .filter(
@@ -40,6 +49,13 @@ def top():
     if name:
         query = query.filter(Athlete.normalized_name.like(f"%{normalize(name)}%"))
 
+    if changed:
+        query = query.filter(
+            AthleteRating.previous_rating is not None,
+            func.round(AthleteRating.rating)
+            != func.round(AthleteRating.previous_rating),
+        )
+
     totalCount = query.count()
 
     query = (
@@ -50,7 +66,17 @@ def top():
     results = query.all()
 
     response = [
-        {"rank": result.rank, "name": result.name, "rating": round(result.rating)}
+        {
+            "rank": result.rank,
+            "name": result.name,
+            "rating": round(result.rating),
+            "previous_rating": (
+                None
+                if result.previous_rating is None
+                else round(result.previous_rating)
+            ),
+            "previous_rank": result.previous_rank,
+        }
         for result in results
     ]
 
