@@ -175,6 +175,13 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
     elif nogi:
         gi_in = "false"
 
+    if gi and nogi:
+        table_suffix = "both"
+    elif gi:
+        table_suffix = "gi"
+    elif nogi:
+        table_suffix = "nogi"
+
     activity_period = datetime.now() - relativedelta(years=1, months=1)
 
     num_tuesdays = 1
@@ -224,16 +231,8 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
     db.session.execute(
         text(
             f"""
-        INSERT INTO athlete_ratings (id, athlete_id, gender, age, belt, gi, weight,
-                                     rating, match_happened_at, rank, previous_rating, previous_rank)
-        SELECT {id_generate}, c.*, p.end_rating, p.rank
-        FROM (
-            {ratings_board}
-        ) c
-        LEFT JOIN (
-            {previous_ratings_board}
-        ) p ON c.athlete_id = p.athlete_id AND c.gender = p.gender AND c.age = p.age AND
-               c.belt = p.belt AND c.gi = p.gi AND c.weight = p.weight
+        CREATE TEMPORARY TABLE temp_previous_ratings_{table_suffix} AS
+        {previous_ratings_board}
             """
         ),
         {
@@ -243,4 +242,35 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
             "activity_period": activity_period,
             "previous_date": previous_date,
         },
+    )
+    db.session.execute(text(f"ANALYZE temp_previous_ratings_{table_suffix}"))
+
+    db.session.execute(
+        text(
+            f"""
+        CREATE TEMPORARY TABLE temp_current_ratings_{table_suffix} AS
+        {ratings_board}
+            """
+        ),
+        {
+            "OPEN_CLASS": OPEN_CLASS,
+            "OPEN_CLASS_LIGHT": OPEN_CLASS_LIGHT,
+            "OPEN_CLASS_HEAVY": OPEN_CLASS_HEAVY,
+            "activity_period": activity_period,
+            "previous_date": previous_date,
+        },
+    )
+    db.session.execute(text(f"ANALYZE temp_current_ratings_{table_suffix}"))
+
+    db.session.execute(
+        text(
+            f"""
+        INSERT INTO athlete_ratings (id, athlete_id, gender, age, belt, gi, weight,
+                                     rating, match_happened_at, rank, previous_rating, previous_rank)
+        SELECT {id_generate}, c.*, p.end_rating, p.rank
+        FROM temp_current_ratings_{table_suffix} c
+        LEFT JOIN temp_previous_ratings_{table_suffix} p ON c.athlete_id = p.athlete_id AND c.gender = p.gender AND c.age = p.age AND
+                                             c.belt = p.belt AND c.gi = p.gi AND c.weight = p.weight;
+            """
+        )
     )
