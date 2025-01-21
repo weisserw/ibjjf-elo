@@ -1,40 +1,17 @@
 import os
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
+from dateutil.relativedelta import relativedelta, TU
 from sqlalchemy import text
 from flask_sqlalchemy import SQLAlchemy
+import logging
 from constants import OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
 
 
-def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
-    activity_period = datetime.now() - relativedelta(years=1, months=1)
+log = logging.getLogger("ibjjf")
 
-    if gi and nogi:
-        gi_in = "true, false"
-    elif gi:
-        gi_in = "true"
-    elif nogi:
-        gi_in = "false"
 
-    db.session.execute(
-        text(
-            f"""
-            DELETE FROM athlete_ratings where gi in ({gi_in})
-            """
-        )
-    )
-
-    if os.getenv("DATABASE_URL"):
-        id_generate = "gen_random_uuid()"
-    else:
-        id_generate = (
-            "athlete_id || '-' || gender || '-' || age || '-' || gi || '-' || weight"
-        )
-
-    db.session.execute(
-        text(
-            f"""
-        INSERT INTO athlete_ratings (id, athlete_id, gender, age, belt, gi, weight, rating, match_happened_at, rank)
+def get_ratings_query(gi_in: str, date_where) -> str:
+    return f"""
         WITH
         athlete_max_belts AS (
             SELECT
@@ -46,6 +23,7 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
             FROM matches m
             JOIN match_participants mp ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
+            WHERE {date_where}
             GROUP BY mp.athlete_id
         ), athlete_belts AS (
             SELECT CASE WHEN mb.belt_num = 1 THEN 'WHITE'
@@ -67,6 +45,7 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
             JOIN divisions d ON d.id = m.division_id
             JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
             WHERE mp.winner = TRUE
+            AND {date_where}
             AND m.happened_at >= :activity_period
             AND d.gi in ({gi_in})
         ), athlete_lost_matches AS (
@@ -82,6 +61,7 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
             JOIN divisions d ON d.id = m.division_id
             JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
             WHERE mp.winner = FALSE
+            AND {date_where}
             AND m.happened_at >= :activity_period
             AND d.gi in ({gi_in})
         ), athlete_weights_no_p4p AS (
@@ -95,7 +75,7 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
             FROM match_participants mp
             JOIN matches m ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
-            WHERE d.weight NOT IN (:OPEN_CLASS, :OPEN_CLASS_LIGHT, :OPEN_CLASS_HEAVY) AND (
+            WHERE {date_where} AND d.weight NOT IN (:OPEN_CLASS, :OPEN_CLASS_LIGHT, :OPEN_CLASS_HEAVY) AND (
                 -- to qualify for a weight class, the athlete must have either won a match in this weight division...
                 EXISTS (
                     SELECT 1
@@ -154,7 +134,7 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
             JOIN match_participants mp ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
             JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
-            WHERE d.gi in ({gi_in})
+            WHERE d.gi in ({gi_in}) AND {date_where}
         ), ratings AS (
             SELECT
                 rm.athlete_id,
@@ -174,7 +154,6 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
             WHERE rm.rn = 1
         )
         SELECT
-            {id_generate},
             athlete_id,
             gender,
             age,
@@ -186,11 +165,82 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
             RANK() OVER (PARTITION BY gender, age, belt, gi, weight ORDER BY ROUND(end_rating) DESC) AS rank
         FROM ratings
             """
+
+
+def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
+    if gi and nogi:
+        gi_in = "true, false"
+    elif gi:
+        gi_in = "true"
+    elif nogi:
+        gi_in = "false"
+
+    activity_period = datetime.now() - relativedelta(years=1, months=1)
+
+    num_tuesdays = 1
+    previous_date = datetime.now() + relativedelta(
+        weekday=TU(-num_tuesdays), hour=0, minute=0, second=0, microsecond=0
+    )
+    while True:
+        count = db.session.execute(
+            text(
+                f"""
+                SELECT COUNT(*)
+                FROM matches m
+                JOIN divisions d ON m.division_id = d.id
+                WHERE m.happened_at >= :previous_date
+                AND d.gi in ({gi_in})
+                """
+            ),
+            {"previous_date": previous_date},
+        ).scalar()
+
+        if count > 0:
+            break
+
+        num_tuesdays += 1
+        previous_date = datetime.now() + relativedelta(
+            weekday=TU(-num_tuesdays), hour=0, minute=0, second=0, microsecond=0
+        )
+
+    log.info(f"Will show rating / ranking changes since: {previous_date}")
+
+    db.session.execute(
+        text(
+            f"""
+            DELETE FROM athlete_ratings where gi in ({gi_in})
+            """
+        )
+    )
+
+    if os.getenv("DATABASE_URL"):
+        id_generate = "gen_random_uuid()"
+    else:
+        id_generate = "c.athlete_id || '-' || c.gender || '-' || c.age || '-' || c.gi || '-' || c.weight"
+
+    ratings_board = get_ratings_query(gi_in, "true")
+    previous_ratings_board = get_ratings_query(gi_in, "m.happened_at < :previous_date")
+
+    db.session.execute(
+        text(
+            f"""
+        INSERT INTO athlete_ratings (id, athlete_id, gender, age, belt, gi, weight,
+                                     rating, match_happened_at, rank, previous_rating, previous_rank)
+        SELECT {id_generate}, c.*, p.end_rating, p.rank
+        FROM (
+            {ratings_board}
+        ) c
+        LEFT JOIN (
+            {previous_ratings_board}
+        ) p ON c.athlete_id = p.athlete_id AND c.gender = p.gender AND c.age = p.age AND
+               c.belt = p.belt AND c.gi = p.gi AND c.weight = p.weight
+            """
         ),
         {
             "OPEN_CLASS": OPEN_CLASS,
             "OPEN_CLASS_LIGHT": OPEN_CLASS_LIGHT,
             "OPEN_CLASS_HEAVY": OPEN_CLASS_HEAVY,
             "activity_period": activity_period,
+            "previous_date": previous_date,
         },
     )

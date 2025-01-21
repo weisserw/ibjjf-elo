@@ -1,5 +1,9 @@
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .mobile-margin {
     margin-left: 16px;
   }
+}
+
+.checkbox-margin {
+  margin-top: 40px;
 }

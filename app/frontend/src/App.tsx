@@ -16,6 +16,7 @@ function App() {
   const [rankingAge, setRankingAge] = useState('Adult')
   const [rankingBelt, setRankingBelt] = useState('BLACK')
   const [rankingWeight, setRankingWeight] = useState('')
+  const [rankingChanged, setRankingChanged] = useState(false)
   const [rankingNameFilter, setRankingNameFilter] = useState('')
   const [rankingPage, setRankingPage] = useState(1)
   const [dbPage, setDbPage] = useState(1)
@@ -42,6 +43,8 @@ function App() {
                                               setBelt={setRankingBelt}
                                               weight={rankingWeight}
                                               setWeight={setRankingWeight}
+                                              changed={rankingChanged}
+                                              setChanged={setRankingChanged}
                                               nameFilter={rankingNameFilter}
                                               setNameFilter={setRankingNameFilter}
                                               page={rankingPage}
