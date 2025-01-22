@@ -1,6 +1,6 @@
 import os
-from datetime import datetime
-from dateutil.relativedelta import relativedelta, TU
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from sqlalchemy import text
 from flask_sqlalchemy import SQLAlchemy
 import logging
@@ -167,6 +167,13 @@ def get_ratings_query(gi_in: str, date_where) -> str:
             """
 
 
+def previous_tuesday(dt: datetime) -> datetime:
+    dt -= timedelta(days=7)
+    while dt.weekday() != 1:
+        dt -= timedelta(days=1)
+    return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
     if gi and nogi:
         gi_in = "true, false"
@@ -184,10 +191,7 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
 
     activity_period = datetime.now() - relativedelta(years=1, months=1)
 
-    num_weeks = 1
-    previous_date = datetime.now() + relativedelta(
-        days=-7 * num_weeks, weekday=TU, hour=0, minute=0, second=0, microsecond=0
-    )
+    previous_date = previous_tuesday(datetime.now())
     while True:
         count = db.session.execute(
             text(
@@ -205,10 +209,7 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
         if count > 0:
             break
 
-        num_weeks += 1
-        previous_date = datetime.now() + relativedelta(
-            days=-7 * num_weeks, weekday=TU, hour=0, minute=0, second=0, microsecond=0
-        )
+        previous_date = previous_tuesday(previous_date)
 
     log.info(f"Will show rating / ranking changes since: {previous_date}")
 
