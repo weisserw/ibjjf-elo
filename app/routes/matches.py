@@ -267,7 +267,7 @@ def matches():
                 f"""
         SELECT COUNT(*) FROM (
             {sql}
-        )"""
+        ) q"""
             ),
             params,
         ).scalar_one()
