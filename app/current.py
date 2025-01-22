@@ -184,9 +184,9 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
 
     activity_period = datetime.now() - relativedelta(years=1, months=1)
 
-    num_tuesdays = 1
+    num_weeks = 1
     previous_date = datetime.now() + relativedelta(
-        weekday=TU(-num_tuesdays), hour=0, minute=0, second=0, microsecond=0
+        days=-7 * num_weeks, weekday=TU, hour=0, minute=0, second=0, microsecond=0
     )
     while True:
         count = db.session.execute(
@@ -205,9 +205,9 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
         if count > 0:
             break
 
-        num_tuesdays += 1
+        num_weeks += 1
         previous_date = datetime.now() + relativedelta(
-            weekday=TU(-num_tuesdays), hour=0, minute=0, second=0, microsecond=0
+            days=-7 * num_weeks, weekday=TU, hour=0, minute=0, second=0, microsecond=0
         )
 
     log.info(f"Will show rating / ranking changes since: {previous_date}")
