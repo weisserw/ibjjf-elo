@@ -123,7 +123,10 @@ function EloTable(props: EloTableProps) {
   }
 
   const rankChange = (row: Row) => {
-    if (ratingChange(row) === '' || row.previous_rank === null || (row.rank === row.previous_rank)) {
+    if (row.previous_rank === null) {
+      return <span className="new-marker">New</span>;
+    }
+    if (ratingChange(row) === '' || (row.rank === row.previous_rank)) {
       return '';
     }
 
@@ -151,6 +154,9 @@ function EloTable(props: EloTableProps) {
   }
 
   const changeClass = (start: number | null, end: number, reverse: boolean) => {
+    if (start === null && reverse) {
+      return 'has-text-right new-marker-td';
+    }
     if (start === null || start === end) {
       return 'has-text-right';
     }
