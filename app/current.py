@@ -118,7 +118,7 @@ def get_ratings_query(gi_in: str, date_where) -> str:
                 UNION
                 SELECT athlete_id, gi, gender, age, belt
                 FROM athlete_lost_matches
-            )
+            ) q
         ), recent_matches AS (
             SELECT
                 m.happened_at,
