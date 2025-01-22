@@ -5,3 +5,15 @@ td.empty-row {
 .table-margin {
   margin-bottom: 20px;
 }
+
+.new-marker-td {
+  padding-top: 6px !important;
+}
+
+.new-marker {
+  color: white;
+  background-color: hsl(var(--bulma-success-h),var(--bulma-success-s),var(--bulma-success-l));
+  padding: 2px;
+  font-size: 10px;
+  margin-top: -2px;
+}

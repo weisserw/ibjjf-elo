@@ -1,7 +1,7 @@
 import math
 from flask import Blueprint, request, jsonify
 from extensions import db
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from models import AthleteRating, Athlete
 from normalize import normalize
 
@@ -51,9 +51,11 @@ def top():
 
     if changed:
         query = query.filter(
-            AthleteRating.previous_rating is not None,
-            func.round(AthleteRating.rating)
-            != func.round(AthleteRating.previous_rating),
+            or_(
+                func.round(AthleteRating.rating)
+                != func.round(AthleteRating.previous_rating),
+                AthleteRating.previous_rank.is_(None),
+            )
         )
 
     totalCount = query.count()
