@@ -4,13 +4,13 @@ import argparse
 import csv
 import traceback
 import sys
-import gzip
 import os
 import gspread
 import json
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+import boto3
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
 # Google API setup
 SCOPES = [
@@ -33,20 +33,28 @@ def get_folder_id(drive_service, folder_name):
     return items[0]["id"]
 
 
-def upload_to_drive(file_path):
-    credentials = get_credentials_from_env()
-    drive_service = build("drive", "v3", credentials=credentials)
-
-    folder_id = get_folder_id(drive_service, "IBJJF CSV Files")
-
-    file_metadata = {"name": os.path.basename(file_path), "parents": [folder_id]}
-    media = MediaFileUpload(file_path, mimetype="text/csv")
-    file = (
-        drive_service.files()
-        .create(body=file_metadata, media_body=media, fields="id")
-        .execute()
+def get_s3_client():
+    aws_creds = json.loads(os.getenv("AWS_CREDS"))
+    return boto3.client(
+        "s3",
+        aws_access_key_id=aws_creds["aws_access_key_id"],
+        aws_secret_access_key=aws_creds["aws_secret_access_key"],
+        region_name=aws_creds.get("region"),
     )
-    return file.get("id")
+
+
+def upload_to_s3(s3_client, file_path, bucket_name, prefix):
+    try:
+        s3_client.upload_file(
+            file_path, bucket_name, f"{prefix}/{os.path.basename(file_path)}"
+        )
+        print(f"{file_path}: File uploaded to S3.")
+    except (NoCredentialsError, PartialCredentialsError) as e:
+        print(f"Credentials error: {e}")
+        raise
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise
 
 
 def create_google_sheet(filename, data):
@@ -85,28 +93,42 @@ def create_google_sheet(filename, data):
 def main():
     try:
         parser = argparse.ArgumentParser(
-            description="Copy CSV files to Google Drive / Sheets"
+            description="Copy CSV files to AWS S3 / Google Sheets"
         )
         parser.add_argument(
             "csv_files", metavar="csv_file", type=str, nargs="+", help="CSV file paths"
         )
+        parser.add_argument(
+            "--historical",
+            action="store_true",
+            help="Upload files to 'ibjjf_historical_data' prefix",
+        )
+        parser.add_argument(
+            "--no-sheets",
+            action="store_true",
+            help="Do not create Google Sheets",
+        )
         args = parser.parse_args()
 
-        for csv_file_path in args.csv_files:
-            with open(csv_file_path, "rb") as f_in:
-                with gzip.open(f"{csv_file_path}.gz", "wb") as f_out:
-                    f_out.writelines(f_in)
-            try:
-                upload_to_drive(f"{csv_file_path}.gz")
-                print(f"{csv_file_path}: File uploaded to Google Drive.")
-            finally:
-                os.remove(f"{csv_file_path}.gz")
+        s3_client = get_s3_client()
+        bucket_name = os.getenv("S3_BUCKET")
+        if not bucket_name:
+            raise ValueError("S3_BUCKET environment variable not set")
 
-            with open(csv_file_path, "r") as file:
-                reader = csv.reader(file)
-                data = list(reader)
-            sheet_link = create_google_sheet(csv_file_path, data)
-            print(f"{csv_file_path}: Google Sheet Created: {sheet_link}")
+        prefix = "ibjjf_historical_data" if args.historical else "ibjjf_csv_files"
+
+        for csv_file_path in args.csv_files:
+            try:
+                upload_to_s3(s3_client, csv_file_path, bucket_name, prefix)
+            except Exception as e:
+                print(f"Failed to upload {csv_file_path}: {e}")
+
+            if not args.historical and not args.no_sheets:
+                with open(csv_file_path, "r") as file:
+                    reader = csv.reader(file)
+                    data = list(reader)
+                sheet_link = create_google_sheet(csv_file_path, data)
+                print(f"{csv_file_path}: Google Sheet Created: {sheet_link}")
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
