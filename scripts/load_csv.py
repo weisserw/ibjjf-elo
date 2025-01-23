@@ -120,7 +120,10 @@ def process_file(csv_file_path, no_scores):
                 has_nogi = False
 
                 with Bar(
-                    f"Processing {csv_file_path}", max=count, check_tty=False
+                    f"Processing {csv_file_path}",
+                    max=count,
+                    check_tty=False,
+                    hide_cursor=False,
                 ) as bar:
                     for rows in rows_by_tournament.values():
                         rows = sorted(rows, key=lambda row: (row["Date"]))
