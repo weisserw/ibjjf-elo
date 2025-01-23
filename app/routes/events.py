@@ -28,7 +28,9 @@ def events():
         .subquery()
     )
 
-    query = db.session.query(Event.name).filter(exists().where(Event.id == subquery_gi.c.event_id))
+    query = db.session.query(Event.name).filter(
+        exists().where(Event.id == subquery_gi.c.event_id)
+    )
     for name_part in search.split():
         query = query.filter(Event.normalized_name.like(f"%{name_part}%"))
     query = query.order_by(Event.name).limit(MAX_RESULTS)
