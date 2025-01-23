@@ -33,7 +33,10 @@ def recompute_all_ratings(
         count = query.count()
 
         with Bar(
-            f'Recomputing athlete {"gi" if gi else "no-gi"} ratings', max=count
+            f'Recomputing athlete {"gi" if gi else "no-gi"} ratings',
+            max=count,
+            check_tty=False,
+            hide_cursor=False,
         ) as bar:
             for match in query.order_by(Match.happened_at, Match.id):
                 bar.next()
