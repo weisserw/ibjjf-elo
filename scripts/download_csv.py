@@ -5,83 +5,59 @@ import os
 import re
 import json
 import gzip
-from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
+import boto3
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 from progress.bar import Bar
 
-# Google API setup
-SCOPES = [
-    "https://www.googleapis.com/auth/drive",
-]
+
+def get_s3_client():
+    aws_creds = json.loads(os.getenv("AWS_CREDS"))
+    return boto3.client(
+        "s3",
+        aws_access_key_id=aws_creds["aws_access_key_id"],
+        aws_secret_access_key=aws_creds["aws_secret_access_key"],
+        region_name=aws_creds.get("region"),
+    )
 
 
-def get_credentials_from_env():
-    service_account_info = json.loads(os.getenv("GC_SERVICE_ACCOUNT"))
-    return Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
+def get_latest_files(s3_client, bucket_name, prefix):
+    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+    if "Contents" not in response:
+        raise FileNotFoundError(
+            f"No files found in bucket '{bucket_name}' with prefix '{prefix}'"
+        )
 
-
-def get_folder_id(drive_service, folder_name):
-    query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-    results = drive_service.files().list(q=query, fields="files(id, name)").execute()
-    items = results.get("files", [])
-    if not items:
-        raise FileNotFoundError(f"Folder '{folder_name}' not found.")
-    return items[0]["id"]
-
-
-def get_latest_files(drive_service, folder_id):
-    query = f"'{folder_id}' in parents and trashed=false"
-    page_token = None
     file_dict = {}
     pattern = re.compile(r"^(\d+)\..+\.(\d{12})\.csv(\.gz)?$")
 
-    while True:
-        results = (
-            drive_service.files()
-            .list(
-                q=query, fields="nextPageToken, files(id, name)", pageToken=page_token
-            )
-            .execute()
-        )
-        items = results.get("files", [])
-
-        for item in items:
-            match = pattern.match(item["name"])
-            if match:
-                file_id, timestamp, _ = match.groups()
-                if (
-                    file_id not in file_dict
-                    or timestamp > file_dict[file_id]["timestamp"]
-                ):
-                    file_dict[file_id] = {
-                        "id": item["id"],
-                        "name": item["name"],
-                        "timestamp": timestamp,
-                    }
-            else:
-                file_dict[item["id"]] = {
-                    "id": item["id"],
-                    "name": item["name"],
-                    "timestamp": "0",
+    for obj in response["Contents"]:
+        match = pattern.match(obj["Key"])
+        if match:
+            file_id, timestamp, _ = match.groups()
+            if file_id not in file_dict or timestamp > file_dict[file_id]["timestamp"]:
+                file_dict[file_id] = {
+                    "key": obj["Key"],
+                    "timestamp": timestamp,
                 }
-
-        page_token = results.get("nextPageToken")
-        if not page_token:
-            break
+        else:
+            file_dict[obj["Key"]] = {
+                "key": obj["Key"],
+                "timestamp": "0",
+            }
 
     return sorted(file_dict.values(), key=lambda x: x["timestamp"], reverse=True)
 
 
-def download_file(drive_service, file_id, file_name):
-    request = drive_service.files().get_media(fileId=file_id)
+def download_file(s3_client, bucket_name, key, file_name):
     file_path = os.path.join(os.getcwd(), file_name)
-
-    with open(file_path, "wb") as f:
-        downloader = MediaIoBaseDownload(f, request)
-        done = False
-        while not done:
-            _, done = downloader.next_chunk()
+    try:
+        s3_client.download_file(bucket_name, key, file_path)
+    except (NoCredentialsError, PartialCredentialsError) as e:
+        print(f"Credentials error: {e}")
+        raise
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise
 
     if file_name.endswith(".gz"):
         with gzip.open(file_path, "rb") as f_in:
@@ -91,11 +67,11 @@ def download_file(drive_service, file_id, file_name):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Download CSV files from Google Drive")
+    parser = argparse.ArgumentParser(description="Download CSV files from AWS S3")
     parser.add_argument(
         "--historical",
         action="store_true",
-        help="Download files from 'Historical IBJJF Data' directory",
+        help="Download files from 'ibjjf_historical_data' prefix",
     )
     parser.add_argument(
         "--recent",
@@ -107,13 +83,13 @@ def main():
     if args.historical and args.recent:
         parser.error("Cannot use --recent with --historical")
 
-    credentials = get_credentials_from_env()
-    drive_service = build("drive", "v3", credentials=credentials)
+    s3_client = get_s3_client()
+    bucket_name = os.getenv("S3_BUCKET")
+    if not bucket_name:
+        raise ValueError("S3_BUCKET environment variable not set")
 
-    folder_name = "Historical IBJJF Data" if args.historical else "IBJJF CSV Files"
-    folder_id = get_folder_id(drive_service, folder_name)
-
-    files_to_download = get_latest_files(drive_service, folder_id)
+    prefix = "ibjjf_historical_data/" if args.historical else "ibjjf_csv_files/"
+    files_to_download = get_latest_files(s3_client, bucket_name, prefix)
 
     if args.recent:
         files_to_download = files_to_download[: args.recent]
@@ -125,7 +101,12 @@ def main():
         hide_cursor=False,
     ) as bar:
         for file_info in files_to_download:
-            download_file(drive_service, file_info["id"], file_info["name"])
+            download_file(
+                s3_client,
+                bucket_name,
+                file_info["key"],
+                os.path.basename(file_info["key"]),
+            )
             bar.next()
 
 
