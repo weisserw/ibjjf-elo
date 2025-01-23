@@ -24,12 +24,12 @@ def athletes():
 
     if len(results) < MAX_RESULTS:
         remaining_count = MAX_RESULTS - len(results)
-        additional_query = (
-            db.session.query(Athlete.name)
-            .filter(Athlete.normalized_name.like(f"%{search}%"))
-            .order_by(Athlete.name)
-            .limit(remaining_count)
-        )
+        additional_query = db.session.query(Athlete.name)
+        for name_part in search.split():
+            additional_query = additional_query.filter(
+                Athlete.normalized_name.like(f"%{name_part}%")
+            )
+        additional_query = additional_query.order_by(Athlete.name).limit(remaining_count)
         additional_results = additional_query.all()
         for result in additional_results:
             if result.name not in unique_names:

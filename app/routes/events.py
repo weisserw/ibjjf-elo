@@ -28,15 +28,10 @@ def events():
         .subquery()
     )
 
-    query = (
-        db.session.query(Event.name)
-        .filter(
-            Event.normalized_name.like(f"%{search}%"),
-            exists().where(Event.id == subquery_gi.c.event_id),
-        )
-        .order_by(Event.name)
-        .limit(MAX_RESULTS)
-    )
+    query = db.session.query(Event.name).filter(exists().where(Event.id == subquery_gi.c.event_id))
+    for name_part in search.split():
+        query = query.filter(Event.normalized_name.like(f"%{name_part}%"))
+    query = query.order_by(Event.name).limit(MAX_RESULTS)
     results = query.all()
 
     response = [result.name for result in results]
