@@ -107,7 +107,7 @@ def main():
 
     files_to_download = get_latest_files(drive_service, folder_id)
 
-    with Bar("Downloading files", max=len(files_to_download)) as bar:
+    with Bar("Downloading files", max=len(files_to_download), check_tty=False) as bar:
         for file_info in files_to_download:
             download_file(drive_service, file_info["id"], file_info["name"])
             bar.next()
