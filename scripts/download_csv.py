@@ -70,7 +70,7 @@ def get_latest_files(drive_service, folder_id):
         if not page_token:
             break
 
-    return sorted(file_dict.values(), key=lambda x: x["name"], reverse=True)
+    return sorted(file_dict.values(), key=lambda x: x["timestamp"], reverse=True)
 
 
 def download_file(drive_service, file_id, file_name):
@@ -97,7 +97,15 @@ def main():
         action="store_true",
         help="Download files from 'Historical IBJJF Data' directory",
     )
+    parser.add_argument(
+        "--recent",
+        type=int,
+        help="Download the N most recent files",
+    )
     args = parser.parse_args()
+
+    if args.historical and args.recent:
+        parser.error("Cannot use --recent with --historical")
 
     credentials = get_credentials_from_env()
     drive_service = build("drive", "v3", credentials=credentials)
@@ -107,7 +115,15 @@ def main():
 
     files_to_download = get_latest_files(drive_service, folder_id)
 
-    with Bar("Downloading files", max=len(files_to_download), check_tty=False) as bar:
+    if args.recent:
+        files_to_download = files_to_download[: args.recent]
+
+    with Bar(
+        "Downloading files",
+        max=len(files_to_download),
+        check_tty=False,
+        hide_cursor=False,
+    ) as bar:
         for file_info in files_to_download:
             download_file(drive_service, file_info["id"], file_info["name"])
             bar.next()
