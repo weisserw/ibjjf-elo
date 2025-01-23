@@ -29,7 +29,9 @@ def athletes():
             additional_query = additional_query.filter(
                 Athlete.normalized_name.like(f"%{name_part}%")
             )
-        additional_query = additional_query.order_by(Athlete.name).limit(remaining_count)
+        additional_query = additional_query.order_by(Athlete.name).limit(
+            remaining_count
+        )
         additional_results = additional_query.all()
         for result in additional_results:
             if result.name not in unique_names:
