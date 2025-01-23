@@ -145,13 +145,16 @@ def matches():
             SELECT 1
             FROM athletes a
             JOIN match_participants mp ON a.id = mp.athlete_id
-            WHERE mp.match_id = m.id AND a.normalized_name LIKE :athlete_name
-        )
+            WHERE mp.match_id = m.id
         """
-        params["athlete_name"] = f"%{normalize(athlete_name)}%"
+        for index, name_part in enumerate(normalize(athlete_name).split()):
+            filters += f"AND a.normalized_name LIKE :athlete_name_{index}\n"
+            params[f"athlete_name_{index}"] = f"%{name_part}%"
+        filters += ")"
     if event_name:
-        filters += "AND e.normalized_name LIKE :event_name\n"
-        params["event_name"] = f"%{normalize(event_name)}%"
+        for index, name_part in enumerate(normalize(event_name).split()):
+            filters += f"AND e.normalized_name LIKE :event_name_{index}\n"
+            params[f"event_name_{index}"] = f"%{name_part}%"
 
     genders = []
     if gender_male:
