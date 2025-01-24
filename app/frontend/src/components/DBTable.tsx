@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import axios, { AxiosResponse } from 'axios';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
@@ -184,6 +184,12 @@ function DBTable(props: EloTableProps) {
     }
   }
 
+  const isHistorical = (row: Row) => {
+    return /\([^\)]+\)/.test(row.event);
+  }
+
+  const hasHistorical = useMemo(() => data.some(isHistorical), [data]);
+
   return (
     <div>
       <DBFilters gi={props.gi}
@@ -232,7 +238,7 @@ function DBTable(props: EloTableProps) {
             }
             {
               !loading && !!data.length && data.map((row: Row, index: number) => (
-                <tr key={row.id}>
+                <tr key={row.id} className={classNames({"is-historical": isHistorical(row)})}>
                   <td><a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a></td>
                   <td>{row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}</td>
                   <td><a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a></td>
@@ -282,7 +288,7 @@ function DBTable(props: EloTableProps) {
           !loading && !!data.length && data.map((row: Row) => {
             const weightHintText = openWeightHintText(row);
             return (
-              <div key={row.id} className="card db-row-card">
+              <div key={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row)})}>
                 <div className="date-box">
                   {dayjs(row.date).format('MMM D YYYY, h:mma')}
                 </div>
@@ -325,6 +331,13 @@ function DBTable(props: EloTableProps) {
       {
         !loading && data.length > 0 && (
           <DBPagination loading={reloading} page={props.page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
+        )
+      }
+      {
+        hasHistorical && (
+          <div className="notification is-historical">
+            <strong>Historical data (highlighted rows) may be incomplete or inaccurate</strong>
+          </div>
         )
       }
     </div>
