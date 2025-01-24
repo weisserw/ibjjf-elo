@@ -453,25 +453,29 @@ def compute_ratings(
     red_rating_note = None
     blue_rating_note = None
 
+    red_previous_belt_num = red_current_belt_num = belt_order.index(division.belt)
+    if red_last_match is not None:
+        red_previous_belt_num = belt_order.index(red_last_match.match.division.belt)
+        if red_previous_belt_num > red_current_belt_num:
+            red_previous_belt_num = red_current_belt_num
+            log.debug("Invalid data: athlete promoted backward")
+
     # if the athlete has no previous matches, use the default rating
     if red_last_match is None:
         log.debug("Red athlete has no previous matches, using default rating")
         red_start_rating = DEFAULT_RATINGS[division.belt][division.age]
     elif (
-        red_last_match.match.division.belt != division.belt
+        red_current_belt_num - red_previous_belt_num > 1
         and red_last_match.end_rating < DEFAULT_RATINGS[division.belt][division.age]
-    ):
-        previous_belt_num = belt_order.index(red_last_match.match.division.belt)
-        current_belt_num = belt_order.index(division.belt)
-
-        if current_belt_num - previous_belt_num > 1:
+    ) or (red_current_belt_num != red_previous_belt_num):
+        if red_current_belt_num - red_previous_belt_num > 1:
             log.debug(
                 "Athlete was promoted more than one belt and is below default rating, using default rating"
             )
             red_start_rating = DEFAULT_RATINGS[division.belt][division.age]
         else:
             log.debug(
-                f"Athlete was promoted one belt and is below default rating, adding {PROMOTION_RATING_BUMP} to rating"
+                f"Athlete was promoted one belt, adding {PROMOTION_RATING_BUMP} to rating"
             )
             red_start_rating = red_last_match.end_rating + PROMOTION_RATING_BUMP
         red_rating_note = (
@@ -494,17 +498,21 @@ def compute_ratings(
     else:
         red_start_rating = red_last_match.end_rating
 
+    blue_previous_belt_num = blue_current_belt_num = belt_order.index(division.belt)
+    if blue_last_match is not None:
+        blue_previous_belt_num = belt_order.index(blue_last_match.match.division.belt)
+        if blue_previous_belt_num > blue_current_belt_num:
+            blue_previous_belt_num = blue_current_belt_num
+            log.debug("Invalid data: athlete promoted backward")
+
     if blue_last_match is None:
         log.debug("Blue athlete has no previous matches, using default rating")
         blue_start_rating = DEFAULT_RATINGS[division.belt][division.age]
     elif (
-        blue_last_match.match.division.belt != division.belt
+        blue_current_belt_num - blue_previous_belt_num > 1
         and blue_last_match.end_rating < DEFAULT_RATINGS[division.belt][division.age]
-    ):
-        previous_belt_num = belt_order.index(blue_last_match.match.division.belt)
-        current_belt_num = belt_order.index(division.belt)
-
-        if current_belt_num - previous_belt_num > 1:
+    ) or (blue_current_belt_num != blue_previous_belt_num):
+        if blue_current_belt_num - blue_previous_belt_num > 1:
             log.debug(
                 "Athlete was promoted more than one belt and is below default rating, using default rating"
             )
