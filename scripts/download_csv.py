@@ -31,7 +31,7 @@ def get_latest_files(s3_client, bucket_name, prefix):
     pattern = re.compile(r"^(\d+)\..+\.(\d{12})\.csv(\.gz)?$")
 
     for obj in response["Contents"]:
-        match = pattern.match(obj["Key"])
+        match = pattern.match(os.path.basename(obj["Key"]))
         if match:
             file_id, timestamp, _ = match.groups()
             if file_id not in file_dict or timestamp > file_dict[file_id]["timestamp"]:
