@@ -25,3 +25,17 @@ div.card.db-row-card {
   right: 10px;
   top: -4px;
 }
+
+.is-historical {
+  background-color: #ffbd4443 !important;
+}
+
+div.notification.is-historical {
+  padding: 10px 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .is-historical {
+    background-color: #473410 !important;
+  }
+}
