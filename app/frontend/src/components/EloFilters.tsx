@@ -1,3 +1,5 @@
+import { useAppContext } from "../AppContext"
+
 import "./EloFilters.css"
 
 const juvenileRanks = [
@@ -52,21 +54,20 @@ const maleWeights = femaleWeights.concat([{
   value: 'Ultra Heavy'
 }]);
 
-interface EloFiltersProps {
-  gender: string;
-  age: string;
-  belt: string;
-  weight: string;
-  changed: boolean;
+function EloFilters() {
+  const {
+    rankingGender: gender,
+    rankingAge: age,
+    rankingBelt: belt,
+    rankingWeight: weight,
+    rankingChanged: changed,
+    setRankingGender: setGender,
+    setRankingAge: setAge,
+    setRankingBelt: setBelt,
+    setRankingWeight: setWeight,
+    setRankingChanged: setChanged,
+  } = useAppContext();
 
-  setGender: (value: string) => void;
-  setAge: (value: string) => void;
-  setBelt: (value: string) => void;
-  setWeight: (value: string) => void;
-  setChanged: (value: boolean) => void;
-}
-
-function EloFilters(props: EloFiltersProps) {
   const isJuvenileAge = (age: string) => {
     return age === 'Juvenile'
   }
@@ -76,10 +77,10 @@ function EloFilters(props: EloFiltersProps) {
   }
 
   const onGenderChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    props.setGender(event.target.value)
+    setGender(event.target.value)
 
-    if (event.target.value === 'Female' && props.weight === 'Ultra Heavy') {
-      props.setWeight('')
+    if (event.target.value === 'Female' && weight === 'Ultra Heavy') {
+      setWeight('')
     }
   }
 
@@ -92,25 +93,25 @@ function EloFilters(props: EloFiltersProps) {
   }
 
   const onAgeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    props.setAge(event.target.value)
+    setAge(event.target.value)
 
-    if ((isJuvenileAge(event.target.value) && juvenileRanksValues.indexOf(props.belt) !== -1)
-      || (isAdultAge(event.target.value) && adultRanksValues.indexOf(props.belt) === -1)) {
-        props.setBelt(defaultBelt(event.target.value))
+    if ((isJuvenileAge(event.target.value) && juvenileRanksValues.indexOf(belt) !== -1)
+      || (isAdultAge(event.target.value) && adultRanksValues.indexOf(belt) === -1)) {
+        setBelt(defaultBelt(event.target.value))
     }
   }
 
   const onBeltChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    props.setBelt(event.target.value)
+    setBelt(event.target.value)
   }
 
   const onWeightChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    props.setWeight(event.target.value)
+    setWeight(event.target.value)
   }
 
-  const ranks = isJuvenileAge(props.age) ? juvenileRanks : adultRanks;
+  const ranks = isJuvenileAge(age) ? juvenileRanks : adultRanks;
 
-  const weights = props.gender === 'Male' ? maleWeights : femaleWeights;
+  const weights = gender === 'Male' ? maleWeights : femaleWeights;
 
   return (
     <div className="columns is-mobile is-multiline">
@@ -118,7 +119,7 @@ function EloFilters(props: EloFiltersProps) {
         <div className="field mobile-margin">
           <label className="label">Gender</label>
           <div className="select">
-            <select value={props.gender} onChange={onGenderChange}>
+            <select value={gender} onChange={onGenderChange}>
               <option>Male</option>
               <option>Female</option>
             </select>
@@ -129,7 +130,7 @@ function EloFilters(props: EloFiltersProps) {
         <div className="field">
           <label className="label">Age</label>
           <div className="select">
-            <select value={props.age} onChange={onAgeChange}>
+            <select value={age} onChange={onAgeChange}>
               <option>Juvenile</option>
               <option>Adult</option>
               <option>Master 1</option>
@@ -147,7 +148,7 @@ function EloFilters(props: EloFiltersProps) {
         <div className="field">
           <label className="label">Belt</label>
           <div className="select">
-            <select value={props.belt} onChange={onBeltChange}>
+            <select value={belt} onChange={onBeltChange}>
               {
                 ranks.map(rank => (
                   <option key={rank} value={rank.toUpperCase()}>{rank}</option>
@@ -161,7 +162,7 @@ function EloFilters(props: EloFiltersProps) {
         <div className="field mobile-margin">
           <label className="label">Weight</label>
           <div className="select">
-            <select value={props.weight} onChange={onWeightChange}>
+            <select value={weight} onChange={onWeightChange}>
               {
                 weights.map(({ name, value }) => (
                   <option key={value} value={value}>{name}</option>
@@ -175,7 +176,7 @@ function EloFilters(props: EloFiltersProps) {
         <div className="field checkbox-margin">
           <div className="control">
             <label className="checkbox">
-              <input type="checkbox" checked={props.changed} onChange={() => props.setChanged(!props.changed)} />
+              <input type="checkbox" checked={changed} onChange={() => setChanged(!changed)} />
               &nbsp;Changed Only
             </label>
           </div>

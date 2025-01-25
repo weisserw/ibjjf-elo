@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
-import { debounce } from 'lodash'
-import { FilterValues, type OpenFilters } from './DBFilters';
+import { debounce } from 'lodash';
+import { useAppContext } from '../AppContext';
 import DBPagination from './DBPagination';
 import EloFilters from './EloFilters';
 import Autosuggest from 'react-autosuggest';
+
 import "./EloTable.css"
 
 interface Row {
@@ -21,28 +22,23 @@ interface Results {
   totalPages: number
 }
 
-interface EloTableProps {
-  gi: boolean
-  gender: string
-  age: string
-  belt: string
-  weight: string
-  changed: boolean
-  nameFilter: string
-  page: number
-  setGender: (value: string) => void
-  setAge: (value: string) => void
-  setBelt: (value: string) => void
-  setWeight: (value: string) => void
-  setChanged: (value: boolean) => void
-  setNameFilter: (name: string) => void
-  setFilters: (filters: FilterValues) => void
-  setOpenFilters: (openFilters: OpenFilters) => void
-  setPage: (page: number) => void
-}
+function EloTable() {
+  const {
+    activeTab,
+    rankingGender: gender,
+    rankingAge: age,
+    rankingBelt: belt,
+    rankingWeight: weight,
+    rankingChanged: changed,
+    rankingNameFilter: nameFilter,
+    rankingPage: page,
+    setRankingNameFilter: setNameFilter,
+    setRankingPage: setPage,
+    setFilters,
+    setOpenFilters,
+  } = useAppContext();
 
-function EloTable(props: EloTableProps) {
-  const [nameFilterSearch, setNameFilterSearch] = useState(props.nameFilter)
+  const [nameFilterSearch, setNameFilterSearch] = useState(nameFilter)
   const [loading, setLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
   const [data, setData] = useState<Row[]>([])
@@ -51,18 +47,20 @@ function EloTable(props: EloTableProps) {
 
   const navigate = useNavigate()
 
+  const gi = activeTab === 'Gi'
+
   useEffect(() => {
     setReloading(true)
     axios.get<Results>('/api/top', {
       params: {
-        gender: props.gender,
-        age: props.age,
-        belt: props.belt,
-        weight: props.weight,
-        changed: props.changed ? 'true' : 'false',
-        name: props.nameFilter,
-        gi: props.gi ? 'true' : 'false',
-        page: props.page,
+        gender: gender,
+        age: age,
+        belt: belt,
+        weight: weight,
+        changed: changed ? 'true' : 'false',
+        name: nameFilter,
+        gi: gi ? 'true' : 'false',
+        page: page,
       }
     }).then((response: AxiosResponse<Results>) => {
       setData(response.data.rows)
@@ -70,15 +68,15 @@ function EloTable(props: EloTableProps) {
       setLoading(false)
       setReloading(false)
 
-      if (response.data.totalPages < props.page) {
-        props.setPage(1)
+      if (response.data.totalPages < page) {
+        setPage(1)
       }
     }).catch((exception) => {
       console.error(exception)
       setLoading(false)
       setReloading(false)
     })
-  }, [props.gender, props.age, props.belt, props.weight, props.changed, props.nameFilter, props.gi, props.page]);
+  }, [gender, age, belt, weight, changed, nameFilter, gi, page]);
 
   const getAthleteSuggestions = async ({ value }: { value: string }) => {
     const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
@@ -86,7 +84,7 @@ function EloTable(props: EloTableProps) {
   }
 
   const debouncedSetNameFilter = useCallback(
-    debounce((value: string) => props.setNameFilter(value), 750),
+    debounce((value: string) => setNameFilter(value), 750),
     []
   );
 
@@ -98,28 +96,28 @@ function EloTable(props: EloTableProps) {
   const onNameClick = (e: React.MouseEvent, name: string) => {
     e.preventDefault();
   
-    props.setFilters({ athlete_name: name });
-    props.setOpenFilters({athlete: true, event: false, division: false});
+    setFilters({ athlete_name: name });
+    setOpenFilters({athlete: true, event: false, division: false});
     navigate('/database');
   };
 
   const onNextPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    if (props.page < totalPages) {
-      props.setPage(props.page + 1)
+    if (page < totalPages) {
+      setPage(page + 1)
     }
   }
 
   const onPreviousPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    if (props.page > 1) {
-      props.setPage(props.page - 1)
+    if (page > 1) {
+      setPage(page - 1)
     }
   }
 
   const onPageClick = (pageNumber: number, event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    props.setPage(pageNumber)
+    setPage(pageNumber)
   }
 
   const rankChange = (row: Row) => {
@@ -174,16 +172,7 @@ function EloTable(props: EloTableProps) {
 
   return (
     <div>
-      <EloFilters gender={props.gender}
-                  setGender={props.setGender}
-                  age={props.age}
-                  setAge={props.setAge}
-                  belt={props.belt}
-                  setBelt={props.setBelt}
-                  weight={props.weight}
-                  setWeight={props.setWeight}
-                  changed={props.changed}
-                  setChanged={props.setChanged} />
+      <EloFilters />
       <div>
         <div className="field">
           <div className="control has-icons-left">
@@ -262,7 +251,7 @@ function EloTable(props: EloTableProps) {
       {
         !loading && data.length > 0 && (
           <DBPagination loading={reloading}
-                        page={props.page}
+                        page={page}
                         showEnd={true}
                         totalPages={totalPages}
                         onNextPage={onNextPage}
