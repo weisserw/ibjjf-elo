@@ -261,7 +261,13 @@ function EloTable(props: EloTableProps) {
       </div>
       {
         !loading && data.length > 0 && (
-          <DBPagination loading={reloading} page={props.page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
+          <DBPagination loading={reloading}
+                        page={props.page}
+                        showEnd={true}
+                        totalPages={totalPages}
+                        onNextPage={onNextPage}
+                        onPreviousPage={onPreviousPage}
+                        onPageClick={onPageClick} />
         )
       }
     </div>
