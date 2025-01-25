@@ -10,7 +10,8 @@ function Navbar() {
   const activeLink = location.pathname;
 
   const getNavItemClass = (path: string) => classNames("navbar-item", {
-    "is-active": activeLink === path
+    "is-active": activeLink === path,
+    "has-background-link-80": activeLink === path
   });
 
   return (
