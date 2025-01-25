@@ -76,6 +76,7 @@ no_match_strings = [
     "Disqualified by no show",
     "Disqualified by overweight",
     "Disqualified by acima do peso",
+    "Disqualified by withdraw"
 ]
 
 
