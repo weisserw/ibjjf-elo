@@ -151,6 +151,9 @@ no_match_strings = [
     "Disqualified by withdraw",
 ]
 
+COLOR_PROMOTION_RATING_BUMP = 140
+BLACK_PROMOTION_RATING_BUMP = 100
+
 
 def match_didnt_happen(note1: str, note2: str) -> bool:
     for no_match_string in no_match_strings:
@@ -310,9 +313,6 @@ def append_rating_note(note: Optional[str], add_note: str) -> str:
     return note + ", " + add_note
 
 
-PROMOTION_RATING_BUMP = 150
-
-
 def compute_ratings(
     db: SQLAlchemy,
     event_id: str,
@@ -454,6 +454,12 @@ def compute_ratings(
     red_rating_note = None
     blue_rating_note = None
 
+    promotion_rating_bump = (
+        BLACK_PROMOTION_RATING_BUMP
+        if division.belt == BLACK
+        else COLOR_PROMOTION_RATING_BUMP
+    )
+
     red_previous_belt_num = red_current_belt_num = belt_order.index(division.belt)
     if red_last_match is not None:
         red_previous_belt_num = belt_order.index(red_last_match.match.division.belt)
@@ -476,9 +482,9 @@ def compute_ratings(
             red_start_rating = DEFAULT_RATINGS[division.belt][division.age]
         else:
             log.debug(
-                f"Athlete was promoted one belt, adding {PROMOTION_RATING_BUMP} to rating"
+                f"Athlete was promoted one belt, adding {promotion_rating_bump} to rating"
             )
-            red_start_rating = red_last_match.end_rating + PROMOTION_RATING_BUMP
+            red_start_rating = red_last_match.end_rating + promotion_rating_bump
         red_rating_note = (
             f"Promoted from {red_last_match.match.division.belt} to {division.belt}"
         )
@@ -520,9 +526,9 @@ def compute_ratings(
             blue_start_rating = DEFAULT_RATINGS[division.belt][division.age]
         else:
             log.debug(
-                f"Athlete was promoted one belt and is below default rating, adding {PROMOTION_RATING_BUMP} to rating"
+                f"Athlete was promoted one belt and is below default rating, adding {promotion_rating_bump} to rating"
             )
-            blue_start_rating = blue_last_match.end_rating + PROMOTION_RATING_BUMP
+            blue_start_rating = blue_last_match.end_rating + promotion_rating_bump
         blue_rating_note = (
             f"Promoted from {blue_last_match.match.division.belt} to {division.belt}"
         )
