@@ -302,28 +302,22 @@ function DBFilters(props: DBFiltersProps) {
                 </div>
               </div>
               <div className="field is-grouped date-range">
-                <div className="control has-icons-left">
+                <div className="control">
                   <input
                     className="input is-small date-input"
                     type="date"
                     value={props.filters.date_start ? dayjs(props.filters.date_start).format('YYYY-MM-DD') : ''}
                     onChange={(e) => onChange('date_start', dayjs(e.target.value).toISOString())}
                   />
-                  <span className="icon is-small is-left">
-                    <i className="fas fa-calendar"></i>
-                  </span>
                 </div>
                 <span className="date-range-separator">-</span>
-                <div className="control has-icons-left">
+                <div className="control">
                   <input
                     className="input is-small date-input"
                     type="date"
                     value={props.filters.date_end ? dayjs(props.filters.date_end).format('YYYY-MM-DD') : ''}
                     onChange={(e) => onChange('date_end', dayjs(e.target.value).toISOString())}
                   />
-                  <span className="icon is-small is-left">
-                    <i className="fas fa-calendar"></i>
-                  </span>
                 </div>
                 <div className="control">
                   <button className="button is-small is-light" onClick={onClearProps.bind(null, ['date_start', 'date_end'])}>Clear</button>
