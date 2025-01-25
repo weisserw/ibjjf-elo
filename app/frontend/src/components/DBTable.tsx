@@ -330,7 +330,13 @@ function DBTable(props: EloTableProps) {
       </div>
       {
         !loading && data.length > 0 && (
-          <DBPagination loading={reloading} page={props.page} totalPages={totalPages} onNextPage={onNextPage} onPreviousPage={onPreviousPage} onPageClick={onPageClick} />
+          <DBPagination loading={reloading}
+                        page={props.page}
+                        showEnd={false}
+                        totalPages={totalPages}
+                        onNextPage={onNextPage}
+                        onPreviousPage={onPreviousPage}
+                        onPageClick={onPageClick} />
         )
       }
       {

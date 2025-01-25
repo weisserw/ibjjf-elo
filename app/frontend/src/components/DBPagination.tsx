@@ -6,12 +6,13 @@ interface PaginationProps {
   page: number
   totalPages: number
   loading: boolean
+  showEnd: boolean
   onPageClick: (page: number, event: React.MouseEvent<HTMLAnchorElement>) => void
   onPreviousPage: (event: React.MouseEvent<HTMLAnchorElement>) => void
   onNextPage: (event: React.MouseEvent<HTMLAnchorElement>) => void
 }
 
-function DBPagination({page, totalPages, onPageClick, onPreviousPage, onNextPage, loading}: PaginationProps) {
+function DBPagination({page, totalPages, showEnd, onPageClick, onPreviousPage, onNextPage, loading}: PaginationProps) {
   const renderPageLink = (pageNumber: number, key: number) => {
     return (
       <li key={key}>
@@ -57,11 +58,11 @@ function DBPagination({page, totalPages, onPageClick, onPreviousPage, onNextPage
     if (totalPages > 3) {
       elements.push(renderEllipsis(elements.length));
     }
-    if (totalPages > 2) {
+    if (totalPages > 2 && showEnd) {
       elements.push(renderPageLink(totalPages - 1, elements.length));
     }
   }
-  if (totalPages > 1) {
+  if (totalPages > 1 && showEnd) {
     elements.push(renderPageLink(totalPages, elements.length));
   }
 
