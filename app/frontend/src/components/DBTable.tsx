@@ -3,15 +3,15 @@ import axios, { AxiosResponse } from 'axios';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import DBFilters, {
-  FilterValues,
   ageToFilter,
   genderToFilter,
   beltToFilter,
   weightToFilter,
-  type FilterKeys,
-  type OpenFilters
+  type FilterKeys
 } from './DBFilters';
 import DBPagination from './DBPagination';
+import { useAppContext } from '../AppContext';
+
 import "./DBTable.css"
 
 interface Row {
@@ -41,29 +41,31 @@ interface Results {
   totalPages: number
 }
 
-interface EloTableProps {
-  gi: boolean
-  filters: FilterValues
-  page: number
-  setFilters: (filters: FilterValues) => void
-  openFilters: OpenFilters
-  setOpenFilters: (openFilters: OpenFilters) => void
-  setPage: (page: number) => void
-}
-
-function DBTable(props: EloTableProps) {
+function DBTable() {
   const [loading, setLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
   const [data, setData] = useState<Row[]>([])
   const [totalPages, setTotalPages] = useState(1)
 
+  const {
+    activeTab,
+    filters,
+    setFilters,
+    openFilters,
+    setOpenFilters,
+    dbPage: page,
+    setDbPage: setPage,
+  } = useAppContext();
+
+  const gi = activeTab === 'Gi'
+
   useEffect(() => {
     setReloading(true)
     axios.get<Results>('/api/matches', {
       params: {
-        gi: props.gi ? 'true' : 'false',
-        ...props.filters,
-        page: props.page
+        gi: gi ? 'true' : 'false',
+        ...filters,
+        page: page
       }
     }).then((response: AxiosResponse<Results>) => {
       setData(response.data.rows)
@@ -71,15 +73,15 @@ function DBTable(props: EloTableProps) {
       setLoading(false)
       setReloading(false)
 
-      if (response.data.totalPages < props.page) {
-        props.setPage(1)
+      if (response.data.totalPages < page) {
+        setPage(1)
       }
     }).catch((exception) => {
       console.error(exception)
       setLoading(false)
       setReloading(false)
     })
-  }, [props.gi, props.filters, props.page]);
+  }, [gi, filters, page]);
 
   const shortEvent = (row: Row) => {
     if (row.event.length > 32) {
@@ -90,21 +92,21 @@ function DBTable(props: EloTableProps) {
 
   const onNextPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    if (props.page < totalPages) {
-      props.setPage(props.page + 1)
+    if (page < totalPages) {
+      setPage(page + 1)
     }
   }
 
   const onPreviousPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    if (props.page > 1) {
-      props.setPage(props.page - 1)
+    if (page > 1) {
+      setPage(page - 1)
     }
   }
 
   const onPageClick = (pageNumber: number, event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
-    props.setPage(pageNumber)
+    setPage(pageNumber)
   }
 
   const outcomeClass = (startRating: number, endRating: number) => {
@@ -119,24 +121,24 @@ function DBTable(props: EloTableProps) {
 
   const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {
     event.preventDefault()
-    props.setFilters({
+    setFilters({
       athlete_name: name,
     });
-    props.setOpenFilters({athlete: true, event: false, division: false});
+    setOpenFilters({athlete: true, event: false, division: false});
   }
 
   const eventClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {
     event.preventDefault()
-    const newFilters = {...props.filters};
+    const newFilters = {...filters};
     delete newFilters.athlete_name;
     newFilters.event_name = name;
-    props.setFilters(newFilters);
-    props.setOpenFilters({...props.openFilters, event: true});
+    setFilters(newFilters);
+    setOpenFilters({...openFilters, event: true});
   }
 
   const divisionClicked = (event: React.MouseEvent<HTMLAnchorElement>, row: Row) => {
     event.preventDefault()
-    const newFilters = {...props.filters};
+    const newFilters = {...filters};
     delete newFilters.athlete_name;
     const keys: FilterKeys[] = Object.keys(newFilters) as FilterKeys[];
     for (const key of keys.filter(key => key.startsWith('age_') || key.startsWith('gender_') || key.startsWith('belt_') || key.startsWith('weight_'))) {
@@ -147,8 +149,8 @@ function DBTable(props: EloTableProps) {
     newFilters[beltToFilter(row.belt)] = true;
     newFilters[weightToFilter(row.weight)] = true;
 
-    props.setFilters(newFilters);
-    props.setOpenFilters({...props.openFilters, division: true});
+    setFilters(newFilters);
+    setOpenFilters({...openFilters, division: true});
   }
 
   const openWeightHintText = (row: Row) => {
@@ -192,11 +194,7 @@ function DBTable(props: EloTableProps) {
 
   return (
     <div>
-      <DBFilters gi={props.gi}
-                 filters={props.filters}
-                 setFilters={props.setFilters}
-                 openFilters={props.openFilters}
-                 setOpenFilters={props.setOpenFilters} />
+      <DBFilters />
       <div className="table-container is-hidden-touch">
         <table className={classNames("table db-table is-striped", {"is-narrow": !loading && !!data.length})}>
           <thead>
@@ -331,7 +329,7 @@ function DBTable(props: EloTableProps) {
       {
         !loading && data.length > 0 && (
           <DBPagination loading={reloading}
-                        page={props.page}
+                        page={page}
                         showEnd={false}
                         totalPages={totalPages}
                         onNextPage={onNextPage}

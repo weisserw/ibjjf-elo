@@ -4,6 +4,8 @@ import classNames from 'classnames';
 import dayjs from 'dayjs';
 import Autosuggest from 'react-autosuggest';
 import axios from 'axios';
+import { useAppContext } from '../AppContext';
+
 import './DBFilters.css';
 
 interface SectionProps {
@@ -81,14 +83,6 @@ export interface OpenFilters {
   division: boolean;
 }
 
-interface DBFiltersProps {
-  filters: FilterValues;
-  setFilters(filters: FilterValues): void;
-  gi: boolean;
-  openFilters: OpenFilters;
-  setOpenFilters(openFilters: OpenFilters): void;
-}
-
 export const ageToFilter = (age: string) => `age_${age.toLowerCase().replace(' ', '')}` as DivisionFilterKeys;
 
 export const genderToFilter = (gender: string) => `gender_${gender.toLowerCase()}` as DivisionFilterKeys;
@@ -102,51 +96,61 @@ export const weightToFilter = (weight: string): DivisionFilterKeys => {
   return `weight_${weight.toLowerCase().replace(' ', '_')}` as DivisionFilterKeys;
 }
 
-function DBFilters(props: DBFiltersProps) {
+function DBFilters() {
+  const {
+    filters,
+    setFilters,
+    activeTab,
+    openFilters,
+    setOpenFilters,
+  } = useAppContext();
+
+  const gi = activeTab === 'Gi';
+
   const [isOpen, setIsOpen] = useState(true);
-  const [athleteName, setAthleteName] = useState(props.filters.athlete_name || '');
-  const [eventName, setEventName] = useState(props.filters.event_name || '');
-  const [ratingStart, setRatingStart] = useState(props.filters.rating_start || '');
-  const [ratingEnd, setRatingEnd] = useState(props.filters.rating_end || '');
+  const [athleteName, setAthleteName] = useState(filters.athlete_name || '');
+  const [eventName, setEventName] = useState(filters.event_name || '');
+  const [ratingStart, setRatingStart] = useState(filters.rating_start || '');
+  const [ratingEnd, setRatingEnd] = useState(filters.rating_end || '');
   const [athleteSuggestions, setAthleteSuggestions] = useState<string[]>([]);
   const [eventSuggestions, setEventSuggestions] = useState<string[]>([]);
 
-  const anyFiltersSet = Object.values(props.filters).some(value => value !== undefined);
+  const anyFiltersSet = Object.values(filters).some(value => value !== undefined);
 
-  const anyDivisionFiltersSet = (Object.keys(props.filters) as FilterKeys[]).filter(
+  const anyDivisionFiltersSet = (Object.keys(filters) as FilterKeys[]).filter(
     key => key.startsWith('gender_') || key.startsWith('age_') || key.startsWith('belt_') || key.startsWith('weight_')
-  ).map(key => props.filters[key]).some(value => value !== undefined);
+  ).map(key => filters[key]).some(value => value !== undefined);
 
   const toggleAccordion = () => {
     setIsOpen(!isOpen);
   };
 
   const onClearProps = (propnames: FilterKeys[]) => {
-    const newFilters = { ...props.filters };
+    const newFilters = { ...filters };
     for (const prop of propnames) {
       delete newFilters[prop];
     }
-    props.setFilters(newFilters);
+    setFilters(newFilters);
   }
 
   const onClearOrAll = (propnames: DivisionFilterKeys[]) => {
-    if (propnames.some(prop => props.filters[prop])) {
+    if (propnames.some(prop => filters[prop])) {
       onClearProps(propnames);
     } else {
-      const newFilters = { ...props.filters };
+      const newFilters = { ...filters };
       for (const prop of propnames) {
         newFilters[prop] = true;
       }
-      props.setFilters(newFilters);
+      setFilters(newFilters);
     }
   }
 
   const onChange = (key: FilterKeys, value: any) => {
-    const newFilters = { ...props.filters, [key]: value };
+    const newFilters = { ...filters, [key]: value };
     if (value === '' || value === false) {
       delete newFilters[key];
     }
-    props.setFilters(newFilters);
+    setFilters(newFilters);
   }
 
   const debouncedOnChange = useCallback(debounce(onChange, 750, {trailing: true}), []);
@@ -154,25 +158,25 @@ function DBFilters(props: DBFiltersProps) {
   // Set the control state for debounced controls
   // when the filters change
   useEffect(() => {
-    if (props.filters.athlete_name !== athleteName) {
-      setAthleteName(props.filters.athlete_name || '');
+    if (filters.athlete_name !== athleteName) {
+      setAthleteName(filters.athlete_name || '');
     }
-  }, [props.filters.athlete_name]);
+  }, [filters.athlete_name]);
   useEffect(() => {
-    if (props.filters.event_name !== eventName) {
-      setEventName(props.filters.event_name || '');
+    if (filters.event_name !== eventName) {
+      setEventName(filters.event_name || '');
     }
-  }, [props.filters.event_name]);
+  }, [filters.event_name]);
   useEffect(() => {
-    if (props.filters.rating_start !== ratingStart) {
-      setRatingStart(props.filters.rating_start || '');
+    if (filters.rating_start !== ratingStart) {
+      setRatingStart(filters.rating_start || '');
     }
-  }, [props.filters.rating_start]);
+  }, [filters.rating_start]);
   useEffect(() => {
-    if (props.filters.rating_end !== ratingEnd) {
-      setRatingEnd(props.filters.rating_end || '');
+    if (filters.rating_end !== ratingEnd) {
+      setRatingEnd(filters.rating_end || '');
     }
-  }, [props.filters.rating_end]);
+  }, [filters.rating_end]);
 
   const getAthleteSuggestions = async ({ value }: { value: string }) => {
     const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
@@ -180,7 +184,7 @@ function DBFilters(props: DBFiltersProps) {
   }
 
   const getEventSuggestions = async ({ value }: { value: string }) => {
-    const response = await axios.get(`/api/events?search=${encodeURIComponent(value)}&gi=${props.gi}`);
+    const response = await axios.get(`/api/events?search=${encodeURIComponent(value)}&gi=${gi}`);
     setEventSuggestions(response.data);
   }
 
@@ -201,12 +205,12 @@ function DBFilters(props: DBFiltersProps) {
         {isOpen && (
           <div className="accordion-body">
             <Section title="Athlete"
-                     isOpen={props.openFilters.athlete}
-                     setIsOpen={(isOpen: boolean) => props.setOpenFilters({ ...props.openFilters, athlete: isOpen })}
+                     isOpen={openFilters.athlete}
+                     setIsOpen={(isOpen: boolean) => setOpenFilters({ ...openFilters, athlete: isOpen })}
                      isBold={
-                        !!props.filters.athlete_name ||
-                        !!props.filters.rating_start ||
-                        !!props.filters.rating_end
+                        !!filters.athlete_name ||
+                        !!filters.rating_start ||
+                        !!filters.rating_end
                      }>
               <div className="field is-grouped">
                 <div className="control is-expanded">
@@ -269,12 +273,12 @@ function DBFilters(props: DBFiltersProps) {
               </div>
             </Section>
             <Section title="Event"
-                     isOpen={props.openFilters.event}
-                     setIsOpen={(isOpen: boolean) => props.setOpenFilters({ ...props.openFilters, event: isOpen })}
+                     isOpen={openFilters.event}
+                     setIsOpen={(isOpen: boolean) => setOpenFilters({ ...openFilters, event: isOpen })}
                      isBold={
-                        !!props.filters.event_name ||
-                        !!props.filters.date_start ||
-                        !!props.filters.date_end
+                        !!filters.event_name ||
+                        !!filters.date_start ||
+                        !!filters.date_end
                      }>
               <div className="field is-grouped">
                 <div className="control is-expanded">
@@ -306,7 +310,7 @@ function DBFilters(props: DBFiltersProps) {
                   <input
                     className="input is-small date-input"
                     type="date"
-                    value={props.filters.date_start ? dayjs(props.filters.date_start).format('YYYY-MM-DD') : ''}
+                    value={filters.date_start ? dayjs(filters.date_start).format('YYYY-MM-DD') : ''}
                     onChange={(e) => onChange('date_start', dayjs(e.target.value).toISOString())}
                   />
                 </div>
@@ -315,7 +319,7 @@ function DBFilters(props: DBFiltersProps) {
                   <input
                     className="input is-small date-input"
                     type="date"
-                    value={props.filters.date_end ? dayjs(props.filters.date_end).format('YYYY-MM-DD') : ''}
+                    value={filters.date_end ? dayjs(filters.date_end).format('YYYY-MM-DD') : ''}
                     onChange={(e) => onChange('date_end', dayjs(e.target.value).toISOString())}
                   />
                 </div>
@@ -325,8 +329,8 @@ function DBFilters(props: DBFiltersProps) {
               </div>
             </Section>
             <Section title="Division"
-                     isOpen={props.openFilters.division}
-                     setIsOpen={(isOpen: boolean) => props.setOpenFilters({ ...props.openFilters, division: isOpen })}
+                     isOpen={openFilters.division}
+                     setIsOpen={(isOpen: boolean) => setOpenFilters({ ...openFilters, division: isOpen })}
                      isBold={anyDivisionFiltersSet}>
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Age:</label>
@@ -336,7 +340,7 @@ function DBFilters(props: DBFiltersProps) {
                     <label key={age} className="checkbox checkbox-filter">
                       <input
                         type="checkbox"
-                        checked={!!props.filters[key]}
+                        checked={!!filters[key]}
                         onChange={(e) => onChange(key, e.target.checked)}
                       />
                       {age}
@@ -344,7 +348,7 @@ function DBFilters(props: DBFiltersProps) {
                   );
                 })}
                 <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['age_adult', 'age_master1', 'age_master2', 'age_master3', 'age_master4', 'age_master5', 'age_master6', 'age_master7', 'age_juvenile'])}>
-                  {(props.filters.age_adult || props.filters.age_master1 || props.filters.age_master2 || props.filters.age_master3 || props.filters.age_master4 || props.filters.age_master5 || props.filters.age_master6 || props.filters.age_master7 || props.filters.age_juvenile) ? 'Clear' : 'All'}
+                  {(filters.age_adult || filters.age_master1 || filters.age_master2 || filters.age_master3 || filters.age_master4 || filters.age_master5 || filters.age_master6 || filters.age_master7 || filters.age_juvenile) ? 'Clear' : 'All'}
                 </button>
               </div>
               <div className="checkbox-filters checkboxes">
@@ -355,7 +359,7 @@ function DBFilters(props: DBFiltersProps) {
                     <label key={gender} className="checkbox checkbox-filter">
                       <input
                         type="checkbox"
-                        checked={!!props.filters[key]}
+                        checked={!!filters[key]}
                         onChange={(e) => onChange(key, e.target.checked)}
                       />
                       {gender}
@@ -363,7 +367,7 @@ function DBFilters(props: DBFiltersProps) {
                   );
                 })}
                 <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['gender_male', 'gender_female'])}>
-                  {(props.filters.gender_male || props.filters.gender_female) ? 'Clear' : 'All'}
+                  {(filters.gender_male || filters.gender_female) ? 'Clear' : 'All'}
                 </button>
               </div>
               <div className="checkbox-filters checkboxes">
@@ -374,7 +378,7 @@ function DBFilters(props: DBFiltersProps) {
                     <label key={belt} className="checkbox checkbox-filter">
                       <input
                         type="checkbox"
-                        checked={!!props.filters[key]}
+                        checked={!!filters[key]}
                         onChange={(e) => onChange(key, e.target.checked)}
                       />
                       {belt}
@@ -382,7 +386,7 @@ function DBFilters(props: DBFiltersProps) {
                   );
                 })}
                 <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['belt_white', 'belt_blue', 'belt_purple', 'belt_brown', 'belt_black'])}>
-                  {(props.filters.belt_white || props.filters.belt_blue || props.filters.belt_purple || props.filters.belt_brown || props.filters.belt_black) ? 'Clear' : 'All'}
+                  {(filters.belt_white || filters.belt_blue || filters.belt_purple || filters.belt_brown || filters.belt_black) ? 'Clear' : 'All'}
                 </button>
               </div>
               <div className="checkbox-filters checkboxes">
@@ -395,7 +399,7 @@ function DBFilters(props: DBFiltersProps) {
                     <label key={weight} className="checkbox checkbox-filter">
                       <input
                         type="checkbox"
-                        checked={!!props.filters[key]}
+                        checked={!!filters[key]}
                         onChange={(e) => onChange(key, e.target.checked)}
                       />
                       {weight}
@@ -403,7 +407,7 @@ function DBFilters(props: DBFiltersProps) {
                   );
                 })}
                 <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['weight_rooster', 'weight_light_feather', 'weight_feather', 'weight_light', 'weight_middle', 'weight_medium_heavy', 'weight_heavy', 'weight_super_heavy', 'weight_ultra_heavy', 'weight_open_class'])}>
-                  {(props.filters.weight_rooster || props.filters.weight_light_feather || props.filters.weight_feather || props.filters.weight_light || props.filters.weight_middle || props.filters.weight_medium_heavy || props.filters.weight_heavy || props.filters.weight_super_heavy || props.filters.weight_ultra_heavy || props.filters.weight_open_class) ? 'Clear' : 'All'}
+                  {(filters.weight_rooster || filters.weight_light_feather || filters.weight_feather || filters.weight_light || filters.weight_middle || filters.weight_medium_heavy || filters.weight_heavy || filters.weight_super_heavy || filters.weight_ultra_heavy || filters.weight_open_class) ? 'Clear' : 'All'}
                 </button>
               </div>
             </Section>
