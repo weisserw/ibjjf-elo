@@ -436,11 +436,10 @@ def compute_ratings(
     red_rating_note = None
     blue_rating_note = None
 
-    promotion_rating_bump = (
-        BLACK_PROMOTION_RATING_BUMP
-        if division.belt == BLACK
-        else COLOR_PROMOTION_RATING_BUMP
-    )
+    if division.belt == BLACK:
+        promotion_rating_bump = BLACK_PROMOTION_RATING_BUMP
+    else:
+        promotion_rating_bump = COLOR_PROMOTION_RATING_BUMP
 
     red_previous_belt_num = red_current_belt_num = belt_order.index(division.belt)
     if red_last_match is not None:
