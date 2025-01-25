@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-from progress.bar import Bar
+from progress_bar import Bar
 from models import Match, Division
 from elo import compute_ratings
 from current import generate_current_ratings
@@ -19,6 +19,7 @@ def recompute_all_ratings(
     rerank: bool = True,
     rerankgi: bool = True,
     reranknogi: bool = True,
+    no_tty: bool = False,
 ) -> int:
     count = 0
 
@@ -36,7 +37,7 @@ def recompute_all_ratings(
             f'Recomputing athlete {"gi" if gi else "no-gi"} ratings',
             max=count,
             check_tty=False,
-            hide_cursor=False,
+            no_tty=no_tty,
         ) as bar:
             for match in query.order_by(Match.happened_at, Match.id):
                 bar.next()

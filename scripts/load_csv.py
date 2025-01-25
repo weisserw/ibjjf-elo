@@ -8,7 +8,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 import csv
 import argparse
 import traceback
-from progress.bar import Bar
+from progress_bar import Bar
 from ratings import recompute_all_ratings
 from datetime import datetime
 from app import db, app
@@ -100,7 +100,7 @@ def get_or_create(session, model, **kwargs):
         return instance
 
 
-def process_file(csv_file_path, no_scores):
+def process_file(csv_file_path: str, no_scores: bool, no_tty: bool):
     try:
         with app.app_context():
             with open(csv_file_path, newline="") as csvfile:
@@ -123,7 +123,7 @@ def process_file(csv_file_path, no_scores):
                     f"Processing {csv_file_path}",
                     max=count,
                     check_tty=False,
-                    hide_cursor=False,
+                    no_tty=no_tty,
                 ) as bar:
                     for rows in rows_by_tournament.values():
                         rows = sorted(rows, key=lambda row: (row["Date"]))
@@ -278,6 +278,7 @@ def process_file(csv_file_path, no_scores):
                         rerank=not has_nogi,
                         rerankgi=True,
                         reranknogi=False,
+                        no_tty=no_tty,
                     )
                 if has_nogi and not no_scores:
                     recompute_all_ratings(
@@ -290,6 +291,7 @@ def process_file(csv_file_path, no_scores):
                         rerank=True,
                         rerankgi=has_gi,
                         reranknogi=True,
+                        no_tty=no_tty,
                     )
 
                 db.session.commit()
@@ -308,7 +310,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Do not recompute scores after loading",
     )
+    parser.add_argument(
+        "--no-tty",
+        action="store_true",
+        help="Log output compatible with non-tty environments",
+    )
     args = parser.parse_args()
 
     for csv_file_path in args.csv_files:
-        process_file(csv_file_path, args.no_scores)
+        process_file(csv_file_path, args.no_scores, args.no_tty)

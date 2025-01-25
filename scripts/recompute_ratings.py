@@ -35,6 +35,11 @@ def main():
     parser.add_argument(
         "--rank-only", action="store_true", help="Only recompute ranks, not scores."
     )
+    parser.add_argument(
+        "--no-tty",
+        action="store_true",
+        help="Log output compatible with non-tty environments",
+    )
 
     args = parser.parse_args()
 
@@ -66,6 +71,7 @@ def main():
                 rerank=not args.nogi,
                 rerankgi=True,
                 reranknogi=False,
+                no_tty=args.no_tty,
             )
             recompute_all_ratings(
                 db,
@@ -76,6 +82,7 @@ def main():
                 rerank=True,
                 rerankgi=args.gi,
                 reranknogi=True,
+                no_tty=args.no_tty,
             )
         else:
             recompute_all_ratings(
@@ -87,6 +94,7 @@ def main():
                 rerank=True,
                 rerankgi=args.gi,
                 reranknogi=not args.gi,
+                no_tty=args.no_tty,
             )
 
         db.session.commit()

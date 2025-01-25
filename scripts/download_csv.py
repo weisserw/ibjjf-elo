@@ -7,7 +7,7 @@ import json
 import gzip
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
-from progress.bar import Bar
+from progress_bar import Bar
 
 
 def get_s3_client():
@@ -78,6 +78,11 @@ def main():
         type=int,
         help="Download the N most recent files",
     )
+    parser.add_argument(
+        "--no-tty",
+        action="store_true",
+        help="Log output compatible with non-tty environments",
+    )
     args = parser.parse_args()
 
     if args.historical and args.recent:
@@ -98,7 +103,7 @@ def main():
         "Downloading files",
         max=len(files_to_download),
         check_tty=False,
-        hide_cursor=False,
+        no_tty=args.no_tty,
     ) as bar:
         for file_info in files_to_download:
             download_file(
