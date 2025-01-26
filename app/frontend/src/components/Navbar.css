@@ -18,8 +18,14 @@ h1.navbar-item {
   max-height: 52px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .has-background-link-80 {
-    color: #fff;
+a.navbar-item.is-active {
+  background-color: #2196f3;
+  border-color: #2196f3;
+  color: #fff;
+}
+
+@media screen and (min-width: 1024px) {
+  .navbar-link.is-active:not(:focus):not(:hover), a.navbar-item.is-active:not(:focus):not(:hover) {
+    background-color: #2196f3;
   }
 }
