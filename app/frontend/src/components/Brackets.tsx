@@ -30,6 +30,7 @@ interface CategoriesResponse {
 }
 
 export interface Competitor {
+  ordinal: number
   id: string
   seed: number
   name: string
@@ -281,38 +282,40 @@ function Brackets() {
               <table className="table is-fullwidth bracket-table">
                 <thead>
                   <tr>
+                    <th className="has-text-right">#</th>
                     <th>Name</th>
                     <th>Team</th>
                     <th className="has-text-right">
                       {
-                        sortColumn !== 'seed' ?
-                          <a href="#" onClick={columnClicked.bind(null, 'seed')}>Seed</a> :
-                          <span>Seed</span>
-                      }
-                    </th>
-                    <th className="has-text-right">
-                      {
                         sortColumn !== 'rating' ?
                           <a href="#" onClick={columnClicked.bind(null, 'rating')}>Rating</a> :
-                          <span>Rating</span>
+                          <span>Rating ↓</span>
                       }
                     </th>
                     <th className="has-text-right">Rank</th>
+                    <th className="has-text-right">
+                      {
+                        sortColumn !== 'seed' ?
+                          <a href="#" onClick={columnClicked.bind(null, 'seed')}>IBJJF Seed</a> :
+                          <span>IBJJF Seed ↓</span>
+                      }
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {
                     sortedCompetitors?.map(competitor => (
                       <tr key={competitor.id}>
+                        <td className="has-text-right">{competitor.ordinal}</td>
                         {
                           competitor.rank === null ?
                             <td>{competitor.name}</td> :
                             <td><a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}</a></td>
                         }
                         <td>{competitor.team}</td>
-                        <td className="has-text-right">{competitor.seed}</td>
                         <td className="has-text-right">{competitor.rating ?? ''}</td>
                         <td className="has-text-right">{competitor.rank ?? ''}</td>
+                        <td className="has-text-right">{competitor.seed}</td>
                       </tr>
                     ))
                   }
