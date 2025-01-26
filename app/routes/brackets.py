@@ -15,7 +15,7 @@ validlink = re.compile(r"^/tournaments/\d+/categories/\d+$")
 
 
 @brackets_route.route("/api/brackets/competitors")
-def bracket():
+def competitors():
     link = request.args.get("link")
     age = request.args.get("age")
     gender = request.args.get("gender")
@@ -87,12 +87,33 @@ def bracket():
                     {
                         "id": competitor_id,
                         "seed": competitor_seed,
+                        "found": False,
                         "name": competitor_name,
                         "team": competitor_team,
                         "rating": None,
                         "rank": None,
                     }
                 )
+
+    athlete_results = (
+        db.session.query(Athlete.ibjjf_id, Athlete.normalized_name)
+        .filter(
+            or_(
+                Athlete.ibjjf_id.in_([result["id"] for result in results]),
+                Athlete.normalized_name.in_(
+                    [normalize(result["name"]) for result in results]
+                ),
+            )
+        )
+        .all()
+    )
+
+    athletes_by_id = set()
+    athletes_by_name = set()
+
+    for athlete in athlete_results:
+        athletes_by_id.add(athlete.ibjjf_id)
+        athletes_by_name.add(athlete.normalized_name)
 
     ratings_results = (
         db.session.query(
@@ -116,9 +137,8 @@ def bracket():
             AthleteRating.gender == gender,
             AthleteRating.gi == gi,
         )
+        .all()
     )
-
-    ratings_results = ratings_results.all()
 
     ratings_by_id = {}
     ratings_by_name = {}
@@ -127,6 +147,12 @@ def bracket():
         ratings_by_name[rating.normalized_name] = rating
 
     for result in results:
+        if (
+            result["id"] in athletes_by_id
+            or normalize(result["name"]) in athletes_by_name
+        ):
+            result["found"] = True
+
         rating = ratings_by_id.get(result["id"]) or ratings_by_name.get(
             normalize(result["name"])
         )
