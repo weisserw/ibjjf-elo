@@ -3,9 +3,10 @@ import requests
 from bs4 import BeautifulSoup
 from pull import parse_categories
 import re
-from sqlalchemy.sql import or_
+from sqlalchemy.sql import func, or_
+from sqlalchemy.orm import aliased
 from extensions import db
-from models import AthleteRating, Athlete
+from models import AthleteRating, Athlete, MatchParticipant, Match, Division
 from normalize import normalize
 from constants import translate_age, translate_belt, translate_weight
 
@@ -85,9 +86,9 @@ def competitors():
 
                 results.append(
                     {
-                        "id": competitor_id,
+                        "id": None,
+                        "ibjjf_id": competitor_id,
                         "seed": competitor_seed,
-                        "found": False,
                         "name": competitor_name,
                         "team": competitor_team,
                         "rating": None,
@@ -96,7 +97,7 @@ def competitors():
                 )
 
     athlete_results = (
-        db.session.query(Athlete.ibjjf_id, Athlete.normalized_name)
+        db.session.query(Athlete.id, Athlete.ibjjf_id, Athlete.normalized_name)
         .filter(
             or_(
                 Athlete.ibjjf_id.in_([result["id"] for result in results]),
@@ -108,29 +109,27 @@ def competitors():
         .all()
     )
 
-    athletes_by_id = set()
-    athletes_by_name = set()
+    athletes_by_id = {}
+    athletes_by_name = {}
 
     for athlete in athlete_results:
-        athletes_by_id.add(athlete.ibjjf_id)
-        athletes_by_name.add(athlete.normalized_name)
+        athletes_by_id[athlete.ibjjf_id] = athlete.id
+        athletes_by_name[athlete.normalized_name] = athlete.id
+
+    for result in results:
+        if result["ibjjf_id"] in athletes_by_id:
+            result["id"] = athletes_by_id[result["ibjjf_id"]]
+        elif normalize(result["name"]) in athletes_by_name:
+            result["id"] = athletes_by_name[normalize(result["name"])]
 
     ratings_results = (
         db.session.query(
+            AthleteRating.athlete_id,
             AthleteRating.rating,
             AthleteRating.rank,
-            Athlete.ibjjf_id,
-            Athlete.normalized_name,
         )
-        .select_from(AthleteRating)
-        .join(Athlete)
         .filter(
-            or_(
-                Athlete.ibjjf_id.in_([result["id"] for result in results]),
-                Athlete.normalized_name.in_(
-                    [normalize(result["name"]) for result in results]
-                ),
-            ),
+            AthleteRating.athlete_id.in_([result["id"] for result in results]),
             AthleteRating.age == age,
             AthleteRating.belt == belt,
             AthleteRating.weight == weight,
@@ -141,24 +140,62 @@ def competitors():
     )
 
     ratings_by_id = {}
-    ratings_by_name = {}
     for rating in ratings_results:
-        ratings_by_id[rating.ibjjf_id] = rating
-        ratings_by_name[rating.normalized_name] = rating
+        ratings_by_id[rating.athlete_id] = rating
 
+    no_ratings_found = []
     for result in results:
-        if (
-            result["id"] in athletes_by_id
-            or normalize(result["name"]) in athletes_by_name
-        ):
-            result["found"] = True
-
-        rating = ratings_by_id.get(result["id"]) or ratings_by_name.get(
-            normalize(result["name"])
-        )
+        rating = ratings_by_id.get(result["id"])
         if rating:
             result["rating"] = round(rating.rating)
             result["rank"] = rating.rank
+        else:
+            no_ratings_found.append(result)
+
+    # If we can't find a rating for an athlete on the leader board,
+    # they may still be rated but have been removed from the leader board
+    # for inactivity. We can still find their rating by looking at their
+    # most recent match.
+    if len(no_ratings_found) > 0:
+        recent_matches_cte = (
+            db.session.query(
+                MatchParticipant.athlete_id,
+                MatchParticipant.end_rating,
+                func.row_number()
+                .over(
+                    partition_by=MatchParticipant.athlete_id,
+                    order_by=Match.happened_at.desc(),
+                )
+                .label("row_num"),
+            )
+            .select_from(MatchParticipant)
+            .join(Match)
+            .join(Division)
+            .filter(
+                MatchParticipant.athlete_id.in_(
+                    [result["id"] for result in no_ratings_found]
+                ),
+                Division.gi == gi,
+                Division.gender == gender,
+                Division.age == age,
+            )
+            .cte("recent_matches_cte")
+        )
+        recent_matches = aliased(recent_matches_cte)
+        match_results = (
+            db.session.query(recent_matches.c.athlete_id, recent_matches.c.end_rating)
+            .select_from(recent_matches)
+            .filter(recent_matches.c.row_num == 1)
+            .all()
+        )
+
+        ratings_by_id = {}
+        for rating in match_results:
+            ratings_by_id[rating.athlete_id] = rating.end_rating
+
+        for result in no_ratings_found:
+            if result["id"] in ratings_by_id:
+                result["rating"] = round(ratings_by_id[result["id"]])
 
     results.sort(key=lambda x: x["rating"] or -1, reverse=True)
 
