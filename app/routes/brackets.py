@@ -37,7 +37,7 @@ def bracket():
 
     session = requests.Session()
 
-    response = session.get("https://www.bjjcompsystem.com" + link)
+    response = session.get("https://www.bjjcompsystem.com" + link, timeout=10)
     if response.status_code != 200:
         return jsonify(
             {"error": f"Request returned error {response.status_code}: {response.text}"}
@@ -134,6 +134,20 @@ def bracket():
             result["rating"] = round(rating.rating)
             result["rank"] = rating.rank
 
+    results.sort(key=lambda x: x["rating"] or -1, reverse=True)
+
+    ordinal = 0
+    ties = 0
+    last_rating = None
+    for result in results:
+        if last_rating is None or result["rating"] != last_rating:
+            ordinal += 1 + ties
+            ties = 0
+        else:
+            ties += 1
+        result["ordinal"] = ordinal
+        last_rating = result["rating"]
+
     return jsonify({"competitors": results})
 
 
@@ -145,7 +159,7 @@ def categories(tournament_id, gender):
     if gender.lower() == "female":
         url += "?gender_id=2"
 
-    response = session.get(url)
+    response = session.get(url, timeout=10)
     if response.status_code != 200:
         return jsonify(
             {"error": f"Request returned error {response.status_code}: {response.text}"}
@@ -172,7 +186,7 @@ def categories(tournament_id, gender):
 def events():
     session = requests.Session()
 
-    response = session.get("https://bjjcompsystem.com/")
+    response = session.get("https://bjjcompsystem.com/", timeout=10)
     if response.status_code != 200:
         return jsonify(
             {"error": f"Request returned error {response.status_code}: {response.text}"}
