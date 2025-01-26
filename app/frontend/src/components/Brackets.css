@@ -1,0 +1,37 @@
+.brackets-content {
+  margin-top: 24px;
+}
+
+.bracket-list {
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.bracket-loader {
+  margin: 30px;
+}
+
+.category-list {
+  margin-top: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.bracket-table {
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+.no-bottom-margin {
+  margin-bottom: 0 !important;
+}
+
+.no-padding {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}

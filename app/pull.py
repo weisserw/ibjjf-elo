@@ -52,6 +52,27 @@ headers = [
 ]
 
 
+def parse_categories(soup):
+    categories = soup.find_all("li", class_="categories-grid__category")
+
+    results = []
+    for category in categories:
+        link = category.find("a")["href"]
+        age = category.find("div", class_="category-card__age-division").get_text(
+            strip=True
+        )
+        belt = category.find("span", class_="category-card__belt-label").get_text(
+            strip=True
+        )
+        weight = category.find("span", class_="category-card__weight-label").get_text(
+            strip=True
+        )
+
+        results.append({"link": link, "age": age, "belt": belt, "weight": weight})
+
+    return results
+
+
 def pull_tournament(
     file,
     writer,
@@ -88,22 +109,16 @@ def pull_tournament(
 
         soup = BeautifulSoup(response.content, "html.parser")
 
-        categories = soup.find_all("li", class_="categories-grid__category")
+        categories = parse_categories(soup)
 
         for category in categories:
             category_matches = 0
             category_defaults = 0
 
-            link = category.find("a")["href"]
-            age = category.find("div", class_="category-card__age-division").get_text(
-                strip=True
-            )
-            belt = category.find("span", class_="category-card__belt-label").get_text(
-                strip=True
-            )
-            weight = category.find(
-                "span", class_="category-card__weight-label"
-            ).get_text(strip=True)
+            link = category["link"]
+            age = category["age"]
+            belt = category["belt"]
+            weight = category["weight"]
 
             total_categories += 1
 

@@ -39,6 +39,9 @@ function Navbar() {
           <Link className={getNavItemClass("/database")} to="/database">
             Database
           </Link>
+          <Link className={getNavItemClass("/brackets")} to="/brackets">
+            Bracket Lookup
+          </Link>
           <Link className={getNavItemClass("/about")} to="/about">
             About
           </Link>

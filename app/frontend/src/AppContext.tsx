@@ -1,6 +1,13 @@
 import { createContext, useState, useContext, ReactNode } from 'react';
 import type { FilterValues, OpenFilters } from './components/DBFilters';
 import type { TabName } from './components/GiTabs';
+import type {
+  Event as BracketEvent,
+  Category as BracketCategory,
+  Gender as BracketGender,
+  Competitor as BracketCompetitor,
+  SortColumn as BracketSortColumn,
+} from './components/Brackets';
 
 interface AppContextProps {
   filters: FilterValues;
@@ -25,6 +32,20 @@ interface AppContextProps {
   setRankingPage: (page: number) => void;
   dbPage: number;
   setDbPage: (page: number) => void;
+  bracketEvents: BracketEvent[] | null;
+  setBracketEvents: (events: BracketEvent[] | null) => void;
+  bracketSelectedEvent: string | null;
+  setBracketSelectedEvent: (event: string | null) => void;
+  bracketGender: BracketGender;
+  setBracketGender: (gender: BracketGender) => void;
+  bracketCategories: BracketCategory[] | null;
+  setBracketCategories: (categories: BracketCategory[] | null) => void;
+  bracketSelectedCategory: string | null;
+  setBracketSelectedCategory: (category: string | null) => void;
+  bracketCompetitors: BracketCompetitor[] | null;
+  setBracketCompetitors: (competitors: BracketCompetitor[] | null) => void;
+  bracketSortColumn: BracketSortColumn;
+  setBracketSortColumn: (column: BracketSortColumn) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -49,6 +70,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [rankingNameFilter, setRankingNameFilter] = useState('');
   const [rankingPage, setRankingPage] = useState(1);
   const [dbPage, setDbPage] = useState(1);
+  const [bracketEvents, setBracketEvents] = useState<BracketEvent[] | null>(null)
+  const [bracketSelectedEvent, setBracketSelectedEvent] = useState<string | null>(null)
+  const [bracketGender, setBracketGender] = useState<BracketGender>('Male')
+  const [bracketCategories, setBracketCategories] = useState<BracketCategory[] | null>(null)
+  const [bracketSelectedCategory, setBracketSelectedCategory] = useState<string | null>(null)
+  const [bracketCompetitors, setBracketCompetitors] = useState<BracketCompetitor[] | null>(null)
+  const [bracketSortColumn, setBracketSortColumn] = useState<BracketSortColumn>('rating')
 
   return (
     <AppContext.Provider value={{
@@ -62,7 +90,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       rankingChanged, setRankingChanged,
       rankingNameFilter, setRankingNameFilter,
       rankingPage, setRankingPage,
-      dbPage, setDbPage
+      dbPage, setDbPage,
+      bracketEvents, setBracketEvents,
+      bracketSelectedEvent, setBracketSelectedEvent,
+      bracketGender, setBracketGender,
+      bracketCategories, setBracketCategories,
+      bracketSelectedCategory, setBracketSelectedCategory,
+      bracketCompetitors, setBracketCompetitors,
+      bracketSortColumn, setBracketSortColumn,
     }}>
       {children}
     </AppContext.Provider>

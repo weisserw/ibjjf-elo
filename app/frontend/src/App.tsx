@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Ratings from './components/Ratings';
 import Database from './components/Database';
+import Brackets from './components/Brackets';
 import About from './components/About';
 import NotFound from './components/NotFound';
 import { AppProvider } from './AppContext';
@@ -20,6 +21,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Ratings />} />
               <Route path="/database" element={<Database />} />
+              <Route path="/brackets" element={<Brackets />} />
               <Route path="/about" element={<About />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
