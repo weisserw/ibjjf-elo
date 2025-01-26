@@ -31,8 +31,8 @@ interface CategoriesResponse {
 
 export interface Competitor {
   ordinal: number
-  id: string
-  found: boolean
+  id: string | null
+  ibjjf_id: string
   seed: number
   name: string
   team: string
@@ -212,7 +212,7 @@ function Brackets() {
           This tool imports brackets directly from <a href="https://bjjcompsystem.com/" target="_blank" rel="nofollow noreferrer">bjjcompsystem.com</a> and displays the current ratings of the competitors.
         </p>
         <div className="brackets-content">
-          <button className="button is-primary" onClick={getEvents}>Get Available Events</button>
+          <button className="button is-link" onClick={getEvents}>Get Available Events</button>
           {
             events !== null && (
               <div className="bracket-list">
@@ -239,7 +239,7 @@ function Brackets() {
                 }
                 {
                   events.length > 0 && (
-                    <button className="button is-primary" onClick={getCategories}>Get Bracket List</button>
+                    <button className="button is-link" onClick={getCategories}>Get Bracket List</button>
                   )
                 }
                 {
@@ -266,7 +266,7 @@ function Brackets() {
                 }
                 {
                   categories.length > 0 && (
-                    <button className="button is-primary" onClick={viewBracket}>View Bracket</button>
+                    <button className="button is-link" onClick={viewBracket}>View Bracket</button>
                   )
                 }
                 {
@@ -307,11 +307,11 @@ function Brackets() {
                   <tbody>
                     {
                       sortedCompetitors?.map(competitor => (
-                        <tr key={competitor.id}>
+                        <tr key={competitor.ibjjf_id}>
                           <td className="has-text-right">{competitor.ordinal}</td>
                           <td className="has-text-right">{competitor.seed}</td>
                           {
-                            competitor.found ?
+                            competitor.id !== null ?
                               <td><a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}</a></td> :
                               <td>{competitor.name}</td>
                           }
