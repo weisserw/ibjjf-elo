@@ -282,17 +282,13 @@ function Brackets() {
               <table className="table is-fullwidth bracket-table">
                 <thead>
                   <tr>
-                    <th className="has-text-right">#</th>
-                    <th>Name</th>
-                    <th>Team</th>
-                    <th className="has-text-right">
+                  < th className="has-text-right">
                       {
                         sortColumn !== 'rating' ?
-                          <a href="#" onClick={columnClicked.bind(null, 'rating')}>Rating</a> :
-                          <span>Rating ↓</span>
+                          <a href="#" onClick={columnClicked.bind(null, 'rating')}>#</a> :
+                          <span># ↓</span>
                       }
                     </th>
-                    <th className="has-text-right">Rank</th>
                     <th className="has-text-right">
                       {
                         sortColumn !== 'seed' ?
@@ -300,6 +296,10 @@ function Brackets() {
                           <span>IBJJF Seed ↓</span>
                       }
                     </th>
+                    <th>Name</th>
+                    <th>Team</th>
+                    <th className="has-text-right">Rating</th>
+                    <th className="has-text-right">Rank</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -307,6 +307,7 @@ function Brackets() {
                     sortedCompetitors?.map(competitor => (
                       <tr key={competitor.id}>
                         <td className="has-text-right">{competitor.ordinal}</td>
+                        <td className="has-text-right">{competitor.seed}</td>
                         {
                           competitor.rank === null ?
                             <td>{competitor.name}</td> :
@@ -315,7 +316,6 @@ function Brackets() {
                         <td>{competitor.team}</td>
                         <td className="has-text-right">{competitor.rating ?? ''}</td>
                         <td className="has-text-right">{competitor.rank ?? ''}</td>
-                        <td className="has-text-right">{competitor.seed}</td>
                       </tr>
                     ))
                   }
