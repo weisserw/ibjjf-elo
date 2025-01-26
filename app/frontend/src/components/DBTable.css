@@ -33,9 +33,3 @@ div.card.db-row-card {
 div.notification.is-historical {
   padding: 10px 16px;
 }
-
-@media (prefers-color-scheme: dark) {
-  .is-historical {
-    background-color: #473410 !important;
-  }
-}
