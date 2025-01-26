@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import axios, { AxiosError } from 'axios'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom';
@@ -78,14 +78,21 @@ function Brackets() {
     try {
       const { data } = await axios.get<EventsResponse>('/api/brackets/events');
       if (data.error) {
+        setEvents(null)
         setError(data.error)
       } else if (data.events) {
         setEvents(data.events)
-        setCategories(null)
-        setCompetitors(null)
         setError(null)
-        if (data.events.length > 0) {
+
+        const event = data.events.find(e => e.id === selectedEvent)
+        if (event) {
+          setSelectedEvent(event.id)
+        } else if (!event && data.events.length > 0) {
           setSelectedEvent(data.events[0].id)
+        } else {
+          setSelectedEvent(null)
+          setCategories(null)
+          setCompetitors(null)
         }
       }
     } catch (err) {
@@ -100,18 +107,58 @@ function Brackets() {
     }
   }
 
+  useEffect(() => {
+    getEvents()
+  }, [])
+
+  const categoryString = (category: Category) => {
+    return `${category.age} ${category.belt} ${category.weight}`
+  }
+
   const getCategories = async () => {
     setLoading(true)
     try {
       const { data } = await axios.get<CategoriesResponse>('/api/brackets/categories/' + selectedEvent + "/" + gender);
       if (data.error) {
+        setCategories(null)
         setError(data.error)
       } else if (data.categories) {
         setCategories(data.categories)
-        setCompetitors(null)
         setError(null)
-        if (data.categories.length > 0) {
-          setSelectedCategory(data.categories[0].link)
+
+        const category = data.categories.find(c => categoryString(c) === selectedCategory)
+
+        if (category) {
+          setSelectedCategory(categoryString(category))
+        } else {
+          let selected: string | null = null
+          // select adult / black / heavy by default
+          for (const category of data.categories) {
+            if (category.age === 'Adult' && category.belt === 'BLACK' && category.weight === 'Heavy') {
+              selected = categoryString(category)
+              break
+            }
+          }
+          // otherwise use the first adult black category
+          if (!selected) {
+            for (const category of data.categories) {
+              if (category.age === 'Adult' && category.belt === 'BLACK') {
+                selected = categoryString(category)
+                break
+              }
+            }
+          }
+          // finally use the first category
+          if (!selected && data.categories.length > 0) {
+            selected = categoryString(data.categories[0])
+          }
+
+          if (selected) {
+            setSelectedCategory(selected)
+          } else {
+            setSelectedCategory(null)
+            setCompetitors(null)
+          }
         }
       }
     } catch (err) {
@@ -125,6 +172,12 @@ function Brackets() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (selectedEvent && gender) {
+      getCategories()
+    }
+  }, [events, selectedEvent, gender])
 
   const isGi = (event: Event) => {
     return !/no[ -]gi/.test(event.name.toLowerCase())
@@ -134,13 +187,13 @@ function Brackets() {
     setLoading(true)
     try {
       const event = events?.find(e => e.id === selectedEvent)
-      const category = categories?.find(c => c.link === selectedCategory)
+      const category = categories?.find(c => categoryString(c) === selectedCategory)
       if (!event || !category) {
         return
       }
       const { data } = await axios.get<CompetitorsResponse>('/api/brackets/competitors', {
         params: {
-          link: selectedCategory,
+          link: category.link,
           age: category.age,
           gender,
           gi: isGi(event),
@@ -149,6 +202,7 @@ function Brackets() {
         }
       });
       if (data.error) {
+        setCompetitors(null)
         setError(data.error)
       } else if (data.competitors) {
         setCompetitors(data.competitors)
@@ -165,6 +219,12 @@ function Brackets() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (selectedCategory) {
+      viewBracket()
+    }
+  }, [categories, selectedCategory])
 
   const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => {
     ev.preventDefault()
@@ -212,7 +272,6 @@ function Brackets() {
           This tool imports brackets directly from <a href="https://bjjcompsystem.com/" target="_blank" rel="nofollow noreferrer">bjjcompsystem.com</a> and displays the current ratings of the competitors.
         </p>
         <div className="brackets-content">
-          <button className="button is-link" onClick={getEvents}>Get Available Events</button>
           {
             events !== null && (
               <div className="bracket-list">
@@ -220,26 +279,21 @@ function Brackets() {
                   events.length > 0 && (
                     <div className="columns no-bottom-margin">
                       <div className="column no-padding">
-                        <select className="select" onChange={e => { setSelectedEvent(e.target.value); setCategories(null); setCompetitors(null) }}>
+                        <select className="select" value={selectedEvent ?? ''} onChange={e => { setSelectedEvent(e.target.value); }}>
                           {
                             events.map(event => (
-                              <option key={event.id} value={event.id} selected={selectedEvent === event.id}>{event.name}</option>
+                              <option key={event.id} value={event.id}>{event.name}</option>
                             ))
                           }
                         </select>
                       </div>
                       <div className="column no-padding">
-                        <select className="select" onChange={e => {setGender(e.target.value as Gender); setCategories(null); setCompetitors(null) }}>
-                          <option value="Male" selected={gender === 'Male'}>Male</option>
-                          <option value="Female" selected={gender === 'Female'}>Female</option>
+                        <select className="select" value="gender" onChange={e => {setGender(e.target.value as Gender); }}>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
                         </select>
                       </div>
                     </div>
-                  )
-                }
-                {
-                  events.length > 0 && (
-                    <button className="button is-link" onClick={getCategories}>Get Bracket List</button>
                   )
                 }
                 {
@@ -251,22 +305,17 @@ function Brackets() {
             )
           }
           {
-            categories !== null && (
+            (events !== null && categories !== null) && (
               <div className="category-list">
                 {
                   categories.length > 0 && (
-                    <select className="select" onChange={e => {setSelectedCategory(e.target.value); setCompetitors(null) }}>
+                    <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
                       {
                         categories.map(category => (
-                          <option key={category.link} value={category.link} selected={selectedCategory === category.link}>{category.age} {category.belt} {category.weight}</option>
+                          <option key={category.link} value={categoryString(category)}>{categoryString(category)}</option>
                         ))
                       }
                     </select>
-                  )
-                }
-                {
-                  categories.length > 0 && (
-                    <button className="button is-link" onClick={viewBracket}>View Bracket</button>
                   )
                 }
                 {
@@ -278,7 +327,7 @@ function Brackets() {
             )
           }
           {
-            competitors !== null && (
+            (events !== null && categories !== null && competitors !== null) && (
               // show table
               <div className="table-container">
                 <table className="table is-fullwidth bracket-table">

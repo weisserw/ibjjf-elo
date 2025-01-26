@@ -205,3 +205,12 @@ class AthleteRating(db.Model):
             name="uq_athlete_ratings_athlete_gender_age_gi",
         ),
     )
+
+
+class BracketPage(db.Model):
+    __tablename__ = "bracket_pages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    saved_at = Column(DateTime, nullable=False)
+    link = Column(String, nullable=False)
+    html = Column(Text, nullable=False)
