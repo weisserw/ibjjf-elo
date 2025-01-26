@@ -279,19 +279,27 @@ function Brackets() {
                   events.length > 0 && (
                     <div className="columns no-bottom-margin">
                       <div className="column no-padding">
-                        <select className="select" value={selectedEvent ?? ''} onChange={e => { setSelectedEvent(e.target.value); }}>
-                          {
-                            events.map(event => (
-                              <option key={event.id} value={event.id}>{event.name}</option>
-                            ))
-                          }
-                        </select>
+                        <div className="field">
+                          <div className="select">
+                            <select value={selectedEvent ?? ''} onChange={e => { setSelectedEvent(e.target.value); }}>
+                              {
+                                events.map(event => (
+                                  <option key={event.id} value={event.id}>{event.name}</option>
+                                ))
+                              }
+                            </select>
+                          </div>
+                        </div>
                       </div>
                       <div className="column no-padding">
-                        <select className="select" value="gender" onChange={e => {setGender(e.target.value as Gender); }}>
-                          <option value="Male">Male</option>
-                          <option value="Female">Female</option>
-                        </select>
+                        <div className="field">
+                          <div className="select">
+                            <select className="select" value="gender" onChange={e => {setGender(e.target.value as Gender); }}>
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )
@@ -309,13 +317,17 @@ function Brackets() {
               <div className="category-list">
                 {
                   categories.length > 0 && (
-                    <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
-                      {
-                        categories.map(category => (
-                          <option key={category.link} value={categoryString(category)}>{categoryString(category)}</option>
-                        ))
-                      }
-                    </select>
+                    <div className="field">
+                      <div className="select">
+                        <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
+                          {
+                            categories.map(category => (
+                              <option key={category.link} value={categoryString(category)}>{categoryString(category)}</option>
+                            ))
+                          }
+                        </select>
+                      </div>
+                    </div>
                   )
                 }
                 {
