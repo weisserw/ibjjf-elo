@@ -1,18 +1,59 @@
 from flask import Blueprint, jsonify, request
 import requests
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from pull import parse_categories
 import re
 from sqlalchemy.sql import func, or_
 from sqlalchemy.orm import aliased
 from extensions import db
-from models import AthleteRating, Athlete, MatchParticipant, Match, Division
+from models import (
+    AthleteRating,
+    Athlete,
+    MatchParticipant,
+    Match,
+    Division,
+    BracketPage,
+)
+import logging
 from normalize import normalize
 from constants import translate_age, translate_belt, translate_weight
+
+log = logging.getLogger("ibjjf")
 
 brackets_route = Blueprint("brackets_route", __name__)
 
 validlink = re.compile(r"^/tournaments/\d+/categories/\d+$")
+
+
+def get_bracket_page(link, newer_than=None):
+    q = db.session.query(BracketPage).filter(BracketPage.link == link)
+
+    if newer_than is not None:
+        q = q.filter(BracketPage.saved_at > newer_than)
+
+    page = q.first()
+
+    if page:
+        return page.html
+
+    log.info(f"Retrieving {link}")
+    session = requests.Session()
+    response = session.get(link, timeout=10)
+    log.info(f"Retrieved {link} with status {response.status_code}")
+
+    if response.status_code != 200:
+        raise Exception(
+            f"Request returned error {response.status_code}: {response.text}"
+        )
+
+    db.session.query(BracketPage).filter(BracketPage.link == link).delete()
+
+    page = BracketPage(link=link, html=response.text, saved_at=datetime.now())
+    db.session.add(page)
+    db.session.commit()
+
+    return response.content
 
 
 @brackets_route.route("/api/brackets/competitors")
@@ -36,15 +77,12 @@ def competitors():
     if not validlink.search(link):
         return jsonify({"error": "Invalid link"}), 400
 
-    session = requests.Session()
-
-    response = session.get("https://www.bjjcompsystem.com" + link, timeout=10)
-    if response.status_code != 200:
-        return jsonify(
-            {"error": f"Request returned error {response.status_code}: {response.text}"}
+    try:
+        soup = BeautifulSoup(
+            get_bracket_page("https://www.bjjcompsystem.com" + link), "html.parser"
         )
-
-    soup = BeautifulSoup(response.content, "html.parser")
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
     results = []
 
@@ -227,7 +265,10 @@ def categories(tournament_id, gender):
             {"error": f"Request returned error {response.status_code}: {response.text}"}
         )
 
-    soup = BeautifulSoup(response.content, "html.parser")
+    try:
+        soup = BeautifulSoup(get_bracket_page(url), "html.parser")
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
     categories = parse_categories(soup)
 
@@ -246,15 +287,15 @@ def categories(tournament_id, gender):
 
 @brackets_route.route("/api/brackets/events")
 def events():
-    session = requests.Session()
-
-    response = session.get("https://bjjcompsystem.com/", timeout=10)
-    if response.status_code != 200:
-        return jsonify(
-            {"error": f"Request returned error {response.status_code}: {response.text}"}
+    try:
+        soup = BeautifulSoup(
+            get_bracket_page(
+                "https://bjjcompsystem.com/", datetime.now() - timedelta(minutes=1)
+            ),
+            "html.parser",
         )
-
-    soup = BeautifulSoup(response.content, "html.parser")
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
     tournaments_select = soup.find("select", {"id": "tournament_id"})
     if not tournaments_select:
