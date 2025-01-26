@@ -101,6 +101,11 @@ function EloTable() {
     navigate('/database');
   };
 
+  const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    setPage(1)
+  }
+
   const onNextPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
     if (page < totalPages) {
@@ -252,8 +257,9 @@ function EloTable() {
         !loading && data.length > 0 && (
           <DBPagination loading={reloading}
                         page={page}
-                        showEnd={true}
+                        showPages={true}
                         totalPages={totalPages}
+                        onFirstPage={onFirstPage}
                         onNextPage={onNextPage}
                         onPreviousPage={onPreviousPage}
                         onPageClick={onPageClick} />

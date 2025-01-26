@@ -1,4 +1,3 @@
-import math
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from sqlalchemy.sql import text
@@ -254,7 +253,8 @@ def matches():
 
     sql = f"""
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
-            mp.winner, mp.start_rating, mp.end_rating, a.name, mp.note, m.rated, mp.rating_note, mp.weight_for_open
+            mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating, a.name, mp.note, m.rated,
+            mp.rating_note, mp.weight_for_open
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
         JOIN events e ON m.event_id = e.id
@@ -263,19 +263,6 @@ def matches():
         WHERE d.gi = :gi
         {filters}
     """
-
-    totalCount = (
-        db.session.execute(
-            text(
-                f"""
-        SELECT COUNT(*) FROM (
-            {sql}
-        ) q"""
-            ),
-            params,
-        ).scalar_one()
-        // 2
-    )
 
     params["limit"] = MATCH_PAGE_SIZE * 2
     params["offset"] = (int(page) - 1) * MATCH_PAGE_SIZE * 2
@@ -321,6 +308,7 @@ def matches():
 
         current_match.participants.append(
             MatchParticipant(
+                id=row["participant_id"],
                 winner=row["winner"],
                 start_rating=row["start_rating"],
                 end_rating=row["end_rating"],
@@ -348,10 +336,12 @@ def matches():
                 {
                     "id": current_match.id,
                     "winner": winner.athlete.name,
+                    "winnerId": winner.id,
                     "winnerStartRating": round(winner.start_rating),
                     "winnerEndRating": round(winner.end_rating),
                     "winnerWeightForOpen": winner.weight_for_open,
                     "loser": loser.athlete.name,
+                    "loserId": loser.id,
                     "loserStartRating": round(loser.start_rating),
                     "loserEndRating": round(loser.end_rating),
                     "loserWeightForOpen": loser.weight_for_open,
@@ -368,6 +358,8 @@ def matches():
                 }
             )
 
-    return jsonify(
-        {"rows": response, "totalPages": math.ceil(totalCount / MATCH_PAGE_SIZE)}
-    )
+    totalPages = int(page) + 1
+    if len(response) < MATCH_PAGE_SIZE:
+        totalPages -= 1
+
+    return jsonify({"rows": response, "totalPages": totalPages})

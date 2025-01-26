@@ -17,11 +17,13 @@ import "./DBTable.css"
 interface Row {
   id: string
   winner: string
+  winnerId: string
   winnerStartRating: number
   winnerEndRating: number
   winnerWeightForOpen: string | null
   winnerRatingNote: string | null
   loser: string
+  loserId: string
   loserStartRating: number
   loserEndRating: number
   loserWeightForOpen: string | null
@@ -88,6 +90,11 @@ function DBTable() {
       return row.event.substring(0, 32) + '...'
     }
     return row.event
+  }
+
+  const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    setPage(1)
   }
 
   const onNextPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
@@ -237,9 +244,9 @@ function DBTable() {
             {
               !loading && !!data.length && data.map((row: Row, index: number) => (
                 <tr key={row.id} className={classNames({"is-historical": isHistorical(row)})}>
-                  <td><a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a></td>
+                  <td data-id={row.winnerId}><a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a></td>
                   <td>{row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}</td>
-                  <td><a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a></td>
+                  <td data-id={row.loserId}><a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a></td>
                   <td>{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, index === 0)}</td>
                   <td className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": index === 0})} data-tooltip={shortEvent(row) !== row.event ? row.event : undefined}>
                     <a href="#" onClick={e => eventClicked(e, row.event)}>{shortEvent(row)}</a>
@@ -292,10 +299,10 @@ function DBTable() {
                 </div>
                 <div className="card-content">
                   <div className="columns">
-                    <div className="column">
+                    <div className="column" data-id={row.winnerId}>
                       <strong>Winner:</strong> <a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a> {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, true)}
                     </div>
-                    <div className="column has-text-right-tablet">
+                    <div className="column has-text-right-tablet" data-id={row.loserId}>
                       <strong>Loser:</strong> <a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a> {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, true)}
                     </div>
                   </div>
@@ -330,8 +337,9 @@ function DBTable() {
         !loading && data.length > 0 && (
           <DBPagination loading={reloading}
                         page={page}
-                        showEnd={false}
+                        showPages={false}
                         totalPages={totalPages}
+                        onFirstPage={onFirstPage}
                         onNextPage={onNextPage}
                         onPreviousPage={onPreviousPage}
                         onPageClick={onPageClick} />
