@@ -32,6 +32,7 @@ interface CategoriesResponse {
 export interface Competitor {
   ordinal: number
   id: string
+  found: boolean
   seed: number
   name: string
   team: string
@@ -310,9 +311,9 @@ function Brackets() {
                           <td className="has-text-right">{competitor.ordinal}</td>
                           <td className="has-text-right">{competitor.seed}</td>
                           {
-                            competitor.rank === null ?
-                              <td>{competitor.name}</td> :
-                              <td><a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}</a></td>
+                            competitor.found ?
+                              <td><a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}</a></td> :
+                              <td>{competitor.name}</td>
                           }
                           <td>{competitor.team}</td>
                           <td className="has-text-right">{competitor.rating ?? ''}</td>
@@ -331,7 +332,7 @@ function Brackets() {
         error && <div className="notification is-danger">{error}</div>
       }
       {
-       loading && <div className="bracket-loader loader"></div> 
+        loading && <div className="bracket-loader loader"></div>
       }
     </section>
   );
