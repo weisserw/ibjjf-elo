@@ -75,7 +75,7 @@ function DBTable() {
       setLoading(false)
       setReloading(false)
 
-      if (response.data.totalPages < page) {
+      if (response.data.rows.length === 0) {
         setPage(1)
       }
     }).catch((exception) => {
