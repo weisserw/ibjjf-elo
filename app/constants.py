@@ -102,8 +102,25 @@ weight_class_order = [
     ULTRA_HEAVY,
 ]
 
+weight_class_order_all = [
+    ROOSTER,
+    LIGHT_FEATHER,
+    FEATHER,
+    LIGHT,
+    MIDDLE,
+    MEDIUM_HEAVY,
+    HEAVY,
+    SUPER_HEAVY,
+    ULTRA_HEAVY,
+    OPEN_CLASS_LIGHT,
+    OPEN_CLASS_HEAVY,
+    OPEN_CLASS,
+]
+
 
 JUVENILE = "Juvenile"
+JUVENILE_1 = "Juvenile 1"
+JUVENILE_2 = "Juvenile 2"
 ADULT = "Adult"
 MASTER_PREFIX = "Master"
 MASTER_1 = "Master 1"
@@ -116,6 +133,20 @@ MASTER_7 = "Master 7"
 
 
 age_order = [
+    JUVENILE,
+    ADULT,
+    MASTER_1,
+    MASTER_2,
+    MASTER_3,
+    MASTER_4,
+    MASTER_5,
+    MASTER_6,
+    MASTER_7,
+]
+
+age_order_all = [
+    JUVENILE_1,
+    JUVENILE_2,
     JUVENILE,
     ADULT,
     MASTER_1,
@@ -148,6 +179,28 @@ def translate_age(age: str) -> str:
     return age
 
 
+def translate_age_keep_juvenile(age: str) -> str:
+    if age == "Juvenil":
+        return JUVENILE
+    if age == "Adulto":
+        return ADULT
+    if age not in [
+        JUVENILE,
+        JUVENILE_1,
+        JUVENILE_2,
+        ADULT,
+        MASTER_1,
+        MASTER_2,
+        MASTER_3,
+        MASTER_4,
+        MASTER_5,
+        MASTER_6,
+        MASTER_7,
+    ]:
+        raise ValueError("Invalid age " + age)
+    return age
+
+
 MALE = "Male"
 FEMALE = "Female"
 
@@ -161,3 +214,6 @@ def translate_gender(gender: str) -> None:
         raise ValueError("Invalid gender " + gender)
 
     return gender
+
+
+gender_order = [MALE, FEMALE]

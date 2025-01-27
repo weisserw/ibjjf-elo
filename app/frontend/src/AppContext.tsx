@@ -4,7 +4,6 @@ import type { TabName } from './components/GiTabs';
 import type {
   Event as BracketEvent,
   Category as BracketCategory,
-  Gender as BracketGender,
   Competitor as BracketCompetitor,
   SortColumn as BracketSortColumn,
   Tabs as BracketTabs,
@@ -37,8 +36,6 @@ interface AppContextProps {
   setBracketEvents: (events: BracketEvent[] | null) => void;
   bracketSelectedEvent: string | null;
   setBracketSelectedEvent: (event: string | null) => void;
-  bracketGender: BracketGender;
-  setBracketGender: (gender: BracketGender) => void;
   bracketCategories: BracketCategory[] | null;
   setBracketCategories: (categories: BracketCategory[] | null) => void;
   bracketSelectedCategory: string | null;
@@ -87,7 +84,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [dbPage, setDbPage] = useState(1);
   const [bracketEvents, setBracketEvents] = useState<BracketEvent[] | null>(null)
   const [bracketSelectedEvent, setBracketSelectedEvent] = useState<string | null>(null)
-  const [bracketGender, setBracketGender] = useState<BracketGender>('Male')
   const [bracketCategories, setBracketCategories] = useState<BracketCategory[] | null>(null)
   const [bracketSelectedCategory, setBracketSelectedCategory] = useState<string | null>(null)
   const [bracketCompetitors, setBracketCompetitors] = useState<BracketCompetitor[] | null>(null)
@@ -115,7 +111,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       dbPage, setDbPage,
       bracketEvents, setBracketEvents,
       bracketSelectedEvent, setBracketSelectedEvent,
-      bracketGender, setBracketGender,
       bracketCategories, setBracketCategories,
       bracketSelectedCategory, setBracketSelectedCategory,
       bracketCompetitors, setBracketCompetitors,
