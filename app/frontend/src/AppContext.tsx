@@ -50,6 +50,8 @@ interface AppContextProps {
   setBracketRegistrationUrl: (url: string) => void;
   bracketRegistrationEventName: string;
   setBracketRegistrationEventName: (name: string) => void;
+  bracketRegistrationEventTotal: number | null;
+  setBracketRegistrationEventTotal: (total: number | null) => void;
   bracketRegistrationEventUrl: string;
   setBracketRegistrationEventUrl: (url: string) => void;
   bracketRegistrationCategories: string[] | null;
@@ -91,6 +93,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketActiveTab, setBracketActiveTab] = useState<BracketTabs>('Live')
   const [bracketRegistrationUrl, setBracketRegistrationUrl] = useState('')
   const [bracketRegistrationEventName, setBracketRegistrationEventName] = useState('')
+  const [bracketRegistrationEventTotal, setBracketRegistrationEventTotal] = useState<number | null>(null)
   const [bracketRegistrationEventUrl, setBracketRegistrationEventUrl] = useState('')
   const [bracketRegistrationCategories, setBracketRegistrationCategories] = useState<string[] | null>(null)
   const [bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory] = useState<string | null>(null)
@@ -118,6 +121,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketActiveTab, setBracketActiveTab,
       bracketRegistrationUrl, setBracketRegistrationUrl,
       bracketRegistrationEventName, setBracketRegistrationEventName,
+      bracketRegistrationEventTotal, setBracketRegistrationEventTotal,
       bracketRegistrationEventUrl, setBracketRegistrationEventUrl,
       bracketRegistrationCategories, setBracketRegistrationCategories,
       bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory,
