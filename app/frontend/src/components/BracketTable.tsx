@@ -1,4 +1,4 @@
-import type { Competitor, SortColumn } from "./Brackets";
+import type { Competitor } from "./BracketUtils";
 
 interface BracketTableProps {
   competitors: Competitor[] | null;
@@ -7,6 +7,8 @@ interface BracketTableProps {
   columnClicked?: (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => void;
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => void;
 }
+
+export type SortColumn = 'rating' | 'seed'
 
 function BracketTable(props: BracketTableProps) {
   const { competitors, sortColumn, columnClicked, athleteClicked } = props;

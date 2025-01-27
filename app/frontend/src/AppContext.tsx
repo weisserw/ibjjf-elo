@@ -2,12 +2,18 @@ import { createContext, useState, useContext, ReactNode } from 'react';
 import type { FilterValues, OpenFilters } from './components/DBFilters';
 import type { TabName } from './components/GiTabs';
 import type {
-  Event as BracketEvent,
-  Category as BracketCategory,
-  Competitor as BracketCompetitor,
-  SortColumn as BracketSortColumn,
   Tabs as BracketTabs,
 } from './components/Brackets';
+import type {
+  Event as BracketEvent,
+  Category as BracketCategory,
+} from './components/BracketLive';
+import type {
+  SortColumn as BracketSortColumn,
+} from './components/BracketTable';
+import type {
+  Competitor as BracketCompetitor,
+} from './components/BracketUtils';
 
 interface AppContextProps {
   filters: FilterValues;
