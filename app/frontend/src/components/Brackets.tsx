@@ -1,7 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
 import axios, { AxiosError } from 'axios'
+import classNames from 'classnames'
 import { useAppContext } from '../AppContext'
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'
+import BracketTable from './BracketTable'
 
 import "./Brackets.css"
 
@@ -32,7 +34,7 @@ interface CategoriesResponse {
 export interface Competitor {
   ordinal: number
   id: string | null
-  ibjjf_id: string
+  ibjjf_id: string | null
   seed: number
   name: string
   team: string
@@ -47,8 +49,17 @@ interface CompetitorsResponse {
 
 export type SortColumn = 'rating' | 'seed'
 
+export type Tabs = 'Live' | 'Registrations'
+
+interface RegistrationCategoriesResponse {
+  event_name?: string
+  categories?: string[]
+  error?: string
+}
+
 function Brackets() {
   const [error, setError] = useState<string | null>(null)
+  const [registrationError, setRegistrationError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const {
@@ -66,6 +77,20 @@ function Brackets() {
     setBracketCompetitors: setCompetitors,
     bracketSortColumn: sortColumn,
     setBracketSortColumn: setSortColumn,
+    bracketActiveTab,
+    setBracketActiveTab,
+    bracketRegistrationUrl: registrationUrl,
+    setBracketRegistrationUrl: setRegistrationUrl,
+    bracketRegistrationEventName: registrationEventName,
+    setBracketRegistrationEventName: setRegistrationEventName,
+    bracketRegistrationEventUrl: registrationEventUrl,
+    setBracketRegistrationEventUrl: setRegistrationEventUrl,
+    bracketRegistrationCategories: registrationCategories,
+    setBracketRegistrationCategories: setRegistrationCategories,
+    bracketRegistrationSelectedCategory: selectedRegistrationCategory,
+    setBracketRegistrationSelectedCategory: setSelectedRegistrationCategory,
+    bracketRegistrationCompetitors: registrationCompetitors,
+    setBracketRegistrationCompetitors: setRegistrationCompetitors,
     setFilters,
     setOpenFilters,
     setActiveTab,
@@ -96,12 +121,7 @@ function Brackets() {
         }
       }
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        const axiosError = err as AxiosError<any>;
-        setError(axiosError.message);
-      } else {
-        setError(JSON.stringify(err));
-      }
+      handleError(err)
     } finally {
       setLoading(false)
     }
@@ -113,6 +133,31 @@ function Brackets() {
 
   const categoryString = (category: Category) => {
     return `${category.age} ${category.belt} ${category.weight}`
+  }
+
+  const handleError = (err: any, registration?: boolean) => {
+    if (axios.isAxiosError(err)) {
+      const axiosError = err as AxiosError<any>;
+      if (axiosError.response?.data?.error) {
+        if (registration) {
+          setRegistrationError(axiosError.response.data.error);
+        } else {
+          setError(axiosError.response.data.error);
+        }
+      } else {
+        if (registration) {
+          setRegistrationError(axiosError.message);
+        } else {
+          setError(axiosError.message);
+        }
+      }
+    } else {
+      if (registration) {
+        setRegistrationError(JSON.stringify(err));
+      } else {
+        setError(JSON.stringify(err));
+      }
+    }
   }
 
   const getCategories = async () => {
@@ -162,12 +207,7 @@ function Brackets() {
         }
       }
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        const axiosError = err as AxiosError<any>;
-        setError(axiosError.message);
-      } else {
-        setError(JSON.stringify(err));
-      }
+      handleError(err)
     } finally {
       setLoading(false)
     }
@@ -179,8 +219,8 @@ function Brackets() {
     }
   }, [events, selectedEvent, gender])
 
-  const isGi = (event: Event) => {
-    return !/no[ -]gi/.test(event.name.toLowerCase())
+  const isGi = (name: string) => {
+    return !/no[ -]gi/.test(name.toLowerCase())
   }
 
   const viewBracket = async () => {
@@ -196,7 +236,7 @@ function Brackets() {
           link: category.link,
           age: category.age,
           gender,
-          gi: isGi(event),
+          gi: isGi(event.name),
           belt: category.belt,
           weight: category.weight
         }
@@ -209,12 +249,7 @@ function Brackets() {
         setError(null)
       }
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        const axiosError = err as AxiosError<any>;
-        setError(axiosError.message);
-      } else {
-        setError(JSON.stringify(err));
-      }
+      handleError(err)
     } finally {
       setLoading(false)
     }
@@ -226,6 +261,36 @@ function Brackets() {
     }
   }, [categories, selectedCategory])
 
+  const getRegistrationCompetitors = async () => {
+    setLoading(true)
+    try {
+      const { data } = await axios.get<CompetitorsResponse>('/api/brackets/registrations/competitors', {
+        params: {
+          link: registrationEventUrl,
+          division: selectedRegistrationCategory,
+          gi: isGi(registrationEventName)
+        }
+      });
+      if (data.error) {
+        setRegistrationCompetitors(null)
+        setRegistrationError(data.error)
+      } else if (data.competitors) {
+        setRegistrationCompetitors(data.competitors)
+        setRegistrationError(null)
+      }
+    } catch (err) {
+      handleError(err, true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (registrationEventUrl && selectedRegistrationCategory) {
+      getRegistrationCompetitors()
+    }
+  }, [registrationEventUrl, selectedRegistrationCategory])
+
   const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => {
     ev.preventDefault()
     const event = events?.find(e => e.id === selectedEvent);
@@ -236,7 +301,17 @@ function Brackets() {
       athlete_name: name,
     });
     setOpenFilters({athlete: true, event: false, division: false});
-    setActiveTab(isGi(event) ? 'Gi' : 'No Gi');
+    setActiveTab(isGi(event.name) ? 'Gi' : 'No Gi');
+    navigate('/database');
+  }
+
+  const registrationAthleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => {
+    ev.preventDefault()
+    setFilters({
+      athlete_name: name,
+    });
+    setOpenFilters({athlete: true, event: false, division: false});
+    setActiveTab(isGi(registrationEventName) ? 'Gi' : 'No Gi');
     navigate('/database');
   }
 
@@ -264,137 +339,242 @@ function Brackets() {
     })
   }, [competitors, sortColumn])
 
+  const sortedRegistrationCompetitors = useMemo(() => {
+    if (registrationCompetitors === null) {
+      return null
+    }
+    return [...registrationCompetitors].sort((a, b) => {
+      const aRating = a.rating ?? -1;
+      const bRating = b.rating ?? -1;
+      if (aRating === bRating) {
+        return a.name.localeCompare(b.name)
+      } else {
+        return bRating - aRating
+      }
+    });
+  }, [registrationCompetitors])
+
+  const getRegistrationCategories = async () => {
+    setLoading(true)
+    try {
+      const { data } = await axios.get<RegistrationCategoriesResponse>('/api/brackets/registrations/categories', {
+        params: {
+          link: registrationUrl
+        }
+      });
+      if (data.error) {
+        setRegistrationCategories(null)
+        setRegistrationEventName('')
+        setRegistrationEventUrl('')
+        setRegistrationError(data.error)
+      } else if (data.categories && data.event_name) {
+        setRegistrationError(null)
+        setRegistrationEventName(data.event_name)
+        setRegistrationEventUrl(registrationUrl)
+        setRegistrationCategories(data.categories)
+
+        let selected: string | null | undefined = null
+
+        selected = data.categories.find(c => c.includes('BLACK / Adult / Male / Heavy'))
+
+        // otherwise use the first adult black category
+        if (!selected) {
+          selected = data.categories.find(c => c.includes('BLACK / Adult / Male'))
+        }
+        // finally use the first category
+        if (!selected && data.categories.length > 0) {
+          selected = data.categories[0]
+        }
+
+        if (selected) {
+          setSelectedRegistrationCategory(selected)
+        } else {
+          setSelectedRegistrationCategory(null)
+          setRegistrationCompetitors(null)
+        }
+      }
+    } catch (err) {
+      handleError(err, true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <section className="section">
       <div className="container">
-        <h1 className="title">Live Bracket Lookup</h1>
-        <p>
-          This tool imports brackets directly from <a href="https://bjjcompsystem.com/" target="_blank" rel="nofollow noreferrer">bjjcompsystem.com</a> and displays the current ratings of the competitors.
-        </p>
+        <div className="tabs">
+          <ul>
+            <li onClick={() => setBracketActiveTab('Live')} className={classNames({"is-active": bracketActiveTab === 'Live'})}><a>Live Brackets</a></li>
+            <li onClick={() => setBracketActiveTab('Registrations')} className={classNames({"is-active": bracketActiveTab === 'Registrations'})}><a>Registrations</a></li>
+          </ul>
+        </div>
+        {
+          bracketActiveTab === 'Live' && (
+            <p>
+              This tool imports brackets from <a href="https://bjjcompsystem.com/" target="_blank" rel="nofollow noreferrer">bjjcompsystem.com</a> and displays the current ratings of the competitors.
+              Brackets are typically posted 1-2 days before an event starts.
+            </p>
+          )
+        }
+        {
+          bracketActiveTab === 'Registrations' && (
+            <p>
+              This tool imports registrations from the IBJJF registration system and displays the current ratings of the competitors. To import a registration URL,
+              find an event on <a href="https://ibjjf.com/" target="_blank" rel="nofollow noreferrer">ibjjf.com</a>, select "ATHLETES LIST BY DIVISIONS" from the event page,
+              then copy and paste the URL from the browser address bar into the box below:
+            </p>
+          )
+        }
         <div className="brackets-content">
           {
-            events !== null && (
-              <div className="bracket-list">
-                {
-                  events.length > 0 && (
-                    <div className="columns no-bottom-margin">
-                      <div className="column no-padding">
+            bracketActiveTab === 'Live' && (
+            <div>
+              {
+                events !== null && (
+                  <div className="bracket-list">
+                    {
+                      events.length > 0 && (
+                        <div className="columns no-bottom-margin">
+                          <div className="column no-padding">
+                            <div className="field">
+                              <div className="select">
+                                <select value={selectedEvent ?? ''} onChange={e => { setSelectedEvent(e.target.value); }}>
+                                  {
+                                    events.map(event => (
+                                      <option key={event.id} value={event.id}>{event.name}</option>
+                                    ))
+                                  }
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="column no-padding">
+                            <div className="field">
+                              <div className="select">
+                                <select className="select" value="gender" onChange={e => {setGender(e.target.value as Gender); }}>
+                                  <option value="Male">Male</option>
+                                  <option value="Female">Female</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    }
+                    {
+                      events.length === 0 && (
+                        <div className="notification is-warning">No events found</div>
+                      )
+                    }
+                  </div>
+                )
+              }
+              {
+                (events !== null && categories !== null) && (
+                  <div className="category-list">
+                    {
+                      categories.length > 0 && (
                         <div className="field">
                           <div className="select">
-                            <select value={selectedEvent ?? ''} onChange={e => { setSelectedEvent(e.target.value); }}>
+                            <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
                               {
-                                events.map(event => (
-                                  <option key={event.id} value={event.id}>{event.name}</option>
+                                categories.map(category => (
+                                  <option key={category.link} value={categoryString(category)}>{categoryString(category)}</option>
                                 ))
                               }
                             </select>
                           </div>
                         </div>
-                      </div>
-                      <div className="column no-padding">
+                      )
+                    }
+                    {
+                      categories.length === 0 && (
+                        <div className="notification is-warning">No valid brackets found</div>
+                      )
+                    }
+                  </div>
+                )
+              }
+              {
+                error && <div className="notification is-danger mt-4">{error}</div>
+              }
+              {
+                (events !== null && categories !== null && competitors !== null) && (
+                  <BracketTable competitors={sortedCompetitors}
+                                sortColumn={sortColumn}
+                                showSeed={true}
+                                columnClicked={columnClicked}
+                                athleteClicked={athleteClicked} />
+                )
+              }
+              {
+                loading && <div className="bracket-loader loader mt-4"></div>
+              }
+            </div>
+            )
+          }
+          {
+            bracketActiveTab === 'Registrations' && (
+              <div>
+                <div className="registrations">
+                  <div className="field">
+                    <div className="control">
+                      <input className="input" type="text" placeholder="Paste registration URL e.g. https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations" value={registrationUrl} onChange={e => setRegistrationUrl(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="registrations-get">
+                    <button className="button is-info" onClick={getRegistrationCategories} disabled={!registrationUrl}>Get Categories</button>
+                  </div>
+                </div>
+                {
+                  registrationError && <div className="notification is-danger mt-4">{registrationError}</div>
+                }
+                {
+                (registrationEventUrl !== null && registrationCategories !== null) && (
+                  <div className="category-list">
+                    <p><strong>{registrationEventName}</strong></p>
+                    {
+                      registrationCategories.length > 0 && (
                         <div className="field">
                           <div className="select">
-                            <select className="select" value="gender" onChange={e => {setGender(e.target.value as Gender); }}>
-                              <option value="Male">Male</option>
-                              <option value="Female">Female</option>
+                            <select className="select" value={selectedRegistrationCategory ?? ''} onChange={e => {setSelectedRegistrationCategory(e.target.value); }}>
+                              {
+                                registrationCategories.map(category => (
+                                  <option key={category} value={category}>{category}</option>
+                                ))
+                              }
                             </select>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  )
-                }
-                {
-                  events.length === 0 && (
-                    <div className="notification is-warning">No events found</div>
-                  )
-                }
-              </div>
-            )
-          }
-          {
-            (events !== null && categories !== null) && (
-              <div className="category-list">
-                {
-                  categories.length > 0 && (
-                    <div className="field">
-                      <div className="select">
-                        <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
-                          {
-                            categories.map(category => (
-                              <option key={category.link} value={categoryString(category)}>{categoryString(category)}</option>
-                            ))
-                          }
-                        </select>
-                      </div>
-                    </div>
-                  )
-                }
-                {
-                  categories.length === 0 && (
-                    <div className="notification is-warning">No valid brackets found</div>
-                  )
-                }
-              </div>
-            )
-          }
-          {
-            (events !== null && categories !== null && competitors !== null) && (
-              // show table
-              <div className="table-container">
-                <table className="table is-fullwidth bracket-table">
-                  <thead>
-                    <tr>
-                    < th className="has-text-right">
-                        {
-                          sortColumn !== 'rating' ?
-                            <a href="#" onClick={columnClicked.bind(null, 'rating')}>#</a> :
-                            <span># ↓</span>
-                        }
-                      </th>
-                      <th className="has-text-right">
-                        {
-                          sortColumn !== 'seed' ?
-                            <a href="#" onClick={columnClicked.bind(null, 'seed')}>IBJJF Seed</a> :
-                            <span>IBJJF Seed ↓</span>
-                        }
-                      </th>
-                      <th>Name</th>
-                      <th>Team</th>
-                      <th className="has-text-right">Rating</th>
-                      <th className="has-text-right">Rank</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {
-                      sortedCompetitors?.map(competitor => (
-                        <tr key={competitor.ibjjf_id}>
-                          <td className="has-text-right">{competitor.ordinal}</td>
-                          <td className="has-text-right">{competitor.seed}</td>
-                          {
-                            competitor.id !== null ?
-                              <td><a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}</a></td> :
-                              <td>{competitor.name}</td>
-                          }
-                          <td>{competitor.team}</td>
-                          <td className="has-text-right">{competitor.rating ?? ''}</td>
-                          <td className="has-text-right">{competitor.rank ?? ''}</td>
-                        </tr>
-                      ))
+                      )
                     }
-                  </tbody>
-                </table>
+                    {
+                      registrationCategories.length === 0 && (
+                        <div className="notification is-warning">No valid brackets found</div>
+                      )
+                    }
+                  </div>)
+                }
+                {
+                  (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
+                    <BracketTable competitors={sortedRegistrationCompetitors}
+                                  showSeed={false}
+                                  athleteClicked={registrationAthleteClicked} />
+                  )
+                }
+                {
+                  loading && <div className="bracket-loader loader mt-4"></div>
+                }
               </div>
             )
           }
         </div>
+        <div className="notification mt-5">
+          We cache responses from the IBJJF servers. If you don't see the latest data, try again in a few minutes.
+        </div>
       </div>
-      {
-        error && <div className="notification is-danger">{error}</div>
-      }
-      {
-        loading && <div className="bracket-loader loader"></div>
-      }
+
     </section>
   );
 }

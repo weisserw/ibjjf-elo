@@ -10,6 +10,19 @@
   align-items: flex-start;
 }
 
+.registrations {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.registrations-get {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .bracket-loader {
   margin: 30px;
 }

@@ -7,6 +7,7 @@ import type {
   Gender as BracketGender,
   Competitor as BracketCompetitor,
   SortColumn as BracketSortColumn,
+  Tabs as BracketTabs,
 } from './components/Brackets';
 
 interface AppContextProps {
@@ -46,6 +47,20 @@ interface AppContextProps {
   setBracketCompetitors: (competitors: BracketCompetitor[] | null) => void;
   bracketSortColumn: BracketSortColumn;
   setBracketSortColumn: (column: BracketSortColumn) => void;
+  bracketActiveTab: BracketTabs;
+  setBracketActiveTab: (tab: BracketTabs) => void;
+  bracketRegistrationUrl: string;
+  setBracketRegistrationUrl: (url: string) => void;
+  bracketRegistrationEventName: string;
+  setBracketRegistrationEventName: (name: string) => void;
+  bracketRegistrationEventUrl: string;
+  setBracketRegistrationEventUrl: (url: string) => void;
+  bracketRegistrationCategories: string[] | null;
+  setBracketRegistrationCategories: (categories: string[] | null) => void;
+  bracketRegistrationSelectedCategory: string | null;
+  setBracketRegistrationSelectedCategory: (category: string | null) => void;
+  bracketRegistrationCompetitors: BracketCompetitor[] | null;
+  setBracketRegistrationCompetitors: (competitors: BracketCompetitor[] | null) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -77,6 +92,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketSelectedCategory, setBracketSelectedCategory] = useState<string | null>(null)
   const [bracketCompetitors, setBracketCompetitors] = useState<BracketCompetitor[] | null>(null)
   const [bracketSortColumn, setBracketSortColumn] = useState<BracketSortColumn>('rating')
+  const [bracketActiveTab, setBracketActiveTab] = useState<BracketTabs>('Live')
+  const [bracketRegistrationUrl, setBracketRegistrationUrl] = useState('')
+  const [bracketRegistrationEventName, setBracketRegistrationEventName] = useState('')
+  const [bracketRegistrationEventUrl, setBracketRegistrationEventUrl] = useState('')
+  const [bracketRegistrationCategories, setBracketRegistrationCategories] = useState<string[] | null>(null)
+  const [bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory] = useState<string | null>(null)
+  const [bracketRegistrationCompetitors, setBracketRegistrationCompetitors] = useState<BracketCompetitor[] | null>(null)
 
   return (
     <AppContext.Provider value={{
@@ -98,6 +120,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketSelectedCategory, setBracketSelectedCategory,
       bracketCompetitors, setBracketCompetitors,
       bracketSortColumn, setBracketSortColumn,
+      bracketActiveTab, setBracketActiveTab,
+      bracketRegistrationUrl, setBracketRegistrationUrl,
+      bracketRegistrationEventName, setBracketRegistrationEventName,
+      bracketRegistrationEventUrl, setBracketRegistrationEventUrl,
+      bracketRegistrationCategories, setBracketRegistrationCategories,
+      bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory,
+      bracketRegistrationCompetitors, setBracketRegistrationCompetitors,
     }}>
       {children}
     </AppContext.Provider>
