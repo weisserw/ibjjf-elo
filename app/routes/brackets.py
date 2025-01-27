@@ -18,7 +18,17 @@ from models import (
 )
 import logging
 from normalize import normalize
-from constants import translate_age, translate_belt, translate_weight, translate_gender
+from constants import (
+    translate_age,
+    translate_age_keep_juvenile,
+    translate_belt,
+    translate_weight,
+    translate_gender,
+    belt_order,
+    age_order_all,
+    weight_class_order_all,
+    gender_order,
+)
 
 log = logging.getLogger("ibjjf")
 
@@ -298,7 +308,8 @@ def registration_categories():
         lowered = division_name.lower()
         if not ("master" in lowered or "adult" in lowered or "juven" in lowered):
             continue
-        rows.append(division_name)
+
+        rows.append(weightre.sub("", division_name))
 
     return jsonify({"categories": rows, "event_name": tournament_name})
 
@@ -345,6 +356,8 @@ def registration_competitors():
         lowered = division_name.lower()
         if not ("master" in lowered or "adult" in lowered or "juven" in lowered):
             continue
+        division_name = weightre.sub("", division_name)
+
         if division_name == division:
             for competitor in entry["RegistrationCategories"]:
                 team = competitor["AcademyTeamName"]
@@ -451,36 +464,46 @@ def competitors():
     return jsonify({"competitors": results})
 
 
-@brackets_route.route("/api/brackets/categories/<tournament_id>/<gender>")
-def categories(tournament_id, gender):
-    session = requests.Session()
-
-    url = f"https://www.bjjcompsystem.com/tournaments/{tournament_id}/categories"
-    if gender.lower() == "female":
-        url += "?gender_id=2"
-
-    response = session.get(url, timeout=10)
-    if response.status_code != 200:
-        return jsonify(
-            {"error": f"Request returned error {response.status_code}: {response.text}"}
-        )
-
-    try:
-        soup = BeautifulSoup(get_bracket_page(url), "html.parser")
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-    categories = parse_categories(soup)
-
+@brackets_route.route("/api/brackets/categories/<tournament_id>")
+def categories(tournament_id):
     results = []
-    for category in categories:
+
+    for url, gender in [
+        (
+            f"https://www.bjjcompsystem.com/tournaments/{tournament_id}/categories",
+            "Male",
+        ),
+        (
+            f"https://www.bjjcompsystem.com/tournaments/{tournament_id}/categories?gender_id=2",
+            "Female",
+        ),
+    ]:
         try:
-            translate_age(category["age"])
-            translate_belt(category["belt"])
-            translate_weight(category["weight"])
-        except ValueError:
-            continue
-        results.append(category)
+            soup = BeautifulSoup(get_bracket_page(url), "html.parser")
+        except Exception as e:
+            return jsonify({"error": str(e)})
+
+        categories = parse_categories(soup)
+
+        for category in categories:
+            try:
+                translate_age_keep_juvenile(category["age"])
+                translate_belt(category["belt"])
+                translate_weight(category["weight"])
+            except ValueError:
+                continue
+            category["gender"] = gender
+            results.append(category)
+
+    results = sorted(
+        results,
+        key=lambda x: (
+            belt_order.index(translate_belt(x["belt"])),
+            age_order_all.index(translate_age_keep_juvenile(x["age"])),
+            gender_order.index(x["gender"]),
+            weight_class_order_all.index(translate_weight(x["weight"])),
+        ),
+    )
 
     return jsonify({"categories": results})
 

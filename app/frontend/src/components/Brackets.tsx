@@ -17,13 +17,12 @@ interface EventsResponse {
   events?: Event[]
 }
 
-export type Gender = 'Male' | 'Female'
-
 export interface Category {
   link: string
   age: string
   belt: string
   weight: string
+  gender: string
 }
 
 interface CategoriesResponse {
@@ -69,8 +68,6 @@ function Brackets() {
     setBracketSelectedEvent: setSelectedEvent,
     bracketCategories: categories,
     setBracketCategories: setCategories,
-    bracketGender: gender,
-    setBracketGender: setGender,
     bracketSelectedCategory: selectedCategory,
     setBracketSelectedCategory: setSelectedCategory,
     bracketCompetitors: competitors,
@@ -132,7 +129,7 @@ function Brackets() {
   }, [])
 
   const categoryString = (category: Category) => {
-    return `${category.age} ${category.belt} ${category.weight}`
+    return `${category.belt} / ${category.age} / ${category.gender} / ${category.weight}`
   }
 
   const handleError = (err: any, registration?: boolean) => {
@@ -163,7 +160,7 @@ function Brackets() {
   const getCategories = async () => {
     setLoading(true)
     try {
-      const { data } = await axios.get<CategoriesResponse>('/api/brackets/categories/' + selectedEvent + "/" + gender);
+      const { data } = await axios.get<CategoriesResponse>('/api/brackets/categories/' + selectedEvent);
       if (data.error) {
         setCategories(null)
         setError(data.error)
@@ -214,10 +211,10 @@ function Brackets() {
   }
 
   useEffect(() => {
-    if (selectedEvent && gender) {
+    if (selectedEvent) {
       getCategories()
     }
-  }, [events, selectedEvent, gender])
+  }, [events, selectedEvent])
 
   const isGi = (name: string) => {
     return !/no[ -]gi/.test(name.toLowerCase())
@@ -235,7 +232,7 @@ function Brackets() {
         params: {
           link: category.link,
           age: category.age,
-          gender,
+          gender: category.gender,
           gi: isGi(event.name),
           belt: category.belt,
           weight: category.weight
@@ -354,6 +351,12 @@ function Brackets() {
     });
   }, [registrationCompetitors])
 
+  const onRegistrationUrlKeyDown = (ev: React.KeyboardEvent<HTMLInputElement>) => {
+    if (ev.key === 'Enter' && registrationUrl) {
+      getRegistrationCategories()
+    }
+  }
+
   const getRegistrationCategories = async () => {
     setLoading(true)
     try {
@@ -449,16 +452,6 @@ function Brackets() {
                               </div>
                             </div>
                           </div>
-                          <div className="column no-padding">
-                            <div className="field">
-                              <div className="select">
-                                <select className="select" value="gender" onChange={e => {setGender(e.target.value as Gender); }}>
-                                  <option value="Male">Male</option>
-                                  <option value="Female">Female</option>
-                                </select>
-                              </div>
-                            </div>
-                          </div>
                         </div>
                       )
                     }
@@ -520,7 +513,7 @@ function Brackets() {
                 <div className="registrations">
                   <div className="field">
                     <div className="control">
-                      <input className="input" type="text" placeholder="Paste registration URL e.g. https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations" value={registrationUrl} onChange={e => setRegistrationUrl(e.target.value)} />
+                      <input className="input" type="text" placeholder="Paste registration URL e.g. https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations" value={registrationUrl} onKeyDown={onRegistrationUrlKeyDown} onChange={e => setRegistrationUrl(e.target.value)} />
                     </div>
                   </div>
                   <div className="registrations-get">
