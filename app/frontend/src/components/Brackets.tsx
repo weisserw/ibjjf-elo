@@ -52,6 +52,7 @@ export type Tabs = 'Live' | 'Registrations'
 
 interface RegistrationCategoriesResponse {
   event_name?: string
+  total_competitors?: number
   categories?: string[]
   error?: string
 }
@@ -80,6 +81,8 @@ function Brackets() {
     setBracketRegistrationUrl: setRegistrationUrl,
     bracketRegistrationEventName: registrationEventName,
     setBracketRegistrationEventName: setRegistrationEventName,
+    bracketRegistrationEventTotal: registrationEventTotal,
+    setBracketRegistrationEventTotal: setRegistrationEventTotal,
     bracketRegistrationEventUrl: registrationEventUrl,
     setBracketRegistrationEventUrl: setRegistrationEventUrl,
     bracketRegistrationCategories: registrationCategories,
@@ -368,11 +371,13 @@ function Brackets() {
       if (data.error) {
         setRegistrationCategories(null)
         setRegistrationEventName('')
+        setRegistrationEventTotal(null)
         setRegistrationEventUrl('')
         setRegistrationError(data.error)
       } else if (data.categories && data.event_name) {
         setRegistrationError(null)
         setRegistrationEventName(data.event_name)
+        setRegistrationEventTotal(data.total_competitors ?? null)
         setRegistrationEventUrl(registrationUrl)
         setRegistrationCategories(data.categories)
 
@@ -526,7 +531,14 @@ function Brackets() {
                 {
                 (registrationEventUrl !== null && registrationCategories !== null) && (
                   <div className="category-list">
-                    <p><strong>{registrationEventName}</strong></p>
+                    <p>
+                      <strong>{registrationEventName}</strong>
+                      {
+                        registrationEventTotal !== null && (
+                          <span> - {registrationEventTotal.toLocaleString()} competitors</span>
+                        )
+                      }
+                    </p>
                     {
                       registrationCategories.length > 0 && (
                         <div className="field">

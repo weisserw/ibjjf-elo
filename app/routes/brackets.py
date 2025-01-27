@@ -303,15 +303,25 @@ def registration_categories():
         return jsonify({"error": str(e)})
 
     rows = []
+    total_competitors = 0
     for entry in json_data:
         division_name = entry["FriendlyName"]
+
+        total_competitors += len(entry["RegistrationCategories"])
+
         lowered = division_name.lower()
         if not ("master" in lowered or "adult" in lowered or "juven" in lowered):
             continue
 
         rows.append(weightre.sub("", division_name))
 
-    return jsonify({"categories": rows, "event_name": tournament_name})
+    return jsonify(
+        {
+            "categories": rows,
+            "event_name": tournament_name,
+            "total_competitors": total_competitors,
+        }
+    )
 
 
 @brackets_route.route("/api/brackets/registrations/competitors")
