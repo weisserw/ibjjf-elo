@@ -12,6 +12,7 @@ h1.navbar-item {
 
 .navbar-item.logo {
   padding: 0;
+  padding-left: 8px;
 }
 
 .navbar-item.logo img {

@@ -14,7 +14,7 @@ function Brackets() {
   } = useAppContext()
 
   return (
-    <div className="container">
+    <div className="container pl-2 pr-2">
       <div className="tabs">
         <ul>
           <li onClick={() => setBracketActiveTab('Live')} className={classNames({"is-active": bracketActiveTab === 'Live'})}><a>Live Brackets</a></li>

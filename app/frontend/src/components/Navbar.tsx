@@ -20,7 +20,7 @@ function Navbar() {
           <img src={logoImage} alt="Logo" />
         </Link>
         <h1 className="navbar-item">
-          IBJJFRankings.com
+          IBJJF Elo Rankings
         </h1>
         <a className={classNames("navbar-burger", {"is-active": isMenuActive})}
            onClick={() => setIsMenuActive(!isMenuActive)}>
