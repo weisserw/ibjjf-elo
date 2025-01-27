@@ -58,24 +58,26 @@ function About() {
           <strong>Q: I see a problem with one of my match results or my rating. What should I do?</strong>
         </p>
         <p className="content">
-          A: Please DM <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">ibjjfrankings on Instagram</a> and we will investigate the issue and make a fix if one is warranted.
+          A: Please DM <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">ibjjfrankings on Instagram</a>
+          and we will investigate the issue and make a fix if one is warranted.
         </p>
         <p className="content">
           <strong>Q: How far back in time does your database go?</strong>
         </p>
         <p className="content">
-          A: Unfortunately, since we are starting from scratch, we only have access to historical data for a limited number of competitors.
-          For most competitors, match data will accumulate starting from December 2024, and we hope to keep a comprehensive record of matches
-          from that point forward. Although the rating system won't be as accurate until more data is accumulated, it will become more reliable
-          over time.
+          A: Unfortunately, we don't have access to full historical data, but we have managed to collect almost 100,000 match results
+          covering the period from 2022-2024. Full match data will accumulate starting from December 2024, and we hope to keep a comprehensive
+          record of matches from that point forward. Although the rating system won't be as accurate until more data is accumulated, it will
+          become more reliable over time.
         </p>
         <p className="content">
           <strong>Q: How do you determine the ratings for each belt?</strong>
         </p>
         <p className="content">
-          A: We don't determine ratings for each belt per se. We do assign an initial rating to new competitors based on their belt level.
-          These initial ratings are estimates and we may modify them as we gather more data. But regardless of your initial rating, your rating will change over
-          time based on your match results, until it converges to a value that reflects your skill level relative to other competitors.
+          A: We assign an initial rating to new competitors based on their belt level and age division. These initial ratings are estimates
+          based on our statistical analysis of results as competitors progress through the belts. Regardless of your initial rating, your
+          rating will change over time based on your wins and losses, until it converges to a value that reflects your skill level relative
+          to other competitors.
         </p>
         <p className="content">
           To help this process along, we use a dynamic K-factor system that increases the speed of your rating changes when you have fewer
@@ -113,7 +115,7 @@ function About() {
         </p>
         <p className="content">
           The rating system is less accurate when a competitor has not competed in a long time. To prevent stale ratings from appearing on the front page,
-          we only show competitors who have competed in the last three years. If these competitors compete again, they will reappear on the front page
+          we only show competitors who have competed in the last year. If these competitors compete again, they will reappear on the front page
           and the system will temporarily increase their K factor to reflect the uncertainty in their rating.
         </p>
         <p className="content">
