@@ -50,6 +50,8 @@ def translate_weight(weight: str) -> str:
         return MIDDLE
     if weight == "MeioPesado":
         return MEDIUM_HEAVY
+    if weight == "Meio-Pesado":
+        return MEDIUM_HEAVY
     if weight == "Pena":
         return FEATHER
     if weight == "Pesadíssimo":
@@ -62,6 +64,14 @@ def translate_weight(weight: str) -> str:
         return SUPER_HEAVY
     if weight == "Galo":
         return ROOSTER
+    if weight == "Super-Heavy":
+        return SUPER_HEAVY
+    if weight == "Medium-Heavy":
+        return MEDIUM_HEAVY
+    if weight == "Light-Feather":
+        return LIGHT_FEATHER
+    if weight == "Ultra-Heavy":
+        return ULTRA_HEAVY
     if weight not in [
         ROOSTER,
         LIGHT_FEATHER,
@@ -142,6 +152,12 @@ MALE = "Male"
 FEMALE = "Female"
 
 
-def check_gender(gender: str) -> None:
+def translate_gender(gender: str) -> None:
+    if gender == "Masculino":
+        return MALE
+    if gender == "Feminino":
+        return FEMALE
     if gender not in (MALE, FEMALE):
         raise ValueError("Invalid gender " + gender)
+
+    return gender

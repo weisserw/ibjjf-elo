@@ -16,7 +16,7 @@ from models import Event, Division, Athlete, Team, Match, MatchParticipant, Defa
 from constants import (
     translate_belt,
     translate_weight,
-    check_gender,
+    translate_gender,
     translate_age,
 )
 from normalize import normalize
@@ -164,8 +164,7 @@ def process_file(csv_file_path: str, no_scores: bool, no_tty: bool):
 
                             belt = translate_belt(row["Belt"])
                             weight = translate_weight(row["Weight"])
-
-                            check_gender(row["Gender"])
+                            gender = translate_gender(row["Gender"])
 
                             red_winner = row["Red Winner"].lower() == "true"
                             blue_winner = row["Blue Winner"].lower() == "true"
@@ -182,7 +181,7 @@ def process_file(csv_file_path: str, no_scores: bool, no_tty: bool):
                                 db.session,
                                 Division,
                                 gi=row["Gi"].lower() == "true",
-                                gender=row["Gender"],
+                                gender=gender,
                                 age=age,
                                 belt=belt,
                                 weight=weight,
