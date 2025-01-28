@@ -17,8 +17,3 @@ td.empty-row {
   font-size: 10px;
   margin-top: -2px;
 }
-@media (prefers-color-scheme: dark) {
-  .new-marker {
-    color: black;
-  }
-}

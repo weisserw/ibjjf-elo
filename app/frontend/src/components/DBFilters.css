@@ -68,9 +68,3 @@
 .date-input, .rating-input {
   width: 120px;
 }
-
-@media (prefers-color-scheme: dark) {
-  input.date-input {
-    color-scheme: dark;
-  }
-}
