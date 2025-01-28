@@ -348,7 +348,7 @@ function DBTable() {
       {
         hasHistorical && (
           <div className="notification is-historical">
-            <strong>Historical data (highlighted rows) may be incomplete or inaccurate</strong>
+            Historical data (highlighted rows) may be incomplete or inaccurate
           </div>
         )
       }
