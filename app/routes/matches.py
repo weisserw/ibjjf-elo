@@ -264,7 +264,8 @@ def matches():
         {filters}
     """
 
-    params["limit"] = MATCH_PAGE_SIZE * 2
+    # get one extra match to determine if there are more pages
+    params["limit"] = (MATCH_PAGE_SIZE + 1) * 2
     params["offset"] = (int(page) - 1) * MATCH_PAGE_SIZE * 2
     results = db.session.execute(
         text(
@@ -359,7 +360,7 @@ def matches():
             )
 
     totalPages = int(page) + 1
-    if len(response) < MATCH_PAGE_SIZE:
+    if len(response) <= MATCH_PAGE_SIZE:
         totalPages -= 1
 
-    return jsonify({"rows": response, "totalPages": totalPages})
+    return jsonify({"rows": response[:-1], "totalPages": totalPages})
