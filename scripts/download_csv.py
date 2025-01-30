@@ -81,11 +81,6 @@ def main():
         type=int,
         help="Download the N most recent files",
     )
-    parser.add_argument(
-        "--no-tty",
-        action="store_true",
-        help="Log output compatible with non-tty environments",
-    )
     args = parser.parse_args()
 
     if args.historical and args.recent:
@@ -106,7 +101,7 @@ def main():
         "Downloading files",
         max=len(files_to_download),
         check_tty=False,
-        no_tty=args.no_tty,
+        no_tty=True,
     ) as bar:
         for file_info in files_to_download:
             download_file(

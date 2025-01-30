@@ -1,4 +1,7 @@
 from progress.bar import Bar as ProgressBar
+import logging
+
+log = logging.getLogger("ibjjf")
 
 # custom progress bar that can log to a file in non-tty environments
 
@@ -9,14 +12,12 @@ class Bar(ProgressBar):
         if not self.no_tty:
             super().writeln(line)
         elif line.strip():
-            if self.file and self.is_tty():
-                width = len(line)
-                if width < self._max_width:
-                    line += " " * (self._max_width - width)
-                else:
-                    self._max_width = width
-                print(line + "\n", end="", file=self.file)
-                self.file.flush()
+            width = len(line)
+            if width < self._max_width:
+                line += " " * (self._max_width - width)
+            else:
+                self._max_width = width
+            log.info(line)
 
     def update(self):
         if not self.no_tty:
