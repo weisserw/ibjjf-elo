@@ -4,6 +4,9 @@ import sys
 import os
 import argparse
 from datetime import datetime
+import logging
+import daemon
+from daemon import pidfile
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 
@@ -13,6 +16,8 @@ from constants import (
     FEMALE,
 )
 from app import db, app
+
+log = logging.getLogger("ibjjf")
 
 
 def main():
@@ -36,15 +41,33 @@ def main():
         "--rank-only", action="store_true", help="Only recompute ranks, not scores."
     )
     parser.add_argument(
-        "--no-tty",
+        "--fg",
         action="store_true",
-        help="Log output compatible with non-tty environments",
+        help="Run in foreground. If not set, the script will run in the background.",
     )
 
     args = parser.parse_args()
 
+    if not args.fg:
+        log_file = "recompute_ratings.log"
+
+        log.info(f"Running in background and logging to {log_file}")
+
+        with daemon.DaemonContext(
+            working_directory=os.getcwd(),
+            umask=0o002,
+            pidfile=pidfile.TimeoutPIDLockFile("/tmp/recompute_ratings.pid"),
+            stdout=open(log_file, "a+"),
+            stderr=open(log_file, "a+"),
+        ):
+            return run_recompute(args)
+    else:
+        return run_recompute(args)
+
+
+def run_recompute(args):
     if args.gender and args.gender not in (MALE, FEMALE):
-        print(f"Invalid gender. Must be one of {MALE}, {FEMALE}")
+        log.error(f"Invalid gender. Must be one of {MALE}, {FEMALE}")
         return -1
 
     start_date = None
@@ -55,7 +78,7 @@ def main():
             try:
                 start_date = datetime.strptime(args.start_date, "%Y-%m-%dT%H:%M:%S")
             except ValueError:
-                print(
+                log.error(
                     "Invalid start date format. Must be either YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss"
                 )
                 return -1
@@ -71,7 +94,6 @@ def main():
                 rerank=not args.nogi,
                 rerankgi=True,
                 reranknogi=False,
-                no_tty=args.no_tty,
             )
             recompute_all_ratings(
                 db,
@@ -82,7 +104,6 @@ def main():
                 rerank=True,
                 rerankgi=args.gi,
                 reranknogi=True,
-                no_tty=args.no_tty,
             )
         else:
             recompute_all_ratings(
@@ -94,10 +115,11 @@ def main():
                 rerank=True,
                 rerankgi=args.gi,
                 reranknogi=not args.gi,
-                no_tty=args.no_tty,
             )
 
         db.session.commit()
+
+    log.info("Complete")
 
     return 0
 

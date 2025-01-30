@@ -19,7 +19,6 @@ def recompute_all_ratings(
     rerank: bool = True,
     rerankgi: bool = True,
     reranknogi: bool = True,
-    no_tty: bool = False,
 ) -> int:
     count = 0
 
@@ -37,7 +36,7 @@ def recompute_all_ratings(
             f'Recomputing athlete {"gi" if gi else "no-gi"} ratings',
             max=count,
             check_tty=False,
-            no_tty=no_tty,
+            no_tty=True,
         ) as bar:
             for match in query.order_by(Match.happened_at, Match.id):
                 bar.next()

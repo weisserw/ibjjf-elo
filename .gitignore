@@ -6,3 +6,4 @@ app/instance/
 .vscode
 .DS_Store
 .creds
+*.log
