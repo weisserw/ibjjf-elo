@@ -153,7 +153,7 @@ function DBFilters() {
     setFilters(newFilters);
   }
 
-  const debouncedOnChange = useCallback(debounce(onChange, 750, {trailing: true}), []);
+  const debouncedOnChange = useCallback(debounce(onChange, 750, {trailing: true}), [filters]);
 
   // Set the control state for debounced controls
   // when the filters change
