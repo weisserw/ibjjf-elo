@@ -102,7 +102,7 @@ def parse_division(name, throw=True):
     }
 
 
-def get_bracket_page(link, newer_than=None):
+def get_bracket_page(link, newer_than):
     q = db.session.query(BracketPage).filter(BracketPage.link == link)
 
     if newer_than is not None:
@@ -414,7 +414,11 @@ def competitors():
 
     try:
         soup = BeautifulSoup(
-            get_bracket_page("https://www.bjjcompsystem.com" + link), "html.parser"
+            get_bracket_page(
+                "https://www.bjjcompsystem.com" + link,
+                datetime.now() - timedelta(minutes=120),
+            ),
+            "html.parser",
         )
     except Exception as e:
         return jsonify({"error": str(e)})
@@ -480,16 +484,19 @@ def categories(tournament_id):
 
     for url, gender in [
         (
-            f"https://www.bjjcompsystem.com/tournaments/{tournament_id}/categories",
+            f"https://www.bjjcompsystem.com/tournaments/{tournament_id}/categories?locale=en",
             "Male",
         ),
         (
-            f"https://www.bjjcompsystem.com/tournaments/{tournament_id}/categories?gender_id=2",
+            f"https://www.bjjcompsystem.com/tournaments/{tournament_id}/categories?gender_id=2&locale=en",
             "Female",
         ),
     ]:
         try:
-            soup = BeautifulSoup(get_bracket_page(url), "html.parser")
+            soup = BeautifulSoup(
+                get_bracket_page(url, datetime.now() - timedelta(minutes=120)),
+                "html.parser",
+            )
         except Exception as e:
             return jsonify({"error": str(e)})
 

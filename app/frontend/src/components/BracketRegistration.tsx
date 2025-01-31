@@ -122,11 +122,11 @@ function BracketRegistration() {
 
         let selected: string | null | undefined = null
 
-        selected = data.categories.find(c => c.includes('BLACK / Adult / Male / Heavy'))
+        selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto) \/ (Male|Masculino) \/ (Heavy|Pesado)/.test(c))
 
         // otherwise use the first adult black category
         if (!selected) {
-          selected = data.categories.find(c => c.includes('BLACK / Adult / Male'))
+          selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto) \/ (Male|Masculino)/.test(c))
         }
         // finally use the first category
         if (!selected && data.categories.length > 0) {
