@@ -66,6 +66,7 @@ def recompute_all_ratings(
                     match.id,
                     match.division,
                     match.happened_at,
+                    match.rated_winner_only,
                     red.athlete_id,
                     red.winner,
                     red.note,

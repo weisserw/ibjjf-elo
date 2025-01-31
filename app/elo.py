@@ -247,6 +247,7 @@ def compute_ratings(
     match_id: str,
     division: Division,
     happened_at: datetime,
+    rate_winner_only: bool,
     red_athlete_id: str,
     red_winner: bool,
     red_note: str,
@@ -257,10 +258,11 @@ def compute_ratings(
     bool, Optional[str], float, float, float, float, Optional[str], Optional[str]
 ]:
     log.debug(
-        "Computing ratings for match %s, division %s, happened at %s, red winner: %s, blue winner: %s, red note: %s, blue note: %s",
+        "Computing ratings for match %s, division %s, happened at %s, rate_winner_only: %s, red winner: %s, blue winner: %s, red note: %s, blue note: %s",
         match_id,
         division.to_json(),
         happened_at,
+        rate_winner_only,
         red_winner,
         blue_winner,
         red_note,
@@ -592,6 +594,21 @@ def compute_ratings(
         if blue_end_rating < 0:
             blue_end_rating = 0
             log.debug("Blue rating went below 0, setting to 0")
+
+        if rate_winner_only:
+            if red_winner and not blue_winner:
+                blue_end_rating = blue_start_rating
+                blue_rating_note = append_rating_note(
+                    blue_rating_note,
+                    "Unrated: loser of this match does not lose points",
+                )
+                log.debug("Blue rating not changed, only rating the winner")
+            elif blue_winner and not red_winner:
+                red_end_rating = red_start_rating
+                red_rating_note = append_rating_note(
+                    red_rating_note, "Unrated: loser of this match does not lose points"
+                )
+                log.debug("Red rating not changed, only rating the winner")
 
     return (
         rated,

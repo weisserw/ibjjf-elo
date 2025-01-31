@@ -230,6 +230,10 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 ),
                             )
 
+                            rated_winner_only = (
+                                row.get("Rate Winner Only", "false").lower() == "true"
+                            )
+
                             match = Match(
                                 happened_at=datetime.strptime(
                                     row["Date"], "%Y-%m-%dT%H:%M:%S"
@@ -237,6 +241,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 event_id=event.id,
                                 division_id=division.id,
                                 rated=happened and not (red_winner and blue_winner),
+                                rated_winner_only=rated_winner_only,
                             )
                             db.session.add(match)
                             db.session.flush()

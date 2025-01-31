@@ -118,6 +118,7 @@ class Match(db.Model):
     event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False)
     division_id = Column(UUID(as_uuid=True), ForeignKey("divisions.id"), nullable=False)
     rated = Column(Boolean, nullable=False)
+    rated_winner_only = Column(Boolean, nullable=True)
 
     participants = relationship("MatchParticipant", lazy="select", viewonly=True)
     division = relationship("Division", lazy="select", viewonly=True)
