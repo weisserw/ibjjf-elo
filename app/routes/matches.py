@@ -363,4 +363,7 @@ def matches():
     if len(response) <= MATCH_PAGE_SIZE:
         totalPages -= 1
 
-    return jsonify({"rows": response[:-1], "totalPages": totalPages})
+    if len(response) > MATCH_PAGE_SIZE:
+        response = response[:MATCH_PAGE_SIZE]
+
+    return jsonify({"rows": response, "totalPages": totalPages})
