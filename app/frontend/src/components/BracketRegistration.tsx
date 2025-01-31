@@ -126,7 +126,7 @@ function BracketRegistration() {
 
         // otherwise use the first adult black category
         if (!selected) {
-          selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto) \/ (Male|Masculino)/.test(c))
+          selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto)/.test(c))
         }
         // finally use the first category
         if (!selected && data.categories.length > 0) {
