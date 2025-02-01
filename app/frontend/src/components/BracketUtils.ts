@@ -17,7 +17,7 @@ export interface CompetitorsResponse {
 }
 
 export const isGi = (name: string) => {
-  return !/no[ -]gi/.test(name.toLowerCase())
+  return !/no[ -]gi/.test(name.toLowerCase()) && !/sem kimono/.test(name.toLowerCase());
 }
 
 export const handleError = (err: any, errFunc: (error: string) => void) => {
