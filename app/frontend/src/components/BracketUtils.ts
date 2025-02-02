@@ -9,6 +9,7 @@ export interface Competitor {
   team: string
   rating: number | null
   rank: number | null
+  note: string | null
 }
 
 export interface CompetitorsResponse {

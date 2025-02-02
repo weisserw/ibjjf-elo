@@ -28,7 +28,9 @@ from constants import (
     age_order_all,
     weight_class_order_all,
     gender_order,
+    age_order,
 )
+from elo import compute_start_rating
 
 log = logging.getLogger("ibjjf")
 
@@ -202,8 +204,11 @@ def get_ratings(results, age, belt, weight, gender, gi):
     if len(no_ratings_found) > 0:
         recent_matches_cte = (
             db.session.query(
+                MatchParticipant.id,
                 MatchParticipant.athlete_id,
                 MatchParticipant.end_rating,
+                Division.belt,
+                Division.age,
                 func.row_number()
                 .over(
                     partition_by=MatchParticipant.athlete_id,
@@ -225,19 +230,64 @@ def get_ratings(results, age, belt, weight, gender, gi):
         )
         recent_matches = aliased(recent_matches_cte)
         match_results = (
-            db.session.query(recent_matches.c.athlete_id, recent_matches.c.end_rating)
+            db.session.query(
+                recent_matches.c.id,
+                recent_matches.c.athlete_id,
+                recent_matches.c.end_rating,
+                recent_matches.c.belt,
+                recent_matches.c.age,
+            )
             .select_from(recent_matches)
             .filter(recent_matches.c.row_num == 1)
             .all()
         )
 
+        same_or_higher_ages = age_order[age_order.index(age) :]
+        division = Division(age=age, belt=belt, gi=gi, gender=gender, weight=weight)
+
         ratings_by_id = {}
+        notes_by_id = {}
         for rating in match_results:
-            ratings_by_id[rating.athlete_id] = rating.end_rating
+            # if last match was a different belt or age, see if we need to adjust it to the current division
+            if rating.belt != belt or rating.age != age:
+                last_match = (
+                    db.session.query(MatchParticipant)
+                    .filter(MatchParticipant.id == rating.id)
+                    .first()
+                )
+                same_or_higher_age_match = (
+                    db.session.query(MatchParticipant)
+                    .join(Match)
+                    .join(Division)
+                    .filter(
+                        Division.gi == gi,
+                        Division.gender == gender,
+                        Division.age.in_(same_or_higher_ages),
+                        MatchParticipant.athlete_id == rating.athlete_id,
+                        (Match.happened_at < last_match.match.happened_at)
+                        | (
+                            (Match.happened_at == last_match.match.happened_at)
+                            & (Match.id < last_match.match.id)
+                        ),
+                    )
+                    .limit(1)
+                    .first()
+                )
+
+                adjusted_start_rating, note = compute_start_rating(
+                    division, last_match, same_or_higher_age_match is not None
+                )
+
+                ratings_by_id[rating.athlete_id] = adjusted_start_rating
+                notes_by_id[rating.athlete_id] = note
+            else:
+                ratings_by_id[rating.athlete_id] = rating.end_rating
 
         for result in no_ratings_found:
             if result["id"] in ratings_by_id:
                 result["rating"] = round(ratings_by_id[result["id"]])
+            if result["id"] in notes_by_id:
+                result["note"] = notes_by_id[result["id"]]
 
     results.sort(key=lambda x: x["rating"] or -1, reverse=True)
 
@@ -381,6 +431,7 @@ def registration_competitors():
                         "seed": 0,
                         "rating": None,
                         "rank": None,
+                        "note": None,
                     }
                 )
 
@@ -470,6 +521,7 @@ def competitors():
                         "team": competitor_team,
                         "rating": None,
                         "rank": None,
+                        "note": None,
                     }
                 )
 
