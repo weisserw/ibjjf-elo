@@ -1,4 +1,5 @@
 import type { Competitor } from "./BracketUtils";
+import classNames from 'classnames';
 
 interface BracketTableProps {
   competitors: Competitor[] | null;
@@ -12,6 +13,18 @@ export type SortColumn = 'rating' | 'seed'
 
 function BracketTable(props: BracketTableProps) {
   const { competitors, sortColumn, columnClicked, athleteClicked } = props;
+
+  const ratingAsterisk = (competitor: Competitor, index: number) => {
+    if (competitor.rating !== null && competitor.note) {
+      return (
+        <span className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": index === 0})} data-tooltip={competitor.note}>
+          <strong>*</strong>
+        </span>
+      )
+    } else {
+      return ''
+    }
+  }
 
   return (
     <div className="table-container">
@@ -43,7 +56,7 @@ function BracketTable(props: BracketTableProps) {
         </thead>
         <tbody>
           {
-            competitors?.map(competitor => (
+            competitors?.map((competitor, index) => (
               <tr key={competitor.name}>
                 <td className="has-text-right">{competitor.ordinal}</td>
                 {
@@ -56,7 +69,10 @@ function BracketTable(props: BracketTableProps) {
                     <td>{competitor.name}</td>
                 }
                 <td>{competitor.team}</td>
-                <td className="has-text-right">{competitor.rating ?? ''}</td>
+                <td className="has-text-right">
+                  {ratingAsterisk(competitor, index)}
+                  {competitor.rating ?? ''}
+                </td>
                 <td className="has-text-right">{competitor.rank ?? ''}</td>
               </tr>
             ))

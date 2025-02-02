@@ -128,6 +128,7 @@ def open_handicaps(
             (Match.happened_at < happened_at) | (Match.event_id == event_id),
         )
         .order_by(Match.happened_at.desc(), Match.id.desc())
+        .limit(1)
         .first()
     )
     red_last_default_gold = (
@@ -143,6 +144,7 @@ def open_handicaps(
             | (DefaultGold.event_id == event_id),
         )
         .order_by(DefaultGold.happened_at.desc())
+        .limit(1)
         .first()
     )
     blue_last_non_open_division = (
@@ -159,6 +161,7 @@ def open_handicaps(
             (Match.happened_at < happened_at) | (Match.event_id == event_id),
         )
         .order_by(Match.happened_at.desc(), Match.id.desc())
+        .limit(1)
         .first()
     )
     blue_last_default_gold = (
@@ -174,6 +177,7 @@ def open_handicaps(
             | (DefaultGold.event_id == event_id),
         )
         .order_by(DefaultGold.happened_at.desc())
+        .limit(1)
         .first()
     )
 
@@ -241,6 +245,138 @@ def append_rating_note(note: Optional[str], add_note: str) -> str:
     return note + ", " + add_note
 
 
+def compute_start_rating(
+    division: Division, last_match: MatchParticipant
+) -> Tuple[float, Optional[str]]:
+    rating_note = None
+
+    if division.belt == BLACK:
+        promotion_rating_bump = BLACK_PROMOTION_RATING_BUMP
+    else:
+        promotion_rating_bump = COLOR_PROMOTION_RATING_BUMP
+
+    previous_belt_num = current_belt_num = belt_order.index(division.belt)
+    if last_match is not None:
+        previous_belt_num = belt_order.index(last_match.match.division.belt)
+        if previous_belt_num > current_belt_num:
+            previous_belt_num = current_belt_num
+            log.debug("Invalid data: athlete promoted backward")
+
+    # if the athlete has no previous matches, use the default rating
+    if last_match is None:
+        log.debug("Athlete has no previous matches, using default rating")
+        start_rating = BELT_DEFAULT_RATING[division.belt]
+    elif (
+        current_belt_num - previous_belt_num > 1
+        and last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
+    ) or (current_belt_num != previous_belt_num):
+        if current_belt_num - previous_belt_num > 1:
+            log.debug(
+                "Athlete was promoted more than one belt and is below default rating, using default rating"
+            )
+            start_rating = BELT_DEFAULT_RATING[division.belt]
+        else:
+            log.debug(
+                f"Athlete was promoted one belt, adding {promotion_rating_bump} to rating"
+            )
+            start_rating = last_match.end_rating + promotion_rating_bump
+        rating_note = (
+            f"Promoted from {last_match.match.division.belt} to {division.belt}"
+        )
+    else:
+        start_rating = last_match.end_rating
+
+    return start_rating, rating_note
+
+
+def get_last_match(db, division, athlete_id, happened_at, match_id):
+    younger_ages = age_order[: age_order.index(division.age)]
+
+    last_match = (
+        db.session.query(MatchParticipant)
+        .join(Match)
+        .join(Division)
+        .filter(
+            Division.gi == division.gi,
+            Division.gender == division.gender,
+            Division.age == division.age,
+            MatchParticipant.athlete_id == athlete_id,
+            (Match.happened_at < happened_at)
+            | ((Match.happened_at == happened_at) & (Match.id < match_id)),
+        )
+        .order_by(Match.happened_at.desc(), Match.id.desc())
+        .limit(1)
+        .first()
+    )
+    if last_match is None:
+        log.debug("Athlete has no matches at this age, looking for younger age")
+        # if the athlete has no previous matches at this age, look for a younger age division to fork their rating from
+        last_match = (
+            db.session.query(MatchParticipant)
+            .join(Match)
+            .join(Division)
+            .filter(
+                Division.gi == division.gi,
+                Division.gender == division.gender,
+                Division.age.in_(younger_ages),
+                MatchParticipant.athlete_id == athlete_id,
+                (Match.happened_at < happened_at)
+                | ((Match.happened_at == happened_at) & (Match.id < match_id)),
+            )
+            .order_by(
+                text(
+                    """
+                CASE WHEN age = 'Juvenile' THEN 1
+                     WHEN age = 'Adult' THEN 2
+                     WHEN age = 'Master 1' THEN 3
+                     WHEN age = 'Master 2' THEN 4
+                     WHEN age = 'Master 3' THEN 5
+                     WHEN age = 'Master 4' THEN 6
+                     WHEN age = 'Master 5' THEN 7
+                     WHEN age = 'Master 6' THEN 8
+                     WHEN age = 'Master 7' THEN 9
+                END DESC
+            """
+                ),
+                Match.happened_at.desc(),
+                Match.id.desc(),
+            )
+            .limit(1)
+            .first()
+        )
+        if (
+            last_match is not None
+            and last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
+        ):
+            log.debug(
+                "Athlete has no matches at this age and younger age is below default rating (%s), using default rating",
+                last_match.end_rating,
+            )
+            last_match = None
+
+    return last_match
+
+
+def get_match_count(db, period, division, athlete_id, happened_at, match_id):
+    match_count = (
+        db.session.query(MatchParticipant)
+        .join(Match)
+        .join(Division)
+        .filter(
+            Match.rated == True,
+            Division.gi == division.gi,
+            Division.gender == division.gender,
+            MatchParticipant.athlete_id == athlete_id,
+            (Match.happened_at < happened_at)
+            | ((Match.happened_at == happened_at) & (Match.id < match_id)),
+            Match.happened_at > period,
+        )
+        .count()
+    )
+
+    return match_count
+
+
 def compute_ratings(
     db: SQLAlchemy,
     event_id: str,
@@ -269,163 +405,19 @@ def compute_ratings(
         blue_note,
     )
 
-    younger_ages = age_order[: age_order.index(division.age)]
-
-    # get the last match played by each athlete in the same division by querying the matches table
-    # in reverse date order
-    red_last_match = (
-        db.session.query(MatchParticipant)
-        .join(Match)
-        .join(Division)
-        .filter(
-            Division.gi == division.gi,
-            Division.gender == division.gender,
-            Division.age == division.age,
-            MatchParticipant.athlete_id == red_athlete_id,
-            (Match.happened_at < happened_at)
-            | ((Match.happened_at == happened_at) & (Match.id < match_id)),
-        )
-        .order_by(Match.happened_at.desc(), Match.id.desc())
-        .first()
+    red_last_match = get_last_match(db, division, red_athlete_id, happened_at, match_id)
+    blue_last_match = get_last_match(
+        db, division, blue_athlete_id, happened_at, match_id
     )
-    if red_last_match is None:
-        log.debug("Red athlete has no matches at this age, looking for younger age")
-        # if the athlete has no previous matches at this age, look for a younger age division to fork their rating from
-        red_last_match = (
-            db.session.query(MatchParticipant)
-            .join(Match)
-            .join(Division)
-            .filter(
-                Division.gi == division.gi,
-                Division.gender == division.gender,
-                Division.age.in_(younger_ages),
-                MatchParticipant.athlete_id == red_athlete_id,
-                (Match.happened_at < happened_at)
-                | ((Match.happened_at == happened_at) & (Match.id < match_id)),
-            )
-            .order_by(
-                text(
-                    """
-                CASE WHEN age = 'Juvenile' THEN 1
-                     WHEN age = 'Adult' THEN 2
-                     WHEN age = 'Master 1' THEN 3
-                     WHEN age = 'Master 2' THEN 4
-                     WHEN age = 'Master 3' THEN 5
-                     WHEN age = 'Master 4' THEN 6
-                     WHEN age = 'Master 5' THEN 7
-                     WHEN age = 'Master 6' THEN 8
-                     WHEN age = 'Master 7' THEN 9
-                END DESC
-            """
-                ),
-                Match.happened_at.desc(),
-                Match.id.desc(),
-            )
-            .first()
-        )
-
-        if (
-            red_last_match is not None
-            and red_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
-        ):
-            log.debug(
-                "Red athlete has no matches at this age and younger age is below default rating (%s), using default rating",
-                red_last_match.end_rating,
-            )
-            red_last_match = None
-
-    blue_last_match = (
-        db.session.query(MatchParticipant)
-        .join(Match)
-        .join(Division)
-        .filter(
-            Division.gi == division.gi,
-            Division.gender == division.gender,
-            Division.age == division.age,
-            MatchParticipant.athlete_id == blue_athlete_id,
-            (Match.happened_at < happened_at)
-            | ((Match.happened_at == happened_at) & (Match.id < match_id)),
-        )
-        .order_by(Match.happened_at.desc(), Match.id.desc())
-        .first()
-    )
-    if blue_last_match is None:
-        log.debug("Blue athlete has no matches at this age, looking for younger age")
-        blue_last_match = (
-            db.session.query(MatchParticipant)
-            .join(Match)
-            .join(Division)
-            .filter(
-                Division.gi == division.gi,
-                Division.gender == division.gender,
-                Division.age.in_(younger_ages),
-                MatchParticipant.athlete_id == blue_athlete_id,
-                (Match.happened_at < happened_at)
-                | ((Match.happened_at == happened_at) & (Match.id < match_id)),
-            )
-            .order_by(
-                text(
-                    """
-                CASE WHEN age = 'Juvenile' THEN 1
-                     WHEN age = 'Adult' THEN 2
-                     WHEN age = 'Master 1' THEN 3
-                     WHEN age = 'Master 2' THEN 4
-                     WHEN age = 'Master 3' THEN 5
-                     WHEN age = 'Master 4' THEN 6
-                     WHEN age = 'Master 5' THEN 7
-                     WHEN age = 'Master 6' THEN 8
-                     WHEN age = 'Master 7' THEN 9
-                END DESC
-            """
-                ),
-                Match.happened_at.desc(),
-                Match.id.desc(),
-            )
-            .first()
-        )
-
-        if (
-            blue_last_match is not None
-            and blue_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
-        ):
-            log.debug(
-                "Blue athlete has no matches at this age and younger age is below default rating (%s), using default rating",
-                blue_last_match.end_rating,
-            )
-            blue_last_match = None
 
     # get the number of rated matches played by each athlete in the same division in the last 3 years
     three_years_prior = happened_at - relativedelta(years=3)
 
-    red_match_count = (
-        db.session.query(MatchParticipant)
-        .join(Match)
-        .join(Division)
-        .filter(
-            Match.rated == True,
-            Division.gi == division.gi,
-            Division.gender == division.gender,
-            MatchParticipant.athlete_id == red_athlete_id,
-            (Match.happened_at < happened_at)
-            | ((Match.happened_at == happened_at) & (Match.id < match_id)),
-            Match.happened_at > three_years_prior,
-        )
-        .count()
+    red_match_count = get_match_count(
+        db, three_years_prior, division, red_athlete_id, happened_at, match_id
     )
-    blue_match_count = (
-        db.session.query(MatchParticipant)
-        .join(Match)
-        .join(Division)
-        .filter(
-            Match.rated == True,
-            Division.gi == division.gi,
-            Division.gender == division.gender,
-            MatchParticipant.athlete_id == blue_athlete_id,
-            (Match.happened_at < happened_at)
-            | ((Match.happened_at == happened_at) & (Match.id < match_id)),
-            Match.happened_at > three_years_prior,
-        )
-        .count()
+    blue_match_count = get_match_count(
+        db, three_years_prior, division, blue_athlete_id, happened_at, match_id
     )
 
     if red_last_match is not None:
@@ -435,78 +427,10 @@ def compute_ratings(
     log.debug("Red match count: %s", red_match_count)
     log.debug("Blue match count: %s", blue_match_count)
 
-    red_rating_note = None
-    blue_rating_note = None
-
-    if division.belt == BLACK:
-        promotion_rating_bump = BLACK_PROMOTION_RATING_BUMP
-    else:
-        promotion_rating_bump = COLOR_PROMOTION_RATING_BUMP
-
-    red_previous_belt_num = red_current_belt_num = belt_order.index(division.belt)
-    if red_last_match is not None:
-        red_previous_belt_num = belt_order.index(red_last_match.match.division.belt)
-        if red_previous_belt_num > red_current_belt_num:
-            red_previous_belt_num = red_current_belt_num
-            log.debug("Invalid data: athlete promoted backward")
-
-    # if the athlete has no previous matches, use the default rating
-    if red_last_match is None:
-        red_start_rating = BELT_DEFAULT_RATING[division.belt]
-    elif (
-        red_current_belt_num - red_previous_belt_num > 1
-        and red_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
-    ) or (red_current_belt_num != red_previous_belt_num):
-        if red_current_belt_num - red_previous_belt_num > 1:
-            log.debug(
-                "Athlete was promoted more than one belt and is below default rating, using default rating"
-            )
-            red_start_rating = BELT_DEFAULT_RATING[division.belt]
-        else:
-            log.debug(
-                f"Athlete was promoted one belt, adding {promotion_rating_bump} to rating"
-            )
-            red_start_rating = red_last_match.end_rating + promotion_rating_bump
-        red_rating_note = (
-            "Promoted from "
-            + red_last_match.match.division.belt
-            + " to "
-            + division.belt
-        )
-    else:
-        red_start_rating = red_last_match.end_rating
-
-    blue_previous_belt_num = blue_current_belt_num = belt_order.index(division.belt)
-    if blue_last_match is not None:
-        blue_previous_belt_num = belt_order.index(blue_last_match.match.division.belt)
-        if blue_previous_belt_num > blue_current_belt_num:
-            blue_previous_belt_num = blue_current_belt_num
-            log.debug("Invalid data: athlete promoted backward")
-
-    if blue_last_match is None:
-        blue_start_rating = BELT_DEFAULT_RATING[division.belt]
-    elif (
-        blue_current_belt_num - blue_previous_belt_num > 1
-        and blue_last_match.end_rating < BELT_DEFAULT_RATING[division.belt]
-    ) or (blue_current_belt_num != blue_previous_belt_num):
-        if blue_current_belt_num - blue_previous_belt_num > 1:
-            log.debug(
-                "Athlete was promoted more than one belt and is below default rating, using default rating"
-            )
-            blue_start_rating = BELT_DEFAULT_RATING[division.belt]
-        else:
-            log.debug(
-                f"Athlete was promoted one belt and is below default rating, adding {promotion_rating_bump} to rating"
-            )
-            blue_start_rating = blue_last_match.end_rating + promotion_rating_bump
-        blue_rating_note = (
-            "Promoted from "
-            + blue_last_match.match.division.belt
-            + " to "
-            + division.belt
-        )
-    else:
-        blue_start_rating = blue_last_match.end_rating
+    red_start_rating, red_rating_note = compute_start_rating(division, red_last_match)
+    blue_start_rating, blue_rating_note = compute_start_rating(
+        division, blue_last_match
+    )
 
     log.debug("Start ratings: red %s, blue %s", red_start_rating, blue_start_rating)
 
