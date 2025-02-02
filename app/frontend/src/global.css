@@ -57,3 +57,9 @@
 .react-autosuggest__suggestion--highlighted {
   background-color: #ddd;
 }
+
+body {
+  font-family: 'Noto Sans', 'Helvetica Neue', 'Helvetica', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' on;
+}
