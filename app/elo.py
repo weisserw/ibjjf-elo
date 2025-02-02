@@ -101,6 +101,58 @@ def compute_k_factor(num_matches: int, unknown_open: bool) -> int:
         return 32
 
 
+def get_weight(
+    db, division: Division, athlete_id, happened_at, event_id
+) -> Optional[str]:
+    last_non_open_division = (
+        db.session.query(Division.weight, Match.happened_at)
+        .select_from(Division)
+        .join(Match)
+        .join(MatchParticipant)
+        .filter(
+            Division.gi == division.gi,
+            Division.gender == division.gender,
+            ~Division.weight.startswith(OPEN_CLASS),
+            Match.rated == True,
+            MatchParticipant.athlete_id == athlete_id,
+            (Match.happened_at < happened_at) | (Match.event_id == event_id),
+        )
+        .order_by(Match.happened_at.desc(), Match.id.desc())
+        .limit(1)
+        .first()
+    )
+    last_default_gold = (
+        db.session.query(Division.weight, DefaultGold.happened_at)
+        .select_from(Division)
+        .join(DefaultGold)
+        .filter(
+            Division.gi == division.gi,
+            Division.gender == division.gender,
+            ~Division.weight.startswith(OPEN_CLASS),
+            DefaultGold.athlete_id == athlete_id,
+            (DefaultGold.happened_at < happened_at)
+            | (DefaultGold.event_id == event_id),
+        )
+        .order_by(DefaultGold.happened_at.desc())
+        .limit(1)
+        .first()
+    )
+
+    weight: Optional[str] = None
+
+    if last_default_gold is not None or last_non_open_division is not None:
+        if last_default_gold is None:
+            weight = last_non_open_division.weight
+        elif last_non_open_division is None:
+            weight = last_default_gold.weight
+        elif last_default_gold.happened_at > last_non_open_division.happened_at:
+            weight = last_default_gold.weight
+        else:
+            weight = last_non_open_division.weight
+
+    return weight
+
+
 def open_handicaps(
     db: SQLAlchemy,
     event_id: str,
@@ -113,98 +165,8 @@ def open_handicaps(
         log.debug("Not an open class match")
         return False, 0, 0, None, None
 
-    # get the last rated non-open class match for each athlete
-    red_last_non_open_division = (
-        db.session.query(Division.weight, Match.happened_at)
-        .select_from(Division)
-        .join(Match)
-        .join(MatchParticipant)
-        .filter(
-            Division.gi == division.gi,
-            Division.gender == division.gender,
-            ~Division.weight.startswith(OPEN_CLASS),
-            Match.rated == True,
-            MatchParticipant.athlete_id == red_athlete_id,
-            (Match.happened_at < happened_at) | (Match.event_id == event_id),
-        )
-        .order_by(Match.happened_at.desc(), Match.id.desc())
-        .limit(1)
-        .first()
-    )
-    red_last_default_gold = (
-        db.session.query(Division.weight, DefaultGold.happened_at)
-        .select_from(Division)
-        .join(DefaultGold)
-        .filter(
-            Division.gi == division.gi,
-            Division.gender == division.gender,
-            ~Division.weight.startswith(OPEN_CLASS),
-            DefaultGold.athlete_id == red_athlete_id,
-            (DefaultGold.happened_at < happened_at)
-            | (DefaultGold.event_id == event_id),
-        )
-        .order_by(DefaultGold.happened_at.desc())
-        .limit(1)
-        .first()
-    )
-    blue_last_non_open_division = (
-        db.session.query(Division.weight, Match.happened_at)
-        .select_from(Division)
-        .join(Match)
-        .join(MatchParticipant)
-        .filter(
-            Division.gi == division.gi,
-            Division.gender == division.gender,
-            ~Division.weight.startswith(OPEN_CLASS),
-            Match.rated == True,
-            MatchParticipant.athlete_id == blue_athlete_id,
-            (Match.happened_at < happened_at) | (Match.event_id == event_id),
-        )
-        .order_by(Match.happened_at.desc(), Match.id.desc())
-        .limit(1)
-        .first()
-    )
-    blue_last_default_gold = (
-        db.session.query(Division.weight, DefaultGold.happened_at)
-        .select_from(Division)
-        .join(DefaultGold)
-        .filter(
-            Division.gi == division.gi,
-            Division.gender == division.gender,
-            ~Division.weight.startswith(OPEN_CLASS),
-            DefaultGold.athlete_id == blue_athlete_id,
-            (DefaultGold.happened_at < happened_at)
-            | (DefaultGold.event_id == event_id),
-        )
-        .order_by(DefaultGold.happened_at.desc())
-        .limit(1)
-        .first()
-    )
-
-    red_weight: Optional[str] = None
-    blue_weight: Optional[str] = None
-
-    if red_last_default_gold is not None or red_last_non_open_division is not None:
-        if red_last_default_gold is None:
-            red_weight = red_last_non_open_division.weight
-        elif red_last_non_open_division is None:
-            red_weight = red_last_default_gold.weight
-        elif red_last_default_gold.happened_at > red_last_non_open_division.happened_at:
-            red_weight = red_last_default_gold.weight
-        else:
-            red_weight = red_last_non_open_division.weight
-
-    if blue_last_default_gold is not None or blue_last_non_open_division is not None:
-        if blue_last_default_gold is None:
-            blue_weight = blue_last_non_open_division.weight
-        elif blue_last_non_open_division is None:
-            blue_weight = blue_last_default_gold.weight
-        elif (
-            blue_last_default_gold.happened_at > blue_last_non_open_division.happened_at
-        ):
-            blue_weight = blue_last_default_gold.weight
-        else:
-            blue_weight = blue_last_non_open_division.weight
+    red_weight = get_weight(db, division, red_athlete_id, happened_at, event_id)
+    blue_weight = get_weight(db, division, blue_athlete_id, happened_at, event_id)
 
     # if one of the athletes has no non-open class matches or default golds,
     # treat it as an equal match
