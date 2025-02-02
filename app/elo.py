@@ -336,7 +336,7 @@ def compute_start_rating(
 
     # if the athlete has no previous matches, use the default rating
     if last_match is None:
-        log.debug("Red athlete has no previous matches, using default rating")
+        log.debug("Athlete has no previous matches, using default rating")
         start_rating = DEFAULT_RATINGS[division.belt][division.age]
     elif (
         current_belt_num - previous_belt_num > 1
@@ -364,7 +364,7 @@ def compute_start_rating(
         ]
     ):
         log.debug(
-            "Red athlete is in higher age division for the first time and is below or equal to default rating of previous division, using default rating"
+            "Athlete is in higher age division for the first time and is below or equal to default rating of previous division, using default rating"
         )
         start_rating = DEFAULT_RATINGS[division.belt][division.age]
         rating_note = f"Adjusted rating for new age division {division.age}"
