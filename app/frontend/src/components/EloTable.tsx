@@ -176,25 +176,25 @@ function EloTable() {
 
 
   return (
-    <div>
-      <EloFilters />
-      <div>
+    <div className="elo-container">
+      <div className="elo-sub-container">
+        <EloFilters />
         <div className="field">
           <div className="control has-icons-left">
             <Autosuggest suggestions={athleteSuggestions}
-                         onSuggestionsFetchRequested={getAthleteSuggestions}
-                         onSuggestionsClearRequested={() => setAthleteSuggestions([])}
-                         multiSection={false}
-                         getSuggestionValue={(suggestion) => suggestion}
-                         renderSuggestion={(suggestion) => suggestion}
-                         inputProps={{
-                           className: "input",
-                           value: nameFilterSearch,
-                           placeholder: "Search Within Division",
-                           onChange: (_: any, { newValue }) => {
+                          onSuggestionsFetchRequested={getAthleteSuggestions}
+                          onSuggestionsClearRequested={() => setAthleteSuggestions([])}
+                          multiSection={false}
+                          getSuggestionValue={(suggestion) => suggestion}
+                          renderSuggestion={(suggestion) => suggestion}
+                          inputProps={{
+                            className: "input",
+                            value: nameFilterSearch,
+                            placeholder: "Search Within Division",
+                            onChange: (_: any, { newValue }) => {
                             onNameFilterChange(newValue)
-                           }
-                         }} />
+                            }
+                          }} />
             <span className="icon is-small is-left">
               <i className="fas fa-filter"></i>
             </span>
@@ -252,19 +252,19 @@ function EloTable() {
             }
           </tbody>
         </table>
+        {
+          !loading && data.length > 0 && (
+            <DBPagination loading={reloading}
+                          page={page}
+                          showPages={true}
+                          totalPages={totalPages}
+                          onFirstPage={onFirstPage}
+                          onNextPage={onNextPage}
+                          onPreviousPage={onPreviousPage}
+                          onPageClick={onPageClick} />
+          )
+        }
       </div>
-      {
-        !loading && data.length > 0 && (
-          <DBPagination loading={reloading}
-                        page={page}
-                        showPages={true}
-                        totalPages={totalPages}
-                        onFirstPage={onFirstPage}
-                        onNextPage={onNextPage}
-                        onPreviousPage={onPreviousPage}
-                        onPageClick={onPageClick} />
-        )
-      }
     </div>
   )
 }
