@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, ReactNode } from 'react';
+import { createContext, useState, useContext, useCallback, ReactNode } from 'react';
 import type { FilterValues, OpenFilters } from './components/DBFilters';
 import type { TabName } from './components/GiTabs';
 import type {
@@ -105,9 +105,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory] = useState<string | null>(null)
   const [bracketRegistrationCompetitors, setBracketRegistrationCompetitors] = useState<BracketCompetitor[] | null>(null)
 
+  const updateFilters = useCallback((newFilters: FilterValues) => {
+    // Reset the page when filters change
+    setDbPage(1);
+    setFilters(newFilters);
+  }, []);
+
   return (
     <AppContext.Provider value={{
-      filters, setFilters,
+      filters, setFilters: updateFilters,
       openFilters, setOpenFilters,
       activeTab, setActiveTab,
       rankingGender, setRankingGender,
