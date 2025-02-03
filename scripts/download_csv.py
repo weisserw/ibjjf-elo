@@ -11,6 +11,7 @@ import gzip
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 from progress_bar import Bar
+import app  # initialize logging  # noqa
 
 
 def get_s3_client():
