@@ -131,18 +131,22 @@ def process_file(csv_file_path: str, no_scores: bool):
                         tournament_id = rows[0]["Tournament ID"]
                         tournament_name = rows[0]["Tournament Name"]
 
-                        event = get_event(db.session, tournament_id, tournament_name)
-                        if event is not None:
-                            db.session.query(Match).filter(
-                                Match.event_id == event.id
-                            ).delete()
-                            db.session.query(DefaultGold).filter(
-                                DefaultGold.event_id == event.id
-                            ).delete()
-                        if rows[0]["Gi"].lower() == "true":
-                            has_gi = True
-                        else:
-                            has_nogi = True
+                        if not rows[0].get("Partial Tournament", "").lower() == "true":
+                            existing_event = get_event(
+                                db.session, tournament_id, tournament_name
+                            )
+                            if existing_event is not None:
+                                db.session.query(Match).filter(
+                                    Match.event_id == existing_event.id
+                                ).delete()
+                                db.session.query(DefaultGold).filter(
+                                    DefaultGold.event_id == existing_event.id
+                                ).delete()
+
+                            if rows[0]["Gi"].lower() == "true":
+                                has_gi = True
+                            else:
+                                has_nogi = True
 
                         # default golds dont normally come with timestamps. we allow them to have one in the csv file
                         # but in the normal case that they don't, we just use the day of the first timestamp in the file
