@@ -46,7 +46,7 @@ def get_event(session, ibjjf_id, name):
     return None
 
 
-def get_or_create_event_or_athlete(session, model, ibjjf_id, name):
+def get_or_create_event_or_athlete(session, model, ibjjf_id, name, do_update=True):
     normalized_name = normalize(name)
 
     if not ibjjf_id:
@@ -63,8 +63,12 @@ def get_or_create_event_or_athlete(session, model, ibjjf_id, name):
     else:
         instance = session.query(model).filter_by(ibjjf_id=ibjjf_id).first()
         if instance:
-            if name and (
-                name != instance.name or normalized_name != instance.normalized_name
+            if (
+                do_update
+                and name
+                and (
+                    name != instance.name or normalized_name != instance.normalized_name
+                )
             ):
                 instance.name = name
                 instance.normalized_name = normalized_name
@@ -131,7 +135,11 @@ def process_file(csv_file_path: str, no_scores: bool):
                         tournament_id = rows[0]["Tournament ID"]
                         tournament_name = rows[0]["Tournament Name"]
 
-                        if not rows[0].get("Partial Tournament", "").lower() == "true":
+                        partial_tournament = (
+                            rows[0].get("Partial Tournament", "false").lower() == "true"
+                        )
+
+                        if not partial_tournament:
                             existing_event = get_event(
                                 db.session, tournament_id, tournament_name
                             )
@@ -180,6 +188,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 Event,
                                 row["Tournament ID"],
                                 row["Tournament Name"],
+                                do_update=not partial_tournament,
                             )
                             division = get_or_create(
                                 db.session,
