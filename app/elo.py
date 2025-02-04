@@ -486,13 +486,14 @@ def compute_ratings(
                 blue_end_rating = blue_start_rating
                 blue_rating_note = append_rating_note(
                     blue_rating_note,
-                    "Unrated: loser of this match does not lose points",
+                    "Unrated: sourced from medalists, silver keeps rating",
                 )
                 log.debug("Blue rating not changed, only rating the winner")
             elif blue_winner and not red_winner:
                 red_end_rating = red_start_rating
                 red_rating_note = append_rating_note(
-                    red_rating_note, "Unrated: loser of this match does not lose points"
+                    red_rating_note,
+                    "Unrated: sourced from medalists, silver keeps rating",
                 )
                 log.debug("Red rating not changed, only rating the winner")
 
