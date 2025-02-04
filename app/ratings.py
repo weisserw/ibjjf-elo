@@ -19,9 +19,7 @@ def recompute_all_ratings(
     rerank: bool = True,
     rerankgi: bool = True,
     reranknogi: bool = True,
-) -> int:
-    count = 0
-
+) -> None:
     if score:
         query = db.session.query(Match).join(Division).filter(Division.gi == gi)
 
@@ -30,11 +28,11 @@ def recompute_all_ratings(
         if start_date is not None:
             query = query.filter(Match.happened_at >= start_date)
 
-        count = query.count()
+        total = query.count()
 
         with Bar(
             f'Recomputing athlete {"gi" if gi else "no-gi"} ratings',
-            max=count,
+            max=total,
             check_tty=False,
             no_tty=True,
         ) as bar:
@@ -46,8 +44,6 @@ def recompute_all_ratings(
                         f"Match {match.id} has {len(match.participants)} participants, skipping"
                     )
                     continue
-
-                count += 1
 
                 red, blue = match.participants
                 (
@@ -117,5 +113,3 @@ def recompute_all_ratings(
             desc = "no-gi"
         log.info(f"Regenerating {desc} ranking board...")
         generate_current_ratings(db, rerankgi, reranknogi)
-
-    return count
