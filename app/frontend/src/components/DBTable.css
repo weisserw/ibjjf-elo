@@ -33,3 +33,9 @@ div.card.db-row-card {
 div.notification.is-historical {
   padding: 10px 16px;
 }
+
+.table-loader {
+  display: flex;
+  justify-content: center;
+  padding-top: 20px;
+}

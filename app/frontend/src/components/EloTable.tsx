@@ -174,7 +174,6 @@ function EloTable() {
     }
   }
 
-
   return (
     <div className="elo-container">
       <div className="elo-sub-container">
@@ -200,58 +199,56 @@ function EloTable() {
             </span>
           </div>
         </div>
-        <table className="table is-fullwidth table-margin">
-          <thead>
-            <tr>
-              <th className="has-text-right">#</th>
-              <th className="has-text-right">↑↓</th>
-              <th>Name</th>
-              <th className="has-text-right">Rating</th>
-              <th className="has-text-right">+/-</th>
-            </tr>
-          </thead>
-          <tbody>
-            {
-              loading && (
+        {
+          loading && (
+            <div className="table-loader">
+              <div className="loader"></div>
+            </div>
+          )
+        }
+        {
+          !loading && (
+            <table className="table is-fullwidth table-margin">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="empty-row">
-                    <div className="columns is-centered">
-                      <div className="column is-narrow">
-                        <div className="loader"></div>
-                      </div>
-                    </div>
-                  </td>
+                  <th className="has-text-right">#</th>
+                  <th className="has-text-right">↑↓</th>
+                  <th>Name</th>
+                  <th className="has-text-right">Rating</th>
+                  <th className="has-text-right">+/-</th>
                 </tr>
-              )
-            }
-            {
-              !loading && data.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="empty-row">
-                    <div className="columns is-centered">
-                      No data found
-                    </div>
-                  </td>
-                </tr>
-              )
-            }
-            {
-              !loading && !!data.length && data.map((row: Row, index) => (
-                <tr key={index}>
-                  <td className="has-text-right">{row.rank}</td>
-                  <td className={changeClass(row.previous_rank, row.rank, true)}>{rankChange(row)}</td>
-                  <td>
-                    <a href="#" onClick={e => onNameClick(e, row.name)}>
-                      {row.name}
-                    </a>
-                  </td>
-                  <td className="has-text-right">{row.rating}</td>
-                  <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
-                </tr>
-              ))
-            }
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {
+                  data.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="empty-row">
+                        <div className="columns is-centered">
+                          No data found
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                }
+                {
+                  !!data.length && data.map((row: Row, index) => (
+                    <tr key={index}>
+                      <td className="has-text-right">{row.rank}</td>
+                      <td className={changeClass(row.previous_rank, row.rank, true)}>{rankChange(row)}</td>
+                      <td>
+                        <a href="#" onClick={e => onNameClick(e, row.name)}>
+                          {row.name}
+                        </a>
+                      </td>
+                      <td className="has-text-right">{row.rating}</td>
+                      <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+          )
+        }
         {
           !loading && data.length > 0 && (
             <DBPagination loading={reloading}
