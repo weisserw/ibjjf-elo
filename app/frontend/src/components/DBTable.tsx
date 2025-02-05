@@ -199,6 +199,17 @@ function DBTable() {
 
   const hasHistorical = useMemo(() => data.some(isHistorical), [data]);
 
+  if (loading) {
+    return (
+      <div>
+        <DBFilters />
+        <div className="table-loader">
+          <div className="loader"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <DBFilters />
@@ -218,20 +229,7 @@ function DBTable() {
           </thead>
           <tbody>
             {
-              loading && (
-                <tr>
-                  <td colSpan={8} className="empty-row">
-                    <div className="columns is-centered">
-                      <div className="column is-narrow">
-                        <div className="loader"></div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              )
-            }
-            {
-              !loading && data.length === 0 && (
+              data.length === 0 && (
                 <tr>
                   <td colSpan={8} className="empty-row">
                     <div className="columns is-centered">
@@ -242,7 +240,7 @@ function DBTable() {
               )
             }
             {
-              !loading && !!data.length && data.map((row: Row, index: number) => (
+              !!data.length && data.map((row: Row, index: number) => (
                 <tr key={row.id} className={classNames({"is-historical": isHistorical(row)})}>
                   <td data-id={row.winnerId}><a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a></td>
                   <td>{row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}</td>
@@ -264,20 +262,7 @@ function DBTable() {
       </div>
       <div className="cards-container is-hidden-desktop">
         {
-          loading && (
-            <div className="card db-row-card">
-              <div className="card-content">
-                <div className="columns is-centered">
-                  <div className="column is-narrow">
-                    <div className="loader"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        }
-        {
-          !loading && data.length === 0 && (
+          data.length === 0 && (
             <div className="card db-row-card">
               <div className="card-content">
                 <div className="columns is-centered">
@@ -290,7 +275,7 @@ function DBTable() {
           )
         }
         {
-          !loading && !!data.length && data.map((row: Row) => {
+          !!data.length && data.map((row: Row) => {
             const weightHintText = openWeightHintText(row);
             return (
               <div key={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row)})}>
@@ -334,7 +319,7 @@ function DBTable() {
         }
       </div>
       {
-        !loading && data.length > 0 && (
+        data.length > 0 && (
           <DBPagination loading={reloading}
                         page={page}
                         showPages={false}
