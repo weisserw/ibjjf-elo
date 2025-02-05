@@ -36,7 +36,7 @@ def recompute_all_ratings(
             check_tty=False,
             no_tty=True,
         ) as bar:
-            for match in query.order_by(Match.happened_at, Match.id):
+            for match in query.order_by(Match.happened_at, Match.id).yield_per(100):
                 bar.next()
 
                 if len(match.participants) != 2:
