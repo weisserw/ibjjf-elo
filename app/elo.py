@@ -36,7 +36,7 @@ class EloCompetitor:
     _base_rating = 400
     _k_factor = 32
 
-    def __init__(self, initial_rating: float = 400, k_factor: int = 32):
+    def __init__(self, initial_rating: float = 400, k_factor: float = 32):
         self._rating = initial_rating
         self._k_factor = k_factor
 
@@ -140,6 +140,16 @@ DEFAULT_RATINGS = {
     WHITE: WHITE_DEFAULT_RATINGS,
 }
 
+AGE_K_FACTOR_MODIFIERS = {
+    MASTER_1: 0.9585,
+    MASTER_2: 0.9560,
+    MASTER_3: 0.9445,
+    MASTER_4: 0.9385,
+    MASTER_5: 0.9335,
+    MASTER_6: 0.9185,
+    MASTER_7: 0.9015,
+}
+
 # the amount of "ghost rating points" to add to the rating of an athlete in the open class,
 # the index is the difference in weight classes
 WEIGHT_HANDICAPS = [0, 85, 123, 164, 200, 296, 382, 491, 511]
@@ -162,15 +172,20 @@ def match_didnt_happen(note1: str, note2: str) -> bool:
     return False
 
 
-def compute_k_factor(num_matches: int, unknown_open: bool) -> int:
+def compute_k_factor(num_matches: int, unknown_open: bool, age: str) -> float:
     if unknown_open:
-        return 32
-    if num_matches < 5:
-        return 64
+        k_factor = 32
+    elif num_matches < 5:
+        k_factor = 64
     elif num_matches < 7:
-        return 48
+        k_factor = 48
     else:
-        return 32
+        k_factor = 32
+
+    if age in AGE_K_FACTOR_MODIFIERS:
+        k_factor = k_factor * AGE_K_FACTOR_MODIFIERS[age]
+
+    return k_factor
 
 
 def get_weight(
@@ -495,8 +510,8 @@ def compute_ratings(
         if unknown_open:
             log.debug("Open class match with unknown weights, using minimum k factor")
 
-        red_k_factor = compute_k_factor(red_match_count, unknown_open)
-        blue_k_factor = compute_k_factor(blue_match_count, unknown_open)
+        red_k_factor = compute_k_factor(red_match_count, unknown_open, division.age)
+        blue_k_factor = compute_k_factor(blue_match_count, unknown_open, division.age)
 
         log.debug("Red k factor: %s, blue k factor: %s", red_k_factor, blue_k_factor)
 
