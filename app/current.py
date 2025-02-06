@@ -48,6 +48,7 @@ def get_ratings_query(gi_in: str, date_where) -> str:
             AND {date_where}
             AND m.happened_at >= :activity_period
             AND d.gi in ({gi_in})
+            AND m.rated
         ), athlete_lost_matches AS (
             SELECT DISTINCT
                 mp.athlete_id,
@@ -64,6 +65,7 @@ def get_ratings_query(gi_in: str, date_where) -> str:
             AND {date_where}
             AND m.happened_at >= :activity_period
             AND d.gi in ({gi_in})
+            AND m.rated
         ), athlete_weights_no_p4p AS (
             SELECT DISTINCT
                 mp.athlete_id,
