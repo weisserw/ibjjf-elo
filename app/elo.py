@@ -64,7 +64,7 @@ class EloCompetitor:
         competitor.rating = competitor.rating + self._k_factor * (0.5 - lose_es)
 
 
-BELT_DEFAULT_RATING = {BLACK: 2000, BROWN: 1700, PURPLE: 1400, BLUE: 1100, WHITE: 800}
+BELT_DEFAULT_RATING = {BLACK: 2000, BROWN: 1800, PURPLE: 1600, BLUE: 1400, WHITE: 1200}
 
 # the amount of "ghost rating points" to add to the rating of an athlete in the open class,
 # the index is the difference in weight classes
