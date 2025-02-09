@@ -128,10 +128,8 @@ def get_ratings_query(gi_in: str, date_where) -> str:
                 mp.end_rating,
                 d.gi,
                 d.gender,
-                d.age,
-                d.belt,
                 m.id AS match_id,
-                ROW_NUMBER() OVER (PARTITION BY mp.athlete_id, d.gi, d.gender, d.age ORDER BY m.happened_at DESC, m.id) AS rn
+                ROW_NUMBER() OVER (PARTITION BY mp.athlete_id, d.gi, d.gender ORDER BY m.happened_at DESC, m.id) AS rn
             FROM matches m
             JOIN match_participants mp ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
@@ -142,8 +140,8 @@ def get_ratings_query(gi_in: str, date_where) -> str:
                 rm.athlete_id,
                 rm.end_rating,
                 rm.gender,
-                rm.age,
-                rm.belt,
+                aw.age,
+                aw.belt,
                 rm.gi,
                 aw.weight,
                 rm.happened_at
@@ -151,8 +149,6 @@ def get_ratings_query(gi_in: str, date_where) -> str:
             JOIN athlete_weights aw ON aw.athlete_id = rm.athlete_id
                 AND aw.gi = rm.gi
                 AND aw.gender = rm.gender
-                AND aw.age = rm.age
-                AND aw.belt = rm.belt
             WHERE rm.rn = 1
         )
         SELECT
