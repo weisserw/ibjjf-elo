@@ -47,8 +47,7 @@ def top():
     )
 
     if name:
-        for name_part in normalize(name).split():
-            query = query.filter(Athlete.normalized_name.like(f"%{name_part}%"))
+        query = query.filter(Athlete.normalized_name.like(f"%{normalize(name)}%"))
 
     if changed:
         query = query.filter(
