@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timedelta
+from typing import Optional
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import text
 from flask_sqlalchemy import SQLAlchemy
@@ -176,7 +177,9 @@ def previous_tuesday(dt: datetime) -> datetime:
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
+def generate_current_ratings(
+    db: SQLAlchemy, gi: bool, nogi: bool, rank_previous_date: Optional[datetime]
+) -> None:
     if gi and nogi:
         gi_in = "true, false"
     elif gi:
@@ -186,7 +189,10 @@ def generate_current_ratings(db: SQLAlchemy, gi: bool, nogi: bool) -> None:
 
     activity_period = datetime.now() - relativedelta(years=1, months=1)
 
-    previous_date = previous_tuesday(datetime.now())
+    if rank_previous_date is None:
+        rank_previous_date = datetime.now()
+
+    previous_date = previous_tuesday(rank_previous_date)
     while True:
         count = db.session.execute(
             text(
