@@ -152,7 +152,7 @@ AGE_K_FACTOR_MODIFIERS = {
 
 # the amount of "ghost rating points" to add to the rating of an athlete in the open class,
 # the index is the difference in weight classes
-WEIGHT_HANDICAPS = [0, 85, 123, 164, 200, 296, 382, 491, 511]
+WEIGHT_HANDICAPS = [0, 54.13, 64.47, 132.21, 168.89, 176.04, 224.28, 372.91, 435.37]
 
 no_match_strings = [
     "Disqualified by no show",
@@ -162,7 +162,7 @@ no_match_strings = [
 ]
 
 COLOR_PROMOTION_RATING_BUMP = 140
-BLACK_PROMOTION_RATING_BUMP = 100
+BLACK_PROMOTION_RATING_BUMP = 95
 
 
 def match_didnt_happen(note1: str, note2: str) -> bool:
