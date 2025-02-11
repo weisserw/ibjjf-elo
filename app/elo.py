@@ -78,7 +78,7 @@ no_match_strings = [
 ]
 
 COLOR_PROMOTION_RATING_BUMP = 140
-BLACK_PROMOTION_RATING_BUMP = 100
+BLACK_PROMOTION_RATING_BUMP = 95
 
 
 def match_didnt_happen(note1: str, note2: str) -> bool:
