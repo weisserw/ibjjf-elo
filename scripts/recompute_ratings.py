@@ -41,6 +41,9 @@ def main():
         "--rank-only", action="store_true", help="Only recompute ranks, not scores."
     )
     parser.add_argument(
+        "--rank-previous-date", type=str, help="Compute rank changes since this date."
+    )
+    parser.add_argument(
         "--fg",
         action="store_true",
         help="Run in foreground. If not set, the script will run in the background.",
@@ -83,6 +86,21 @@ def run_recompute(args):
                 )
                 return -1
 
+    rank_previous_date = None
+    if args.rank_previous_date:
+        try:
+            rank_previous_date = datetime.strptime(args.rank_previous_date, "%Y-%m-%d")
+        except ValueError:
+            try:
+                rank_previous_date = datetime.strptime(
+                    args.rank_previous_date, "%Y-%m-%dT%H:%M:%S"
+                )
+            except ValueError:
+                log.error(
+                    "Invalid rank previous date format. Must be YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss"
+                )
+                return -1
+
     with app.app_context():
         if (not args.gi and not args.nogi) or (args.gi and args.nogi):
             recompute_all_ratings(
@@ -94,6 +112,7 @@ def run_recompute(args):
                 rerank=not args.nogi,
                 rerankgi=True,
                 reranknogi=False,
+                rank_previous_date=rank_previous_date,
             )
             recompute_all_ratings(
                 db,
@@ -104,6 +123,7 @@ def run_recompute(args):
                 rerank=True,
                 rerankgi=args.gi,
                 reranknogi=True,
+                rank_previous_date=rank_previous_date,
             )
         else:
             recompute_all_ratings(
@@ -115,6 +135,7 @@ def run_recompute(args):
                 rerank=True,
                 rerankgi=args.gi,
                 reranknogi=not args.gi,
+                rank_previous_date=rank_previous_date,
             )
 
         db.session.commit()

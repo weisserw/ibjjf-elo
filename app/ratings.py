@@ -19,6 +19,7 @@ def recompute_all_ratings(
     rerank: bool = True,
     rerankgi: bool = True,
     reranknogi: bool = True,
+    rank_previous_date: Optional[datetime] = None,
 ) -> None:
     if score:
         query = db.session.query(Match).join(Division).filter(Division.gi == gi)
@@ -112,4 +113,4 @@ def recompute_all_ratings(
         else:
             desc = "no-gi"
         log.info(f"Regenerating {desc} ranking board...")
-        generate_current_ratings(db, rerankgi, reranknogi)
+        generate_current_ratings(db, rerankgi, reranknogi, rank_previous_date)
