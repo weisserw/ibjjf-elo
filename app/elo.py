@@ -68,7 +68,7 @@ BELT_DEFAULT_RATING = {BLACK: 2000, BROWN: 1800, PURPLE: 1600, BLUE: 1400, WHITE
 
 # the amount of "ghost rating points" to add to the rating of an athlete in the open class,
 # the index is the difference in weight classes
-HANDICAPS = [0, 85, 123, 164, 200, 296, 382, 491, 511]
+WEIGHT_HANDICAPS = [0, 54.13, 64.47, 132.21, 168.89, 176.04, 224.28, 372.91, 435.37]
 
 no_match_strings = [
     "Disqualified by no show",
@@ -181,8 +181,8 @@ def open_handicaps(
     blue_weight_index = weight_class_order.index(blue_weight)
 
     weight_difference = abs(red_weight_index - blue_weight_index)
-    if weight_difference >= len(HANDICAPS):
-        weight_difference = len(HANDICAPS) - 1
+    if weight_difference >= len(WEIGHT_HANDICAPS):
+        weight_difference = len(WEIGHT_HANDICAPS) - 1
 
     log.debug("Weight difference: %s", weight_difference)
 
@@ -190,9 +190,9 @@ def open_handicaps(
     blue_handicap = 0
     if red_weight_index < blue_weight_index:
         # if red weighs less, add points to blue's rating
-        blue_handicap = HANDICAPS[weight_difference]
+        blue_handicap = WEIGHT_HANDICAPS[weight_difference]
     else:
-        red_handicap = HANDICAPS[weight_difference]
+        red_handicap = WEIGHT_HANDICAPS[weight_difference]
 
     log.debug("Red handicap: %s, blue handicap: %s", red_handicap, blue_handicap)
 
