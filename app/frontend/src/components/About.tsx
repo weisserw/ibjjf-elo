@@ -19,7 +19,7 @@ function About() {
         </p>
         <p className="content">
           If you would like a copy of our source data for research purposes, <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">contact us</a> and we'll be happy to help. You have permission to use
-          such data or screenshots from this site in articles, blog posts, and other media, but we ask that you credit IBJJFRankings.com. Because of our free and open nature and the work put into this app, we ask that you refrain from using our data
+          data or screenshots from this site in articles, blog posts, and other media, but we ask that you credit IBJJFRankings.com. Because of our free and open nature and the work put into this app, we ask that you refrain from using our data
           for other purposes without asking, especially the custom jiu-jitsu Elo ratings we calculate.
         </p>
         <h1 className="title">FAQ</h1>
@@ -58,14 +58,13 @@ function About() {
           <strong>Q: I see a problem with one of my match results or my rating. What should I do?</strong>
         </p>
         <p className="content">
-          A: Please DM <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">ibjjfrankings on Instagram</a>
-          and we will investigate the issue and make a fix if one is warranted.
+          A: Please DM <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">ibjjfrankings on Instagram</a> and we will investigate the issue and make a fix if one is warranted.
         </p>
         <p className="content">
           <strong>Q: How far back in time does your database go?</strong>
         </p>
         <p className="content">
-          A: Unfortunately, we don't have access to full historical data, but we have managed to collect almost 100,000 match results
+          A: Unfortunately, we don't have access to full historical data, but we have managed to collect over 150,000 match results
           covering the period from 2022-2024. Full match data will accumulate starting from December 2024, and we hope to keep a comprehensive
           record of matches from that point forward. Although the rating system won't be as accurate until more data is accumulated, it will
           become more reliable over time.
@@ -96,6 +95,11 @@ function About() {
         </p>
         <p className="content">
           A: Your rating stays with you regardless of weight, rank, or age. Gi and no-gi are given separate ratings.
+        </p>
+        <p className="content">
+          We make some adjustments to our scoring algorithm when we detect athletes have changed rank or age divisions. This is intended to keep
+          the ratings of infrequent competitors in line with the overall skill level of their new division. We're happy to answer questions about
+          our methodology or a particular athlete's rating if you <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">contact us</a>.
         </p>
         <p className="content">
           <strong>Q: What about open class?</strong>
