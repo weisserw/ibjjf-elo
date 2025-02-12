@@ -400,10 +400,10 @@ def compute_ratings(
         blue_end_rating = blue_start_rating
         rated = False
         red_rating_note = append_rating_note(
-            red_rating_note, "Unrated: athlete suspended for PED violation"
+            red_rating_note, "Unrated: athlete suspended for anti-doping violation"
         )
         blue_rating_note = append_rating_note(
-            blue_rating_note, "Unrated: athlete suspended for PED violation"
+            blue_rating_note, "Unrated: athlete suspended for anti-doping violation"
         )
         log.debug("Match had two winners, not rating")
     elif red_winner and blue_winner:
