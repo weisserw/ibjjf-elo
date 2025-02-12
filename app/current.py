@@ -1,17 +1,18 @@
 import os
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import text
 from flask_sqlalchemy import SQLAlchemy
-import logging
+from models import Suspension
+from normalize import normalize
 from constants import OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
-
+import logging
 
 log = logging.getLogger("ibjjf")
 
 
-def get_ratings_query(gi_in: str, date_where) -> str:
+def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
     return f"""
         WITH
         athlete_max_belts AS (
@@ -23,8 +24,10 @@ def get_ratings_query(gi_in: str, date_where) -> str:
                          ELSE 5 END) AS belt_num, mp.athlete_id
             FROM matches m
             JOIN match_participants mp ON m.id = mp.match_id
+            JOIN athletes a ON a.id = mp.athlete_id
             JOIN divisions d ON d.id = m.division_id
             WHERE {date_where}
+            AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
             GROUP BY mp.athlete_id
         ), athlete_belts AS (
             SELECT CASE WHEN mb.belt_num = 1 THEN 'WHITE'
@@ -227,8 +230,17 @@ def generate_current_ratings(
     else:
         id_generate = "c.athlete_id || '-' || c.gender || '-' || c.age || '-' || c.gi || '-' || c.weight"
 
-    ratings_board = get_ratings_query(gi_in, "true")
-    previous_ratings_board = get_ratings_query(gi_in, "m.happened_at < :previous_date")
+    banned = (
+        db.session.query(Suspension.athlete_name)
+        .filter(Suspension.end_date > datetime.now())
+        .all()
+    )
+    banned_normalized = [normalize(b[0]) for b in banned]
+
+    ratings_board = get_ratings_query(gi_in, "true", banned_normalized)
+    previous_ratings_board = get_ratings_query(
+        gi_in, "m.happened_at < :previous_date", banned_normalized
+    )
 
     db.session.execute(
         text(

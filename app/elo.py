@@ -1,9 +1,9 @@
 import logging
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from flask_sqlalchemy import SQLAlchemy
-from models import Match, MatchParticipant, Division, DefaultGold
+from models import Match, MatchParticipant, Division, DefaultGold, Suspension
 from constants import (
     BLACK,
     BROWN,
@@ -330,6 +330,7 @@ def compute_ratings(
     blue_athlete_id: str,
     blue_winner: bool,
     blue_note: str,
+    suspensions: Dict[str, Suspension],
 ) -> Tuple[
     bool, Optional[str], float, float, float, float, Optional[str], Optional[str]
 ]:
@@ -382,8 +383,30 @@ def compute_ratings(
         db, event_id, happened_at, division, red_athlete_id, blue_athlete_id
     )
 
+    red_suspension = suspensions.get(red_athlete_id)
+    blue_suspension = suspensions.get(blue_athlete_id)
+
     # calculate the new ratings
-    if red_winner and blue_winner:
+    if (
+        red_suspension is not None
+        and red_suspension.start_date <= happened_at
+        and red_suspension.end_date >= happened_at
+    ) or (
+        blue_suspension is not None
+        and blue_suspension.start_date <= happened_at
+        and blue_suspension.end_date >= happened_at
+    ):
+        red_end_rating = red_start_rating
+        blue_end_rating = blue_start_rating
+        rated = False
+        red_rating_note = append_rating_note(
+            red_rating_note, "Unrated: athlete suspended for PED violation"
+        )
+        blue_rating_note = append_rating_note(
+            blue_rating_note, "Unrated: athlete suspended for PED violation"
+        )
+        log.debug("Match had two winners, not rating")
+    elif red_winner and blue_winner:
         # match wasn't finished yet when we pulled the data, so neither athlete has been marked as the loser.
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating

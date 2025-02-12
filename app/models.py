@@ -215,3 +215,12 @@ class BracketPage(db.Model):
     saved_at = Column(DateTime, nullable=False)
     link = Column(String, nullable=False)
     html = Column(Text, nullable=False)
+
+
+class Suspension(db.Model):
+    __tablename__ = "suspensions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    athlete_name = Column(String, nullable=False)
+    start_date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime, nullable=False)
