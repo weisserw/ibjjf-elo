@@ -33,17 +33,17 @@ def upgrade():
     connection.execute(
         sa.text(
             "INSERT INTO suspensions (id, athlete_name, start_date, end_date) VALUES "
-            f"('bf05fe40-864f-4b34-9443-cc9ba0682873', 'Pedro Alex dos Santos Pimenta', '2024-06-01 00:00:00', '2025-07-12 23:59:59'),"
-            f"('41c0a143-ed72-4c50-9c2d-f2d03ef20b37', 'Yatan Martins Bueno', '2024-06-02 00:00:00', '2027-07-12 23:59:59'),"
-            f"('39744869-0d04-40aa-9765-07b3d2b1dcdf', 'Fellipe Andrew Leandro Silva', '2024-03-24 00:00:00', '2026-04-16 23:59:59'),"
-            f"('e8e3b404-ed16-45e5-8bbe-1e9b6721f680', 'Uanderson Ferreira de Oliveira', '2024-03-23 00:00:00', '2024-07-17 23:59:59'),"
-            f"('42bf2d41-a6ea-49f9-96f2-d6789d1a2b14', 'Micael Ferreira Galvão', '2022-06-04 00:00:00', '2023-07-22 23:59:59'),"
-            f"('f8094023-34a6-4182-a30d-f8562bebe083', 'André Luiz Novaes Porfirio', '2022-12-11 00:00:00', '2027-03-21 23:59:59'),"
-            f"('3ea1dbb2-2f48-4fba-8895-37755c20ded4', 'Vagner S. Rocha', '2022-12-11 00:00:00', '2026-01-11 23:59:59'),"
-            f"('b6b25d4f-d40c-4ab9-adc2-ea0de21c82b8', 'Igor Nascimento da Costa Feliz', '2022-12-11 00:00:00', '2026-01-24 23:59:59'),"
-            f"('757c8a5c-be3f-49b5-b090-3b7330fa5976', 'Jonnatas Gracie Araujo da Silva', '2022-12-11 00:00:00', '2026-01-25 23:59:59'),"
-            f"('135e88aa-73fe-49fc-9ab1-dd35e034e91f', 'Roberto de Abreu Filho', '2022-12-10 00:00:00', '2026-01-27 23:59:59'),"
-            f"('903ef9c6-5a02-4f8b-bc12-c222efb2fe9c', 'José Henrique Cardoso', '2022-12-10 00:00:00', '2026-02-01 23:59:59')"
+            "('bf05fe40-864f-4b34-9443-cc9ba0682873', 'Pedro Alex dos Santos Pimenta', '2024-06-01 00:00:00', '2025-07-12 23:59:59'),"
+            "('41c0a143-ed72-4c50-9c2d-f2d03ef20b37', 'Yatan Martins Bueno', '2024-06-02 00:00:00', '2027-07-12 23:59:59'),"
+            "('39744869-0d04-40aa-9765-07b3d2b1dcdf', 'Fellipe Andrew Leandro Silva', '2024-03-24 00:00:00', '2026-04-16 23:59:59'),"
+            "('e8e3b404-ed16-45e5-8bbe-1e9b6721f680', 'Uanderson Ferreira de Oliveira', '2024-03-23 00:00:00', '2024-07-17 23:59:59'),"
+            "('42bf2d41-a6ea-49f9-96f2-d6789d1a2b14', 'Micael Ferreira Galvão', '2022-06-04 00:00:00', '2023-07-22 23:59:59'),"
+            "('f8094023-34a6-4182-a30d-f8562bebe083', 'André Luiz Novaes Porfirio', '2022-12-11 00:00:00', '2027-03-21 23:59:59'),"
+            "('3ea1dbb2-2f48-4fba-8895-37755c20ded4', 'Vagner S. Rocha', '2022-12-11 00:00:00', '2026-01-11 23:59:59'),"
+            "('b6b25d4f-d40c-4ab9-adc2-ea0de21c82b8', 'Igor Nascimento da Costa Feliz', '2022-12-11 00:00:00', '2026-01-24 23:59:59'),"
+            "('757c8a5c-be3f-49b5-b090-3b7330fa5976', 'Jonnatas Gracie Araujo da Silva', '2022-12-11 00:00:00', '2026-01-25 23:59:59'),"
+            "('135e88aa-73fe-49fc-9ab1-dd35e034e91f', 'Roberto de Abreu Filho', '2022-12-10 00:00:00', '2026-01-27 23:59:59'),"
+            "('903ef9c6-5a02-4f8b-bc12-c222efb2fe9c', 'José Henrique Cardoso', '2022-12-10 00:00:00', '2026-02-01 23:59:59')"
         )
     )
     # ### end Alembic commands ###
