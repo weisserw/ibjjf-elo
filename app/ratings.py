@@ -3,9 +3,10 @@ from typing import Optional
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from progress_bar import Bar
-from models import Match, Division
+from models import Match, Division, Suspension, Athlete
 from elo import compute_ratings
 from current import generate_current_ratings
+from normalize import normalize
 
 log = logging.getLogger("ibjjf")
 
@@ -30,6 +31,17 @@ def recompute_all_ratings(
             query = query.filter(Match.happened_at >= start_date)
 
         total = query.count()
+
+        suspensions = db.session.query(Suspension)
+        suspensions_by_id = {}
+        for suspension in suspensions:
+            athlete = (
+                db.session.query(Athlete)
+                .filter(Athlete.normalized_name == normalize(suspension.athlete_name))
+                .first()
+            )
+            if athlete is not None:
+                suspensions_by_id[athlete.id] = suspension
 
         with Bar(
             f'Recomputing athlete {"gi" if gi else "no-gi"} ratings',
@@ -70,6 +82,7 @@ def recompute_all_ratings(
                     blue.athlete_id,
                     blue.winner,
                     blue.note,
+                    suspensions_by_id,
                 )
 
                 changed = False
