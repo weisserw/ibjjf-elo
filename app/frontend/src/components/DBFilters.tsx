@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import Autosuggest from 'react-autosuggest';
 import axios from 'axios';
 import { useAppContext } from '../AppContext';
+import { axiosErrorToast } from '../utils';
 
 import './DBFilters.css';
 
@@ -179,15 +180,23 @@ function DBFilters() {
   }, [filters.rating_end]);
 
   const getAthleteSuggestions = async ({ value }: { value: string }) => {
-    const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
-    setAthleteSuggestions(response.data);
+    try {
+      const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
+      setAthleteSuggestions(response.data);
+    } catch (error) {
+      axiosErrorToast(error);
+    }
   }
 
   const debouncedGetAthleteSuggestions = useCallback(debounce(getAthleteSuggestions, 300, {trailing: true}), []);
 
   const getEventSuggestions = async ({ value }: { value: string }) => {
-    const response = await axios.get(`/api/events?search=${encodeURIComponent(value)}&gi=${gi}`);
-    setEventSuggestions(response.data);
+    try {
+      const response = await axios.get(`/api/events?search=${encodeURIComponent(value)}&gi=${gi}`);
+      setEventSuggestions(response.data);
+    } catch (error) {
+      axiosErrorToast(error);
+    }
   }
 
   const debouncedGetEventSuggestions = useCallback(debounce(getEventSuggestions, 300, {trailing: true}), []);

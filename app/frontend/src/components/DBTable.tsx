@@ -11,6 +11,8 @@ import DBFilters, {
 } from './DBFilters';
 import DBPagination from './DBPagination';
 import { useAppContext } from '../AppContext';
+import { axiosErrorToast } from '../utils';
+
 
 import "./DBTable.css"
 
@@ -79,7 +81,7 @@ function DBTable() {
         setPage(1)
       }
     }).catch((exception) => {
-      console.error(exception)
+      axiosErrorToast(exception)
       setLoading(false)
       setReloading(false)
     })
