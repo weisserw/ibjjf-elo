@@ -49,7 +49,7 @@ client_penalties = {}
 
 
 def rate_limit():
-    client_ip = request.headers.get("X-Forwarded-For")
+    client_ip = request.headers.get("DO-Connecting-IP")
     if not client_ip:
         return
 
@@ -118,6 +118,13 @@ def matches():
 
     if gi is None:
         return jsonify({"error": "Missing mandatory query parameter"}), 400
+
+    try:
+        page = int(page)
+        if page < 1:
+            raise ValueError()
+    except ValueError:
+        return jsonify({"error": "Invalid page number"}), 400
 
     if gi:
         gi = gi.lower() == "true"
@@ -303,7 +310,7 @@ def matches():
 
     # get one extra match to determine if there are more pages
     params["limit"] = (MATCH_PAGE_SIZE + 1) * 2
-    params["offset"] = (int(page) - 1) * MATCH_PAGE_SIZE * 2
+    params["offset"] = (page - 1) * MATCH_PAGE_SIZE * 2
     results = db.session.execute(
         text(
             f"""
@@ -396,7 +403,7 @@ def matches():
                 }
             )
 
-    totalPages = int(page) + 1
+    totalPages = page + 1
     if len(response) <= MATCH_PAGE_SIZE:
         totalPages -= 1
 
