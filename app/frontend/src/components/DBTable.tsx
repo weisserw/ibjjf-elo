@@ -333,7 +333,7 @@ function DBTable() {
       {
         hasHistorical && (
           <div className="notification is-historical">
-            Historical data (highlighted rows) may be incomplete or inaccurate
+            Match data before December 2024 may be incomplete or inaccurate
           </div>
         )
       }
