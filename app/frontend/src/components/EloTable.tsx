@@ -6,6 +6,7 @@ import { useAppContext } from '../AppContext';
 import DBPagination from './DBPagination';
 import EloFilters from './EloFilters';
 import Autosuggest from 'react-autosuggest';
+import { axiosErrorToast } from '../utils';
 
 import "./EloTable.css"
 
@@ -72,15 +73,19 @@ function EloTable() {
         setPage(1)
       }
     }).catch((exception) => {
-      console.error(exception)
+      axiosErrorToast(exception)
       setLoading(false)
       setReloading(false)
     })
   }, [gender, age, belt, weight, changed, nameFilter, gi, page]);
 
   const getAthleteSuggestions = async ({ value }: { value: string }) => {
-    const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
-    setAthleteSuggestions(response.data);
+    try {
+      const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
+      setAthleteSuggestions(response.data);
+    } catch (error) {
+      axiosErrorToast(error);
+    }
   }
 
   const debouncedGetAthleteSuggestions = useCallback(debounce(getAthleteSuggestions, 300, {trailing: true}), []);
