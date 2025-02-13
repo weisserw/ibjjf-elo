@@ -24,6 +24,13 @@ def top():
     if not all([gender, age, belt, gi]):
         return jsonify({"error": "Missing mandatory query parameters"}), 400
 
+    try:
+        page = int(page)
+        if page < 1:
+            raise ValueError()
+    except ValueError:
+        return jsonify({"error": "Invalid page number"}), 400
+
     gi = gi.lower() == "true"
     changed = changed and changed.lower() == "true"
 
@@ -63,7 +70,7 @@ def top():
     query = (
         query.order_by(AthleteRating.rank, AthleteRating.match_happened_at.desc())
         .limit(RATINGS_PAGE_SIZE)
-        .offset((int(page) - 1) * RATINGS_PAGE_SIZE)
+        .offset((page - 1) * RATINGS_PAGE_SIZE)
     )
     results = query.all()
 
