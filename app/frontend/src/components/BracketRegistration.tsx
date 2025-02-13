@@ -191,7 +191,7 @@ function BracketRegistration() {
             }
             {
               registrationCategories.length === 0 && (
-                <div className="notification is-warning">No valid brackets found</div>
+                <div className="notification is-warning">No valid brackets found. Note: we do not load kids divisions.</div>
               )
             }
           </div>)
