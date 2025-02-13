@@ -83,6 +83,8 @@ function EloTable() {
     setAthleteSuggestions(response.data);
   }
 
+  const debouncedGetAthleteSuggestions = useCallback(debounce(getAthleteSuggestions, 300, {trailing: true}), []);
+
   const debouncedSetNameFilter = useCallback(
     debounce((value: string) => setNameFilter(value), 750),
     []
@@ -181,7 +183,7 @@ function EloTable() {
         <div className="field">
           <div className="control has-icons-left">
             <Autosuggest suggestions={athleteSuggestions}
-                          onSuggestionsFetchRequested={getAthleteSuggestions}
+                          onSuggestionsFetchRequested={debouncedGetAthleteSuggestions}
                           onSuggestionsClearRequested={() => setAthleteSuggestions([])}
                           multiSection={false}
                           getSuggestionValue={(suggestion) => suggestion}
