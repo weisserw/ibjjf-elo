@@ -34,10 +34,49 @@ from constants import (
 )
 from models import Athlete, MatchParticipant, Division, Match, Event
 from normalize import normalize
+from collections import defaultdict
+from time import time
 
 matches_route = Blueprint("matches_route", __name__)
 
 MATCH_PAGE_SIZE = 12
+
+INITIAL_RATE_LIMIT = 15
+RATE_LIMIT_WINDOW = 10
+PENALTY_PERIOD = 60
+client_requests = defaultdict(list)
+client_penalties = {}
+
+
+def rate_limit():
+    client_ip = request.headers.get("X-Forwarded-For")
+    if not client_ip:
+        return
+
+    current_time = time()
+    request_times = client_requests[client_ip]
+    penalty_info = client_penalties.get(
+        client_ip, {"rate_limit": INITIAL_RATE_LIMIT, "penalty_end": 0}
+    )
+
+    if current_time > penalty_info["penalty_end"]:
+        penalty_info["rate_limit"] = INITIAL_RATE_LIMIT
+        penalty_info["penalty_end"] = 0
+        client_penalties[client_ip] = penalty_info
+
+    while request_times and request_times[0] < current_time - RATE_LIMIT_WINDOW:
+        request_times.pop(0)
+
+    if len(request_times) >= penalty_info["rate_limit"]:
+        penalty_info["rate_limit"] = max(1, penalty_info["rate_limit"] // 2)
+        penalty_info["penalty_end"] = current_time + PENALTY_PERIOD
+        client_penalties[client_ip] = penalty_info
+        return jsonify({"error": "Too many requests"}), 429
+
+    request_times.append(current_time)
+
+
+matches_route.before_request(rate_limit)
 
 
 @matches_route.route("/api/matches")

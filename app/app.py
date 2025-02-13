@@ -41,9 +41,6 @@ def not_found(e):
     return send_from_directory(app.static_folder, "index.html")
 
 
-RATINGS_PAGE_SIZE = 30
-MATCH_PAGE_SIZE = 12
-
 app.register_blueprint(top_route)
 app.register_blueprint(matches_route)
 app.register_blueprint(athletes_route)
