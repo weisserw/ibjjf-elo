@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
 import { debounce } from 'lodash';
 import { useAppContext } from '../AppContext';
@@ -225,9 +225,9 @@ function EloTable() {
                   data.length === 0 && (
                     <tr>
                       <td colSpan={5} className="empty-row">
-                        <div className="columns is-centered">
-                          No data found
-                        </div>
+                        No matching competitors in selected division. Try changing the category filters or use the{' '}
+                        <Link to="/database">Database</Link>
+                        {' '}page to perform a global search.
                       </td>
                     </tr>
                   )
