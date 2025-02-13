@@ -111,17 +111,47 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setFilters(newFilters);
   }, []);
 
+  const updateRankingGender = useCallback((gender: string) => {
+    setRankingPage(1);
+    setRankingGender(gender);
+  }, []);
+
+  const updateRankingAge = useCallback((age: string) => {
+    setRankingPage(1);
+    setRankingAge(age);
+  }, []);
+
+  const updateRankingBelt = useCallback((belt: string) => {
+    setRankingPage(1);
+    setRankingBelt(belt);
+  }, []);
+
+  const updateRankingWeight = useCallback((weight: string) => {
+    setRankingPage(1);
+    setRankingWeight(weight);
+  }, []);
+
+  const updateRankingChanged = useCallback((changed: boolean) => {
+    setRankingPage(1);
+    setRankingChanged(changed);
+  }, []);
+
+  const updateRankingNameFilter = useCallback((nameFilter: string) => {
+    setRankingPage(1);
+    setRankingNameFilter(nameFilter);
+  }, []);
+
   return (
     <AppContext.Provider value={{
       filters, setFilters: updateFilters,
       openFilters, setOpenFilters,
       activeTab, setActiveTab,
-      rankingGender, setRankingGender,
-      rankingAge, setRankingAge,
-      rankingBelt, setRankingBelt,
-      rankingWeight, setRankingWeight,
-      rankingChanged, setRankingChanged,
-      rankingNameFilter, setRankingNameFilter,
+      rankingGender, setRankingGender: updateRankingGender,
+      rankingAge, setRankingAge: updateRankingAge,
+      rankingBelt, setRankingBelt: updateRankingBelt,
+      rankingWeight, setRankingWeight: updateRankingWeight,
+      rankingChanged, setRankingChanged: updateRankingChanged,
+      rankingNameFilter, setRankingNameFilter: updateRankingNameFilter,
       rankingPage, setRankingPage,
       dbPage, setDbPage,
       bracketEvents, setBracketEvents,
