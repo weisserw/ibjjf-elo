@@ -183,10 +183,14 @@ function DBFilters() {
     setAthleteSuggestions(response.data);
   }
 
+  const debouncedGetAthleteSuggestions = useCallback(debounce(getAthleteSuggestions, 300, {trailing: true}), []);
+
   const getEventSuggestions = async ({ value }: { value: string }) => {
     const response = await axios.get(`/api/events?search=${encodeURIComponent(value)}&gi=${gi}`);
     setEventSuggestions(response.data);
   }
+
+  const debouncedGetEventSuggestions = useCallback(debounce(getEventSuggestions, 300, {trailing: true}), []);
 
   return (
     <div className={classNames("box accordion-box", {"open": isOpen})}>
@@ -215,7 +219,7 @@ function DBFilters() {
               <div className="field is-grouped">
                 <div className="control is-expanded">
                   <Autosuggest suggestions={athleteSuggestions}
-                               onSuggestionsFetchRequested={getAthleteSuggestions}
+                               onSuggestionsFetchRequested={debouncedGetAthleteSuggestions}
                                onSuggestionsClearRequested={() => setAthleteSuggestions([])}
                                multiSection={false}
                                getSuggestionValue={(suggestion) => suggestion}
@@ -283,7 +287,7 @@ function DBFilters() {
               <div className="field is-grouped">
                 <div className="control is-expanded">
                   <Autosuggest suggestions={eventSuggestions}
-                               onSuggestionsFetchRequested={getEventSuggestions}
+                               onSuggestionsFetchRequested={debouncedGetEventSuggestions}
                                onSuggestionsClearRequested={() => setEventSuggestions([])}
                                multiSection={false}
                                getSuggestionValue={(suggestion) => suggestion}
