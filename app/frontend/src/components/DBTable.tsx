@@ -233,7 +233,7 @@ function DBTable() {
                 <tr>
                   <td colSpan={8} className="empty-row">
                     <div className="columns is-centered">
-                      No data found
+                      No matches found for the selected filters
                     </div>
                   </td>
                 </tr>
@@ -267,7 +267,7 @@ function DBTable() {
               <div className="card-content">
                 <div className="columns is-centered">
                   <div className="column is-narrow">
-                    No data found
+                    No matches found for the selected filters
                   </div>
                 </div>
               </div>
