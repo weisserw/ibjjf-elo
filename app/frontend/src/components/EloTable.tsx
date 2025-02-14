@@ -207,7 +207,10 @@ function EloTable() {
           </div>
           {
             nameFilterSearch && (
-              <span className="icon is-small clear-filter" onClick={() => onNameFilterChange('')}>
+              <span className="icon is-small clear-filter" onClick={() => {
+                setNameFilterSearch('')
+                setNameFilter('')
+              }}>
                 <i className="fas fa-times"></i>
               </span>
             )
