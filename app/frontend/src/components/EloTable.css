@@ -28,3 +28,14 @@ td.empty-row {
   width: 100%;
   max-width: 800px;
 }
+
+.position-relative {
+  position: relative;
+}
+
+span.clear-filter {
+  cursor: pointer;
+  position: absolute;
+  right: 8px;
+  top: 12px;
+}

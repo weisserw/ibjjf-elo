@@ -185,7 +185,7 @@ function EloTable() {
     <div className="elo-container">
       <div className="elo-sub-container">
         <EloFilters />
-        <div className="field">
+        <div className="field position-relative">
           <div className="control has-icons-left">
             <Autosuggest suggestions={athleteSuggestions}
                           onSuggestionsFetchRequested={debouncedGetAthleteSuggestions}
@@ -205,6 +205,13 @@ function EloTable() {
               <i className="fas fa-filter"></i>
             </span>
           </div>
+          {
+            nameFilterSearch && (
+              <span className="icon is-small clear-filter" onClick={() => onNameFilterChange('')}>
+                <i className="fas fa-times"></i>
+              </span>
+            )
+          }
         </div>
         {
           loading && (
