@@ -170,7 +170,10 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
 
 
 def previous_tuesday(dt: datetime) -> datetime:
-    dt -= timedelta(days=7)
+    # if today is tuesday, go back one day
+    if dt.weekday() == 1:
+        dt -= timedelta(days=1)
+    # go back to the previous tuesday
     while dt.weekday() != 1:
         dt -= timedelta(days=1)
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
