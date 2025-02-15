@@ -363,9 +363,8 @@ def compute_start_rating(
         age_order.index(last_match.match.division.age) < age_order.index(division.age)
         and not has_same_or_higher_age_match
         and last_match.end_rating
-        <= DEFAULT_RATINGS[last_match.match.division.belt][
-            last_match.match.division.age
-        ]
+        < DEFAULT_RATINGS[last_match.match.division.belt][last_match.match.division.age]
+        and last_match.end_rating > DEFAULT_RATINGS[division.belt][division.age]
     ):
         log.debug(
             "Athlete is in higher age division for the first time and is below or equal to default rating of previous division, using default rating"
