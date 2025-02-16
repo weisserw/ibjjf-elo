@@ -89,7 +89,6 @@ def top():
         for result in results
     ]
 
-    print(totalCount)
     return jsonify(
         {"rows": response, "totalPages": math.ceil(totalCount / RATINGS_PAGE_SIZE)}
     )
