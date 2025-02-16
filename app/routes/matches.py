@@ -49,9 +49,11 @@ client_penalties = {}
 
 
 def rate_limit():
-    client_ip = request.headers.get("DO-Connecting-IP")
+    client_ip = request.headers.get("CF-Connecting-IP")
     if not client_ip:
-        return
+        client_ip = request.headers.get("DO-Connecting-IP")
+        if not client_ip:
+            return
 
     current_time = time()
     request_times = client_requests[client_ip]
