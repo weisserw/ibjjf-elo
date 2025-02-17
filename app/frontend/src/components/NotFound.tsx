@@ -6,7 +6,7 @@ function NotFound() {
     <section className="is-fullheight">
       <div className="hero-body">
         <div className="container has-text-centered">
-          <h1 className="title">
+          <h1 className="title is-spaced">
             Page Not Found
           </h1>
           <h2 className="subtitle">
