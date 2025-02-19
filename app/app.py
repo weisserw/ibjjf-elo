@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, request
 from extensions import db, migrate
 from routes.top import top_route
 from routes.matches import matches_route
@@ -39,6 +39,17 @@ def index():
 @app.errorhandler(404)
 def not_found(e):
     return send_from_directory(app.static_folder, "index.html")
+
+
+@app.after_request
+def add_cache_control_headers(response):
+    if request.path.startswith("/api/"):
+        response.headers["Cache-Control"] = (
+            "no-store, no-cache, must-revalidate, max-age=0"
+        )
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 
 app.register_blueprint(top_route)
