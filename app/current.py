@@ -6,7 +6,14 @@ from sqlalchemy import text
 from flask_sqlalchemy import SQLAlchemy
 from models import Suspension
 from normalize import normalize
-from constants import OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY
+from constants import (
+    OPEN_CLASS,
+    OPEN_CLASS_LIGHT,
+    OPEN_CLASS_HEAVY,
+    JUVENILE,
+    JUVENILE_1,
+    JUVENILE_2,
+)
 import logging
 
 log = logging.getLogger("ibjjf")
@@ -44,7 +51,7 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
             JOIN divisions d ON d.id = m.division_id
             WHERE {date_where}
             AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
-            AND d.age NOT LIKE 'Juvenile%'
+            AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2)
         ), athlete_won_matches AS (
             SELECT DISTINCT
                 mp.athlete_id,
@@ -63,7 +70,7 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
             AND d.gi in ({gi_in})
             AND m.rated
             AND (
-                (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT LIKE 'Juvenile%')
+                (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
                 OR (mp.athlete_id NOT IN (SELECT athlete_id FROM athlete_adults))
             )
         ), athlete_lost_matches AS (
@@ -269,6 +276,9 @@ def generate_current_ratings(
             "OPEN_CLASS": OPEN_CLASS,
             "OPEN_CLASS_LIGHT": OPEN_CLASS_LIGHT,
             "OPEN_CLASS_HEAVY": OPEN_CLASS_HEAVY,
+            "JUVENILE": JUVENILE,
+            "JUVENILE_1": JUVENILE_1,
+            "JUVENILE_2": JUVENILE_2,
             "activity_period": activity_period,
             "previous_date": previous_date,
         },
@@ -286,6 +296,9 @@ def generate_current_ratings(
             "OPEN_CLASS": OPEN_CLASS,
             "OPEN_CLASS_LIGHT": OPEN_CLASS_LIGHT,
             "OPEN_CLASS_HEAVY": OPEN_CLASS_HEAVY,
+            "JUVENILE": JUVENILE,
+            "JUVENILE_1": JUVENILE_1,
+            "JUVENILE_2": JUVENILE_2,
             "activity_period": activity_period,
             "previous_date": previous_date,
         },
