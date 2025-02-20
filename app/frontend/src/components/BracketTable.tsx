@@ -15,17 +15,27 @@ export type SortColumn = 'rating' | 'seed'
 
 function BracketTable(props: BracketTableProps) {
   const { competitors, sortColumn, columnClicked, athleteClicked } = props;
+  
+  const competitorTooltip = (competitor: Competitor) => {
+    let tooltip = ''
 
-  const ratingAsterisk = (competitor: Competitor, index: number) => {
     if (competitor.rating !== null && competitor.note) {
-      return (
-        <span className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": index === 0})} data-tooltip={competitor.note}>
-          <strong>*</strong>
-        </span>
-      )
-    } else {
-      return ''
+      tooltip = competitor.note
     }
+
+    if (immatureClass(competitor.match_count) !== '') {
+      if (tooltip) {
+        tooltip += ', '
+      }
+      tooltip += 'Athlete\'s rating is preliminary due to insufficient matches in the database'
+    }
+
+
+
+    if (tooltip) {
+      return tooltip
+    }
+    return undefined
   }
 
   return (
@@ -59,7 +69,7 @@ function BracketTable(props: BracketTableProps) {
         </thead>
         <tbody>
           {
-            competitors?.map((competitor, index) => (
+            competitors?.map(competitor => (
               <tr key={competitor.name}>
                 <td className="has-text-right">{competitor.ordinal}</td>
                 {
@@ -73,16 +83,17 @@ function BracketTable(props: BracketTableProps) {
                 }
                 <td>{competitor.team}</td>
                 <td className="has-text-right">
-                  {ratingAsterisk(competitor, index)}
-                  {competitor.rating ?? ''}
+                  <span className={immatureClass(competitor.match_count)}>{competitor.rating ?? ''}</span>
                 </td>
                 <td className="has-text-right">{competitor.rank ?? ''}</td>
-                <td className={classNames("has-text-centered", {"has-tooltip-multiline": immatureClass(competitor.match_count) != ''})} data-tooltip={immatureClass(competitor.match_count) !== '' ? 'Athlete\'s rating is preliminary due to insufficient matches in the database' : undefined}>
+                <td className={classNames("has-text-centered", {"has-tooltip-multiline has-tooltip-left": competitorTooltip(competitor)})} data-tooltip={competitorTooltip(competitor)}>
                   {
                     immatureClass(competitor.match_count) === 'very-immature' ? 
                       <span className="very-immature-bullet">&nbsp;</span> : (
-                        immatureClass(competitor.match_count) === 'immature' &&
-                        <span className="immature-bullet">&nbsp;</span>
+                        immatureClass(competitor.match_count) === 'immature' ?
+                          <span className="immature-bullet">&nbsp;</span> : (
+                          competitorTooltip(competitor) && <span className="plain-bullet">&nbsp;</span>
+                        )
                       )
                   }
                 </td>
