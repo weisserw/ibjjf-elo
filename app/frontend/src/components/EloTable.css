@@ -42,7 +42,7 @@ span.clear-filter {
 
 .very-immature-bullet {
   display: inline-block;
-  background-color: hsl(var(--bulma-danger-h),var(--bulma-danger-s),var(--bulma-danger-l));
+  background-color: rgb(255, 0, 0);
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -51,7 +51,7 @@ span.clear-filter {
 
 .immature-bullet {
   display: inline-block;
-  background-color: hsl(var(--bulma-warning-h),var(--bulma-warning-s),var(--bulma-warning-l));
+  background-color: rgb(240, 240, 0);
   width: 10px;
   height: 10px;
   border-radius: 50%;

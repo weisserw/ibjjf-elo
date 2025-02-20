@@ -23,11 +23,16 @@ function BracketTable(props: BracketTableProps) {
       tooltip = competitor.note
     }
 
-    if (immatureClass(competitor.match_count) !== '') {
+    const immature = immatureClass(competitor.match_count);
+    if (immature !== '') {
       if (tooltip) {
         tooltip += ', '
       }
-      tooltip += 'Athlete\'s rating is preliminary due to insufficient matches in the database'
+      if (immature === 'very-immature') {
+        tooltip += `Athlete's rating is provisional due to insufficient matches (${competitor.match_count})`
+      } else {
+        tooltip += `Athlete's rating is semi-provisional due to insufficient matches (${competitor.match_count})`
+      }
     }
 
 

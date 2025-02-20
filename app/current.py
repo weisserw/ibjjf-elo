@@ -74,7 +74,6 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
                 (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
                 OR (mp.athlete_id NOT IN (SELECT athlete_id FROM athlete_adults))
             )
-            AND mp.end_match_count > :RATING_VERY_IMMATURE_COUNT
         ), athlete_lost_matches AS (
             SELECT DISTINCT
                 mp.athlete_id,
@@ -96,7 +95,6 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
                 (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT LIKE 'Juvenile%')
                 OR (mp.athlete_id NOT IN (SELECT athlete_id FROM athlete_adults))
             )
-            AND mp.end_match_count > :RATING_VERY_IMMATURE_COUNT
         ), athlete_weights_no_p4p AS (
             SELECT DISTINCT
                 mp.athlete_id,
@@ -194,7 +192,12 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
             end_rating,
             end_match_count,
             happened_at,
-            RANK() OVER (PARTITION BY gender, age, belt, gi, weight ORDER BY ROUND(end_rating) DESC) AS rank
+            RANK() OVER (
+                PARTITION BY gender, age, belt, gi, weight
+                ORDER BY
+                    CASE WHEN end_match_count <= :RATING_VERY_IMMATURE_COUNT THEN 1 ELSE 0 END ASC,
+                    ROUND(end_rating) DESC
+            ) AS rank
         FROM ratings
             """
 

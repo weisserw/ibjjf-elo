@@ -183,6 +183,17 @@ function EloTable() {
     }
   }
 
+  const rowTooltip = (row: Row) => {
+    const immature = immatureClass(row.match_count);
+    if (immature === '') {
+      return undefined;
+    }
+    if (immature === 'very-immature') {
+      return `Athlete's rating is provisional due to insufficient matches (${row.match_count})`;
+    }
+    return `Athlete's rating is semi-provisional due to insufficient matches (${row.match_count})`;
+  }
+
   return (
     <div className="elo-container">
       <div className="elo-sub-container">
@@ -253,7 +264,9 @@ function EloTable() {
                 {
                   !!data.length && data.map((row: Row, index) => (
                     <tr key={index}>
-                      <td className="has-text-right">{row.rank}</td>
+                      <td className="has-text-right">{
+                        immatureClass(row.match_count) !== 'very-immature' && row.rank
+                      }</td>
                       <td className={changeClass(row.previous_rank, row.rank, true)}>{rankChange(row)}</td>
                       <td>
                         <a href="#" onClick={e => onNameClick(e, row.name)}>
@@ -262,7 +275,7 @@ function EloTable() {
                       </td>
                       <td className={"has-text-right " + immatureClass(row.match_count)}>{row.rating}</td>
                       <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
-                      <td className={classNames("has-text-centered", {"has-tooltip-multiline has-tooltip-left": immatureClass(row.match_count) !== ''})} data-tooltip={immatureClass(row.match_count) !== '' ? 'Athlete\'s rating is preliminary due to insufficient matches in the database' : undefined}>
+                      <td className={classNames("has-text-centered", {"has-tooltip-multiline has-tooltip-left": immatureClass(row.match_count) !== ''})} data-tooltip={rowTooltip(row)}>
                         {
                           immatureClass(row.match_count) === 'very-immature' ? 
                             <span className="very-immature-bullet">&nbsp;</span> : (
