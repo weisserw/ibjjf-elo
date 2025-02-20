@@ -74,7 +74,7 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
                 (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
                 OR (mp.athlete_id NOT IN (SELECT athlete_id FROM athlete_adults))
             )
-            AND mp.match_count > :RATING_VERY_IMMATURE_COUNT
+            AND mp.end_match_count > :RATING_VERY_IMMATURE_COUNT
         ), athlete_lost_matches AS (
             SELECT DISTINCT
                 mp.athlete_id,
@@ -96,7 +96,7 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
                 (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT LIKE 'Juvenile%')
                 OR (mp.athlete_id NOT IN (SELECT athlete_id FROM athlete_adults))
             )
-            AND mp.match_count > :RATING_VERY_IMMATURE_COUNT
+            AND mp.end_match_count > :RATING_VERY_IMMATURE_COUNT
         ), athlete_weights_no_p4p AS (
             SELECT DISTINCT
                 mp.athlete_id,
@@ -157,6 +157,7 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
                 m.happened_at,
                 mp.athlete_id,
                 mp.end_rating,
+                mp.end_match_count,
                 d.gi,
                 d.gender,
                 m.id AS match_id,
@@ -170,6 +171,7 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
             SELECT
                 rm.athlete_id,
                 rm.end_rating,
+                rm.end_match_count,
                 rm.gender,
                 aw.age,
                 aw.belt,
@@ -190,6 +192,7 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
             gi,
             weight,
             end_rating,
+            end_match_count,
             happened_at,
             RANK() OVER (PARTITION BY gender, age, belt, gi, weight ORDER BY ROUND(end_rating) DESC) AS rank
         FROM ratings
@@ -314,7 +317,7 @@ def generate_current_ratings(
         text(
             f"""
         INSERT INTO athlete_ratings (id, athlete_id, gender, age, belt, gi, weight,
-                                     rating, match_happened_at, rank, previous_rating, previous_rank)
+                                     rating, match_count, match_happened_at, rank, previous_rating, previous_rank)
         SELECT {id_generate}, c.*, p.end_rating, p.rank
         FROM temp_current_ratings c
         LEFT JOIN temp_previous_ratings p ON c.athlete_id = p.athlete_id AND c.gender = p.gender AND c.age = p.age AND

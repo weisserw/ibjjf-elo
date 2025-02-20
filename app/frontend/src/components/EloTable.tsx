@@ -6,7 +6,7 @@ import { useAppContext } from '../AppContext';
 import DBPagination from './DBPagination';
 import EloFilters from './EloFilters';
 import Autosuggest from 'react-autosuggest';
-import { axiosErrorToast } from '../utils';
+import { axiosErrorToast, immatureClass } from '../utils';
 
 import "./EloTable.css"
 
@@ -15,6 +15,7 @@ interface Row {
   previous_rank: number | null
   name: string
   rating: number
+  match_count: number
   previous_rating: number | null
 }
 
@@ -233,13 +234,14 @@ function EloTable() {
                   <th>Name</th>
                   <th className="has-text-right">Rating</th>
                   <th className="has-text-right">+/-</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {
                   data.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="empty-row">
+                      <td colSpan={6} className="empty-row">
                         No matching competitors in selected division. Try changing the category filters or use the{' '}
                         <Link to="/database">Database</Link>
                         {' '}page to perform a global search.
@@ -257,8 +259,17 @@ function EloTable() {
                           {row.name}
                         </a>
                       </td>
-                      <td className="has-text-right">{row.rating}</td>
+                      <td className={"has-text-right " + immatureClass(row.match_count)}>{row.rating}</td>
                       <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
+                      <td className="has-text-centered has-tooltip-multiline" data-tooltip={'Athlete\'s rating is preliminary due to insufficient matches in the database'}>
+                        {
+                          immatureClass(row.match_count) === 'very-immature' ? 
+                            <span className="very-immature-bullet">&nbsp;</span> : (
+                              immatureClass(row.match_count) === 'immature' &&
+                              <span className="immature-bullet">&nbsp;</span>
+                            )
+                        }
+                      </td>
                     </tr>
                   ))
                 }

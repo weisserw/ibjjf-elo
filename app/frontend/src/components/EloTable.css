@@ -39,3 +39,21 @@ span.clear-filter {
   right: 8px;
   top: 12px;
 }
+
+.very-immature-bullet {
+  display: inline-block;
+  background-color: hsl(var(--bulma-danger-h),var(--bulma-danger-s),var(--bulma-danger-l));
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.immature-bullet {
+  display: inline-block;
+  background-color: hsl(var(--bulma-warning-h),var(--bulma-warning-s),var(--bulma-warning-l));
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+}

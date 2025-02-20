@@ -39,6 +39,7 @@ def top():
             Athlete.name,
             AthleteRating.rating,
             AthleteRating.rank,
+            AthleteRating.match_count,
             AthleteRating.previous_rating,
             AthleteRating.previous_rank,
         )
@@ -79,6 +80,7 @@ def top():
             "rank": result.rank,
             "name": result.name,
             "rating": round(result.rating),
+            "match_count": result.match_count,
             "previous_rating": (
                 None
                 if result.previous_rating is None

@@ -190,6 +190,7 @@ class AthleteRating(db.Model):
     rating = Column(Float, nullable=False)
     match_happened_at = Column(DateTime, nullable=False)
     rank = Column(Integer, nullable=True)
+    match_count = Column(Integer, nullable=False)
     previous_rating = Column(Float, nullable=True)
     previous_rank = Column(Integer, nullable=True)
 
