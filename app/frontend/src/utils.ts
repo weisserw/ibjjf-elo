@@ -1,5 +1,4 @@
 import { toast } from 'bulma-toast';
-import { StringToNumber } from 'lodash';
 
 const showToast = (message: string) => {
   toast({
