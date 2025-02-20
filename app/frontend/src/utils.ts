@@ -1,4 +1,5 @@
 import { toast } from 'bulma-toast';
+import { StringToNumber } from 'lodash';
 
 const showToast = (message: string) => {
   toast({
@@ -19,5 +20,15 @@ export const axiosErrorToast = (error: any) => {
     showToast('Error: No response received from server');
   } else {
     showToast(`Error: ${error.message}`);
+  }
+}
+
+export const immatureClass = (matchCount: number) => {
+  if (matchCount <= 4) {
+    return 'very-immature'
+  } else if (matchCount <= 6) {
+    return 'immature'
+  } else {
+    return ''
   }
 }

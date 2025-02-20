@@ -300,7 +300,7 @@ def matches():
     sql = f"""
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
             mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating, a.id as athlete_id, a.name, mp.note, m.rated,
-            mp.rating_note, mp.weight_for_open
+            mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
         JOIN events e ON m.event_id = e.id
@@ -363,6 +363,8 @@ def matches():
                 note=row["note"],
                 weight_for_open=row["weight_for_open"],
                 rating_note=row["rating_note"],
+                start_match_count=row["start_match_count"],
+                end_match_count=row["end_match_count"],
             )
         )
 
@@ -387,11 +389,15 @@ def matches():
                     "winnerStartRating": round(winner.start_rating),
                     "winnerEndRating": round(winner.end_rating),
                     "winnerWeightForOpen": winner.weight_for_open,
+                    "winnerStartMatchCount": winner.start_match_count,
+                    "winnerEndMatchCount": winner.end_match_count,
                     "loser": loser.athlete.name,
                     "loserId": loser.athlete.id,
                     "loserStartRating": round(loser.start_rating),
                     "loserEndRating": round(loser.end_rating),
                     "loserWeightForOpen": loser.weight_for_open,
+                    "loserStartMatchCount": loser.start_match_count,
+                    "loserEndMatchCount": loser.end_match_count,
                     "event": current_match.event.name,
                     "age": current_match.division.age,
                     "gender": current_match.division.gender,

@@ -11,7 +11,7 @@ import DBFilters, {
 } from './DBFilters';
 import DBPagination from './DBPagination';
 import { useAppContext } from '../AppContext';
-import { axiosErrorToast } from '../utils';
+import { axiosErrorToast, immatureClass } from '../utils';
 
 
 import "./DBTable.css"
@@ -24,12 +24,16 @@ interface Row {
   winnerEndRating: number
   winnerWeightForOpen: string | null
   winnerRatingNote: string | null
+  winnerStartMatchCount: number
+  winnerEndMatchCount: number
   loser: string
   loserId: string
   loserStartRating: number
   loserEndRating: number
   loserWeightForOpen: string | null
   loserRatingNote: string | null
+  loserStartMatchCount: number
+  loserEndMatchCount: number
   event: string
   age: string
   gender: string
@@ -118,14 +122,15 @@ function DBTable() {
     setPage(pageNumber)
   }
 
-  const outcomeClass = (startRating: number, endRating: number) => {
+  const outcomeClass = (startRating: number, endRating: number, matchCount: number) => {
+    let ret = '';
     if (endRating > startRating) {
-      return 'has-text-success'
+      ret = 'has-text-success'
     } else if (endRating < startRating) {
-      return 'has-text-danger'
-    } else {
-      return ''
+      ret = 'has-text-danger'
     }
+
+    return ret + ' ' + immatureClass(matchCount);
   }
 
   const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {
@@ -245,9 +250,9 @@ function DBTable() {
               !!data.length && data.map((row: Row, index: number) => (
                 <tr key={row.id} className={classNames({"is-historical": isHistorical(row)})}>
                   <td data-id={row.winnerId}><a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a></td>
-                  <td>{row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}</td>
+                  <td><span className={immatureClass(row.winnerStartMatchCount)}>{row.winnerStartRating}</span> → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating, row.winnerEndMatchCount)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}</td>
                   <td data-id={row.loserId}><a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a></td>
-                  <td>{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, index === 0)}</td>
+                  <td><span className={immatureClass(row.loserStartMatchCount)}>{row.loserStartRating}</span> → <span className={outcomeClass(row.loserStartRating, row.loserEndRating, row.loserEndMatchCount)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, index === 0)}</td>
                   <td className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": index === 0})} data-tooltip={shortEvent(row) !== row.event ? row.event : undefined}>
                     <a href="#" onClick={e => eventClicked(e, row.event)}>{shortEvent(row)}</a>
                   </td>
@@ -287,10 +292,10 @@ function DBTable() {
                 <div className="card-content">
                   <div className="columns">
                     <div className="column" data-id={row.winnerId}>
-                      <strong>Winner:</strong> <a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a> {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, true)}
+                      <strong>Winner:</strong> <a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a> <span className={immatureClass(row.winnerStartMatchCount)}>{row.winnerStartRating}</span> → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating, row.winnerEndMatchCount)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, true)}
                     </div>
                     <div className="column has-text-right-tablet" data-id={row.loserId}>
-                      <strong>Loser:</strong> <a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a> {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, true)}
+                      <strong>Loser:</strong> <a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a> <span className={immatureClass(row.loserStartMatchCount)}>{row.loserStartRating}</span> → <span className={outcomeClass(row.loserStartRating, row.loserEndRating, row.loserEndMatchCount)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, true)}
                     </div>
                   </div>
                   <div className="columns">

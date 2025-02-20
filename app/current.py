@@ -14,6 +14,7 @@ from constants import (
     JUVENILE_1,
     JUVENILE_2,
 )
+from elo import RATING_VERY_IMMATURE_COUNT
 import logging
 
 log = logging.getLogger("ibjjf")
@@ -73,6 +74,7 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
                 (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
                 OR (mp.athlete_id NOT IN (SELECT athlete_id FROM athlete_adults))
             )
+            AND mp.match_count > :RATING_VERY_IMMATURE_COUNT
         ), athlete_lost_matches AS (
             SELECT DISTINCT
                 mp.athlete_id,
@@ -94,6 +96,7 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
                 (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT LIKE 'Juvenile%')
                 OR (mp.athlete_id NOT IN (SELECT athlete_id FROM athlete_adults))
             )
+            AND mp.match_count > :RATING_VERY_IMMATURE_COUNT
         ), athlete_weights_no_p4p AS (
             SELECT DISTINCT
                 mp.athlete_id,
@@ -279,6 +282,7 @@ def generate_current_ratings(
             "JUVENILE": JUVENILE,
             "JUVENILE_1": JUVENILE_1,
             "JUVENILE_2": JUVENILE_2,
+            "RATING_VERY_IMMATURE_COUNT": RATING_VERY_IMMATURE_COUNT,
             "activity_period": activity_period,
             "previous_date": previous_date,
         },
@@ -299,6 +303,7 @@ def generate_current_ratings(
             "JUVENILE": JUVENILE,
             "JUVENILE_1": JUVENILE_1,
             "JUVENILE_2": JUVENILE_2,
+            "RATING_VERY_IMMATURE_COUNT": RATING_VERY_IMMATURE_COUNT,
             "activity_period": activity_period,
             "previous_date": previous_date,
         },

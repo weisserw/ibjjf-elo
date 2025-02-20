@@ -147,7 +147,8 @@ class MatchParticipant(db.Model):
     start_rating = Column(Float, nullable=False)
     end_rating = Column(Float, nullable=False)
     weight_for_open = Column(String, nullable=True)
-    match_count = Column(Integer, nullable=False)
+    start_match_count = Column(Integer, nullable=False)
+    end_match_count = Column(Integer, nullable=False)
 
     athlete = relationship("Athlete", lazy="select", viewonly=True)
     match = relationship("Match", lazy="select", viewonly=True)

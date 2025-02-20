@@ -194,12 +194,16 @@ def match_didnt_happen(note1: str, note2: str) -> bool:
     return False
 
 
+RATING_VERY_IMMATURE_COUNT = 4
+RATING_IMMATURE_COUNT = 6
+
+
 def compute_k_factor(num_matches: int, unknown_open: bool, age: str) -> float:
     if unknown_open:
         k_factor = 32
-    elif num_matches < 5:
+    elif num_matches <= RATING_VERY_IMMATURE_COUNT:
         k_factor = 64
-    elif num_matches < 7:
+    elif num_matches <= RATING_IMMATURE_COUNT:
         k_factor = 48
     else:
         k_factor = 32
