@@ -40,6 +40,14 @@ span.clear-filter {
   top: 12px;
 }
 
+.immature {
+  opacity: 0.6;
+}
+
+.very-immature {
+  opacity: 0.3;
+}
+
 .very-immature-bullet {
   display: inline-block;
   background-color: rgb(255, 0, 0);
