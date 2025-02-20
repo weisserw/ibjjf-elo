@@ -69,6 +69,8 @@ def recompute_all_ratings(
                     blue_weight_for_open,
                     red_rating_note,
                     blue_rating_note,
+                    red_match_count,
+                    blue_match_count,
                 ) = compute_ratings(
                     db,
                     match.event_id,
@@ -110,6 +112,12 @@ def recompute_all_ratings(
                     changed = True
                 if blue.rating_note != blue_rating_note:
                     blue.rating_note = blue_rating_note
+                    changed = True
+                if red.match_count != red_match_count:
+                    red.match_count = red_match_count
+                    changed = True
+                if blue.match_count != blue_match_count:
+                    blue.match_count = blue_match_count
                     changed = True
                 if match.rated != rated:
                     match.rated = rated

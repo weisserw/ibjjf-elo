@@ -634,4 +634,6 @@ def compute_ratings(
         blue_weight,
         red_rating_note,
         blue_rating_note,
+        red_match_count,
+        blue_match_count,
     )
