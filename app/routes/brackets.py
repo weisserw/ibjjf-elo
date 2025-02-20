@@ -172,6 +172,7 @@ def get_ratings(results, age, belt, weight, gender, gi):
             AthleteRating.athlete_id,
             AthleteRating.rating,
             AthleteRating.rank,
+            AthleteRating.match_count,
         )
         .filter(
             AthleteRating.athlete_id.in_([result["id"] for result in results]),
@@ -194,6 +195,7 @@ def get_ratings(results, age, belt, weight, gender, gi):
         if rating:
             result["rating"] = round(rating.rating)
             result["rank"] = rating.rank
+            result["match_count"] = rating.match_count
         else:
             no_ratings_found.append(result)
 
@@ -207,6 +209,7 @@ def get_ratings(results, age, belt, weight, gender, gi):
                 MatchParticipant.id,
                 MatchParticipant.athlete_id,
                 MatchParticipant.end_rating,
+                MatchParticipant.end_match_count,
                 Division.belt,
                 Division.age,
                 func.row_number()
@@ -234,6 +237,7 @@ def get_ratings(results, age, belt, weight, gender, gi):
                 recent_matches.c.id,
                 recent_matches.c.athlete_id,
                 recent_matches.c.end_rating,
+                recent_matches.c.end_match_count,
                 recent_matches.c.belt,
                 recent_matches.c.age,
             )
@@ -278,14 +282,21 @@ def get_ratings(results, age, belt, weight, gender, gi):
                     division, last_match, same_or_higher_age_match is not None
                 )
 
-                ratings_by_id[rating.athlete_id] = adjusted_start_rating
+                ratings_by_id[rating.athlete_id] = (
+                    adjusted_start_rating,
+                    rating.end_match_count,
+                )
                 notes_by_id[rating.athlete_id] = note
             else:
-                ratings_by_id[rating.athlete_id] = rating.end_rating
+                ratings_by_id[rating.athlete_id] = (
+                    rating.end_rating,
+                    rating.end_match_count,
+                )
 
         for result in no_ratings_found:
             if result["id"] in ratings_by_id:
-                result["rating"] = round(ratings_by_id[result["id"]])
+                result["rating"] = round(ratings_by_id[result["id"]][0])
+                result["match_count"] = ratings_by_id[result["id"]][1]
             if result["id"] in notes_by_id:
                 result["note"] = notes_by_id[result["id"]]
 
@@ -430,6 +441,7 @@ def registration_competitors():
                         "ibjjf_id": None,
                         "seed": 0,
                         "rating": None,
+                        "match_count": None,
                         "rank": None,
                         "note": None,
                     }
@@ -520,6 +532,7 @@ def competitors():
                         "name": competitor_name,
                         "team": competitor_team,
                         "rating": None,
+                        "match_count": None,
                         "rank": None,
                         "note": None,
                     }

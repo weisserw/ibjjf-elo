@@ -7,6 +7,7 @@ const showToast = (message: string) => {
     dismissible: true,
     pauseOnHover: true,
     duration: 5000,
+    single: true,
   });
 }
 
@@ -22,7 +23,10 @@ export const axiosErrorToast = (error: any) => {
   }
 }
 
-export const immatureClass = (matchCount: number) => {
+export const immatureClass = (matchCount: number | null) => {
+  if (matchCount === null) {
+    return ''
+  }
   if (matchCount <= 4) {
     return 'very-immature'
   } else if (matchCount <= 6) {

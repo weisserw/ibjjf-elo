@@ -6,6 +6,7 @@ import { useAppContext } from '../AppContext';
 import DBPagination from './DBPagination';
 import EloFilters from './EloFilters';
 import Autosuggest from 'react-autosuggest';
+import classNames from 'classnames';
 import { axiosErrorToast, immatureClass } from '../utils';
 
 import "./EloTable.css"
@@ -261,7 +262,7 @@ function EloTable() {
                       </td>
                       <td className={"has-text-right " + immatureClass(row.match_count)}>{row.rating}</td>
                       <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
-                      <td className="has-text-centered has-tooltip-multiline" data-tooltip={'Athlete\'s rating is preliminary due to insufficient matches in the database'}>
+                      <td className={classNames("has-text-centered", {"has-tooltip-multiline": immatureClass(row.match_count) !== ''})} data-tooltip={immatureClass(row.match_count) !== '' ? 'Athlete\'s rating is preliminary due to insufficient matches in the database' : undefined}>
                         {
                           immatureClass(row.match_count) === 'very-immature' ? 
                             <span className="very-immature-bullet">&nbsp;</span> : (

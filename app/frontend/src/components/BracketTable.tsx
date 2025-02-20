@@ -1,5 +1,7 @@
-import type { Competitor } from "./BracketUtils";
+import { immatureClass } from "../utils";
 import classNames from 'classnames';
+import type { Competitor } from "./BracketUtils";
+
 
 interface BracketTableProps {
   competitors: Competitor[] | null;
@@ -52,6 +54,7 @@ function BracketTable(props: BracketTableProps) {
             <th>Team</th>
             <th className="has-text-right">Rating</th>
             <th className="has-text-right">Rank</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -74,6 +77,15 @@ function BracketTable(props: BracketTableProps) {
                   {competitor.rating ?? ''}
                 </td>
                 <td className="has-text-right">{competitor.rank ?? ''}</td>
+                <td className={classNames("has-text-centered", {"has-tooltip-multiline": immatureClass(competitor.match_count) != ''})} data-tooltip={immatureClass(competitor.match_count) !== '' ? 'Athlete\'s rating is preliminary due to insufficient matches in the database' : undefined}>
+                  {
+                    immatureClass(competitor.match_count) === 'very-immature' ? 
+                      <span className="very-immature-bullet">&nbsp;</span> : (
+                        immatureClass(competitor.match_count) === 'immature' &&
+                        <span className="immature-bullet">&nbsp;</span>
+                      )
+                  }
+                </td>
               </tr>
             ))
           }
