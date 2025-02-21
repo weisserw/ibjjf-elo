@@ -90,7 +90,7 @@ function BracketTable(props: BracketTableProps) {
                 <td className="has-text-right">
                   <span className={immatureClass(competitor.match_count)}>{competitor.rating ?? ''}</span>
                 </td>
-                <td className="has-text-right">{competitor.rank ?? ''}</td>
+                <td className="has-text-right">{immatureClass(competitor.match_count) !== 'very-immature' && (competitor.rank ?? '')}</td>
                 <td className={classNames("has-text-centered", {"has-tooltip-multiline has-tooltip-left": competitorTooltip(competitor)})} data-tooltip={competitorTooltip(competitor)}>
                   {
                     immatureClass(competitor.match_count) === 'very-immature' ? 
