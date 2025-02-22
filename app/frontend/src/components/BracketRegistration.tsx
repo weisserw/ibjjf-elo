@@ -71,7 +71,7 @@ function BracketRegistration() {
   const registrationAthleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => {
     ev.preventDefault()
     setFilters({
-      athlete_name: name,
+      athlete_name: '"' + name + '"',
     });
     setOpenFilters({athlete: true, event: false, division: false});
     setActiveTab(isGi(registrationEventName) ? 'Gi' : 'No Gi');

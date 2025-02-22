@@ -188,18 +188,36 @@ def matches():
     filters = ""
 
     if athlete_name:
-        filters += """AND EXISTS (
+        operator = "LIKE"
+        exact = athlete_name.strip().startswith('"') and athlete_name.strip().endswith(
+            '"'
+        )
+        if exact:
+            operator = "="
+            athlete_name = athlete_name.strip()[1:-1]
+        filters += f"""AND EXISTS (
             SELECT 1
             FROM athletes a
             JOIN match_participants mp ON a.id = mp.athlete_id
             WHERE mp.match_id = m.id
-            AND a.normalized_name LIKE :athlete_name
+            AND a.normalized_name {operator} :athlete_name
         )
         """
-        params["athlete_name"] = f"%{normalize(athlete_name)}%"
+        if exact:
+            params["athlete_name"] = normalize(athlete_name)
+        else:
+            params["athlete_name"] = f"%{normalize(athlete_name)}%"
     if event_name:
-        filters += "AND e.normalized_name LIKE :event_name\n"
-        params["event_name"] = f"%{normalize(event_name)}%"
+        operator = "LIKE"
+        exact = event_name.strip().startswith('"') and event_name.strip().endswith('"')
+        if exact:
+            operator = "="
+            event_name = event_name.strip()[1:-1]
+        filters += f"AND e.normalized_name {operator} :event_name\n"
+        if exact:
+            params["event_name"] = normalize(event_name)
+        else:
+            params["event_name"] = f"%{normalize(event_name)}%"
 
     genders = []
     if gender_male:

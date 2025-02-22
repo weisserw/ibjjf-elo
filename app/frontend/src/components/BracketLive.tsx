@@ -68,7 +68,7 @@ function BracketLive() {
       return;
     }
     setFilters({
-      athlete_name: name,
+      athlete_name: '"' + name + '"',
     });
     setOpenFilters({athlete: true, event: false, division: false});
     setActiveTab(isGi(event.name) ? 'Gi' : 'No Gi');

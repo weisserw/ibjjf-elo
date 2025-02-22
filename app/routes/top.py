@@ -55,7 +55,12 @@ def top():
     )
 
     if name:
-        query = query.filter(Athlete.normalized_name.like(f"%{normalize(name)}%"))
+        exact = name.strip().startswith('"') and name.strip().endswith('"')
+        if exact:
+            name = name.strip()[1:-1]
+            query = query.filter(Athlete.name == normalize(name))
+        else:
+            query = query.filter(Athlete.normalized_name.like(f"%{normalize(name)}%"))
 
     if changed:
         query = query.filter(

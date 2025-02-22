@@ -231,7 +231,7 @@ function DBFilters() {
                                onSuggestionsFetchRequested={debouncedGetAthleteSuggestions}
                                onSuggestionsClearRequested={() => setAthleteSuggestions([])}
                                multiSection={false}
-                               getSuggestionValue={(suggestion) => suggestion}
+                               getSuggestionValue={(suggestion) => '"' + suggestion + '"'}
                                renderSuggestion={(suggestion) => suggestion}
                                inputProps={{
                                  className: "input is-small",
@@ -299,7 +299,7 @@ function DBFilters() {
                                onSuggestionsFetchRequested={debouncedGetEventSuggestions}
                                onSuggestionsClearRequested={() => setEventSuggestions([])}
                                multiSection={false}
-                               getSuggestionValue={(suggestion) => suggestion}
+                               getSuggestionValue={(suggestion) => '"' + suggestion + '"'}
                                renderSuggestion={(suggestion) => suggestion}
                                inputProps={{
                                  className: "input is-small",

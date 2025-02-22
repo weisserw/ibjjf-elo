@@ -135,7 +135,7 @@ function DBTable() {
   const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {
     event.preventDefault()
     setFilters({
-      athlete_name: name,
+      athlete_name: '"' + name + '"',
     });
     setOpenFilters({athlete: true, event: false, division: false});
   }
@@ -144,7 +144,7 @@ function DBTable() {
     event.preventDefault()
     const newFilters = {...filters};
     delete newFilters.athlete_name;
-    newFilters.event_name = name;
+    newFilters.event_name = '"' + name + '"';
     setFilters(newFilters);
     setOpenFilters({...openFilters, event: true});
   }

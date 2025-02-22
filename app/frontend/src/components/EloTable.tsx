@@ -105,7 +105,7 @@ function EloTable() {
   const onNameClick = (e: React.MouseEvent, name: string) => {
     e.preventDefault();
   
-    setFilters({ athlete_name: name });
+    setFilters({ athlete_name: '"' + name + '"' });
     setOpenFilters({athlete: true, event: false, division: false});
     navigate('/database');
   };
@@ -204,7 +204,7 @@ function EloTable() {
                           onSuggestionsFetchRequested={debouncedGetAthleteSuggestions}
                           onSuggestionsClearRequested={() => setAthleteSuggestions([])}
                           multiSection={false}
-                          getSuggestionValue={(suggestion) => suggestion}
+                          getSuggestionValue={(suggestion) => '"' + suggestion + '"'}
                           renderSuggestion={(suggestion) => suggestion}
                           inputProps={{
                             className: "input",
