@@ -496,6 +496,9 @@ def compute_ratings(
     log.debug("Red match count: %s", red_match_count)
     log.debug("Blue match count: %s", blue_match_count)
 
+    red_end_match_count = red_match_count
+    blue_end_match_count = blue_match_count
+
     red_start_rating, red_rating_note = compute_start_rating(
         division, red_last_match, red_same_or_higher_age_match is not None
     )
@@ -535,7 +538,7 @@ def compute_ratings(
         blue_rating_note = append_rating_note(
             blue_rating_note, "Unrated: athlete suspended for anti-doping violation"
         )
-        log.debug("Match had two winners, not rating")
+        log.debug("Athlete suspended, not rating")
     elif red_winner and blue_winner:
         # match wasn't finished yet when we pulled the data, so neither athlete has been marked as the loser.
         red_end_rating = red_start_rating
@@ -619,6 +622,7 @@ def compute_ratings(
                     blue_rating_note,
                     "Unrated: sourced from medalists, silver keeps rating",
                 )
+                red_end_match_count += 1
                 log.debug("Blue rating not changed, only rating the winner")
             elif blue_winner and not red_winner:
                 red_end_rating = red_start_rating
@@ -626,7 +630,11 @@ def compute_ratings(
                     red_rating_note,
                     "Unrated: sourced from medalists, silver keeps rating",
                 )
+                blue_end_match_count += 1
                 log.debug("Red rating not changed, only rating the winner")
+        else:
+            red_end_match_count += 1
+            blue_end_match_count += 1
 
     return (
         rated,
@@ -639,5 +647,7 @@ def compute_ratings(
         red_rating_note,
         blue_rating_note,
         red_match_count,
+        red_end_match_count,
         blue_match_count,
+        blue_end_match_count,
     )

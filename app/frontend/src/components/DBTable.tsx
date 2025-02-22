@@ -247,7 +247,7 @@ function DBTable() {
             }
             {
               !!data.length && data.map((row: Row, index: number) => (
-                <tr key={row.id} className={classNames({"is-historical": isHistorical(row)})}>
+                <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row)})}>
                   <td data-id={row.winnerId}><a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a></td>
                   <td>{row.winnerStartRating}→ <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}</td>
                   <td data-id={row.loserId}><a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a></td>

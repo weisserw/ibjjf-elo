@@ -269,7 +269,8 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 note=row["Red Note"],
                                 start_rating=0,
                                 end_rating=0,
-                                match_count=0,
+                                start_match_count=0,
+                                end_match_count=0,
                             )
                             db.session.add(red_participant)
                             blue_participant = MatchParticipant(
@@ -282,7 +283,8 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 note=row["Blue Note"],
                                 start_rating=0,
                                 end_rating=0,
-                                match_count=0,
+                                start_match_count=0,
+                                end_match_count=0,
                             )
                             db.session.add(blue_participant)
 

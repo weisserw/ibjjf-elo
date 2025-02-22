@@ -3,7 +3,7 @@ from typing import Optional
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from progress_bar import Bar
-from models import Match, Division, Suspension, Athlete
+from models import Match, Division, Suspension, Athlete, MatchParticipant
 from elo import compute_ratings
 from current import generate_current_ratings
 from normalize import normalize
@@ -21,6 +21,7 @@ def recompute_all_ratings(
     rerankgi: bool = True,
     reranknogi: bool = True,
     rank_previous_date: Optional[datetime] = None,
+    athlete_id: Optional[str] = None,
 ) -> None:
     if score:
         query = db.session.query(Match).join(Division).filter(Division.gi == gi)
@@ -29,6 +30,15 @@ def recompute_all_ratings(
             query = query.filter(Division.gender == gender)
         if start_date is not None:
             query = query.filter(Match.happened_at >= start_date)
+
+        if athlete_id is not None:
+            subquery = (
+                db.session.query(Match.id)
+                .join(MatchParticipant)
+                .filter(MatchParticipant.athlete_id == athlete_id)
+                .subquery()
+            )
+            query = query.filter(Match.id.in_(subquery.select()))
 
         total = query.count()
 
@@ -69,8 +79,10 @@ def recompute_all_ratings(
                     blue_weight_for_open,
                     red_rating_note,
                     blue_rating_note,
-                    red_match_count,
-                    blue_match_count,
+                    red_start_match_count,
+                    red_end_match_count,
+                    blue_start_match_count,
+                    blue_end_match_count,
                 ) = compute_ratings(
                     db,
                     match.event_id,
@@ -89,36 +101,44 @@ def recompute_all_ratings(
 
                 changed = False
 
-                if red.start_rating != red_start_rating:
-                    red.start_rating = red_start_rating
-                    changed = True
-                if red.end_rating != red_end_rating:
-                    red.end_rating = red_end_rating
-                    changed = True
-                if blue.start_rating != blue_start_rating:
-                    blue.start_rating = blue_start_rating
-                    changed = True
-                if blue.end_rating != blue_end_rating:
-                    blue.end_rating = blue_end_rating
-                    changed = True
-                if red.weight_for_open != red_weight_for_open:
-                    red.weight_for_open = red_weight_for_open
-                    changed = True
-                if blue.weight_for_open != blue_weight_for_open:
-                    blue.weight_for_open = blue_weight_for_open
-                    changed = True
-                if red.rating_note != red_rating_note:
-                    red.rating_note = red_rating_note
-                    changed = True
-                if blue.rating_note != blue_rating_note:
-                    blue.rating_note = blue_rating_note
-                    changed = True
-                if red.match_count != red_match_count:
-                    red.match_count = red_match_count
-                    changed = True
-                if blue.match_count != blue_match_count:
-                    blue.match_count = blue_match_count
-                    changed = True
+                if athlete_id is None or athlete_id == red.athlete_id:
+                    if red.start_rating != red_start_rating:
+                        red.start_rating = red_start_rating
+                        changed = True
+                    if red.end_rating != red_end_rating:
+                        red.end_rating = red_end_rating
+                        changed = True
+                    if red.weight_for_open != red_weight_for_open:
+                        red.weight_for_open = red_weight_for_open
+                        changed = True
+                    if red.rating_note != red_rating_note:
+                        red.rating_note = red_rating_note
+                        changed = True
+                    if red.start_match_count != red_start_match_count:
+                        red.start_match_count = red_start_match_count
+                        changed = True
+                    if red.end_match_count != red_end_match_count:
+                        red.end_match_count = red_end_match_count
+                        changed = True
+                if athlete_id is None or athlete_id == blue.athlete_id:
+                    if blue.start_rating != blue_start_rating:
+                        blue.start_rating = blue_start_rating
+                        changed = True
+                    if blue.end_rating != blue_end_rating:
+                        blue.end_rating = blue_end_rating
+                        changed = True
+                    if blue.weight_for_open != blue_weight_for_open:
+                        blue.weight_for_open = blue_weight_for_open
+                        changed = True
+                    if blue.rating_note != blue_rating_note:
+                        blue.rating_note = blue_rating_note
+                        changed = True
+                    if blue.start_match_count != blue_start_match_count:
+                        blue.start_match_count = blue_start_match_count
+                        changed = True
+                    if blue.end_match_count != blue_end_match_count:
+                        blue.end_match_count = blue_end_match_count
+                        changed = True
                 if match.rated != rated:
                     match.rated = rated
                     changed = True
