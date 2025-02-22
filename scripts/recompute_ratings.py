@@ -44,6 +44,9 @@ def main():
         "--rank-previous-date", type=str, help="Compute rank changes since this date."
     )
     parser.add_argument(
+        "--athlete-id", type=str, help="Only recompute ratings for this athlete."
+    )
+    parser.add_argument(
         "--fg",
         action="store_true",
         help="Run in foreground. If not set, the script will run in the background.",
@@ -113,6 +116,7 @@ def run_recompute(args):
                 rerankgi=True,
                 reranknogi=False,
                 rank_previous_date=rank_previous_date,
+                athlete_id=args.athlete_id,
             )
             recompute_all_ratings(
                 db,
@@ -124,6 +128,7 @@ def run_recompute(args):
                 rerankgi=args.gi,
                 reranknogi=True,
                 rank_previous_date=rank_previous_date,
+                athlete_id=args.athlete_id,
             )
         else:
             recompute_all_ratings(
@@ -136,6 +141,7 @@ def run_recompute(args):
                 rerankgi=args.gi,
                 reranknogi=not args.gi,
                 rank_previous_date=rank_previous_date,
+                athlete_id=args.athlete_id,
             )
 
         db.session.commit()
