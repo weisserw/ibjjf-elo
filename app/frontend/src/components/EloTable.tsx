@@ -135,6 +135,9 @@ function EloTable() {
   }
 
   const rankChange = (row: Row) => {
+    if (immatureClass(row.match_count) === 'very-immature') {
+      return '';
+    }
     if (row.previous_rank === null) {
       return <span className="new-marker">New</span>;
     }
