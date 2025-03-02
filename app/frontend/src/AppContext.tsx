@@ -141,11 +141,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setRankingNameFilter(nameFilter);
   }, []);
 
+  const updateActiveTab = useCallback((tab: TabName) => {
+    setRankingPage(1);
+    setDbPage(1);
+    setActiveTab(tab);
+  }, []);
+
   return (
     <AppContext.Provider value={{
       filters, setFilters: updateFilters,
       openFilters, setOpenFilters,
-      activeTab, setActiveTab,
+      activeTab, setActiveTab: updateActiveTab,
       rankingGender, setRankingGender: updateRankingGender,
       rankingAge, setRankingAge: updateRankingAge,
       rankingBelt, setRankingBelt: updateRankingBelt,
