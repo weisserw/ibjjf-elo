@@ -430,7 +430,7 @@ def get_match_count(db, period, division, athlete_id, happened_at, match_id):
         .join(Division)
         .filter(
             Match.rated == True,
-            Match.rated_winner_only == False | MatchParticipant.winner == True,
+            (Match.rated_winner_only == False) | (MatchParticipant.winner == True),
             Division.gi == division.gi,
             Division.gender == division.gender,
             MatchParticipant.athlete_id == athlete_id,
