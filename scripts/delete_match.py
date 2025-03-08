@@ -113,7 +113,7 @@ if __name__ == "__main__":
             f"gi = {division.gi}, gender = {division.gender}."
         )
 
-        ids = set([participant.athlete_id for participant in participants])
+        ids = set([str(participant.athlete_id) for participant in participants])
         db.session.query(MatchParticipant).filter_by(match_id=match_uuid).delete()
         db.session.delete(match)
 

@@ -101,7 +101,7 @@ def recompute_all_ratings(
 
                 changed = False
 
-                if athlete_id is None or athlete_id == red.athlete_id:
+                if athlete_id is None or athlete_id == str(red.athlete_id):
                     if red.start_rating != red_start_rating:
                         red.start_rating = red_start_rating
                         changed = True
@@ -120,7 +120,7 @@ def recompute_all_ratings(
                     if red.end_match_count != red_end_match_count:
                         red.end_match_count = red_end_match_count
                         changed = True
-                if athlete_id is None or athlete_id == blue.athlete_id:
+                if athlete_id is None or athlete_id == str(blue.athlete_id):
                     if blue.start_rating != blue_start_rating:
                         blue.start_rating = blue_start_rating
                         changed = True
