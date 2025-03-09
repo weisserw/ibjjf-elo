@@ -49,6 +49,42 @@ interface Results {
   totalPages: number
 }
 
+const BLACK_WEIGHT_HANDICAPS = [
+  0,
+  54,
+  64,
+  132,
+  169,
+  176,
+  224,
+  373,
+  435,
+]
+
+const COLOR_WEIGHT_HANDICAPS = [
+  0,
+  23,
+  61,
+  74,
+  120,
+  182,
+  224,
+  373,
+  435,
+]
+
+const WEIGHT_CLASSES: Record<string, number> = {
+  'Rooster': 0,
+  'Light Feather': 1,
+  'Feather': 2,
+  'Light': 3,
+  'Middle': 4,
+  'Medium Heavy': 5,
+  'Heavy': 6,
+  'Super Heavy': 7,
+  'Ultra Heavy': 8
+}
+
 function DBTable() {
   const [loading, setLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
@@ -166,24 +202,42 @@ function DBTable() {
     setOpenFilters({...openFilters, division: true});
   }
 
-  const openWeightHintText = (row: Row) => {
+  const openWeightText = (row: Row): JSX.Element | undefined => {
     if (row.weight.startsWith('Open Class')) {
-      return `Weight classes: ${row.winnerWeightForOpen ?? 'Unknown'} vs ${row.loserWeightForOpen  ?? 'Unknown'}`
+      if (row.winnerWeightForOpen && row.loserWeightForOpen && WEIGHT_CLASSES[row.winnerWeightForOpen] !== undefined && WEIGHT_CLASSES[row.loserWeightForOpen] !== undefined) {
+        const winnerWeightIndex = WEIGHT_CLASSES[row.winnerWeightForOpen];
+        const loserWeightIndex = WEIGHT_CLASSES[row.loserWeightForOpen];
+
+        if (winnerWeightIndex === loserWeightIndex) {
+          return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen}</span>;
+        }
+
+        const handicapTable = row.belt === 'BLACK' ? BLACK_WEIGHT_HANDICAPS : COLOR_WEIGHT_HANDICAPS;
+        if (winnerWeightIndex > loserWeightIndex) {
+          const diff = winnerWeightIndex - loserWeightIndex;
+          const handicap = handicapTable[diff];
+          return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen} ({diff} {diff === 1 ? 'class' : 'classes'} apart), adjustment: {row.winnerStartRating} vs {row.loserStartRating} → <strong className="fw-600">{row.winnerStartRating + handicap}</strong> vs {row.loserStartRating}</span>
+        } else {
+          const diff = loserWeightIndex - winnerWeightIndex;
+          const handicap = handicapTable[diff];
+          return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen} ({diff} {diff === 1 ? 'class' : 'classes'} apart), adjustment: {row.winnerStartRating} vs {row.loserStartRating} → {row.winnerStartRating} vs <strong className="fw-600">{row.loserStartRating + handicap}</strong></span>
+        }
+      } else {
+        return <span>{row.winnerWeightForOpen ?? 'Unknown Weight'} vs {row.loserWeightForOpen  ?? 'Unknown Weight'}</span>
+      }
     } else {
       return undefined
     }
   }
 
-  const weightWithTooltip = (row: Row, bottom: boolean) => {
-    const hintText = openWeightHintText(row);
-    if (hintText) {
-      return (
-        <span className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": bottom})} data-tooltip={hintText}>
-          {row.weight}
-        </span>
-      )
+  const notesWithWeight = (row: Row) => {
+    const weightText = openWeightText(row);
+    if (row.notes && weightText) {
+      return <span>{weightText}, {row.notes}</span>
+    } else if (weightText) {
+      return weightText
     } else {
-      return row.weight
+      return <span>{row.notes}</span>
     }
   }
 
@@ -256,10 +310,10 @@ function DBTable() {
                     <a href="#" onClick={e => eventClicked(e, row.event)}>{shortEvent(row)}</a>
                   </td>
                   <td>
-                    <a href="#" onClick={e => divisionClicked(e, row)}>{row.age} / {row.gender} / {row.belt} / {weightWithTooltip(row, index === 0)}</a>
+                    <a href="#" onClick={e => divisionClicked(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
                   </td>
                   <td>{dayjs(row.date).format('MMM D YYYY, h:mma')}</td>
-                  <td>{row.notes}</td>
+                  <td>{notesWithWeight(row)}</td>
                 </tr>
               ))
             }
@@ -282,7 +336,7 @@ function DBTable() {
         }
         {
           !!data.length && data.map((row: Row) => {
-            const weightHintText = openWeightHintText(row);
+            const weightText = openWeightText(row);
             return (
               <div key={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row)})}>
                 <div className="date-box">
@@ -305,11 +359,11 @@ function DBTable() {
                       <a href="#" onClick={e => divisionClicked(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
                     </div>
                   </div>
-                  {(weightHintText || row.notes) &&
+                  {(weightText || row.notes) &&
                     <div className="columns">
                       <div className="column">
-                        {weightHintText &&
-                          <p>{weightHintText}</p>
+                        {weightText &&
+                          <p>{weightText}</p>
                         }
                         {row.notes &&
                           <p>{row.notes}</p>

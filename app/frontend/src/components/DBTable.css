@@ -39,3 +39,7 @@ div.notification.is-historical {
   justify-content: center;
   padding-top: 20px;
 }
+
+.fw-600 {
+  font-weight: 600;
+}
