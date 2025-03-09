@@ -209,21 +209,21 @@ function DBTable() {
         const loserWeightIndex = WEIGHT_CLASSES[row.loserWeightForOpen];
 
         if (winnerWeightIndex === loserWeightIndex) {
-          return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen}</span>;
+          return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen}, no adjustment</span>;
         }
 
         const handicapTable = row.belt === 'BLACK' ? BLACK_WEIGHT_HANDICAPS : COLOR_WEIGHT_HANDICAPS;
         if (winnerWeightIndex > loserWeightIndex) {
           const diff = winnerWeightIndex - loserWeightIndex;
           const handicap = handicapTable[diff];
-          return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen} ({diff} {diff === 1 ? 'class' : 'classes'} apart), adjustment: {row.winnerStartRating} vs {row.loserStartRating} → <strong className="fw-600">{row.winnerStartRating + handicap}</strong> vs {row.loserStartRating}</span>
+          return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen} ({diff} {diff === 1 ? 'class' : 'classes'} apart), adjustment: <strong className="fw-600">{row.winnerStartRating + handicap}</strong> (+{handicap}) vs {row.loserStartRating}</span>
         } else {
           const diff = loserWeightIndex - winnerWeightIndex;
           const handicap = handicapTable[diff];
-          return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen} ({diff} {diff === 1 ? 'class' : 'classes'} apart), adjustment: {row.winnerStartRating} vs {row.loserStartRating} → {row.winnerStartRating} vs <strong className="fw-600">{row.loserStartRating + handicap}</strong></span>
+          return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen} ({diff} {diff === 1 ? 'class' : 'classes'} apart), adjustment: {row.winnerStartRating} vs <strong className="fw-600">{row.loserStartRating + handicap}</strong> (+{handicap})</span>
         }
       } else {
-        return <span>{row.winnerWeightForOpen ?? 'Unknown Weight'} vs {row.loserWeightForOpen  ?? 'Unknown Weight'}</span>
+        return <span>{row.winnerWeightForOpen ?? 'Unknown Weight'} vs {row.loserWeightForOpen  ?? 'Unknown Weight'}, no adjustment</span>
       }
     } else {
       return undefined
