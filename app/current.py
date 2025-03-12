@@ -320,8 +320,8 @@ def generate_current_ratings(
         text(
             f"""
         INSERT INTO athlete_ratings (id, athlete_id, gender, age, belt, gi, weight,
-                                     rating, match_count, match_happened_at, rank, previous_rating, previous_rank)
-        SELECT {id_generate}, c.*, p.end_rating, p.rank
+                                     rating, match_count, match_happened_at, rank, previous_rating, previous_rank, previous_match_count)
+        SELECT {id_generate}, c.*, p.end_rating, p.rank, p.end_match_count
         FROM temp_current_ratings c
         LEFT JOIN temp_previous_ratings p ON c.athlete_id = p.athlete_id AND c.gender = p.gender AND c.age = p.age AND
                                              c.belt = p.belt AND c.gi = p.gi AND c.weight = p.weight;

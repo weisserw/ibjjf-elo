@@ -193,6 +193,7 @@ class AthleteRating(db.Model):
     match_count = Column(Integer, nullable=False)
     previous_rating = Column(Float, nullable=True)
     previous_rank = Column(Integer, nullable=True)
+    previous_match_count = Column(Integer, nullable=True)
 
     athlete = relationship("Athlete", lazy="select", viewonly=True)
 

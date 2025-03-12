@@ -42,6 +42,7 @@ def top():
             AthleteRating.match_count,
             AthleteRating.previous_rating,
             AthleteRating.previous_rank,
+            AthleteRating.previous_match_count,
         )
         .select_from(AthleteRating)
         .join(Athlete)
@@ -92,6 +93,7 @@ def top():
                 else round(result.previous_rating)
             ),
             "previous_rank": result.previous_rank,
+            "previous_match_count": result.previous_match_count,
         }
         for result in results
     ]

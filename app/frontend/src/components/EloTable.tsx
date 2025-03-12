@@ -18,6 +18,7 @@ interface Row {
   rating: number
   match_count: number
   previous_rating: number | null
+  previous_match_count: number | null
 }
 
 interface Results {
@@ -138,7 +139,7 @@ function EloTable() {
     if (immatureClass(row.match_count) === 'very-immature') {
       return '';
     }
-    if (row.previous_rank === null) {
+    if (row.previous_rank === null || immatureClass(row.previous_match_count) === 'very-immature') {
       return <span className="new-marker">New</span>;
     }
     if (ratingChange(row) === '' || (row.rank === row.previous_rank)) {
