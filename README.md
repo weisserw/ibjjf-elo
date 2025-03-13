@@ -21,14 +21,14 @@ This app is built with the following technologies:
 2. Install Python packages (create a virtual environment first):
 
 ```
-$ pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 3. Run database migrations:
 
 ```
-$ cd app
-/app $ flask db upgrade
+cd app
+flask db upgrade
 ```
 
 This will create a SQLite database in app/instance/app.db
@@ -36,15 +36,15 @@ This will create a SQLite database in app/instance/app.db
 4. Run Python web app:
 
 ```
-/app $ flask run --debug
+flask run --debug
 ```
 
 5. In another terminal, install NPM packages and run the Vite dev server:
 
 ```
-/app $ cd frontend
-/app/frontend $ npm install
-/app/frontend $ npm run dev
+cd frontend
+npm install
+npm run dev
 ```
 
 Now you can open the URL that `npm` prints to the terminal to use the app.
