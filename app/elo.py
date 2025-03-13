@@ -360,9 +360,7 @@ def compute_start_rating(
                 f"Athlete was promoted one belt, adding {promotion_rating_bump} to rating"
             )
             start_rating = last_match.end_rating + promotion_rating_bump
-        rating_note = (
-            f"Promoted from {last_match.match.division.belt} to {division.belt}"
-        )
+        rating_note = f"Promoted from {last_match.match.division.belt} to {division.belt} (+{promotion_rating_bump})"
     elif (
         age_order.index(last_match.match.division.age) < age_order.index(division.age)
         and not has_same_or_higher_age_match
