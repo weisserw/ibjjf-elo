@@ -93,6 +93,18 @@ function BracketRegistration() {
     });
   }, [registrationCompetitors])
 
+  const ratingAverage = useMemo(() => {
+    if (registrationCompetitors === null || registrationCompetitors.length === 0) {
+      return undefined
+    }
+    const ratings = registrationCompetitors.map(c => c.rating).filter(r => r !== undefined && r !== null) as number[]
+    if (ratings.length === 0) {
+      return undefined
+    }
+    const sum = ratings.reduce((a, b) => a + b, 0)
+    return Math.round(sum / ratings.length)
+  }, [registrationCompetitors])
+
   const onRegistrationUrlKeyDown = (ev: React.KeyboardEvent<HTMLInputElement>) => {
     if (ev.key === 'Enter' && registrationUrl) {
       getRegistrationCategories()
@@ -176,15 +188,26 @@ function BracketRegistration() {
             </p>
             {
               registrationCategories.length > 0 && (
-                <div className="field">
-                  <div className="select">
-                    <select className="select" value={selectedRegistrationCategory ?? ''} onChange={e => {setSelectedRegistrationCategory(e.target.value); }}>
-                      {
-                        registrationCategories.map(category => (
-                          <option key={category} value={category}>{category}</option>
-                        ))
-                      }
-                    </select>
+                <div className="columns no-bottom-margin">
+                  <div className="column no-padding">
+                    <div className="field">
+                      <div className="select">
+                        <select className="select" value={selectedRegistrationCategory ?? ''} onChange={e => {setSelectedRegistrationCategory(e.target.value); }}>
+                          {
+                            registrationCategories.map(category => (
+                              <option key={category} value={category}>{category}</option>
+                            ))
+                          }
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="column">
+                  {
+                    ratingAverage !== undefined && (
+                      <span>{`Average rating for division: ${ratingAverage}`}</span>
+                    )
+                  }
                   </div>
                 </div>
               )

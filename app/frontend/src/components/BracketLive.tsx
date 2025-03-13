@@ -228,6 +228,18 @@ function BracketLive() {
     })
   }, [competitors, sortColumn])
 
+  const ratingAverage = useMemo(() => {
+    if (competitors === null || competitors.length === 0) {
+      return undefined
+    }
+    const ratings = competitors.map(c => c.rating).filter(r => r !== undefined && r !== null) as number[]
+    if (ratings.length === 0) {
+      return undefined
+    }
+    const sum = ratings.reduce((a, b) => a + b, 0)
+    return Math.round(sum / ratings.length)
+  }, [competitors])
+
   return (
     <div className="brackets-content">
       <div>
@@ -266,15 +278,26 @@ function BracketLive() {
             <div className="category-list">
               {
                 categories.length > 0 && (
-                  <div className="field">
-                    <div className="select">
-                      <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
-                        {
-                          categories.map(category => (
-                            <option key={category.link} value={categoryString(category)}>{categoryString(category)}</option>
-                          ))
-                        }
-                      </select>
+                  <div className="columns no-bottom-margin">
+                    <div className="column no-padding">
+                      <div className="field">
+                        <div className="select">
+                          <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
+                            {
+                              categories.map(category => (
+                                <option key={category.link} value={categoryString(category)}>{categoryString(category)}</option>
+                              ))
+                            }
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="column">
+                    {
+                      ratingAverage !== undefined && (
+                        <span>{`Average rating for division: ${ratingAverage}`}</span>
+                      )
+                    }
                     </div>
                   </div>
                 )
