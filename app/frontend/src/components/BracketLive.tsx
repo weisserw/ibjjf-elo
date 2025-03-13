@@ -228,7 +228,7 @@ function BracketLive() {
     })
   }, [competitors, sortColumn])
 
-  const ratingAverage = useMemo(() => {
+  const averageRating = useMemo(() => {
     if (competitors === null || competitors.length === 0) {
       return undefined
     }
@@ -279,7 +279,7 @@ function BracketLive() {
               {
                 categories.length > 0 && (
                   <div className="columns no-bottom-margin">
-                    <div className="column no-padding">
+                    <div className="column column-padding is-vcentered">
                       <div className="field">
                         <div className="select">
                           <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
@@ -292,10 +292,10 @@ function BracketLive() {
                         </div>
                       </div>
                     </div>
-                    <div className="column">
+                    <div className="column is-vcentered">
                     {
-                      ratingAverage !== undefined && (
-                        <span>{`Average rating for division: ${ratingAverage}`}</span>
+                      averageRating !== undefined && (
+                        <span>{`Average rating: ${averageRating}`}</span>
                       )
                     }
                     </div>

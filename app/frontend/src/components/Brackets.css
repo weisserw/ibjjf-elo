@@ -48,3 +48,8 @@
   padding-top: 0 !important;
   padding-bottom: 0 !important;
 }
+
+.column-padding {
+  padding-top: 4px !important;
+  padding-bottom: 0 !important;
+}
