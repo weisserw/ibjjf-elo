@@ -41,6 +41,9 @@ function Navbar() {
           <Link className={getNavItemClass("/brackets")} to="/brackets">
             Bracket Lookup
           </Link>
+          {/*<Link className={getNavItemClass("/calculator")} to="/calculator">
+            Calculator
+          </Link>*/}
           <Link className={getNavItemClass("/about")} to="/about">
             About
           </Link>

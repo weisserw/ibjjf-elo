@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import Ratings from './components/Ratings';
 import Database from './components/Database';
 import Brackets from './components/Brackets';
+import Calculator from './components/Calculator';
 import About from './components/About';
 import NotFound from './components/NotFound';
 import { AppProvider } from './AppContext';
@@ -22,6 +23,7 @@ function App() {
               <Route path="/" element={<Ratings />} />
               <Route path="/database" element={<Database />} />
               <Route path="/brackets" element={<Brackets />} />
+              <Route path="/calculator" element={<Calculator />} />
               <Route path="/about" element={<About />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

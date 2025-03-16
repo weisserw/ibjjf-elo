@@ -266,6 +266,37 @@ def get_weight(
     return weight
 
 
+def weight_handicaps(
+    belt: str,
+    red_weight: str,
+    blue_weight: str,
+):
+    # look up the index in the weight class order for each athlete
+    red_weight_index = weight_class_order.index(red_weight)
+    blue_weight_index = weight_class_order.index(blue_weight)
+
+    if belt == BLACK:
+        handicaps = BLACK_WEIGHT_HANDICAPS
+    else:
+        handicaps = COLOR_WEIGHT_HANDICAPS
+
+    weight_difference = abs(red_weight_index - blue_weight_index)
+    if weight_difference >= len(handicaps):
+        weight_difference = len(handicaps) - 1
+
+    log.debug("Weight difference: %s", weight_difference)
+
+    red_handicap = 0
+    blue_handicap = 0
+    if red_weight_index < blue_weight_index:
+        # if red weighs less, add points to blue's rating
+        blue_handicap = handicaps[weight_difference]
+    else:
+        red_handicap = handicaps[weight_difference]
+
+    return red_handicap, blue_handicap
+
+
 def open_handicaps(
     db: SQLAlchemy,
     event_id: str,
@@ -291,28 +322,11 @@ def open_handicaps(
         "Open class match, red weight: %s, blue weight: %s", red_weight, blue_weight
     )
 
-    # look up the index in the weight class order for each athlete
-    red_weight_index = weight_class_order.index(red_weight)
-    blue_weight_index = weight_class_order.index(blue_weight)
-
-    if division.belt == BLACK:
-        handicaps = BLACK_WEIGHT_HANDICAPS
-    else:
-        handicaps = COLOR_WEIGHT_HANDICAPS
-
-    weight_difference = abs(red_weight_index - blue_weight_index)
-    if weight_difference >= len(handicaps):
-        weight_difference = len(handicaps) - 1
-
-    log.debug("Weight difference: %s", weight_difference)
-
-    red_handicap = 0
-    blue_handicap = 0
-    if red_weight_index < blue_weight_index:
-        # if red weighs less, add points to blue's rating
-        blue_handicap = handicaps[weight_difference]
-    else:
-        red_handicap = handicaps[weight_difference]
+    red_handicap, blue_handicap = weight_handicaps(
+        division.belt,
+        red_weight,
+        blue_weight,
+    )
 
     log.debug("Red handicap: %s, blue handicap: %s", red_handicap, blue_handicap)
 

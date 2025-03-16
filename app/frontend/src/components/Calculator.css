@@ -1,0 +1,21 @@
+.calculator-container {
+  padding: 8px;
+}
+
+.calculator-header {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.calculator-header .field {
+  margin-bottom: 0;
+}
+
+span.clear-filter-2 {
+  cursor: pointer;
+  position: absolute;
+  right: 8px;
+  top: 46px;
+}
