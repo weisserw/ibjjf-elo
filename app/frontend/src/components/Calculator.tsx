@@ -67,14 +67,10 @@ function Calculator() {
   const [firstExpected, setFirstExpected] = useState<number | null>(0.0)
   const [secondExpected, setSecondExpected] = useState<number | null>(0.0)
   const [firstWin, setFirstWin] = useState(0)
-  const [secondWin, setSecondWin] = useState(0)
   const [firstLoss, setFirstLoss] = useState(0)
-  const [secondLoss, setSecondLoss] = useState(0)
   const [firstTie, setFirstTie] = useState(0)
-  const [secondTie, setSecondTie] = useState(0)
   const [firstHandicap, setFirstHandicap] = useState(0)
   const [secondHandicap, setSecondHandicap] = useState(0)
-  const [kFactor, setKFactor] = useState(0)
 
   const {
     activeTab
@@ -163,14 +159,10 @@ function Calculator() {
         setFirstExpected(first_expected);
         setSecondExpected(second_expected); 
         setFirstWin(first_win);
-        setSecondWin(second_win);
         setFirstLoss(first_loss);
-        setSecondLoss(second_loss);
         setFirstTie(first_tie);
-        setSecondTie(second_tie);
         setFirstHandicap(response.data.red_handicap);
         setSecondHandicap(response.data.blue_handicap);
-        setKFactor(response.data.red_k_factor);
       })
       .catch(error => {
         axiosErrorToast(error);
@@ -243,7 +235,7 @@ function Calculator() {
         <div className="column">
           <div className="calculator-header">
             <div className="field position-relative">
-              <label className="label">Search for First Athlete</label>
+              <label className="label">Search for Athlete</label>
               <Autosuggest suggestions={athleteSuggestions1}
                            onSuggestionsFetchRequested={debouncedGetAthleteSuggestions1}
                            onSuggestionsClearRequested={() => setAthleteSuggestions1([])}
@@ -273,7 +265,7 @@ function Calculator() {
               }
             </div>
             <div className="field position-relative">
-              <label className="label">Search for Second Athlete</label>
+              <label className="label">Search for Opponent</label>
               <Autosuggest suggestions={athleteSuggestions2}
                            onSuggestionsFetchRequested={debouncedGetAthleteSuggestions2}
                            onSuggestionsClearRequested={() => setAthleteSuggestions2([])}
@@ -307,7 +299,7 @@ function Calculator() {
           <div className="column">
             <div className="calculator-header">
               <div className="field">
-                <label className="label">First Athlete Rating</label>
+                <label className="label">Athlete Rating</label>
                 <div className="control">
                   <input
                     className="input"
@@ -323,7 +315,7 @@ function Calculator() {
                 </div>
               </div>
               <div className="field">
-                <label className="label">Second Athlete Rating</label>
+                <label className="label">Opponent Rating</label>
                 <div className="control">
                   <input
                     className="input"
@@ -393,7 +385,7 @@ function Calculator() {
           </div>
           <div className="column is-3">
             <div className="field">
-              <label className="label">First Weight</label>
+              <label className="label">Athlete Weight</label>
               <div className="select">
                 <select value={firstWeight} onChange={e => setFirstWeight(e.target.value)} disabled={!openWeight}>
                 {
@@ -407,7 +399,7 @@ function Calculator() {
           </div>
           <div className="column is-3">
             <div className="field">
-              <label className="label">Second Weight</label>
+              <label className="label">Opponent Weight</label>
               <div className="select">
                 <select value={secondWeight} onChange={e => setSecondWeight(e.target.value)} disabled={!openWeight}>
                 {
@@ -422,31 +414,31 @@ function Calculator() {
         </div>
         { (firstExpected !== null && secondExpected !== null) &&
           <>
-            <h2 className="mb-4">
-              {formatAthleteRatings()}, K-factor: {Math.round(kFactor)}
+            <h2 className="mb-4 mt-5">
+              {formatAthleteRatings()}
             </h2>
             <table className="table is-fullwidth">
               <thead></thead>
               <tbody>
                 <tr>
-                  <td>{firstAthleteToFetch ? firstAthleteToFetch : 'First athlete'} expected victory:</td>
-                  <td>{Math.round(firstExpected * 100)}%</td>
+                  <td>{firstAthleteToFetch ? firstAthleteToFetch : 'Athlete'} expected victory:</td>
+                  <td className="has-text-right">{Math.round(firstExpected * 100)}%</td>
                 </tr>
                 <tr>
-                  <td>{secondAthleteToFetch ? secondAthleteToFetch : 'Second athlete'} expected victory:</td>
-                  <td>{Math.round(secondExpected * 100)}%</td>
+                  <td>{secondAthleteToFetch ? secondAthleteToFetch : 'Opponent'} expected victory:</td>
+                  <td className="has-text-right">{Math.round(secondExpected * 100)}%</td>
                 </tr>
                 <tr>
-                  <td>Rating change if {firstAthleteToFetch ? firstAthleteToFetch : 'first athlete'} wins:</td>
-                  <td>{addPlus(Math.round(firstWin))} / {addPlus(Math.round(secondLoss))}</td>
+                  <td>Rating change if {firstAthleteToFetch ? firstAthleteToFetch : 'athlete'} wins:</td>
+                  <td className="has-text-right">{addPlus(Math.round(firstWin))}</td>
                 </tr>
                 <tr>
-                  <td>Rating change if {secondAthleteToFetch ? secondAthleteToFetch : 'second athlete'} wins:</td>
-                  <td>{addPlus(Math.round(firstLoss))} / {addPlus(Math.round(secondWin))}</td>
+                  <td>Rating change if {secondAthleteToFetch ? secondAthleteToFetch : 'opponent'} wins:</td>
+                  <td className="has-text-right">{addPlus(Math.round(firstLoss))}</td>
                 </tr>
                 <tr>
                   <td>Rating change if match is a tie:</td>
-                  <td>{addPlus(Math.round(firstTie))} / {addPlus(Math.round(secondTie))}</td>
+                  <td className="has-text-right">{addPlus(Math.round(firstTie))}</td>
                 </tr>
               </tbody>
             </table>
