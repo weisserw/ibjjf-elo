@@ -149,11 +149,8 @@ function Calculator() {
           first_expected,
           second_expected,
           first_win,
-          second_win,
           first_loss,
-          second_loss,
           first_tie,
-          second_tie,
         } = response.data;
 
         setFirstExpected(first_expected);
