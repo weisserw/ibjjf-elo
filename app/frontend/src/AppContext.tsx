@@ -66,6 +66,12 @@ interface AppContextProps {
   setBracketRegistrationSelectedCategory: (category: string | null) => void;
   bracketRegistrationCompetitors: BracketCompetitor[] | null;
   setBracketRegistrationCompetitors: (competitors: BracketCompetitor[] | null) => void;
+  calcGender: string;
+  setCalcGender: (gender: string) => void;
+  calcFirstAthlete: string;
+  setCalcFirstAthlete: (athlete: string) => void;
+  calcSecondAthlete: string;
+  setCalcSecondAthlete: (athlete: string) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -104,6 +110,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketRegistrationCategories, setBracketRegistrationCategories] = useState<string[] | null>(null)
   const [bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory] = useState<string | null>(null)
   const [bracketRegistrationCompetitors, setBracketRegistrationCompetitors] = useState<BracketCompetitor[] | null>(null)
+  const [calcGender, setCalcGender] = useState('Male')
+  const [calcFirstAthlete, setCalcFirstAthlete] = useState('')
+  const [calcSecondAthlete, setCalcSecondAthlete] = useState('')
 
   const updateFilters = useCallback((newFilters: FilterValues) => {
     // Reset the page when filters change
@@ -174,6 +183,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketRegistrationCategories, setBracketRegistrationCategories,
       bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory,
       bracketRegistrationCompetitors, setBracketRegistrationCompetitors,
+      calcGender, setCalcGender,
+      calcFirstAthlete, setCalcFirstAthlete,
+      calcSecondAthlete, setCalcSecondAthlete,
     }}>
       {children}
     </AppContext.Provider>

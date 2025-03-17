@@ -1,4 +1,5 @@
 import { useAppContext } from "../AppContext"
+import { ages } from "../utils"
 
 import "./EloFilters.css"
 
@@ -131,15 +132,11 @@ function EloFilters() {
           <label className="label">Age</label>
           <div className="select">
             <select value={age} onChange={onAgeChange}>
-              <option>Juvenile</option>
-              <option>Adult</option>
-              <option>Master 1</option>
-              <option>Master 2</option>
-              <option>Master 3</option>
-              <option>Master 4</option>
-              <option>Master 5</option>
-              <option>Master 6</option>
-              <option>Master 7</option>
+              {
+                ages.map(age => (
+                  <option key={age} value={age}>{age}</option>
+                ))
+              }
             </select>
           </div>
         </div>

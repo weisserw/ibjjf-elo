@@ -35,3 +35,15 @@ export const immatureClass = (matchCount: number | null) => {
     return ''
   }
 }
+
+export const ages = [
+  'Juvenile',
+  'Adult',
+  'Master 1',
+  'Master 2',
+  'Master 3',
+  'Master 4',
+  'Master 5',
+  'Master 6',
+  'Master 7',
+]

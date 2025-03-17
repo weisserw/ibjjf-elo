@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy.sql import exists
 from extensions import db
-from models import Athlete, MatchParticipant, Match, Division, AthleteRating
+from models import Athlete, MatchParticipant, Match, Division
 from normalize import normalize
 from elo import EloCompetitor, AGE_K_FACTOR_MODIFIERS, weight_handicaps
+from constants import OPEN_CLASS, OPEN_CLASS_HEAVY, OPEN_CLASS_LIGHT
 
 athletes_route = Blueprint("athletes_route", __name__)
 
@@ -83,35 +84,39 @@ def ratings():
 
     query = (
         db.session.query(
-            AthleteRating.rating,
-            AthleteRating.age,
-            AthleteRating.weight,
-            AthleteRating.belt,
+            MatchParticipant.end_rating,
+            Division.age,
+            Division.weight,
+            Division.belt,
         )
+        .select_from(MatchParticipant)
+        .join(Match)
+        .join(Division)
         .join(Athlete)
         .filter(Athlete.normalized_name == name)
-        .filter(AthleteRating.gi == gi)
+        .filter(Division.gi == gi)
     )
 
-    for rating in (
-        query.filter(AthleteRating.weight != "")
-        .order_by(AthleteRating.match_happened_at.desc())
-        .limit(1)
-        .all()
-    ):
+    weight_query = (
+        query.filter(Division.weight != OPEN_CLASS)
+        .filter(Division.weight != OPEN_CLASS_HEAVY)
+        .filter(Division.weight != OPEN_CLASS_LIGHT)
+    )
+
+    for rating in weight_query.order_by(Match.happened_at.desc()).limit(1).all():
         return jsonify(
             {
-                "rating": rating.rating,
+                "rating": rating.end_rating,
                 "age": rating.age,
                 "weight": rating.weight,
                 "belt": rating.belt,
             }
         )
 
-    for rating in query.order_by(AthleteRating.match_happened_at.desc()).limit(1).all():
+    for rating in query.order_by(Match.happened_at.desc()).limit(1).all():
         return jsonify(
             {
-                "rating": rating.rating,
+                "rating": rating.end_rating,
                 "age": rating.age,
                 "weight": None,
                 "belt": rating.belt,
@@ -169,6 +174,14 @@ def athletes():
         for name_part in search.split():
             additional_query = additional_query.filter(
                 Athlete.normalized_name.like(f"%{name_part}%")
+            )
+        if gi:
+            additional_query = additional_query.filter(
+                exists().where(Athlete.id == subquery_gi.c.athlete_id)
+            )
+        if gender:
+            additional_query = additional_query.filter(
+                exists().where(Athlete.id == subquery_gender.c.athlete_id)
             )
         additional_query = additional_query.order_by(Athlete.name).limit(
             remaining_count
