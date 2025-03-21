@@ -4,6 +4,14 @@ from requests.adapters import HTTPAdapter
 from datetime import datetime
 from bs4 import BeautifulSoup
 import re
+import logging
+
+# Enable logging at DEBUG level
+logging.basicConfig(level=logging.DEBUG)
+
+# Enable logging for requests library
+logging.getLogger("urllib3").setLevel(logging.DEBUG)
+logging.getLogger("requests").setLevel(logging.DEBUG)
 
 
 class InternalServerError(Exception):
@@ -23,6 +31,7 @@ def rate_limit_get(session, url, limit, raise_on_error, retries):
             resp = session.get(url, timeout=30)
             if resp.status_code == 500:
                 raise InternalServerError(f"Server error for {url}: {resp.status_code}")
+            return resp
         except requests.exceptions.ConnectionError:
             if raise_on_error and count > retries:
                 raise
@@ -107,6 +116,11 @@ def pull_tournament(
     total_categories = 0
 
     s = requests.Session()
+    s.headers.update(
+        {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+        }
+    )
     if not raise_on_error:
         s.mount(base_url, HTTPAdapter(max_retries=0))
 
