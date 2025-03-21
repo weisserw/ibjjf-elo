@@ -6,23 +6,39 @@ from bs4 import BeautifulSoup
 import re
 
 
-def rate_limit_get(session, url, limit, raise_on_error):
+class InternalServerError(Exception):
+    """Custom exception for handling internal server errors."""
+
+    pass
+
+
+def rate_limit_get(session, url, limit, raise_on_error, retries):
     if limit:
         time.sleep(limit)
+    if retries is None:
+        retries = 0
     count = 1
     while True:
         try:
-            return session.get(url, timeout=30)
+            resp = session.get(url, timeout=30)
+            if resp.status_code == 500:
+                raise InternalServerError(f"Server error for {url}: {resp.status_code}")
         except requests.exceptions.ConnectionError:
-            if raise_on_error:
+            if raise_on_error and count > retries:
                 raise
             print(f"Connection error, retrying in {30 * count} seconds", flush=True)
             time.sleep(30 * count)
             count += 1
         except requests.exceptions.Timeout:
-            if raise_on_error:
+            if raise_on_error and count > retries:
                 raise
             print(f"Timeout error, retrying in {30 * count} seconds", flush=True)
+            time.sleep(30 * count)
+            count += 1
+        except InternalServerError:
+            if raise_on_error and count > retries:
+                raise
+            print(f"Internal server error, retrying in {30 * count}", flush=True)
             time.sleep(30 * count)
             count += 1
 
@@ -84,6 +100,7 @@ def pull_tournament(
     year,
     limit=None,
     raise_on_error=True,
+    retries=None,
 ):
     total_matches = 0
     total_defaults = 0
@@ -95,7 +112,7 @@ def pull_tournament(
 
     for url, gender in urls:
         print(f"Fetching data for {gender} categories from {url}", flush=True)
-        response = rate_limit_get(s, url, limit, raise_on_error)
+        response = rate_limit_get(s, url, limit, raise_on_error, retries)
 
         if response.status_code != 200:
             if raise_on_error:
@@ -127,7 +144,7 @@ def pull_tournament(
             )
 
             categoryurl = f"{base_url}{link}"
-            response = rate_limit_get(s, categoryurl, limit, raise_on_error)
+            response = rate_limit_get(s, categoryurl, limit, raise_on_error, retries)
             if response.status_code != 200:
                 if raise_on_error:
                     raise Exception(

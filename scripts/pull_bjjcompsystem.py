@@ -32,6 +32,12 @@ def main():
         group.add_argument(
             "--gi", action="store_true", dest="gi", help="Specifies a gi tournament"
         )
+        group.add_argument(
+            "--retries",
+            type=int,
+            default=2,
+            help="Number of retries for failed requests (default: 2)",
+        )
         args = parser.parse_args()
 
         tournament_name_lower = args.tournament_name.lower()
@@ -83,6 +89,7 @@ def main():
                 urls,
                 "https://www.bjjcompsystem.com",
                 datetime.now().year,
+                retries=args.retries,
             )
         print(f"Wrote data to {output_file}")
     except Exception as e:
