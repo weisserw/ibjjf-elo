@@ -23,7 +23,7 @@ def upgrade():
     connection.execute(
         sa.text(
             "INSERT INTO suspensions (id, athlete_name, start_date, end_date) VALUES "
-            "('716b9475-ac73-4937-83b0-44b902f16d56', 'Cássio Felipe Sousa Costa', '2025-12-13 00:00:00', '2025-12-30 23:59:59')"
+            "('716b9475-ac73-4937-83b0-44b902f16d56', 'Cássio Felipe Sousa Costa', '2024-12-13 00:00:00', '2025-12-30 23:59:59')"
         )
     )
     # ### end Alembic commands ###
