@@ -32,13 +32,13 @@ def main():
         group.add_argument(
             "--gi", action="store_true", dest="gi", help="Specifies a gi tournament"
         )
-        group.add_argument(
+        parser.add_argument(
             "--retries",
             type=int,
             default=2,
             help="Number of retries for failed requests (default: 2)",
         )
-        group.add_argument(
+        parser.add_argument(
             "--allow-errors",
             action="store_true",
             help="Don't abort on errors (default: False)",
