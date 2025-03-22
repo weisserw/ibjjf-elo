@@ -38,6 +38,11 @@ def main():
             default=2,
             help="Number of retries for failed requests (default: 2)",
         )
+        group.add_argument(
+            "--allow-errors",
+            action="store_true",
+            help="Don't abort on errors (default: False)",
+        )
         args = parser.parse_args()
 
         tournament_name_lower = args.tournament_name.lower()
@@ -89,6 +94,7 @@ def main():
                 urls,
                 "https://www.bjjcompsystem.com",
                 datetime.now().year,
+                raise_on_error=not args.allow_errors,
                 retries=args.retries,
             )
         print(f"Wrote data to {output_file}")
