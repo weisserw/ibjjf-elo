@@ -89,6 +89,7 @@ def main():
                 args.year,
                 5,
                 False,
+                incomplete=True,
             )
         print(f"Wrote data to {output_file}")
     except Exception as e:

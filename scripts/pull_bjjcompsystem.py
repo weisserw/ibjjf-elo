@@ -43,6 +43,12 @@ def main():
             action="store_true",
             help="Don't abort on errors (default: False)",
         )
+        parser.add_argument(
+            "--incomplete",
+            action="store_true",
+            help="Tournament is incomplete; ignore unfinished matches (default: False)",
+        )
+
         args = parser.parse_args()
 
         tournament_name_lower = args.tournament_name.lower()
@@ -96,6 +102,7 @@ def main():
                 datetime.now().year,
                 raise_on_error=not args.allow_errors,
                 retries=args.retries,
+                incomplete=args.incomplete,
             )
         print(f"Wrote data to {output_file}")
     except Exception as e:

@@ -183,6 +183,8 @@ no_match_strings = [
     "Disqualified by withdraw",
 ]
 
+WINNER_NOT_RECORDED = "Winner not recorded by the IBJJF"
+
 COLOR_PROMOTION_RATING_BUMP = 140
 BLACK_PROMOTION_RATING_BUMP = 95
 
@@ -575,6 +577,17 @@ def compute_ratings(
             blue_rating_note, "Unrated: athlete did not participate"
         )
         log.debug("Match didn't happen, not rating")
+    elif red_note == WINNER_NOT_RECORDED or blue_note == WINNER_NOT_RECORDED:
+        red_end_rating = red_start_rating
+        blue_end_rating = blue_start_rating
+        rated = False
+        red_rating_note = append_rating_note(
+            red_rating_note, f"Unrated: {WINNER_NOT_RECORDED}"
+        )
+        blue_rating_note = append_rating_note(
+            blue_rating_note, f"Unrated: {WINNER_NOT_RECORDED}"
+        )
+        log.debug("Winner not recorded, not rating")
     else:
         if unknown_open:
             log.debug("Open class match with unknown weights, using minimum k factor")

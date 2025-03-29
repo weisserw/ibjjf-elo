@@ -4,6 +4,7 @@ from requests.adapters import HTTPAdapter
 from datetime import datetime
 from bs4 import BeautifulSoup
 import re
+from elo import WINNER_NOT_RECORDED
 
 
 class InternalServerError(Exception):
@@ -102,6 +103,7 @@ def pull_tournament(
     limit=None,
     raise_on_error=True,
     retries=None,
+    incomplete=False,
 ):
     total_matches = 0
     total_defaults = 0
@@ -110,6 +112,8 @@ def pull_tournament(
     s = requests.Session()
     if not raise_on_error:
         s.mount(base_url, HTTPAdapter(max_retries=0))
+
+    unfinished = []
 
     for url, gender in urls:
         print(f"Fetching data for {gender} categories from {url}", flush=True)
@@ -278,6 +282,24 @@ def pull_tournament(
                     blue_competitor_note["title"] if blue_competitor_note else ""
                 )
 
+                if (
+                    not incomplete
+                    and not red_competitor_loser
+                    and not blue_competitor_loser
+                ):
+                    red_competitor_note = WINNER_NOT_RECORDED
+                    blue_competitor_loser = True
+                    unfinished.append(
+                        (
+                            gender,
+                            age,
+                            belt,
+                            weight,
+                            red_competitor_name,
+                            blue_competitor_name,
+                        )
+                    )
+
                 writer.writerow(
                     [
                         tournament_id,
@@ -306,7 +328,8 @@ def pull_tournament(
                 file.flush()
 
                 category_matches += 1
-                total_matches += 1
+                if not incomplete or (red_competitor_loser or blue_competitor_loser):
+                    total_matches += 1
 
             print(
                 f"Recorded {category_matches} matches and {category_defaults} default golds for {age} / {belt} / {weight}",
@@ -316,3 +339,30 @@ def pull_tournament(
         f"Total matches recorded: {total_matches}, Total default golds recorded: {total_defaults}, Total divisions processed: {total_categories}",
         flush=True,
     )
+
+    if len(unfinished):
+        print("!!!Warning!!!: Unfinished matches detected:")
+
+        unfinished_by_division = {}
+
+        for (
+            gender,
+            age,
+            belt,
+            weight,
+            red_competitor_name,
+            blue_competitor_name,
+        ) in unfinished:
+            division = f"{belt} / {age} / {gender} / {weight}"
+            if division not in unfinished_by_division:
+                unfinished_by_division[division] = []
+            unfinished_by_division[division].append(
+                f"{red_competitor_name} vs {blue_competitor_name}"
+            )
+        for division, matches in unfinished_by_division.items():
+            if len(matches) > 1:
+                print(f"{division}: {len(matches)} matches")
+            else:
+                print(f"{division}: {matches[0]}")
+
+        print("!!! These matches will be recorded as unrated in the database !!!")
