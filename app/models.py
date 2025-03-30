@@ -61,6 +61,7 @@ class Division(db.Model):
 
     __table_args__ = (
         Index("ix_divisions_all", "gi", "gender", "age", "belt", "weight"),
+        Index("ix_divisions_age_covering", "age", "id"),
     )
 
     def display_name(self):
@@ -76,7 +77,7 @@ class Athlete(db.Model):
 
     __table_args__ = (
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),
-        Index("ix_athletes_normalized_name", "normalized_name"),
+        Index("ix_athletes_normalized_name_covering", "normalized_name", "id"),
     )
 
 
@@ -128,7 +129,7 @@ class Match(db.Model):
         Index("ix_matches_event_id", "event_id"),
         Index("ix_matches_division_id", "division_id"),
         Index("ix_matches_happened_at", "happened_at"),
-        Index("ix_matches_division_id_covering", "division_id", "id"),
+        Index("ix_matches_division_id_covering", "division_id", "happened_at", "id"),
     )
 
 
@@ -181,6 +182,12 @@ class MatchParticipant(db.Model):
         ),
     )
 
+Index('ix_match_participants_winners', MatchParticipant.match_id,
+      MatchParticipant.athlete_id,
+      postgresql_where=MatchParticipant.winner == True)
+Index('ix_match_participants_losers', MatchParticipant.match_id,
+      MatchParticipant.athlete_id,
+      postgresql_where=MatchParticipant.winner == False)
 
 class AthleteRating(db.Model):
     __tablename__ = "athlete_ratings"

@@ -92,7 +92,7 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
             AND d.gi in ({gi_in})
             AND m.rated
             AND (
-                (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT LIKE 'Juvenile%')
+                (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
                 OR (mp.athlete_id NOT IN (SELECT athlete_id FROM athlete_adults))
             )
         ), athlete_weights_no_p4p AS (
