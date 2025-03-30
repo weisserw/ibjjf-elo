@@ -20,31 +20,58 @@ import logging
 log = logging.getLogger("ibjjf")
 
 
-def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
-    return f"""
-        WITH
-        athlete_max_belts AS (
-            SELECT
-                MAX(CASE WHEN d.belt = 'WHITE' THEN 1
-                         WHEN d.belt = 'BLUE' THEN 2
-                         WHEN d.belt = 'PURPLE' THEN 3
-                         WHEN d.belt = 'BROWN' THEN 4
-                         ELSE 5 END) AS belt_num, mp.athlete_id
-            FROM matches m
-            JOIN match_participants mp ON m.id = mp.match_id
-            JOIN athletes a ON a.id = mp.athlete_id
-            JOIN divisions d ON d.id = m.division_id
-            WHERE {date_where}
-            AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
-            GROUP BY mp.athlete_id
-        ), athlete_belts AS (
-            SELECT CASE WHEN mb.belt_num = 1 THEN 'WHITE'
-                        WHEN mb.belt_num = 2 THEN 'BLUE'
-                        WHEN mb.belt_num = 3 THEN 'PURPLE'
-                        WHEN mb.belt_num = 4 THEN 'BROWN'
-                        ELSE 'BLACK' END AS belt, mb.athlete_id
-            FROM athlete_max_belts mb
-        ), athlete_adults AS (
+def create_ratings_tables(
+    session,
+    gi_in: str,
+    date_where: str,
+    banned: List[str],
+    activity_period: datetime,
+    previous_date: Optional[datetime],
+    name: str,
+) -> str:
+    session.execute(
+        text(
+            f"""
+                CREATE TEMPORARY TABLE {name}_athlete_belts AS
+                WITH
+                athlete_max_belts AS (
+                    SELECT
+                        MAX(CASE WHEN d.belt = 'WHITE' THEN 1
+                                WHEN d.belt = 'BLUE' THEN 2
+                                WHEN d.belt = 'PURPLE' THEN 3
+                                WHEN d.belt = 'BROWN' THEN 4
+                                ELSE 5 END) AS belt_num, mp.athlete_id
+                    FROM matches m
+                    JOIN match_participants mp ON m.id = mp.match_id
+                    JOIN athletes a ON a.id = mp.athlete_id
+                    JOIN divisions d ON d.id = m.division_id
+                    WHERE {date_where}
+                    AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
+                    GROUP BY mp.athlete_id
+                )
+                SELECT CASE WHEN mb.belt_num = 1 THEN 'WHITE'
+                            WHEN mb.belt_num = 2 THEN 'BLUE'
+                            WHEN mb.belt_num = 3 THEN 'PURPLE'
+                            WHEN mb.belt_num = 4 THEN 'BROWN'
+                            ELSE 'BLACK' END AS belt, mb.athlete_id
+                FROM athlete_max_belts mb
+            """
+        ),
+        {
+            "previous_date": previous_date,
+        },
+    )
+    session.execute(
+        text(
+            f"CREATE INDEX {name}_athlete_belts_ix ON {name}_athlete_belts (athlete_id, belt)"
+        )
+    )
+    session.execute(text(f"ANALYZE {name}_athlete_belts"))
+
+    session.execute(
+        text(
+            f"""
+            CREATE TEMPORARY TABLE {name}_athlete_adults AS
             SELECT DISTINCT mp.athlete_id
             FROM matches m
             JOIN match_participants mp ON m.id = mp.match_id
@@ -53,7 +80,26 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
             WHERE {date_where}
             AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
             AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2)
-        ), athlete_won_matches AS (
+            """
+        ),
+        {
+            "JUVENILE": JUVENILE,
+            "JUVENILE_1": JUVENILE_1,
+            "JUVENILE_2": JUVENILE_2,
+            "previous_date": previous_date,
+        },
+    )
+    session.execute(
+        text(
+            f"CREATE INDEX {name}_athlete_adults_ix ON {name}_athlete_adults (athlete_id)"
+        )
+    )
+    session.execute(text(f"ANALYZE {name}_athlete_adults"))
+
+    session.execute(
+        text(
+            f"""
+            CREATE TEMPORARY TABLE {name}_athlete_won_matches AS
             SELECT DISTINCT
                 mp.athlete_id,
                 d.gi,
@@ -64,8 +110,8 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
             FROM match_participants mp
             JOIN matches m ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
-            JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
-            LEFT JOIN athlete_adults ta ON ta.athlete_id = mp.athlete_id
+            JOIN {name}_athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
+            LEFT JOIN {name}_athlete_adults ta ON ta.athlete_id = mp.athlete_id
             WHERE mp.winner = TRUE
             AND {date_where}
             AND m.happened_at >= :activity_period
@@ -75,7 +121,27 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
                 (ta.athlete_id IS NOT NULL AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
                 OR (ta.athlete_id IS NULL)
             )
-        ), athlete_lost_matches AS (
+        """
+        ),
+        {
+            "JUVENILE": JUVENILE,
+            "JUVENILE_1": JUVENILE_1,
+            "JUVENILE_2": JUVENILE_2,
+            "activity_period": activity_period,
+            "previous_date": previous_date,
+        },
+    )
+    session.execute(
+        text(
+            f"CREATE INDEX {name}_athlete_won_matches_ix ON {name}_athlete_won_matches (athlete_id, gi, gender, age, belt, weight)"
+        )
+    )
+    session.execute(text(f"ANALYZE {name}_athlete_won_matches"))
+
+    session.execute(
+        text(
+            f"""
+            CREATE TEMPORARY TABLE {name}_athlete_lost_matches AS
             SELECT DISTINCT
                 mp.athlete_id,
                 d.gi,
@@ -86,8 +152,8 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
             FROM match_participants mp
             JOIN matches m ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
-            JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
-            LEFT JOIN athlete_adults ta ON ta.athlete_id = mp.athlete_id
+            JOIN {name}_athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
+            LEFT JOIN {name}_athlete_adults ta ON ta.athlete_id = mp.athlete_id
             WHERE mp.winner = FALSE
             AND {date_where}
             AND m.happened_at >= :activity_period
@@ -97,111 +163,155 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
                 (ta.athlete_id IS NOT NULL AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
                 OR (ta.athlete_id IS NULL)
             )
-        ), athlete_weights_no_p4p AS (
-            SELECT DISTINCT
-                mp.athlete_id,
-                d.gi,
-                d.gender,
-                d.age,
-                d.belt,
-                d.weight
-            FROM match_participants mp
-            JOIN matches m ON m.id = mp.match_id
-            JOIN divisions d ON d.id = m.division_id
-            WHERE {date_where} AND d.weight NOT IN (:OPEN_CLASS, :OPEN_CLASS_LIGHT, :OPEN_CLASS_HEAVY) AND (
-                -- to qualify for a weight class, the athlete must have either won a match in this weight division...
-                EXISTS (
-                    SELECT 1
-                    FROM athlete_won_matches wm
-                    WHERE wm.athlete_id = mp.athlete_id
-                    AND wm.gi = d.gi
-                    AND wm.gender = d.gender
-                    AND wm.age = d.age
-                    AND wm.belt = d.belt
-                    AND wm.weight = d.weight
-                ) OR (
-                    -- ...or lost a match in this division and not won a match at a different weight
+        """
+        ),
+        {
+            "JUVENILE": JUVENILE,
+            "JUVENILE_1": JUVENILE_1,
+            "JUVENILE_2": JUVENILE_2,
+            "activity_period": activity_period,
+            "previous_date": previous_date,
+        },
+    )
+    session.execute(
+        text(
+            f"CREATE INDEX {name}_athlete_lost_matches_ix ON {name}_athlete_lost_matches (athlete_id, gi, gender, age, belt, weight)"
+        )
+    )
+    session.execute(text(f"ANALYZE {name}_athlete_lost_matches"))
+
+    session.execute(
+        text(
+            f"""
+            CREATE TEMPORARY TABLE {name} AS
+            WITH
+            athlete_weights_no_p4p AS (
+                SELECT DISTINCT
+                    mp.athlete_id,
+                    d.gi,
+                    d.gender,
+                    d.age,
+                    d.belt,
+                    d.weight
+                FROM match_participants mp
+                JOIN matches m ON m.id = mp.match_id
+                JOIN divisions d ON d.id = m.division_id
+                WHERE {date_where} AND d.weight NOT IN (:OPEN_CLASS, :OPEN_CLASS_LIGHT, :OPEN_CLASS_HEAVY) AND (
+                    -- to qualify for a weight class, the athlete must have either won a match in this weight division...
                     EXISTS (
                         SELECT 1
-                        FROM athlete_lost_matches lm
-                        WHERE lm.athlete_id = mp.athlete_id
-                        AND lm.gi = d.gi
-                        AND lm.gender = d.gender
-                        AND lm.age = d.age
-                        AND lm.belt = d.belt
-                        AND lm.weight = d.weight
-                    ) AND NOT EXISTS (
-                        SELECT 1
-                        FROM athlete_won_matches wm
+                        FROM {name}_athlete_won_matches wm
                         WHERE wm.athlete_id = mp.athlete_id
                         AND wm.gi = d.gi
                         AND wm.gender = d.gender
                         AND wm.age = d.age
                         AND wm.belt = d.belt
-                        AND wm.weight != d.weight
+                        AND wm.weight = d.weight
+                    ) OR (
+                        -- ...or lost a match in this division and not won a match at a different weight
+                        EXISTS (
+                            SELECT 1
+                            FROM {name}_athlete_lost_matches lm
+                            WHERE lm.athlete_id = mp.athlete_id
+                            AND lm.gi = d.gi
+                            AND lm.gender = d.gender
+                            AND lm.age = d.age
+                            AND lm.belt = d.belt
+                            AND lm.weight = d.weight
+                        ) AND NOT EXISTS (
+                            SELECT 1
+                            FROM {name}_athlete_won_matches wm
+                            WHERE wm.athlete_id = mp.athlete_id
+                            AND wm.gi = d.gi
+                            AND wm.gender = d.gender
+                            AND wm.age = d.age
+                            AND wm.belt = d.belt
+                            AND wm.weight != d.weight
+                        )
                     )
                 )
+            ), athlete_weights AS (
+                SELECT * FROM athlete_weights_no_p4p
+                UNION ALL
+                SELECT athlete_id, gi, gender, age, belt, '' AS weight FROM (
+                    SELECT athlete_id, gi, gender, age, belt
+                    FROM {name}_athlete_won_matches
+                    UNION
+                    SELECT athlete_id, gi, gender, age, belt
+                    FROM {name}_athlete_lost_matches
+                ) q
+            ), recent_matches AS (
+                SELECT
+                    m.happened_at,
+                    mp.athlete_id,
+                    mp.end_rating,
+                    mp.end_match_count,
+                    d.gi,
+                    d.gender,
+                    m.id AS match_id,
+                    ROW_NUMBER() OVER (PARTITION BY mp.athlete_id, d.gi, d.gender ORDER BY m.happened_at DESC, m.id) AS rn
+                FROM matches m
+                JOIN match_participants mp ON m.id = mp.match_id
+                JOIN divisions d ON d.id = m.division_id
+                JOIN {name}_athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
+                WHERE d.gi in ({gi_in}) AND {date_where}
+            ), ratings AS (
+                SELECT
+                    rm.athlete_id,
+                    rm.end_rating,
+                    rm.end_match_count,
+                    rm.gender,
+                    aw.age,
+                    aw.belt,
+                    rm.gi,
+                    aw.weight,
+                    rm.happened_at
+                FROM recent_matches rm
+                JOIN athlete_weights aw ON aw.athlete_id = rm.athlete_id
+                    AND aw.gi = rm.gi
+                    AND aw.gender = rm.gender
+                WHERE rm.rn = 1
             )
-        ), athlete_weights AS (
-            SELECT * FROM athlete_weights_no_p4p
-            UNION ALL
-            SELECT athlete_id, gi, gender, age, belt, '' AS weight FROM (
-                SELECT athlete_id, gi, gender, age, belt
-                FROM athlete_won_matches
-                UNION
-                SELECT athlete_id, gi, gender, age, belt
-                FROM athlete_lost_matches
-            ) q
-        ), recent_matches AS (
             SELECT
-                m.happened_at,
-                mp.athlete_id,
-                mp.end_rating,
-                mp.end_match_count,
-                d.gi,
-                d.gender,
-                m.id AS match_id,
-                ROW_NUMBER() OVER (PARTITION BY mp.athlete_id, d.gi, d.gender ORDER BY m.happened_at DESC, m.id) AS rn
-            FROM matches m
-            JOIN match_participants mp ON m.id = mp.match_id
-            JOIN divisions d ON d.id = m.division_id
-            JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
-            WHERE d.gi in ({gi_in}) AND {date_where}
-        ), ratings AS (
-            SELECT
-                rm.athlete_id,
-                rm.end_rating,
-                rm.end_match_count,
-                rm.gender,
-                aw.age,
-                aw.belt,
-                rm.gi,
-                aw.weight,
-                rm.happened_at
-            FROM recent_matches rm
-            JOIN athlete_weights aw ON aw.athlete_id = rm.athlete_id
-                AND aw.gi = rm.gi
-                AND aw.gender = rm.gender
-            WHERE rm.rn = 1
-        )
-        SELECT
-            athlete_id,
-            gender,
-            age,
-            belt,
-            gi,
-            weight,
-            end_rating,
-            end_match_count,
-            happened_at,
-            RANK() OVER (
-                PARTITION BY gender, age, belt, gi, weight
-                ORDER BY
-                    CASE WHEN end_match_count <= :RATING_VERY_IMMATURE_COUNT THEN 1 ELSE 0 END ASC,
-                    ROUND(end_rating) DESC
-            ) AS rank
-        FROM ratings
+                athlete_id,
+                gender,
+                age,
+                belt,
+                gi,
+                weight,
+                end_rating,
+                end_match_count,
+                happened_at,
+                RANK() OVER (
+                    PARTITION BY gender, age, belt, gi, weight
+                    ORDER BY
+                        CASE WHEN end_match_count <= :RATING_VERY_IMMATURE_COUNT THEN 1 ELSE 0 END ASC,
+                        ROUND(end_rating) DESC
+                ) AS rank
+            FROM ratings
+            WHERE weight IS NOT NULL
             """
+        ),
+        {
+            "OPEN_CLASS": OPEN_CLASS,
+            "OPEN_CLASS_LIGHT": OPEN_CLASS_LIGHT,
+            "OPEN_CLASS_HEAVY": OPEN_CLASS_HEAVY,
+            "JUVENILE": JUVENILE,
+            "JUVENILE_1": JUVENILE_1,
+            "JUVENILE_2": JUVENILE_2,
+            "RATING_VERY_IMMATURE_COUNT": RATING_VERY_IMMATURE_COUNT,
+            "previous_date": previous_date,
+        },
+    )
+    session.execute(text(f"ANALYZE {name}"))
+
+
+def drop_ratings_tables(session, name: str) -> None:
+    session.execute(text(f"DROP TABLE {name}_athlete_belts"))
+    session.execute(text(f"DROP TABLE {name}_athlete_adults"))
+    session.execute(text(f"DROP TABLE {name}_athlete_won_matches"))
+    session.execute(text(f"DROP TABLE {name}_athlete_lost_matches"))
+    session.execute(text(f"DROP TABLE {name}"))
 
 
 def previous_tuesday(dt: datetime) -> datetime:
@@ -271,52 +381,24 @@ def generate_current_ratings(
     )
     banned_normalized = [normalize(b[0]) for b in banned]
 
-    ratings_board = get_ratings_query(gi_in, "true", banned_normalized)
-    previous_ratings_board = get_ratings_query(
-        gi_in, "m.happened_at < :previous_date", banned_normalized
+    create_ratings_tables(
+        db.session,
+        gi_in,
+        "true",
+        banned_normalized,
+        activity_period,
+        None,
+        "temp_current_ratings",
     )
-
-    db.session.execute(
-        text(
-            f"""
-        CREATE TEMPORARY TABLE temp_previous_ratings AS
-        {previous_ratings_board}
-            """
-        ),
-        {
-            "OPEN_CLASS": OPEN_CLASS,
-            "OPEN_CLASS_LIGHT": OPEN_CLASS_LIGHT,
-            "OPEN_CLASS_HEAVY": OPEN_CLASS_HEAVY,
-            "JUVENILE": JUVENILE,
-            "JUVENILE_1": JUVENILE_1,
-            "JUVENILE_2": JUVENILE_2,
-            "RATING_VERY_IMMATURE_COUNT": RATING_VERY_IMMATURE_COUNT,
-            "activity_period": activity_period,
-            "previous_date": previous_date,
-        },
+    create_ratings_tables(
+        db.session,
+        gi_in,
+        "m.happened_at < :previous_date",
+        banned_normalized,
+        activity_period,
+        previous_date,
+        "temp_previous_ratings",
     )
-    db.session.execute(text("ANALYZE temp_previous_ratings"))
-
-    db.session.execute(
-        text(
-            f"""
-        CREATE TEMPORARY TABLE temp_current_ratings AS
-        {ratings_board}
-            """
-        ),
-        {
-            "OPEN_CLASS": OPEN_CLASS,
-            "OPEN_CLASS_LIGHT": OPEN_CLASS_LIGHT,
-            "OPEN_CLASS_HEAVY": OPEN_CLASS_HEAVY,
-            "JUVENILE": JUVENILE,
-            "JUVENILE_1": JUVENILE_1,
-            "JUVENILE_2": JUVENILE_2,
-            "RATING_VERY_IMMATURE_COUNT": RATING_VERY_IMMATURE_COUNT,
-            "activity_period": activity_period,
-            "previous_date": previous_date,
-        },
-    )
-    db.session.execute(text("ANALYZE temp_current_ratings"))
 
     db.session.execute(
         text(
@@ -331,5 +413,5 @@ def generate_current_ratings(
         )
     )
 
-    db.session.execute(text("DROP TABLE temp_previous_ratings"))
-    db.session.execute(text("DROP TABLE temp_current_ratings"))
+    drop_ratings_tables(db.session, "temp_current_ratings")
+    drop_ratings_tables(db.session, "temp_previous_ratings")
