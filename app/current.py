@@ -32,6 +32,7 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
                          ELSE 5 END) AS belt_num, mp.athlete_id
             FROM matches m
             JOIN match_participants mp ON m.id = mp.match_id
+            JOIN athletes a ON a.id = mp.athlete_id
             JOIN divisions d ON d.id = m.division_id
             WHERE {date_where}
             AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
