@@ -182,12 +182,20 @@ class MatchParticipant(db.Model):
         ),
     )
 
-Index('ix_match_participants_winners', MatchParticipant.match_id,
-      MatchParticipant.athlete_id,
-      postgresql_where=MatchParticipant.winner == True)
-Index('ix_match_participants_losers', MatchParticipant.match_id,
-      MatchParticipant.athlete_id,
-      postgresql_where=MatchParticipant.winner == False)
+
+Index(
+    "ix_match_participants_winners",
+    MatchParticipant.match_id,
+    MatchParticipant.athlete_id,
+    postgresql_where=MatchParticipant.winner == True,
+)
+Index(
+    "ix_match_participants_losers",
+    MatchParticipant.match_id,
+    MatchParticipant.athlete_id,
+    postgresql_where=MatchParticipant.winner == False,
+)
+
 
 class AthleteRating(db.Model):
     __tablename__ = "athlete_ratings"

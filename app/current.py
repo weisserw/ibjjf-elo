@@ -65,14 +65,15 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
             JOIN matches m ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
             JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
+            LEFT JOIN athlete_adults ta ON ta.athlete_id = mp.athlete_id
             WHERE mp.winner = TRUE
             AND {date_where}
             AND m.happened_at >= :activity_period
             AND d.gi in ({gi_in})
             AND m.rated
             AND (
-                (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
-                OR (mp.athlete_id NOT IN (SELECT athlete_id FROM athlete_adults))
+                (ta.athlete_id IS NOT NULL AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
+                OR (ta.athlete_id IS NULL)
             )
         ), athlete_lost_matches AS (
             SELECT DISTINCT
@@ -86,14 +87,15 @@ def get_ratings_query(gi_in: str, date_where: str, banned: List[str]) -> str:
             JOIN matches m ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
             JOIN athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
+            LEFT JOIN athlete_adults ta ON ta.athlete_id = mp.athlete_id
             WHERE mp.winner = FALSE
             AND {date_where}
             AND m.happened_at >= :activity_period
             AND d.gi in ({gi_in})
             AND m.rated
             AND (
-                (mp.athlete_id IN (SELECT athlete_id FROM athlete_adults) AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
-                OR (mp.athlete_id NOT IN (SELECT athlete_id FROM athlete_adults))
+                (ta.athlete_id IS NOT NULL AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
+                OR (ta.athlete_id IS NULL)
             )
         ), athlete_weights_no_p4p AS (
             SELECT DISTINCT
