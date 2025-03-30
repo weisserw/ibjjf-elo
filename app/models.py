@@ -128,6 +128,7 @@ class Match(db.Model):
         Index("ix_matches_event_id", "event_id"),
         Index("ix_matches_division_id", "division_id"),
         Index("ix_matches_happened_at", "happened_at"),
+        Index("ix_matches_division_id_covering", "division_id", "id"),
     )
 
 
@@ -175,6 +176,9 @@ class MatchParticipant(db.Model):
         Index("ix_match_participants_match_id", "match_id"),
         Index("ix_match_participants_athlete_id", "athlete_id"),
         Index("ix_match_participants_team_id", "team_id"),
+        Index(
+            "ix_match_participants_match_id_covering", "match_id", "athlete_id", "id"
+        ),
     )
 
 
