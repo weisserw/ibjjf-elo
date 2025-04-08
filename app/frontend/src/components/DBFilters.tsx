@@ -199,7 +199,7 @@ function DBFilters() {
     }
   }
 
-  const debouncedGetEventSuggestions = useCallback(debounce(getEventSuggestions, 300, {trailing: true}), []);
+  const debouncedGetEventSuggestions = useCallback(debounce(getEventSuggestions, 300, {trailing: true}), [gi]);
 
   return (
     <div className={classNames("box accordion-box", {"open": isOpen})}>
