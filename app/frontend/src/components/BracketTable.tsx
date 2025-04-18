@@ -1,12 +1,16 @@
-import { immatureClass } from "../utils";
+import { immatureClass } from "../utils"
 import classNames from 'classnames';
-import type { Competitor } from "./BracketUtils";
+import { useAppContext } from '../AppContext'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import type { Competitor } from "./BracketUtils"
 
 
 interface BracketTableProps {
   competitors: Competitor[] | null;
   sortColumn?: string;
   showSeed: boolean;
+  isGi: boolean;
   columnClicked?: (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => void;
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => void;
 }
@@ -14,8 +18,70 @@ interface BracketTableProps {
 export type SortColumn = 'rating' | 'seed'
 
 function BracketTable(props: BracketTableProps) {
-  const { competitors, sortColumn, columnClicked, athleteClicked } = props;
-  
+  const {
+    competitors,
+    sortColumn,
+    columnClicked,
+    athleteClicked,
+    isGi,
+  } = props;
+
+  const {
+    bracketSelectedCategory,
+    setCalcFirstAthlete,
+    setCalcSecondAthlete,
+    setCalcGender,
+    setCalcAge,
+    setCalcBelt,
+    setCalcFirstWeight,
+    setCalcSecondWeight,
+    setCalcCustomInfo,
+    setActiveTab,
+  } = useAppContext()
+
+  const navigate = useNavigate()
+
+  const [selectedAthletes, setSelectedAthletes] = useState<Competitor[]>([]);
+
+  const handleCheckboxChange = (competitor: Competitor) => {
+    setSelectedAthletes(prev => {
+      if (prev.includes(competitor)) {
+        return prev.filter(c => c !== competitor);
+      } else {
+        return [...prev, competitor];
+      }
+    });
+  };
+
+  const calculateDisabled = () => {
+    return selectedAthletes.length !== 2 || selectedAthletes.filter(a => a.rating !== null).length !== 2
+  };
+
+  const calculateMatchResult = () => {
+    if (!competitors) {
+      return;
+    }
+    const sortedSelectedAtheletes = competitors.filter(c => selectedAthletes.includes(c));
+    const firstAthlete = sortedSelectedAtheletes[0];
+    const secondAthlete = sortedSelectedAtheletes[1];
+
+    if (firstAthlete && secondAthlete && bracketSelectedCategory) {
+      const [belt, age, gender, weight] = bracketSelectedCategory.split(' / ');
+      setCalcFirstAthlete(firstAthlete.name);
+      setCalcSecondAthlete(secondAthlete.name);
+      setCalcGender(gender);
+      setCalcAge(age);
+      setCalcBelt(belt);
+      if (!/Open/i.test(weight)) {
+        setCalcFirstWeight(weight);
+        setCalcSecondWeight(weight);
+      }
+      setActiveTab(isGi ? 'Gi' : 'No Gi');
+      setCalcCustomInfo(true);
+      navigate('/calculator');
+    }
+  };
+
   const competitorTooltip = (competitor: Competitor) => {
     let tooltip = ''
 
@@ -48,6 +114,7 @@ function BracketTable(props: BracketTableProps) {
       <table className="table is-fullwidth bracket-table">
         <thead>
           <tr>
+            <th></th>
             <th className="has-text-right">
               {
                 (sortColumn !== undefined && sortColumn !== 'rating') ?
@@ -76,6 +143,15 @@ function BracketTable(props: BracketTableProps) {
           {
             competitors?.map(competitor => (
               <tr key={competitor.name}>
+                <td>
+                  <input
+                    className="has-cursor-pointer"
+                    type="checkbox"
+                    disabled={competitor.rating === null}
+                    checked={selectedAthletes.includes(competitor)}
+                    onChange={() => handleCheckboxChange(competitor)}
+                  />
+                </td>
                 <td className="has-text-right">{competitor.ordinal}</td>
                 {
                   props.showSeed &&
@@ -107,6 +183,13 @@ function BracketTable(props: BracketTableProps) {
           }
         </tbody>
       </table>
+      <button
+        className="button is-info mt-2"
+        onClick={calculateMatchResult}
+        disabled={calculateDisabled()}
+      >
+        Calculate Expected Match Result
+      </button>
     </div>
   );
 }

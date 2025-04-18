@@ -72,6 +72,16 @@ interface AppContextProps {
   setCalcFirstAthlete: (athlete: string) => void;
   calcSecondAthlete: string;
   setCalcSecondAthlete: (athlete: string) => void;
+  calcAge: string;
+  setCalcAge: (age: string) => void;
+  calcBelt: string;
+  setCalcBelt: (belt: string) => void;
+  calcFirstWeight: string;
+  setCalcFirstWeight: (weight: string) => void;
+  calcSecondWeight: string;
+  setCalcSecondWeight: (weight: string) => void;
+  calcCustomInfo: boolean;
+  setCalcCustomInfo: (info: boolean) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -113,6 +123,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [calcGender, setCalcGender] = useState('Male')
   const [calcFirstAthlete, setCalcFirstAthlete] = useState('')
   const [calcSecondAthlete, setCalcSecondAthlete] = useState('')
+  const [calcAge, setCalcAge] = useState('Adult')
+  const [calcBelt, setCalcBelt] = useState('BLACK')
+  const [calcFirstWeight, setCalcFirstWeight] = useState('Heavy')
+  const [calcSecondWeight, setCalcSecondWeight] = useState('Heavy')
+  const [calcCustomInfo, setCalcCustomInfo] = useState(false)
 
   const updateFilters = useCallback((newFilters: FilterValues) => {
     // Reset the page when filters change
@@ -186,6 +201,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       calcGender, setCalcGender,
       calcFirstAthlete, setCalcFirstAthlete,
       calcSecondAthlete, setCalcSecondAthlete,
+      calcAge, setCalcAge,
+      calcBelt, setCalcBelt,
+      calcFirstWeight, setCalcFirstWeight,
+      calcSecondWeight, setCalcSecondWeight,
+      calcCustomInfo, setCalcCustomInfo,
     }}>
       {children}
     </AppContext.Provider>

@@ -209,6 +209,26 @@ function BracketLive() {
     }
   }, [categories, selectedCategory])
 
+  const selectedCategoryLink = useMemo(() => {
+    if (selectedCategory && categories) {
+      const category = categories.find(c => categoryString(c) === selectedCategory)
+      if (category) {
+        return category.link
+      }
+    }
+    return null
+  }, [selectedCategory, categories])
+
+  const selectedEventName = useMemo(() => {
+    if (events && selectedEvent) {
+      const event = events.find(e => e.id === selectedEvent)
+      if (event) {
+        return event.name
+      }
+    }
+    return null
+  }, [events, selectedEvent])
+
   const sortedCompetitors = useMemo(() => {
     if (competitors === null) {
       return null
@@ -318,9 +338,17 @@ function BracketLive() {
             <BracketTable competitors={sortedCompetitors}
                           sortColumn={sortColumn}
                           showSeed={true}
+                          isGi={isGi(selectedEventName ?? '')}
                           columnClicked={columnClicked}
                           athleteClicked={athleteClicked} />
           )
+        }
+        {
+          (selectedCategoryLink !== null) &&
+            <a href={`https://bjjcompsystem.com${selectedCategoryLink}`} target="_blank" rel="noreferrer" className="button is-link is-outlined mt-1">View Bracket (external)</a>
+        }
+        {
+          error && <div className="notification is-danger mt-4">{error}</div>
         }
         {
           loading && <div className="bracket-loader loader mt-4"></div>

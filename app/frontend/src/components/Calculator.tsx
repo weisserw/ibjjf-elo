@@ -65,10 +65,6 @@ function Calculator() {
   const [secondRating, setSecondRating] = useState('')
   const [firstRatingToPredict, setFirstRatingToPredict] = useState('')
   const [secondRatingToPredict, setSecondRatingToPredict] = useState('')
-  const [age, setAge] = useState('Adult')
-  const [belt, setBelt] = useState('BLACK')
-  const [firstWeight, setFirstWeight] = useState('Heavy')
-  const [secondWeight, setSecondWeight] = useState('Heavy')
   const [firstExpected, setFirstExpected] = useState<number | null>(0.0)
   const [secondExpected, setSecondExpected] = useState<number | null>(0.0)
   const [firstWin, setFirstWin] = useState(0)
@@ -86,6 +82,16 @@ function Calculator() {
     setCalcFirstAthlete,
     calcSecondAthlete,
     setCalcSecondAthlete,
+    calcAge,
+    setCalcAge,
+    calcBelt,
+    setCalcBelt,
+    calcFirstWeight,
+    setCalcFirstWeight,
+    calcSecondWeight,
+    setCalcSecondWeight,
+    calcCustomInfo,
+    setCalcCustomInfo,
   } = useAppContext();
 
   const navigate = useNavigate();
@@ -148,47 +154,49 @@ function Calculator() {
       secondRatingChanged(secondFetchedAthlete.rating !== null ? Math.round(secondFetchedAthlete.rating).toString() : '');
     }
     if (firstFetchedAthlete && secondFetchedAthlete) {
-      if (firstFetchedAthlete.age !== null && secondFetchedAthlete.age !== null) {
-        const firstAgeIndex = ages.indexOf(firstFetchedAthlete.age);
-        const secondAgeIndex = ages.indexOf(secondFetchedAthlete.age);
-        if (firstAgeIndex < secondAgeIndex) {
-          setAge(firstFetchedAthlete.age);
-        } else {
-          setAge(secondFetchedAthlete.age);
+      if (!calcCustomInfo) {
+        if (firstFetchedAthlete.age !== null && secondFetchedAthlete.age !== null) {
+          const firstAgeIndex = ages.indexOf(firstFetchedAthlete.age);
+          const secondAgeIndex = ages.indexOf(secondFetchedAthlete.age);
+          if (firstAgeIndex < secondAgeIndex) {
+            setCalcAge(firstFetchedAthlete.age);
+          } else {
+            setCalcAge(secondFetchedAthlete.age);
+          }
+        } else if (firstFetchedAthlete.age !== null) {
+          setCalcAge(firstFetchedAthlete.age);
+        } else if (secondFetchedAthlete.age !== null) {
+          setCalcAge(secondFetchedAthlete.age);
         }
-      } else if (firstFetchedAthlete.age !== null) {
-        setAge(firstFetchedAthlete.age);
-      } else if (secondFetchedAthlete.age !== null) {
-        setAge(secondFetchedAthlete.age);
-      }
-      if (firstFetchedAthlete.belt !== null && secondFetchedAthlete.belt !== null) {
-        const firstBeltIndex = belts.indexOf(firstFetchedAthlete.belt);
-        const secondBeltIndex = belts.indexOf(secondFetchedAthlete.belt);
-        if (firstBeltIndex > secondBeltIndex) {
-          setBelt(firstFetchedAthlete.belt);
-        } else {
-          setBelt(secondFetchedAthlete.belt);
+        if (firstFetchedAthlete.belt !== null && secondFetchedAthlete.belt !== null) {
+          const firstBeltIndex = belts.indexOf(firstFetchedAthlete.belt);
+          const secondBeltIndex = belts.indexOf(secondFetchedAthlete.belt);
+          if (firstBeltIndex > secondBeltIndex) {
+            setCalcBelt(firstFetchedAthlete.belt);
+          } else {
+            setCalcBelt(secondFetchedAthlete.belt);
+          }
+        } else if (firstFetchedAthlete.belt !== null) {
+          setCalcBelt(firstFetchedAthlete.belt);
+        } else if (secondFetchedAthlete.belt !== null) {
+          setCalcBelt(secondFetchedAthlete.belt);
         }
-      } else if (firstFetchedAthlete.belt !== null) {
-        setBelt(firstFetchedAthlete.belt);
-      } else if (secondFetchedAthlete.belt !== null) {
-        setBelt(secondFetchedAthlete.belt);
-      }
-      if (firstFetchedAthlete.weight !== null) {
-        setFirstWeight(firstFetchedAthlete.weight);
-        if (secondFetchedAthlete.weight === null) {
-          setSecondWeight(firstFetchedAthlete.weight);
+        if (firstFetchedAthlete.weight !== null) {
+          setCalcFirstWeight(firstFetchedAthlete.weight);
+          if (secondFetchedAthlete.weight === null) {
+            setCalcSecondWeight(firstFetchedAthlete.weight);
+          }
         }
-      }
-      if (secondFetchedAthlete.weight !== null) {
-        setSecondWeight(secondFetchedAthlete.weight);
-        if (firstFetchedAthlete.weight === null) {
-          setFirstWeight(secondFetchedAthlete.weight);
+        if (secondFetchedAthlete.weight !== null) {
+          setCalcSecondWeight(secondFetchedAthlete.weight);
+          if (firstFetchedAthlete.weight === null) {
+            setCalcFirstWeight(secondFetchedAthlete.weight);
+          }
         }
-      }
-      if (firstFetchedAthlete.weight === null && secondFetchedAthlete.weight === null) {
-        setFirstWeight('Heavy');
-        setSecondWeight('Heavy');
+        if (firstFetchedAthlete.weight === null && secondFetchedAthlete.weight === null) {
+          setCalcFirstWeight('Heavy');
+          setCalcSecondWeight('Heavy');
+        }
       }
     }
   }, [firstFetchedAthlete, secondFetchedAthlete])
@@ -200,7 +208,7 @@ function Calculator() {
       return;
     }
 
-    axios.get<PredictResponse>(`/api/athletes/predict?rating1=${firstRatingToPredict}&rating2=${secondRatingToPredict}&weight1=${firstWeight}&weight2=${secondWeight}&belt=${belt}&age=${age}`)
+    axios.get<PredictResponse>(`/api/athletes/predict?rating1=${firstRatingToPredict}&rating2=${secondRatingToPredict}&weight1=${calcFirstWeight}&weight2=${calcSecondWeight}&belt=${calcBelt}&age=${calcAge}`)
       .then(response => {
         const {
           first_expected,
@@ -219,7 +227,7 @@ function Calculator() {
       .catch(error => {
         axiosErrorToast(error);
       });
-  }, [firstRatingToPredict, secondRatingToPredict, firstWeight, secondWeight, belt, age])
+  }, [firstRatingToPredict, secondRatingToPredict, calcFirstWeight, calcSecondWeight, calcBelt, calcAge])
 
   const firstRatingChanged = useCallback(debounce((value: string) => { setFirstRatingToPredict(value) }, 750, {trailing: true}), [])
   const secondRatingChanged = useCallback(debounce((value: string) => { setSecondRatingToPredict(value) }, 750, {trailing: true}), [])
@@ -241,11 +249,11 @@ function Calculator() {
 
   // Ensure that the selected weights are valid for the current gender
   useEffect(() => {
-    if (!weights.includes(firstWeight)) {
-      setFirstWeight(weights[weights.length - 1]);
+    if (!weights.includes(calcFirstWeight)) {
+      setCalcFirstWeight(weights[weights.length - 1]);
     }
-    if (!weights.includes(secondWeight)) {
-      setSecondWeight(weights[weights.length - 1]);
+    if (!weights.includes(calcSecondWeight)) {
+      setCalcSecondWeight(weights[weights.length - 1]);
     }
   }, [calcGender]);
 
@@ -313,6 +321,7 @@ function Calculator() {
                              placeholder: "Enter Athlete Name...",
                              onChange: (_: any, { newValue }) => {
                                setCalcFirstAthlete(newValue)
+                               setCalcCustomInfo(false)
                              }
                            }} />
               {
@@ -343,6 +352,7 @@ function Calculator() {
                              placeholder: "Enter Athlete Name...",
                              onChange: (_: any, { newValue }) => {
                                setCalcSecondAthlete(newValue)
+                               setCalcCustomInfo(false)
                              }
                            }} />
                 {
@@ -401,7 +411,10 @@ function Calculator() {
               <label className="label">Age</label>
               <div className="control">
                 <div className="select">
-                  <select value={age} onChange={e => setAge(e.target.value)}>
+                  <select value={calcAge} onChange={e => {
+                    setCalcAge(e.target.value)
+                    setCalcCustomInfo(true)
+                  }}>
                     <option>Juvenile</option>
                     <option>Adult</option>
                     <option>Master 1</option>
@@ -420,7 +433,10 @@ function Calculator() {
             <div className="field">
               <label className="label">Belt</label>
               <div className="select">
-                <select value={belt} onChange={e => setBelt(e.target.value)}>
+                <select value={calcBelt} onChange={e => {
+                  setCalcBelt(e.target.value)
+                  setCalcCustomInfo(true)
+                }}>
                   <option value="WHITE">White</option>
                   <option value="BLUE">Blue</option>
                   <option value="PURPLE">Purple</option>
@@ -434,7 +450,10 @@ function Calculator() {
             <div className="field">
               <label className="label">Athlete Weight</label>
               <div className="select">
-                <select value={firstWeight} onChange={e => setFirstWeight(e.target.value)}>
+                <select value={calcFirstWeight} onChange={e => {
+                  setCalcFirstWeight(e.target.value)
+                  setCalcCustomInfo(true)
+                }}>
                 {
                   weights.map((value) => (
                     <option key={value} value={value}>{value}</option>
@@ -448,7 +467,10 @@ function Calculator() {
             <div className="field">
               <label className="label">Opponent Weight</label>
               <div className="select">
-                <select value={secondWeight} onChange={e => setSecondWeight(e.target.value)}>
+                <select value={calcSecondWeight} onChange={e => {
+                  setCalcSecondWeight(e.target.value)
+                  setCalcCustomInfo(true)
+                }}>
                 {
                   weights.map((value) => (
                     <option key={value} value={value}>{value}</option>

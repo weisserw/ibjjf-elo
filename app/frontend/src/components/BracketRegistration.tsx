@@ -223,6 +223,7 @@ function BracketRegistration() {
           (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
             <BracketTable competitors={sortedRegistrationCompetitors}
                           showSeed={false}
+                          isGi={isGi(registrationEventName ?? '')}
                           athleteClicked={registrationAthleteClicked} />
           )
         }
