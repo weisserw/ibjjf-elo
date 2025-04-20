@@ -70,14 +70,17 @@ function BracketTable(props: BracketTableProps) {
       setCalcFirstAthlete(firstAthlete.name);
       setCalcSecondAthlete(secondAthlete.name);
       setCalcGender(gender);
-      setCalcAge(age);
-      setCalcBelt(belt);
+      setActiveTab(isGi ? 'Gi' : 'No Gi');
       if (!/Open/i.test(weight)) {
         setCalcFirstWeight(weight);
         setCalcSecondWeight(weight);
+        setCalcAge(age);
+        setCalcBelt(belt);
+        setCalcCustomInfo(true);
+      } else {
+        setCalcCustomInfo(false);
       }
-      setActiveTab(isGi ? 'Gi' : 'No Gi');
-      setCalcCustomInfo(true);
+
       navigate('/calculator');
     }
   };

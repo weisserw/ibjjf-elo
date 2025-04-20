@@ -344,7 +344,7 @@ function BracketLive() {
           )
         }
         {
-          (selectedCategoryLink !== null) &&
+          (events !== null && categories !== null && competitors !== null && selectedCategoryLink !== null) &&
             <a href={`https://bjjcompsystem.com${selectedCategoryLink}`} target="_blank" rel="noreferrer" className="button is-link is-outlined mt-1">View Bracket (external)</a>
         }
         {
