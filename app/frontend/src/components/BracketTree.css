@@ -76,10 +76,14 @@
   top: 8px;
 }
 
-.bracket-tree-match-winner .bracket-tree-match-competitor-name-name, .bracket-tree-handicapped-rating {
+.bracket-tree-match-winner .bracket-tree-match-competitor-name-name {
   font-weight: bold;
 }
 
 .bracket-tree-match-rating, .bracket-tree-match-expected {
   font-weight: normal;
+}
+
+.bracket-tree-handicapped-rating {
+  font-weight: 600;
 }
