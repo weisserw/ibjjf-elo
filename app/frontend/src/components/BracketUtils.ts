@@ -107,3 +107,11 @@ export const referencesMatchBlue = (match: Match, other: Match) => {
   }
   return false;
 }
+
+export const noMatchStrings = [
+  "disqualified by no show",
+  "disqualified by overweight",
+  "disqualified by acima do peso",
+  "disqualified by withdraw",
+];
+

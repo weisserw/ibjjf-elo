@@ -87,3 +87,7 @@
 .bracket-tree-handicapped-rating {
   font-weight: 600;
 }
+
+.strike-through {
+  text-decoration: line-through;
+}

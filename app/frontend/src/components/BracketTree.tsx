@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { referencesMatchRed, referencesMatchBlue, type Match } from "./BracketUtils"
+import { referencesMatchRed, referencesMatchBlue, type Match, noMatchStrings } from "./BracketUtils"
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 
@@ -36,10 +36,12 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
             </td>
             <td className="bracket-tree-match-competitor-name">
               <div className="bracket-tree-match-competitor-name-name">
-                {match.red_name}
-                {
-                  match.red_rating !== null && <span className="bracket-tree-match-rating"> ({match.red_rating}{match.red_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{match.red_handicap}</span>})</span>
-                }
+                <span className={classNames({"strike-through": noMatchStrings.some(s => match.red_note?.toLowerCase() === s)})}>
+                  {match.red_name}
+                  {
+                    match.red_rating !== null && <span className="bracket-tree-match-rating"> ({match.red_rating}{match.red_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{match.red_handicap}</span>})</span>
+                  }
+                </span>
                 {
                   match.red_expected !== null && <span className="bracket-tree-match-expected"> - {Math.round(match.red_expected * 100)}%</span>
                 }
@@ -66,11 +68,13 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
               {!props.showSeed && !match.blue_ordinal && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
             </td>
             <td className="bracket-tree-match-competitor-name">
-              <div className="bracket-tree-match-competitor-name-name">
-                {match.blue_name}
-                {
-                  match.blue_rating !== null && <span className="bracket-tree-match-rating"> ({match.blue_rating}{match.blue_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{match.blue_handicap}</span>})</span>
-                }
+            <div className="bracket-tree-match-competitor-name-name">
+                <span className={classNames({"strike-through": noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)})}>
+                  {match.blue_name}
+                  {
+                    match.blue_rating !== null && <span className="bracket-tree-match-rating"> ({match.blue_rating}{match.blue_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{match.blue_handicap}</span>})</span>
+                  }
+                </span>
                 {
                   match.blue_expected !== null && <span className="bracket-tree-match-expected"> - {Math.round(match.blue_expected * 100)}%</span>
                 }
