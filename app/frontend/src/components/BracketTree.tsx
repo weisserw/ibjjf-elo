@@ -9,7 +9,6 @@ interface BracketTreeMatchProps {
   match: Match;
   levelIndex: number;
   numLevels: number;
-  calculateClicked: (match: Match) => void;
 }
 
 function BracketTreeMatch(props: BracketTreeMatchProps) {
@@ -17,14 +16,6 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
 
   return (
     <div className="bracket-tree-match">
-      {
-        (match.red_expected !== null || match.blue_expected !== null) &&
-        <div className="bracket-tree-match-calc" onClick={() => props.calculateClicked(match)}>
-          <span className="icon has-text-info">
-            <i className="fas fa-calculator"></i>
-          </span>
-        </div>
-      }
       <div className="bracket-tree-match-description">
         <div className="bracket-tree-match-description-when">
           {match.when && dayjs(match.when).format('ddd h:mma')} - {match.where}
@@ -98,7 +89,6 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
 
 interface BracketTreeProps {
   matches: Match[];
-  calculateClicked: (match: Match) => void;
 }
 
 function BracketTree(props: BracketTreeProps) {
@@ -154,7 +144,6 @@ function BracketTree(props: BracketTreeProps) {
                 match={match}
                 levelIndex={levelIndex}
                 numLevels={leveledMatches.length}
-                calculateClicked={props.calculateClicked}
               />
             ))}
           </div>

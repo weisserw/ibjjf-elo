@@ -81,11 +81,3 @@
 .bracket-tree-match-rating, .bracket-tree-match-expected {
   font-weight: normal;
 }
-
-.bracket-tree-match-calc {
-  position: absolute;
-  top: 32px;
-  left: calc(100% + 8px);
-  cursor: pointer;
-  font-size: 20px;
-}

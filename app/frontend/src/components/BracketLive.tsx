@@ -55,14 +55,6 @@ function BracketLive() {
     setFilters,
     setOpenFilters,
     setActiveTab,
-    setCalcFirstAthlete,
-    setCalcSecondAthlete,
-    setCalcGender,
-    setCalcAge,
-    setCalcBelt,
-    setCalcFirstWeight,
-    setCalcSecondWeight,
-    setCalcCustomInfo,
   } = useAppContext()
 
   const navigate = useNavigate()
@@ -278,28 +270,6 @@ function BracketLive() {
     return Math.round(sum / ratings.length)
   }, [competitors])
 
-  const calculateMatch = async (match: BracketMatch) => {
-    if (!match.red_name || !match.blue_name || !selectedCategory || !selectedEventName) {
-      return
-    }
-    const [belt, age, gender, weight] = selectedCategory.split(' / ');
-    setCalcFirstAthlete(match.red_name);
-    setCalcSecondAthlete(match.blue_name);
-    setCalcGender(gender);
-    setActiveTab(isGi(selectedEventName) ? 'Gi' : 'No Gi');
-    if (!/Open/i.test(weight)) {
-      setCalcFirstWeight(weight);
-      setCalcSecondWeight(weight);
-      setCalcAge(age);
-      setCalcBelt(belt);
-      setCalcCustomInfo(true);
-    } else {
-      setCalcCustomInfo(false);
-    }
-
-    navigate('/calculator');
-  }
-
   return (
     <div className="brackets-content">
       <div>
@@ -386,7 +356,7 @@ function BracketLive() {
         }
         {
           (events !== null && categories !== null && matches !== null) && (
-            <BracketTree matches={matches} calculateClicked={calculateMatch}/>
+            <BracketTree matches={matches}/>
           )
         }
         {
