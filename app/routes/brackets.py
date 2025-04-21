@@ -681,7 +681,7 @@ def competitors():
         soup = BeautifulSoup(
             get_bracket_page(
                 "https://www.bjjcompsystem.com" + link,
-                datetime.now() - timedelta(minutes=120),
+                datetime.now() - timedelta(minutes=2),
             ),
             "html.parser",
         )

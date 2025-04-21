@@ -227,6 +227,16 @@ function BracketLive() {
     }
   }, [categories, selectedCategory])
 
+  const selectedCategoryLink = useMemo(() => {
+    if (selectedCategory && categories) {
+      const category = categories.find(c => categoryString(c) === selectedCategory)
+      if (category) {
+        return category.link
+      }
+    }
+    return null
+  }, [selectedCategory, categories])
+
   const selectedEventName = useMemo(() => {
     if (events && selectedEvent) {
       const event = events.find(e => e.id === selectedEvent)
@@ -378,6 +388,10 @@ function BracketLive() {
           (events !== null && categories !== null && matches !== null) && (
             <BracketTree matches={matches} calculateClicked={calculateMatch}/>
           )
+        }
+        {
+          (events !== null && categories !== null && competitors !== null && selectedCategoryLink !== null) &&
+          <a href={`https://bjjcompsystem.com${selectedCategoryLink}`} target="_blank" rel="noreferrer" className="button is-link is-outlined mt-5">View Bracket (external)</a>
         }
         {
           error && <div className="notification is-danger mt-4">{error}</div>
