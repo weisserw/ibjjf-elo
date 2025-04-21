@@ -7,6 +7,7 @@ import "./BracketTree.css";
 
 interface BracketTreeMatchProps {
   match: Match;
+  showSeed: boolean;
   levelIndex: number;
   numLevels: number;
 }
@@ -25,8 +26,10 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
         <tbody>
           <tr className={classNames({"bracket-tree-match-winner": match.blue_loser && !match.red_loser})}>
             <td className="bracket-tree-match-ordinal">
-              {match.red_ordinal}
-              {!match.red_ordinal && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
+              {props.showSeed && match.red_seed}
+              {props.showSeed && !match.red_seed && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
+              {!props.showSeed && match.red_ordinal}
+              {!props.showSeed && !match.red_ordinal && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
             </td>
             <td className="bracket-tree-match-competitor-name">
               <div className="bracket-tree-match-competitor-name-name">
@@ -54,8 +57,10 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
           </tr>
           <tr className={classNames({"bracket-tree-match-winner": match.red_loser && !match.blue_loser})}>
             <td className="bracket-tree-match-ordinal">
-              {match.blue_ordinal}
-              {!match.blue_ordinal && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
+              {props.showSeed && match.blue_seed}
+              {props.showSeed && !match.blue_seed && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
+              {!props.showSeed && match.blue_ordinal}
+              {!props.showSeed && !match.blue_ordinal && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
             </td>
             <td className="bracket-tree-match-competitor-name">
               <div className="bracket-tree-match-competitor-name-name">
@@ -89,6 +94,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
 
 interface BracketTreeProps {
   matches: Match[];
+  showSeed: boolean;
 }
 
 function BracketTree(props: BracketTreeProps) {
@@ -142,6 +148,7 @@ function BracketTree(props: BracketTreeProps) {
               <BracketTreeMatch
                 key={matchIndex}
                 match={match}
+                showSeed={props.showSeed}
                 levelIndex={levelIndex}
                 numLevels={leveledMatches.length}
               />

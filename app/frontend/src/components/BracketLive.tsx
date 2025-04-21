@@ -356,7 +356,7 @@ function BracketLive() {
         }
         {
           (events !== null && categories !== null && matches !== null) && (
-            <BracketTree matches={matches}/>
+            <BracketTree matches={matches} showSeed={sortColumn === 'seed'}/>
           )
         }
         {
