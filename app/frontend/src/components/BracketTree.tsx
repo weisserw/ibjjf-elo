@@ -19,7 +19,10 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
     <div className="bracket-tree-match">
       <div className="bracket-tree-match-description">
         <div className="bracket-tree-match-description-when">
-          {match.when && dayjs(match.when).format('ddd h:mma')} - {match.where}
+          {match.when && dayjs(match.when).format('ddd h:mma')}
+          {
+            match.where && ' - ' + match.where
+          }
         </div>
       </div>
       <table className="bracket-tree-match-competitors">
@@ -49,8 +52,8 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
               </div>
             </td>
             <td className="bracket-tree-match-info">
-              {(match.final && match.blue_loser) && <span>🥇</span>}
-              {(match.final && match.red_loser) && <span>🥈</span>}
+              {(match.final && !match.red_bye && (match.blue_loser || (match.blue_bye && !match.red_loser))) && <span>🥇</span>}
+              {(match.final && match.red_loser && !match.blue_bye) && <span>🥈</span>}
               {(levelIndex === numLevels - 2 && match.red_loser) && <span>🥉</span>}
               {match.red_note && <span className={classNames("bracket-tree-match-note has-tooltip", {"has-tooltip-right": levelIndex === 0})} data-tooltip={match.red_note}>ℹ️</span>}
             </td>
@@ -80,8 +83,8 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
               </div>
             </td>
             <td className="bracket-tree-match-info">
-              {(match.final && match.red_loser) && <span>🥇</span>}
-              {(match.final && match.blue_loser) && <span>🥈</span>}
+              {(match.final && !match.blue_bye && (match.red_loser || (match.red_bye && !match.blue_loser))) && <span>🥇</span>}
+              {(match.final && match.blue_loser && !match.red_bye) && <span>🥈</span>}
               {(levelIndex === numLevels - 2 && match.blue_loser) && <span>🥉</span>}
               {match.blue_note && <span className={classNames("bracket-tree-match-note has-tooltip", {"has-tooltip-right": levelIndex === 0})} data-tooltip={match.blue_note}>ℹ️</span>}
             </td>
