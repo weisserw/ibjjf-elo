@@ -31,6 +31,7 @@ export interface Match {
   red_expected: number | null
   red_rating: number | null
   red_handicap: number
+  red_weight: string | null
   blue_bye: boolean
   blue_id: string | null
   blue_seed: number | null
@@ -43,6 +44,7 @@ export interface Match {
   blue_expected: number | null
   blue_rating: number | null
   blue_handicap: number
+  blue_weight: string | null
 }
 
 export interface CompetitorsResponse {

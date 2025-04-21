@@ -38,7 +38,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
               <div className="bracket-tree-match-competitor-name-name">
                 {match.red_name}
                 {
-                  match.red_rating !== null && <span className="bracket-tree-match-rating"> (<span className={classNames({"bracket-tree-handicapped-rating": match.red_handicap > 0})}>{match.red_rating + match.red_handicap}</span>)</span>
+                  match.red_rating !== null && <span className="bracket-tree-match-rating"> ({match.red_rating}{match.red_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{match.red_handicap}</span>})</span>
                 }
                 {
                   match.red_expected !== null && <span className="bracket-tree-match-expected"> - {Math.round(match.red_expected * 100)}%</span>
@@ -69,7 +69,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
               <div className="bracket-tree-match-competitor-name-name">
                 {match.blue_name}
                 {
-                  match.blue_rating !== null && <span className="bracket-tree-match-rating"> (<span className={classNames({"bracket-tree-handicapped-rating": match.blue_handicap > 0})}>{match.blue_rating + match.blue_handicap}</span>)</span>
+                  match.blue_rating !== null && <span className="bracket-tree-match-rating"> ({match.blue_rating}{match.blue_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{match.blue_handicap}</span>})</span>
                 }
                 {
                   match.blue_expected !== null && <span className="bracket-tree-match-expected"> - {Math.round(match.blue_expected * 100)}%</span>

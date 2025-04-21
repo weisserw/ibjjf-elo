@@ -11,6 +11,8 @@
   flex-direction: column;
   justify-content: space-evenly;
   gap: 48px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .bracket-tree-match {

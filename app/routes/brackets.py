@@ -29,7 +29,6 @@ from constants import (
     weight_class_order_all,
     gender_order,
     age_order,
-    HEAVY,
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
     OPEN_CLASS_LIGHT,
@@ -592,12 +591,12 @@ def parse_match(match, results, belt, weight):
     red_ordinal = None
     red_rating = None
     red_expected = None
-    red_weight = HEAVY if OPEN_CLASS in weight else weight
+    red_weight = "Unknown" if OPEN_CLASS in weight else weight
     red_handicap = 0
     blue_ordinal = None
     blue_rating = None
     blue_expected = None
-    blue_weight = HEAVY if OPEN_CLASS in weight else weight
+    blue_weight = "Unknown" if OPEN_CLASS in weight else weight
     blue_handicap = 0
 
     for result in results:
@@ -613,7 +612,11 @@ def parse_match(match, results, belt, weight):
                 blue_weight = result["last_weight"]
 
     if red_rating is not None and blue_rating is not None:
-        if red_weight != blue_weight:
+        if (
+            red_weight != blue_weight
+            and red_weight != "Unknown"
+            and blue_weight != "Unknown"
+        ):
             red_handicap, blue_handicap = weight_handicaps(
                 belt, red_weight, blue_weight
             )
@@ -641,6 +644,7 @@ def parse_match(match, results, belt, weight):
         "red_rating": red_rating,
         "red_expected": red_expected,
         "red_handicap": round(red_handicap),
+        "red_weight": red_weight,
         "blue_bye": blue_bye,
         "blue_id": blue_id,
         "blue_seed": blue_seed,
@@ -653,6 +657,7 @@ def parse_match(match, results, belt, weight):
         "blue_rating": blue_rating,
         "blue_expected": blue_expected,
         "blue_handicap": round(blue_handicap),
+        "blue_weight": blue_weight,
     }
 
 
