@@ -13,6 +13,7 @@ import type {
 } from './components/BracketTable';
 import type {
   Competitor as BracketCompetitor,
+  Match as BracketMatch,
 } from './components/BracketUtils';
 
 interface AppContextProps {
@@ -48,6 +49,8 @@ interface AppContextProps {
   setBracketSelectedCategory: (category: string | null) => void;
   bracketCompetitors: BracketCompetitor[] | null;
   setBracketCompetitors: (competitors: BracketCompetitor[] | null) => void;
+  bracketMatches: BracketMatch[] | null;
+  setBracketMatches: (matches: BracketMatch[] | null) => void;
   bracketSortColumn: BracketSortColumn;
   setBracketSortColumn: (column: BracketSortColumn) => void;
   bracketActiveTab: BracketTabs;
@@ -111,6 +114,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketCategories, setBracketCategories] = useState<BracketCategory[] | null>(null)
   const [bracketSelectedCategory, setBracketSelectedCategory] = useState<string | null>(null)
   const [bracketCompetitors, setBracketCompetitors] = useState<BracketCompetitor[] | null>(null)
+  const [bracketMatches, setBracketMatches] = useState<BracketMatch[] | null>(null)
   const [bracketSortColumn, setBracketSortColumn] = useState<BracketSortColumn>('rating')
   const [bracketActiveTab, setBracketActiveTab] = useState<BracketTabs>('Live')
   const [bracketRegistrationUrl, setBracketRegistrationUrl] = useState('')
@@ -189,6 +193,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketCategories, setBracketCategories,
       bracketSelectedCategory, setBracketSelectedCategory,
       bracketCompetitors, setBracketCompetitors,
+      bracketMatches, setBracketMatches,
       bracketSortColumn, setBracketSortColumn,
       bracketActiveTab, setBracketActiveTab,
       bracketRegistrationUrl, setBracketRegistrationUrl,

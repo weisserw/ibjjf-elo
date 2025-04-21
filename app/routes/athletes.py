@@ -86,7 +86,6 @@ def ratings():
         db.session.query(
             MatchParticipant.end_rating,
             Division.age,
-            Division.weight,
             Division.belt,
         )
         .select_from(MatchParticipant)
@@ -98,32 +97,35 @@ def ratings():
     )
 
     weight_query = (
-        query.filter(Division.weight != OPEN_CLASS)
+        db.session.query(
+            Division.weight,
+        )
+        .select_from(MatchParticipant)
+        .join(Match)
+        .join(Division)
+        .join(Athlete)
+        .filter(Athlete.normalized_name == name)
+        .filter(Division.gi == gi)
+        .filter(Division.weight != OPEN_CLASS)
         .filter(Division.weight != OPEN_CLASS_HEAVY)
         .filter(Division.weight != OPEN_CLASS_LIGHT)
     )
 
+    info = {
+        "rating": None,
+        "age": None,
+        "weight": None,
+        "belt": None,
+    }
     for rating in weight_query.order_by(Match.happened_at.desc()).limit(1).all():
-        return jsonify(
-            {
-                "rating": rating.end_rating,
-                "age": rating.age,
-                "weight": rating.weight,
-                "belt": rating.belt,
-            }
-        )
+        info["weight"] = rating.weight
 
     for rating in query.order_by(Match.happened_at.desc()).limit(1).all():
-        return jsonify(
-            {
-                "rating": rating.end_rating,
-                "age": rating.age,
-                "weight": None,
-                "belt": rating.belt,
-            }
-        )
+        info["rating"] = rating.end_rating
+        info["age"] = rating.age
+        info["belt"] = rating.belt
 
-    return jsonify({"rating": None, "age": None, "weight": None, "belt": None})
+    return jsonify(info)
 
 
 @athletes_route.route("/api/athletes")

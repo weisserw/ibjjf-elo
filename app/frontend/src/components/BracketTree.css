@@ -1,0 +1,91 @@
+.bracket-tree {
+  display: flex;
+  flex-direction: row;
+  padding-top: 24px;
+  gap: 64px;
+  overflow-x: auto;
+}
+
+.bracket-level {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 48px;
+}
+
+.bracket-tree-match {
+  border: 1px solid #ccc;
+  position: relative;
+  white-space: nowrap;
+}
+
+.bracket-tree-match-description {
+  position: absolute;
+  top: -24px;
+  left: 0;
+  right: 0;
+  display: flex;
+  direction: row;
+  justify-content: right;
+  align-items: center;
+}
+
+.bracket-tree-match-ordinal {
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  text-align: right !important;
+  width: 36px;
+}
+
+.bracket-tree-match-competitor-name, .bracket-tree-match-info {
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.bracket-tree-match-competitor-name-team {
+  font-size: 10px;
+}
+
+.bracket-tree-match-competitors {
+  width: 100%;
+  border: none;
+  border-collapse: collapse;
+}
+
+.bracket-tree-match-competitors tr + tr {
+  border-top: 1px solid #ccc;
+}
+
+.bracket-tree-match-competitors tr:first-child {
+  background-color: #baedff;
+}
+
+.bracket-tree-match-competitor-name-name {
+  position: relative;
+  height: 24px;
+}
+
+.bracket-tree-match-bye {
+  position: absolute;
+  top: 8px;
+}
+
+.bracket-tree-match-winner .bracket-tree-match-competitor-name-name, .bracket-tree-handicapped-rating {
+  font-weight: bold;
+}
+
+.bracket-tree-match-rating, .bracket-tree-match-expected {
+  font-weight: normal;
+}
+
+.bracket-tree-match-calc {
+  position: absolute;
+  top: 32px;
+  left: calc(100% + 8px);
+  cursor: pointer;
+  font-size: 20px;
+}

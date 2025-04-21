@@ -91,6 +91,85 @@ def parse_categories(soup):
     return results
 
 
+def parse_match_where(match):
+    match_where = match.find("div", class_="bracket-match-header__where")
+    if not match_where:
+        return None, None
+
+    fight_num_node = match_where.find("span", class_="bracket-match-header__fight")
+    if fight_num_node:
+        fight_num_match = re.search(
+            r"FIGHT (\d+):", fight_num_node.get_text(strip=True), re.IGNORECASE
+        )
+        if fight_num_match:
+            fight_num = int(fight_num_match.group(1))
+        else:
+            fight_num = None
+
+    match_location = "".join(
+        t for t in match_where.contents if isinstance(t, str)
+    ).strip()
+
+    return match_location, fight_num
+
+
+def parse_match_when(match, year):
+    match_when = match.find("div", class_="bracket-match-header__when")
+    if match_when:
+        match_datetime = match_when.get_text(strip=True)
+
+        if re.search(r"^(mon|tue|wed|thu|fri|sat|sun)\s", match_datetime, re.I):
+            format = "%m/%d %I:%M %p"
+        else:
+            format = "%d/%m %I:%M %p"
+
+        match_datetime = re.sub(
+            r"^(mon|tue|wed|thu|fri|sat|sun|seg|ter|qua|qui|sex|sáb|sab|dom)\s|(at|às)\s",
+            "",
+            match_datetime,
+            flags=re.I,
+        )
+
+        match_datetime_parsed = datetime.strptime(match_datetime, format)
+        match_datetime_parsed = match_datetime_parsed.replace(year=year)
+        match_datetime_iso = match_datetime_parsed.strftime("%Y-%m-%dT%H:%M:%S")
+    else:
+        match_datetime_iso = ""
+
+    return match_datetime_iso
+
+
+def parse_competitor(competitor, competitor_description):
+    if competitor_description.find("div", class_="match-card__bye"):
+        return True, None, None, None, None, None, None
+
+    competitor_id = competitor["id"].split("-")[-1]
+    competitor_seed = competitor.find(
+        "span", class_="match-card__competitor-n"
+    ).get_text(strip=True)
+    competitor_loser = "match-competitor--loser" in competitor_description["class"]
+    competitor_name = competitor.find(
+        "div", class_="match-card__competitor-name"
+    ).get_text(strip=True)
+    competitor_team = competitor.find("div", class_="match-card__club-name").get_text(
+        strip=True
+    )
+    competitor_note = competitor_description.find(
+        "i", class_="match-card__disqualification"
+    )
+    competitor_note = competitor_note["title"] if competitor_note else ""
+
+    return (
+        False,
+        competitor_id,
+        competitor_seed,
+        competitor_loser,
+        competitor_name,
+        competitor_team,
+        competitor_note,
+    )
+
+
 def pull_tournament(
     file,
     writer,
@@ -167,35 +246,10 @@ def pull_tournament(
             num_matches = len(matches)
 
             for match in matches:
-                match_when = match.find("div", class_="bracket-match-header__when")
-                if match_when:
-                    match_datetime = match_when.get_text(strip=True)
+                match_datetime_iso = parse_match_when(match, year)
 
-                    if re.search(
-                        r"^(mon|tue|wed|thu|fri|sat|sun)\s", match_datetime, re.I
-                    ):
-                        format = "%m/%d %I:%M %p"
-                    else:
-                        format = "%d/%m %I:%M %p"
-
-                    match_datetime = re.sub(
-                        r"^(mon|tue|wed|thu|fri|sat|sun|seg|ter|qua|qui|sex|sáb|sab|dom)\s|(at|às)\s",
-                        "",
-                        match_datetime,
-                        flags=re.I,
-                    )
-
-                    match_datetime_parsed = datetime.strptime(match_datetime, format)
-                    match_datetime_parsed = match_datetime_parsed.replace(year=year)
-                    match_datetime_iso = match_datetime_parsed.strftime(
-                        "%Y-%m-%dT%H:%M:%S"
-                    )
-                else:
-                    match_datetime_iso = ""
                 red_competitor = match.find("div", class_="match-card__competitor--red")
-                blue_competitor = match.find_all(
-                    "div", class_="match-card__competitor"
-                )[1]
+                blue_competitor = match.find_all("div", class_="match-card__competitor")
 
                 red_competitor_description = red_competitor.find(
                     "span", class_="match-card__competitor-description"
@@ -207,30 +261,29 @@ def pull_tournament(
                 if not red_competitor_description or not blue_competitor_description:
                     continue
 
-                if red_competitor_description.find("div", class_="match-card__bye"):
+                (
+                    red_bye,
+                    red_competitor_id,
+                    red_competitor_seed,
+                    red_competitor_loser,
+                    red_competitor_name,
+                    red_competitor_team,
+                    red_competitor_note,
+                ) = parse_competitor(red_competitor, red_competitor_description)
+                if red_bye:
                     continue
 
-                red_competitor_id = red_competitor["id"].split("-")[-1]
-                red_competitor_seed = red_competitor.find(
-                    "span", class_="match-card__competitor-n"
-                ).get_text(strip=True)
-                red_competitor_loser = (
-                    "match-competitor--loser" in red_competitor_description["class"]
-                )
-                red_competitor_name = red_competitor.find(
-                    "div", class_="match-card__competitor-name"
-                ).get_text(strip=True)
-                red_competitor_team = red_competitor.find(
-                    "div", class_="match-card__club-name"
-                ).get_text(strip=True)
-                red_competitor_note = red_competitor_description.find(
-                    "i", class_="match-card__disqualification"
-                )
-                red_competitor_note = (
-                    red_competitor_note["title"] if red_competitor_note else ""
-                )
+                (
+                    blue_bye,
+                    blue_competitor_id,
+                    blue_competitor_seed,
+                    blue_competitor_loser,
+                    blue_competitor_name,
+                    blue_competitor_team,
+                    blue_competitor_note,
+                ) = parse_competitor(blue_competitor, blue_competitor_description)
 
-                if blue_competitor_description.find("div", class_="match-card__bye"):
+                if blue_bye:
                     if num_matches == 1 and not red_competitor_loser:  # default gold
                         writer.writerow(
                             [
@@ -261,26 +314,6 @@ def pull_tournament(
                         category_defaults += 1
                         total_defaults += 1
                     continue
-
-                blue_competitor_id = blue_competitor["id"].split("-")[-1]
-                blue_competitor_seed = blue_competitor.find(
-                    "span", class_="match-card__competitor-n"
-                ).get_text(strip=True)
-                blue_competitor_loser = (
-                    "match-competitor--loser" in blue_competitor_description["class"]
-                )
-                blue_competitor_name = blue_competitor.find(
-                    "div", class_="match-card__competitor-name"
-                ).get_text(strip=True)
-                blue_competitor_team = blue_competitor.find(
-                    "div", class_="match-card__club-name"
-                ).get_text(strip=True)
-                blue_competitor_note = blue_competitor_description.find(
-                    "i", class_="match-card__disqualification"
-                )
-                blue_competitor_note = (
-                    blue_competitor_note["title"] if blue_competitor_note else ""
-                )
 
                 if (
                     not incomplete

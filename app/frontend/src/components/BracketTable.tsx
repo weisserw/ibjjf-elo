@@ -10,6 +10,7 @@ interface BracketTableProps {
   competitors: Competitor[] | null;
   sortColumn?: string;
   showSeed: boolean;
+  showWeight?: boolean;
   isGi: boolean;
   columnClicked?: (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => void;
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => void;
@@ -137,6 +138,10 @@ function BracketTable(props: BracketTableProps) {
             }
             <th>Name</th>
             <th>Team</th>
+            {
+              props.showWeight &&
+              <th>Weight</th>
+            }
             <th className="has-text-right">Rating</th>
             <th className="has-text-right">Rank</th>
             <th></th>
@@ -166,6 +171,10 @@ function BracketTable(props: BracketTableProps) {
                     <td>{competitor.name}</td>
                 }
                 <td>{competitor.team}</td>
+                {
+                  props.showWeight &&
+                  <td>{competitor.last_weight}</td>
+                }
                 <td className="has-text-right">
                   <span className={immatureClass(competitor.match_count)}>{competitor.rating ?? ''}</span>
                 </td>

@@ -3,7 +3,8 @@ import axios from 'axios'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
-import { isGi, handleError, type CompetitorsResponse } from './BracketUtils'
+import BracketTree from './BracketTree'
+import { isGi, handleError, type CompetitorsResponse, type Match as BracketMatch } from './BracketUtils'
 
 export interface Event {
   id: string
@@ -28,6 +29,10 @@ interface CategoriesResponse {
   categories?: Category[]
 }
 
+interface LiveCompetitorsResponse extends CompetitorsResponse {
+  matches?: BracketMatch[]
+}
+
 function BracketLive() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -43,11 +48,21 @@ function BracketLive() {
     setBracketSelectedCategory: setSelectedCategory,
     bracketCompetitors: competitors,
     setBracketCompetitors: setCompetitors,
+    bracketMatches: matches,
+    setBracketMatches: setMatches,
     bracketSortColumn: sortColumn,
     setBracketSortColumn: setSortColumn,
     setFilters,
     setOpenFilters,
     setActiveTab,
+    setCalcFirstAthlete,
+    setCalcSecondAthlete,
+    setCalcGender,
+    setCalcAge,
+    setCalcBelt,
+    setCalcFirstWeight,
+    setCalcSecondWeight,
+    setCalcCustomInfo,
   } = useAppContext()
 
   const navigate = useNavigate()
@@ -179,7 +194,7 @@ function BracketLive() {
       if (!event || !category) {
         return
       }
-      const { data } = await axios.get<CompetitorsResponse>('/api/brackets/competitors', {
+      const { data } = await axios.get<LiveCompetitorsResponse>('/api/brackets/competitors', {
         params: {
           link: category.link,
           age: category.age,
@@ -194,6 +209,9 @@ function BracketLive() {
         setError(data.error)
       } else if (data.competitors) {
         setCompetitors(data.competitors)
+        if (data.matches) {
+          setMatches(data.matches)
+        }
         setError(null)
       }
     } catch (err) {
@@ -208,16 +226,6 @@ function BracketLive() {
       viewBracket()
     }
   }, [categories, selectedCategory])
-
-  const selectedCategoryLink = useMemo(() => {
-    if (selectedCategory && categories) {
-      const category = categories.find(c => categoryString(c) === selectedCategory)
-      if (category) {
-        return category.link
-      }
-    }
-    return null
-  }, [selectedCategory, categories])
 
   const selectedEventName = useMemo(() => {
     if (events && selectedEvent) {
@@ -235,12 +243,12 @@ function BracketLive() {
     }
     return [...competitors].sort((a, b) => {
       if (sortColumn === 'rating') {
-        const aRating = a.rating ?? -1;
-        const bRating = b.rating ?? -1;
+        const aRating = a.ordinal ?? -1;
+        const bRating = b.ordinal ?? -1;
         if (aRating === bRating) {
           return a.seed - b.seed
         } else {
-          return bRating - aRating
+          return aRating - bRating
         }
       } else {
         return a.seed - b.seed
@@ -259,6 +267,28 @@ function BracketLive() {
     const sum = ratings.reduce((a, b) => a + b, 0)
     return Math.round(sum / ratings.length)
   }, [competitors])
+
+  const calculateMatch = async (match: BracketMatch) => {
+    if (!match.red_name || !match.blue_name || !selectedCategory || !selectedEventName) {
+      return
+    }
+    const [belt, age, gender, weight] = selectedCategory.split(' / ');
+    setCalcFirstAthlete(match.red_name);
+    setCalcSecondAthlete(match.blue_name);
+    setCalcGender(gender);
+    setActiveTab(isGi(selectedEventName) ? 'Gi' : 'No Gi');
+    if (!/Open/i.test(weight)) {
+      setCalcFirstWeight(weight);
+      setCalcSecondWeight(weight);
+      setCalcAge(age);
+      setCalcBelt(belt);
+      setCalcCustomInfo(true);
+    } else {
+      setCalcCustomInfo(false);
+    }
+
+    navigate('/calculator');
+  }
 
   return (
     <div className="brackets-content">
@@ -338,14 +368,16 @@ function BracketLive() {
             <BracketTable competitors={sortedCompetitors}
                           sortColumn={sortColumn}
                           showSeed={true}
+                          showWeight={selectedCategory?.includes(' / Open') ?? false}
                           isGi={isGi(selectedEventName ?? '')}
                           columnClicked={columnClicked}
                           athleteClicked={athleteClicked} />
           )
         }
         {
-          (events !== null && categories !== null && competitors !== null && selectedCategoryLink !== null) &&
-            <a href={`https://bjjcompsystem.com${selectedCategoryLink}`} target="_blank" rel="noreferrer" className="button is-link is-outlined mt-1">View Bracket (external)</a>
+          (events !== null && categories !== null && matches !== null) && (
+            <BracketTree matches={matches} calculateClicked={calculateMatch}/>
+          )
         }
         {
           error && <div className="notification is-danger mt-4">{error}</div>

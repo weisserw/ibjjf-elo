@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
-from pull import parse_categories
+from pull import parse_categories, parse_match_when, parse_match_where, parse_competitor
 import re
 import json
 from sqlalchemy.sql import func, or_
@@ -29,8 +29,16 @@ from constants import (
     weight_class_order_all,
     gender_order,
     age_order,
+    HEAVY,
+    OPEN_CLASS,
+    OPEN_CLASS_HEAVY,
+    OPEN_CLASS_LIGHT,
 )
-from elo import compute_start_rating
+from elo import (
+    compute_start_rating,
+    EloCompetitor,
+    weight_handicaps,
+)
 
 log = logging.getLogger("ibjjf")
 
@@ -300,6 +308,45 @@ def get_ratings(results, age, belt, weight, gender, gi):
             if result["id"] in notes_by_id:
                 result["note"] = notes_by_id[result["id"]]
 
+    # Get the last weight for competitors in open class
+    if OPEN_CLASS in weight:
+        weight_cte = (
+            db.session.query(
+                MatchParticipant.athlete_id,
+                Division.weight,
+                func.row_number()
+                .over(
+                    partition_by=MatchParticipant.athlete_id,
+                    order_by=Match.happened_at.desc(),
+                )
+                .label("row_num"),
+            )
+            .select_from(MatchParticipant)
+            .join(Match)
+            .join(Division)
+            .filter(
+                MatchParticipant.athlete_id.in_([result["id"] for result in results])
+            )
+            .filter(Division.gi == gi)
+            .filter(Division.weight != OPEN_CLASS)
+            .filter(Division.weight != OPEN_CLASS_HEAVY)
+            .filter(Division.weight != OPEN_CLASS_LIGHT)
+            .cte("weight_cte")
+        )
+
+        weight_query = db.session.query(
+            weight_cte.c.athlete_id,
+            weight_cte.c.weight,
+        ).filter(weight_cte.c.row_num == 1)
+
+        last_weight_by_id = {}
+        for last_weight in weight_query.all():
+            last_weight_by_id[last_weight.athlete_id] = last_weight.weight
+
+        for result in results:
+            if result["id"] in last_weight_by_id:
+                result["last_weight"] = last_weight_by_id[result["id"]]
+
     results.sort(key=lambda x: x["rating"] or -1, reverse=True)
 
     ordinal = 0
@@ -444,6 +491,7 @@ def registration_competitors():
                         "match_count": None,
                         "rank": None,
                         "note": None,
+                        "last_weight": None,
                     }
                 )
 
@@ -452,6 +500,160 @@ def registration_competitors():
     )
 
     return jsonify({"competitors": rows})
+
+
+def parse_match(match, results, belt, weight):
+    when = parse_match_when(match, datetime.now().year)
+    where, fight_num = parse_match_where(match)
+
+    final = match.find("span", class_="tournament-category__final-label") is not None
+
+    competitors = match.find_all("div", class_="match-card__competitor")
+    if len(competitors) != 2:
+        log.info("Invalid number of competitors:", len(competitors))
+        return None
+
+    red_competitor = match.find("div", class_="match-card__competitor--red")
+    blue_competitor = [c for c in competitors if c != red_competitor][0]
+
+    red_competitor_description = red_competitor.find(
+        "span", class_="match-card__competitor-description"
+    )
+    red_child_description = red_competitor.find(
+        "span", class_="match-card__child-description"
+    )
+    blue_competitor_description = blue_competitor.find(
+        "span", class_="match-card__competitor-description"
+    )
+    blue_child_description = blue_competitor.find(
+        "span", class_="match-card__child-description"
+    )
+
+    if (not red_competitor_description and not red_child_description) or (
+        not blue_competitor_description and not blue_child_description
+    ):
+        return None
+
+    red_bye, red_id, red_seed, red_loser, red_name, red_team, red_note = (
+        False,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    blue_bye, blue_id, blue_seed, blue_loser, blue_name, blue_team, blue_note = (
+        False,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    red_next_description = None
+    blue_next_description = None
+
+    if red_competitor_description:
+        red_bye, red_id, red_seed, red_loser, red_name, red_team, red_note = (
+            parse_competitor(red_competitor, red_competitor_description)
+        )
+        if red_seed is not None:
+            try:
+                red_seed = int(red_seed)
+            except ValueError:
+                red_seed = 0
+    else:
+        red_next = red_child_description.find_all(
+            "div", class_="match-card__child-where"
+        )
+        if len(red_next) == 0:
+            return None
+        red_next_description = red_next[0].get_text(strip=True)
+
+    if blue_competitor_description:
+        blue_bye, blue_id, blue_seed, blue_loser, blue_name, blue_team, blue_note = (
+            parse_competitor(blue_competitor, blue_competitor_description)
+        )
+        if blue_seed is not None:
+            try:
+                blue_seed = int(blue_seed)
+            except ValueError:
+                blue_seed = 0
+    else:
+        blue_next = blue_child_description.find_all(
+            "div", class_="match-card__child-where"
+        )
+        if len(blue_next) == 0:
+            return None
+        blue_next_description = blue_next[0].get_text(strip=True)
+
+    red_ordinal = None
+    red_rating = None
+    red_expected = None
+    red_weight = HEAVY if OPEN_CLASS in weight else weight
+    red_handicap = 0
+    blue_ordinal = None
+    blue_rating = None
+    blue_expected = None
+    blue_weight = HEAVY if OPEN_CLASS in weight else weight
+    blue_handicap = 0
+
+    for result in results:
+        if result["ibjjf_id"] == red_id:
+            red_ordinal = result["ordinal"]
+            red_rating = result["rating"]
+            if OPEN_CLASS in weight and result["last_weight"] is not None:
+                red_weight = result["last_weight"]
+        elif result["ibjjf_id"] == blue_id:
+            blue_ordinal = result["ordinal"]
+            blue_rating = result["rating"]
+            if OPEN_CLASS in weight and result["last_weight"] is not None:
+                blue_weight = result["last_weight"]
+
+    if red_rating is not None and blue_rating is not None:
+        if red_weight != blue_weight:
+            red_handicap, blue_handicap = weight_handicaps(
+                belt, red_weight, blue_weight
+            )
+
+        red_elo_win = EloCompetitor(red_rating + red_handicap, 32)
+        blue_elo_win = EloCompetitor(blue_rating + blue_handicap, 32)
+
+        red_expected = red_elo_win.expected_score(blue_elo_win)
+        blue_expected = blue_elo_win.expected_score(red_elo_win)
+
+    return {
+        "final": final,
+        "when": when,
+        "where": where,
+        "fight_num": fight_num,
+        "red_bye": red_bye,
+        "red_id": red_id,
+        "red_seed": red_seed,
+        "red_loser": red_loser,
+        "red_name": red_name,
+        "red_team": red_team,
+        "red_note": red_note,
+        "red_next_description": red_next_description,
+        "red_ordinal": red_ordinal,
+        "red_rating": red_rating,
+        "red_expected": red_expected,
+        "red_handicap": round(red_handicap),
+        "blue_bye": blue_bye,
+        "blue_id": blue_id,
+        "blue_seed": blue_seed,
+        "blue_loser": blue_loser,
+        "blue_name": blue_name,
+        "blue_team": blue_team,
+        "blue_note": blue_note,
+        "blue_next_description": blue_next_description,
+        "blue_ordinal": blue_ordinal,
+        "blue_rating": blue_rating,
+        "blue_expected": blue_expected,
+        "blue_handicap": round(blue_handicap),
+    }
 
 
 @brackets_route.route("/api/brackets/competitors")
@@ -487,6 +689,7 @@ def competitors():
         return jsonify({"error": str(e)})
 
     results = []
+    parsed_matches = []
 
     found = set()
 
@@ -494,30 +697,28 @@ def competitors():
 
     for match in matches:
         for competitor in match.find_all("div", class_="match-card__competitor"):
-
             competitor_description = competitor.find(
                 "span", class_="match-card__competitor-description"
             )
 
-            if competitor_description and not competitor_description.find(
-                "div", class_="match-card__bye"
-            ):
-                competitor_id = competitor["id"].split("-")[-1]
+            if competitor_description:
+                (
+                    competitor_bye,
+                    competitor_id,
+                    competitor_seed,
+                    _,
+                    competitor_name,
+                    competitor_team,
+                    _,
+                ) = parse_competitor(competitor, competitor_description)
+
+                if competitor_bye:
+                    continue
 
                 if competitor_id in found:
                     continue
 
                 found.add(competitor_id)
-
-                competitor_seed = competitor.find(
-                    "span", class_="match-card__competitor-n"
-                ).get_text(strip=True)
-                competitor_name = competitor.find(
-                    "div", class_="match-card__competitor-name"
-                ).get_text(strip=True)
-                competitor_team = competitor.find(
-                    "div", class_="match-card__club-name"
-                ).get_text(strip=True)
 
                 try:
                     competitor_seed = int(competitor_seed)
@@ -535,12 +736,25 @@ def competitors():
                         "match_count": None,
                         "rank": None,
                         "note": None,
+                        "last_weight": None,
                     }
                 )
 
     get_ratings(results, age, belt, weight, gender, gi)
 
-    return jsonify({"competitors": results})
+    for match in matches:
+        parsed_match = parse_match(match, results, belt, weight)
+        if parsed_match is not None:
+            parsed_matches.append(parsed_match)
+
+    parsed_matches.sort(key=lambda x: x["when"], reverse=True)
+
+    return jsonify(
+        {
+            "competitors": results,
+            "matches": parsed_matches,
+        }
+    )
 
 
 @brackets_route.route("/api/brackets/categories/<tournament_id>")

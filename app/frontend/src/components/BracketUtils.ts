@@ -11,6 +11,38 @@ export interface Competitor {
   match_count: number | null
   rank: number | null
   note: string | null
+  last_weight: string | null
+}
+
+export interface Match {
+  final: boolean
+  when: string | null
+  where: string | null
+  fight_num: number | null
+  red_bye: boolean
+  red_id: string | null
+  red_seed: number | null
+  red_loser: boolean | null
+  red_name: string | null
+  red_team: string | null
+  red_note: string | null
+  red_next_description: string | null
+  red_ordinal: number | null
+  red_expected: number | null
+  red_rating: number | null
+  red_handicap: number
+  blue_bye: boolean
+  blue_id: string | null
+  blue_seed: number | null
+  blue_loser: boolean | null
+  blue_name: string | null
+  blue_team: string | null
+  blue_note: string | null
+  blue_next_description: string | null
+  blue_ordinal: number | null
+  blue_expected: number | null
+  blue_rating: number | null
+  blue_handicap: number
 }
 
 export interface CompetitorsResponse {
@@ -33,4 +65,43 @@ export const handleError = (err: any, errFunc: (error: string) => void) => {
   } else {
     errFunc(JSON.stringify(err));
   }
+}
+
+// return true if the match red competitor references another
+// a reference can take two forms: a competitor has the same seed
+// or there is next description of "winner or fight N mat M" that matches
+// the fight_num and where of the other
+
+export const referencesMatchRed = (match: Match, other: Match) => {
+  if (!match.red_bye) {
+    if (!other.red_bye && match.red_seed === other.red_seed) {
+      return true;
+    }
+    if (!other.blue_bye && match.red_seed === other.blue_seed) {
+      return true;
+    }
+  }
+  if (match.red_next_description && other.fight_num !== null && other.where !== null) {
+    if (match.red_next_description.toLowerCase().includes(`of fight ${other.fight_num}, ${other.where.toLowerCase()}`)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export const referencesMatchBlue = (match: Match, other: Match) => {
+  if (!match.blue_bye) {
+    if (!other.red_bye && match.blue_seed === other.red_seed) {
+      return true;
+    }
+    if (!other.blue_bye && match.blue_seed === other.blue_seed) {
+      return true;
+    }
+  }
+  if (match.blue_next_description && other.fight_num !== null && other.where !== null) {
+    if (match.blue_next_description.toLowerCase().includes(`of fight ${other.fight_num}, ${other.where.toLowerCase()}`)) {
+      return true;
+    }
+  }
+  return false;
 }
