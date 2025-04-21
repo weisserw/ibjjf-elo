@@ -42,7 +42,7 @@ function About() {
           </ul>
         </p>
         <p className="content">
-          <strong>Q: Will you support other jiu-jitsu competitions other than the IBJJF?</strong>
+          <strong>Q: Will you support jiu-jitsu competitions other than the IBJJF?</strong>
         </p>
         <p className="content">
           A: We would like to support other competitions in the future, but we are starting with the IBJJF because it is the largest and most prestigious jiu-jitsu organization in the world.
