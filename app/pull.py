@@ -61,12 +61,14 @@ headers = [
     "Red Name",
     "Red Team",
     "Red Note",
+    "Red Medal",
     "Blue ID",
     "Blue Seed",
     "Blue Winner",
     "Blue Name",
     "Blue Team",
     "Blue Note",
+    "Blue Medal",
 ]
 
 
@@ -170,6 +172,21 @@ def parse_competitor(competitor, competitor_description):
     )
 
 
+def parse_medals(soup):
+    ret = {}
+
+    podiums = soup.find_all("div", class_="podium__step")
+
+    for podium in podiums:
+        name = podium.find("div", "podium__competitor-name").get_text(strip=True)
+        place = podium.find("span", "podium__place").get_text(strip=True)
+        if not name or not place:
+            continue
+        ret[name] = place
+
+    return ret
+
+
 def pull_tournament(
     file,
     writer,
@@ -241,6 +258,9 @@ def pull_tournament(
                 continue
 
             category_soup = BeautifulSoup(response.content, "html.parser")
+
+            medals = parse_medals(category_soup)
+
             matches = category_soup.find_all("div", class_="tournament-category__match")
 
             num_matches = len(matches)
@@ -302,6 +322,7 @@ def pull_tournament(
                                 red_competitor_name,
                                 red_competitor_team,
                                 red_competitor_note,
+                                "1",
                                 "DEFAULT_GOLD",
                                 "",
                                 "",
@@ -350,12 +371,14 @@ def pull_tournament(
                         red_competitor_name,
                         red_competitor_team,
                         red_competitor_note,
+                        medals.get(red_competitor_name, ""),
                         blue_competitor_id,
                         blue_competitor_seed,
                         "false" if blue_competitor_loser else "true",
                         blue_competitor_name,
                         blue_competitor_team,
                         blue_competitor_note,
+                        medals.get(blue_competitor_name, ""),
                     ]
                 )
                 file.flush()

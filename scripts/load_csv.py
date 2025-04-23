@@ -183,6 +183,20 @@ def process_file(csv_file_path: str, no_scores: bool):
                             if red_winner and blue_winner:
                                 continue  # match hasn't finished, don't import
 
+                            red_medal = None
+                            blue_medal = None
+
+                            try:
+                                if row.get("Red Medal", ""):
+                                    red_medal = int(row["Red Medal"])
+                            except ValueError:
+                                print("Invalid red medal value:", row["Red Medal"])
+                            try:
+                                if row.get("Blue Medal", ""):
+                                    blue_medal = int(row["Blue Medal"])
+                            except ValueError:
+                                print("Invalid blue medal value:", row["Blue Medal"])
+
                             event = get_or_create_event_or_athlete(
                                 db.session,
                                 Event,
@@ -271,6 +285,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 end_rating=0,
                                 start_match_count=0,
                                 end_match_count=0,
+                                medal=red_medal,
                             )
                             db.session.add(red_participant)
                             blue_participant = MatchParticipant(
@@ -285,6 +300,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 end_rating=0,
                                 start_match_count=0,
                                 end_match_count=0,
+                                medal=blue_medal,
                             )
                             db.session.add(blue_participant)
 

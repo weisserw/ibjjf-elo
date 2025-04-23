@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
-from pull import parse_categories, parse_match_when, parse_match_where, parse_competitor
+from pull import parse_categories, parse_match_when, parse_match_where, parse_competitor, parse_medals
 import re
 import json
 from sqlalchemy.sql import func, or_
@@ -645,6 +645,7 @@ def parse_match(match, results, belt, weight):
         "red_expected": red_expected,
         "red_handicap": round(red_handicap),
         "red_weight": red_weight,
+        "red_medal": None,
         "blue_bye": blue_bye,
         "blue_id": blue_id,
         "blue_seed": blue_seed,
@@ -658,6 +659,7 @@ def parse_match(match, results, belt, weight):
         "blue_expected": blue_expected,
         "blue_handicap": round(blue_handicap),
         "blue_weight": blue_weight,
+        "blue_medal": None,
     }
 
 
@@ -747,12 +749,23 @@ def competitors():
 
     get_ratings(results, age, belt, weight, gender, gi)
 
+    medals = parse_medals(soup)
+
     for match in matches:
         parsed_match = parse_match(match, results, belt, weight)
         if parsed_match is not None:
             parsed_matches.append(parsed_match)
 
     parsed_matches.sort(key=lambda x: x["when"], reverse=True)
+
+    for name, medal in medals.items():
+        for match in parsed_matches:
+            if match["red_name"] == name:
+                match["red_medal"] = medal
+                break
+            elif match["blue_name"] == name:
+                match["blue_medal"] = medal
+                break
 
     return jsonify(
         {
