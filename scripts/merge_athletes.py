@@ -8,7 +8,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 
 import argparse
 from app import db, app
-from models import Athlete, DefaultGold, MatchParticipant, AthleteRating
+from models import Athlete, Medal, MatchParticipant, AthleteRating
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Merge two athletes")
@@ -45,10 +45,8 @@ if __name__ == "__main__":
             sys.exit(1)
 
         print(f"Merging {merge.name} into {keep.name}")
-        for default_gold in (
-            db.session.query(DefaultGold).filter_by(athlete_id=merge_uuid).all()
-        ):
-            default_gold.athlete_id = keep_uuid
+        for medal in db.session.query(Medal).filter_by(athlete_id=merge_uuid).all():
+            medal.athlete_id = keep_uuid
         for match_participant in (
             db.session.query(MatchParticipant).filter_by(athlete_id=merge_uuid).all()
         ):

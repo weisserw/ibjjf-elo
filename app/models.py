@@ -90,25 +90,27 @@ class Team(db.Model):
     __table_args__ = (Index("ix_teams_normalized_name", "normalized_name"),)
 
 
-class DefaultGold(db.Model):
-    __tablename__ = "default_golds"
+class Medal(db.Model):
+    __tablename__ = "medals"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     happened_at = Column(DateTime, nullable=False)
     event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False)
     division_id = Column(UUID(as_uuid=True), ForeignKey("divisions.id"), nullable=False)
     athlete_id = Column(UUID(as_uuid=True), ForeignKey("athletes.id"), nullable=False)
     team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False)
+    place = Column(Integer, nullable=False)
+    default_gold = Column(Boolean, nullable=False)
 
     division = relationship("Division", lazy="select", viewonly=True)
     athlete = relationship("Athlete", lazy="select", viewonly=True)
     event = relationship("Event", lazy="select", viewonly=True)
 
     __table_args__ = (
-        Index("ix_default_golds_event_id", "event_id"),
-        Index("ix_default_golds_division_id", "division_id"),
-        Index("ix_default_golds_athlete_id", "athlete_id"),
-        Index("ix_default_golds_team_id", "team_id"),
-        Index("ix_default_golds_happened_at", "happened_at"),
+        Index("ix_medals_event_id", "event_id"),
+        Index("ix_medals_division_id", "division_id"),
+        Index("ix_medals_athlete_id", "athlete_id"),
+        Index("ix_medals_team_id", "team_id"),
+        Index("ix_medals_happened_at", "happened_at"),
     )
 
 
@@ -151,7 +153,6 @@ class MatchParticipant(db.Model):
     weight_for_open = Column(String, nullable=True)
     start_match_count = Column(Integer, nullable=False)
     end_match_count = Column(Integer, nullable=False)
-    medal = Column(Integer, nullable=True)
 
     athlete = relationship("Athlete", lazy="select", viewonly=True)
     match = relationship("Match", lazy="select", viewonly=True)

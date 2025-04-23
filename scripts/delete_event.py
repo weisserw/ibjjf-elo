@@ -7,13 +7,13 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 
 import argparse
 from app import db, app
-from models import Event, Match, DefaultGold
+from models import Event, Match, Medal
 from normalize import normalize
 
 
 def delete_event(event):
     db.session.query(Match).filter(Match.event_id == event.id).delete()
-    db.session.query(DefaultGold).filter(DefaultGold.event_id == event.id).delete()
+    db.session.query(Medal).filter(Medal.event_id == event.id).delete()
     db.session.delete(event)
     db.session.commit()
 

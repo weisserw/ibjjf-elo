@@ -12,7 +12,7 @@ from progress_bar import Bar
 from ratings import recompute_all_ratings
 from datetime import datetime
 from app import db, app
-from models import Event, Division, Athlete, Team, Match, MatchParticipant, DefaultGold
+from models import Event, Division, Athlete, Team, Match, MatchParticipant, Medal
 from constants import (
     translate_belt,
     translate_weight,
@@ -104,6 +104,34 @@ def get_or_create(session, model, **kwargs):
         return instance
 
 
+def create_or_update_medal(session, place, event, division, match, athlete, team):
+    existing_medal = (
+        session.query(Medal)
+        .filter(
+            Medal.event_id == event.id,
+            Medal.division_id == division.id,
+            Medal.athlete_id == athlete.id,
+        )
+        .first()
+    )
+
+    if existing_medal and existing_medal.happened_at < match.happened_at:
+        existing_medal.happened_at = match.happened_at
+    else:
+        medal = Medal(
+            happened_at=match.happened_at,
+            event_id=event.id,
+            division_id=division.id,
+            athlete_id=athlete.id,
+            team_id=team.id,
+            place=place,
+            default_gold=False,
+        )
+        session.add(medal)
+
+    session.flush()
+
+
 def process_file(csv_file_path: str, no_scores: bool):
     try:
         with app.app_context():
@@ -147,8 +175,8 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 db.session.query(Match).filter(
                                     Match.event_id == existing_event.id
                                 ).delete()
-                                db.session.query(DefaultGold).filter(
-                                    DefaultGold.event_id == existing_event.id
+                                db.session.query(Medal).filter(
+                                    Medal.event_id == existing_event.id
                                 ).delete()
 
                         if rows[0]["Gi"].lower() == "true":
@@ -229,12 +257,14 @@ def process_file(csv_file_path: str, no_scores: bool):
                                     )
                                 if default_happened_at is None:
                                     continue
-                                default_gold = DefaultGold(
+                                default_gold = Medal(
                                     happened_at=default_happened_at,
                                     event_id=event.id,
                                     division_id=division.id,
                                     athlete_id=red_athlete.id,
                                     team_id=red_team.id,
+                                    place=1,
+                                    default_gold=True,
                                 )
                                 db.session.add(default_gold)
                                 db.session.flush()
@@ -273,6 +303,27 @@ def process_file(csv_file_path: str, no_scores: bool):
                             db.session.add(match)
                             db.session.flush()
 
+                            if red_medal is not None:
+                                create_or_update_medal(
+                                    db.session,
+                                    red_medal,
+                                    event,
+                                    division,
+                                    match,
+                                    red_athlete,
+                                    red_team,
+                                )
+                            if blue_medal is not None:
+                                create_or_update_medal(
+                                    db.session,
+                                    blue_medal,
+                                    event,
+                                    division,
+                                    match,
+                                    blue_athlete,
+                                    blue_team,
+                                )
+
                             red_participant = MatchParticipant(
                                 match_id=match.id,
                                 athlete_id=red_athlete.id,
@@ -285,7 +336,6 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 end_rating=0,
                                 start_match_count=0,
                                 end_match_count=0,
-                                medal=red_medal,
                             )
                             db.session.add(red_participant)
                             blue_participant = MatchParticipant(
@@ -300,7 +350,6 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 end_rating=0,
                                 start_match_count=0,
                                 end_match_count=0,
-                                medal=blue_medal,
                             )
                             db.session.add(blue_participant)
 

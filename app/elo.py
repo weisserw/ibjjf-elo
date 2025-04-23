@@ -3,7 +3,7 @@ from typing import Tuple, Optional, Dict
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from flask_sqlalchemy import SQLAlchemy
-from models import Match, MatchParticipant, Division, DefaultGold, Suspension
+from models import Match, MatchParticipant, Division, Medal, Suspension
 from constants import (
     BLACK,
     BROWN,
@@ -237,18 +237,18 @@ def get_weight(
         .first()
     )
     last_default_gold = (
-        db.session.query(Division.weight, DefaultGold.happened_at)
+        db.session.query(Division.weight, Medal.happened_at)
         .select_from(Division)
-        .join(DefaultGold)
+        .join(Medal)
         .filter(
             Division.gi == division.gi,
             Division.gender == division.gender,
             ~Division.weight.startswith(OPEN_CLASS),
-            DefaultGold.athlete_id == athlete_id,
-            (DefaultGold.happened_at < happened_at)
-            | (DefaultGold.event_id == event_id),
+            Medal.default_gold == True,
+            Medal.athlete_id == athlete_id,
+            (Medal.happened_at < happened_at) | (Medal.event_id == event_id),
         )
-        .order_by(DefaultGold.happened_at.desc())
+        .order_by(Medal.happened_at.desc())
         .limit(1)
         .first()
     )
