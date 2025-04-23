@@ -269,7 +269,11 @@ def pull_tournament(
                 match_datetime_iso = parse_match_when(match, year)
 
                 red_competitor = match.find("div", class_="match-card__competitor--red")
-                blue_competitor = [c for c in match.find_all("div", class_="match-card__competitor") if c != red_competitor][0]
+                blue_competitor = [
+                    c
+                    for c in match.find_all("div", class_="match-card__competitor")
+                    if c != red_competitor
+                ][0]
 
                 red_competitor_description = red_competitor.find(
                     "span", class_="match-card__competitor-description"

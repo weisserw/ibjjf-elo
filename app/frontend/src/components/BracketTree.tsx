@@ -9,11 +9,10 @@ interface BracketTreeMatchProps {
   match: Match;
   showSeed: boolean;
   levelIndex: number;
-  numLevels: number;
 }
 
 function BracketTreeMatch(props: BracketTreeMatchProps) {
-  const { match, levelIndex, numLevels } = props;
+  const { match, levelIndex } = props;
 
   return (
     <div className="bracket-tree-match">
@@ -157,7 +156,6 @@ function BracketTree(props: BracketTreeProps) {
                 match={match}
                 showSeed={props.showSeed}
                 levelIndex={levelIndex}
-                numLevels={leveledMatches.length}
               />
             ))}
           </div>

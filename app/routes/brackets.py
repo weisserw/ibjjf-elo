@@ -2,7 +2,13 @@ from flask import Blueprint, jsonify, request
 import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
-from pull import parse_categories, parse_match_when, parse_match_where, parse_competitor, parse_medals
+from pull import (
+    parse_categories,
+    parse_match_when,
+    parse_match_where,
+    parse_competitor,
+    parse_medals,
+)
 import re
 import json
 from sqlalchemy.sql import func, or_
