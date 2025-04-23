@@ -667,12 +667,14 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["red_rating"] = red_rating
         match["red_expected"] = red_expected
         match["red_handicap"] = red_handicap
+        match["red_weight"] = red_weight
         match["red_end_rating"] = red_end_rating
 
         match["blue_ordinal"] = blue_ordinal
         match["blue_rating"] = blue_rating
         match["blue_expected"] = blue_expected
         match["blue_handicap"] = blue_handicap
+        match["blue_weight"] = blue_weight
         match["blue_end_rating"] = blue_end_rating
 
 
