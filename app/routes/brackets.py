@@ -43,6 +43,7 @@ from elo import (
     compute_start_rating,
     EloCompetitor,
     weight_handicaps,
+    match_didnt_happen,
 )
 
 log = logging.getLogger("ibjjf")
@@ -147,7 +148,7 @@ def get_bracket_page(link, newer_than):
     return response.content
 
 
-def get_ratings(results, age, belt, weight, gender, gi):
+def get_ratings(results, age, belt, weight, gender, gi, rating_date, get_rank):
     athlete_results = (
         db.session.query(Athlete.id, Athlete.ibjjf_id, Athlete.normalized_name)
         .filter(
@@ -180,37 +181,44 @@ def get_ratings(results, age, belt, weight, gender, gi):
         elif normalize(result["name"]) in athletes_by_name:
             result["id"] = athletes_by_name[normalize(result["name"])]
 
-    ratings_results = (
-        db.session.query(
-            AthleteRating.athlete_id,
-            AthleteRating.rating,
-            AthleteRating.rank,
-            AthleteRating.match_count,
+    if get_rank:
+        ratings_results = (
+            db.session.query(
+                AthleteRating.athlete_id,
+                AthleteRating.rating,
+                AthleteRating.rank,
+                AthleteRating.match_count,
+            )
+            .filter(
+                AthleteRating.athlete_id.in_([result["id"] for result in results]),
+                AthleteRating.age == age,
+                AthleteRating.belt == belt,
+                AthleteRating.weight == weight,
+                AthleteRating.gender == gender,
+                AthleteRating.gi == gi,
+            )
+            .all()
         )
-        .filter(
-            AthleteRating.athlete_id.in_([result["id"] for result in results]),
-            AthleteRating.age == age,
-            AthleteRating.belt == belt,
-            AthleteRating.weight == weight,
-            AthleteRating.gender == gender,
-            AthleteRating.gi == gi,
-        )
-        .all()
-    )
 
-    ratings_by_id = {}
-    for rating in ratings_results:
-        ratings_by_id[rating.athlete_id] = rating
+        ratings_by_id = {}
+        for rating in ratings_results:
+            ratings_by_id[rating.athlete_id] = rating
 
-    no_ratings_found = []
-    for result in results:
-        rating = ratings_by_id.get(result["id"])
-        if rating:
-            result["rating"] = round(rating.rating)
-            result["rank"] = rating.rank
-            result["match_count"] = rating.match_count
-        else:
-            no_ratings_found.append(result)
+        no_ratings_found = []
+        for result in results:
+            rating = ratings_by_id.get(result["id"])
+            if rating:
+                result["rating"] = rating.rating
+                result["rank"] = rating.rank
+                result["match_count"] = rating.match_count
+            else:
+                no_ratings_found.append(result)
+    else:
+        no_ratings_found = results
+        for result in results:
+            result["rating"] = None
+            result["rank"] = None
+            result["match_count"] = None
 
     # If we can't find a rating for an athlete on the leader board,
     # they may still be rated but have been removed from the leader board
@@ -241,6 +249,7 @@ def get_ratings(results, age, belt, weight, gender, gi):
                 ),
                 Division.gi == gi,
                 Division.gender == gender,
+                Match.happened_at < rating_date,
             )
             .cte("recent_matches_cte")
         )
@@ -269,7 +278,11 @@ def get_ratings(results, age, belt, weight, gender, gi):
             if rating.belt != belt or rating.age != age:
                 last_match = (
                     db.session.query(MatchParticipant)
-                    .filter(MatchParticipant.id == rating.id)
+                    .join(Match)
+                    .filter(
+                        MatchParticipant.id == rating.id,
+                        Match.happened_at < rating_date,
+                    )
                     .first()
                 )
                 same_or_higher_age_match = (
@@ -308,7 +321,7 @@ def get_ratings(results, age, belt, weight, gender, gi):
 
         for result in no_ratings_found:
             if result["id"] in ratings_by_id:
-                result["rating"] = round(ratings_by_id[result["id"]][0])
+                result["rating"] = ratings_by_id[result["id"]][0]
                 result["match_count"] = ratings_by_id[result["id"]][1]
             if result["id"] in notes_by_id:
                 result["note"] = notes_by_id[result["id"]]
@@ -330,12 +343,13 @@ def get_ratings(results, age, belt, weight, gender, gi):
             .join(Match)
             .join(Division)
             .filter(
-                MatchParticipant.athlete_id.in_([result["id"] for result in results])
+                MatchParticipant.athlete_id.in_([result["id"] for result in results]),
+                Division.gi == gi,
+                Division.weight != OPEN_CLASS,
+                Division.weight != OPEN_CLASS_HEAVY,
+                Division.weight != OPEN_CLASS_LIGHT,
+                Match.happened_at < rating_date,
             )
-            .filter(Division.gi == gi)
-            .filter(Division.weight != OPEN_CLASS)
-            .filter(Division.weight != OPEN_CLASS_HEAVY)
-            .filter(Division.weight != OPEN_CLASS_LIGHT)
             .cte("weight_cte")
         )
 
@@ -358,13 +372,17 @@ def get_ratings(results, age, belt, weight, gender, gi):
     ties = 0
     last_rating = None
     for result in results:
-        if last_rating is None or result["rating"] != last_rating:
+        if (
+            last_rating is None
+            or result["rating"] is None
+            or round(result["rating"]) != last_rating
+        ):
             ordinal += 1 + ties
             ties = 0
         else:
             ties += 1
         result["ordinal"] = ordinal
-        last_rating = result["rating"]
+        last_rating = None if result["rating"] is None else round(result["rating"])
 
 
 def parse_registrations(soup):
@@ -501,13 +519,145 @@ def registration_competitors():
                 )
 
     get_ratings(
-        rows, divdata["age"], divdata["belt"], divdata["weight"], divdata["gender"], gi
+        rows,
+        divdata["age"],
+        divdata["belt"],
+        divdata["weight"],
+        divdata["gender"],
+        gi,
+        datetime.now() + timedelta(days=1),
+        True,
     )
 
     return jsonify({"competitors": rows})
 
 
-def parse_match(match, results, belt, weight):
+def compute_match_ratings(matches, results, belt, weight):
+    for i in range(len(matches)):
+        match = matches[i]
+
+        red_id = match["red_id"]
+        red_weight = match["red_weight"]
+        red_ordinal = None
+        red_rating = None
+        red_expected = None
+        red_handicap = 0
+        red_end_rating = None
+        blue_id = match["blue_id"]
+        blue_weight = match["blue_weight"]
+        blue_ordinal = None
+        blue_rating = None
+        blue_expected = None
+        blue_handicap = 0
+        blue_end_rating = None
+
+        for result in results:
+            if result["ibjjf_id"] == red_id:
+                red_ordinal = result["ordinal"]
+                red_rating = result["rating"]
+                if OPEN_CLASS in weight and result["last_weight"] is not None:
+                    red_weight = result["last_weight"]
+            elif result["ibjjf_id"] == blue_id:
+                blue_ordinal = result["ordinal"]
+                blue_rating = result["rating"]
+                if OPEN_CLASS in weight and result["last_weight"] is not None:
+                    blue_weight = result["last_weight"]
+
+        if red_rating is not None and blue_rating is not None:
+            if (
+                red_weight != blue_weight
+                and red_weight != "Unknown"
+                and blue_weight != "Unknown"
+            ):
+                red_handicap, blue_handicap = weight_handicaps(
+                    belt, red_weight, blue_weight
+                )
+
+            red_previous_matches = [
+                m
+                for m in matches[:i]
+                if m["red_id"] == red_id or m["blue_id"] == red_id
+            ]
+            if len(red_previous_matches) > 0:
+                red_last_match = red_previous_matches[-1]
+                if (
+                    red_last_match["red_id"] == red_id
+                    and red_last_match["red_end_rating"] is not None
+                ):
+                    red_rating = red_last_match["red_end_rating"]
+                if (
+                    red_last_match["blue_id"] == red_id
+                    and red_last_match["blue_end_rating"] is not None
+                ):
+                    red_rating = red_last_match["blue_end_rating"]
+
+            blue_previous_matches = [
+                m
+                for m in matches[:i]
+                if m["red_id"] == blue_id or m["blue_id"] == blue_id
+            ]
+            if len(blue_previous_matches) > 0:
+                blue_last_match = blue_previous_matches[-1]
+                if (
+                    blue_last_match["blue_id"] == blue_id
+                    and blue_last_match["blue_end_rating"] is not None
+                ):
+                    blue_rating = blue_last_match["blue_end_rating"]
+                if (
+                    blue_last_match["red_id"] == blue_id
+                    and blue_last_match["red_end_rating"] is not None
+                ):
+                    blue_rating = blue_last_match["red_end_rating"]
+
+            red_elo = EloCompetitor(red_rating + red_handicap, 32)
+            blue_elo = EloCompetitor(blue_rating + blue_handicap, 32)
+
+            red_expected = red_elo.expected_score(blue_elo)
+            blue_expected = blue_elo.expected_score(red_elo)
+
+            if match_didnt_happen(match["red_note"], match["blue_note"]) or (
+                not match["red_loser"] and not match["blue_loser"]
+            ):
+                red_end_rating = red_rating
+                blue_end_rating = blue_rating
+            else:
+                if match["red_loser"] and match["blue_loser"]:
+                    red_elo.tied(blue_elo)
+                elif not match["red_loser"]:
+                    red_elo.beat(blue_elo)
+                else:
+                    blue_elo.beat(red_elo)
+
+                red_end_rating = red_elo.rating - red_handicap
+                blue_end_rating = blue_elo.rating - blue_handicap
+
+                # don't subtract points from winners
+                if (red_end_rating < red_rating and not match["red_loser"]) or (
+                    blue_end_rating < blue_rating and not match["blue_loser"]
+                ):
+                    red_end_rating = red_rating
+                    blue_end_rating = blue_rating
+
+                # don't let ratings go below 0
+                if red_end_rating < 0:
+                    red_end_rating = 0
+                if blue_end_rating < 0:
+                    blue_end_rating = 0
+
+        match["red_ordinal"] = red_ordinal
+        match["red_rating"] = red_rating
+        match["red_expected"] = red_expected
+        match["red_handicap"] = red_handicap
+        match["red_end_rating"] = red_end_rating
+
+        match["blue_ordinal"] = blue_ordinal
+        match["blue_rating"] = blue_rating
+        match["blue_expected"] = blue_expected
+        match["blue_handicap"] = blue_handicap
+        match["blue_end_rating"] = blue_end_rating
+
+
+def parse_match(match, weight):
     when = parse_match_when(match, datetime.now().year)
     where, fight_num = parse_match_where(match)
 
@@ -594,45 +744,6 @@ def parse_match(match, results, belt, weight):
             return None
         blue_next_description = blue_next[0].get_text(strip=True)
 
-    red_ordinal = None
-    red_rating = None
-    red_expected = None
-    red_weight = "Unknown" if OPEN_CLASS in weight else weight
-    red_handicap = 0
-    blue_ordinal = None
-    blue_rating = None
-    blue_expected = None
-    blue_weight = "Unknown" if OPEN_CLASS in weight else weight
-    blue_handicap = 0
-
-    for result in results:
-        if result["ibjjf_id"] == red_id:
-            red_ordinal = result["ordinal"]
-            red_rating = result["rating"]
-            if OPEN_CLASS in weight and result["last_weight"] is not None:
-                red_weight = result["last_weight"]
-        elif result["ibjjf_id"] == blue_id:
-            blue_ordinal = result["ordinal"]
-            blue_rating = result["rating"]
-            if OPEN_CLASS in weight and result["last_weight"] is not None:
-                blue_weight = result["last_weight"]
-
-    if red_rating is not None and blue_rating is not None:
-        if (
-            red_weight != blue_weight
-            and red_weight != "Unknown"
-            and blue_weight != "Unknown"
-        ):
-            red_handicap, blue_handicap = weight_handicaps(
-                belt, red_weight, blue_weight
-            )
-
-        red_elo_win = EloCompetitor(red_rating + red_handicap, 32)
-        blue_elo_win = EloCompetitor(blue_rating + blue_handicap, 32)
-
-        red_expected = red_elo_win.expected_score(blue_elo_win)
-        blue_expected = blue_elo_win.expected_score(red_elo_win)
-
     return {
         "final": final,
         "when": when,
@@ -646,11 +757,12 @@ def parse_match(match, results, belt, weight):
         "red_team": red_team,
         "red_note": red_note,
         "red_next_description": red_next_description,
-        "red_ordinal": red_ordinal,
-        "red_rating": red_rating,
-        "red_expected": red_expected,
-        "red_handicap": round(red_handicap),
-        "red_weight": red_weight,
+        "red_ordinal": None,
+        "red_rating": None,
+        "red_end_rating": None,
+        "red_expected": None,
+        "red_handicap": 0,
+        "red_weight": "Unknown" if OPEN_CLASS in weight else weight,
         "red_medal": None,
         "blue_bye": blue_bye,
         "blue_id": blue_id,
@@ -660,11 +772,12 @@ def parse_match(match, results, belt, weight):
         "blue_team": blue_team,
         "blue_note": blue_note,
         "blue_next_description": blue_next_description,
-        "blue_ordinal": blue_ordinal,
-        "blue_rating": blue_rating,
-        "blue_expected": blue_expected,
-        "blue_handicap": round(blue_handicap),
-        "blue_weight": blue_weight,
+        "blue_ordinal": None,
+        "blue_rating": None,
+        "blue_end_rating": None,
+        "blue_expected": None,
+        "blue_handicap": 0,
+        "blue_weight": "Unknown" if OPEN_CLASS in weight else weight,
         "blue_medal": None,
     }
 
@@ -753,25 +866,32 @@ def competitors():
                     }
                 )
 
-    get_ratings(results, age, belt, weight, gender, gi)
-
     medals = parse_medals(soup)
 
     for match in matches:
-        parsed_match = parse_match(match, results, belt, weight)
+        parsed_match = parse_match(match, weight)
         if parsed_match is not None:
             parsed_matches.append(parsed_match)
 
-    parsed_matches.sort(key=lambda x: x["when"], reverse=True)
+    parsed_matches.sort(key=lambda x: x["when"])
 
     for name, medal in medals.items():
-        for match in parsed_matches:
+        for match in parsed_matches[::-1]:
             if match["red_name"] == name:
                 match["red_medal"] = medal
                 break
             elif match["blue_name"] == name:
                 match["blue_medal"] = medal
                 break
+
+    match_dates = [m["when"] for m in parsed_matches if m["when"]]
+    earliest_match_date = (
+        datetime.fromisoformat(match_dates[0]) if match_dates else datetime.now()
+    )
+
+    get_ratings(results, age, belt, weight, gender, gi, earliest_match_date, False)
+
+    compute_match_ratings(parsed_matches, results, belt, weight)
 
     return jsonify(
         {

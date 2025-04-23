@@ -39,7 +39,7 @@ function Navbar() {
             Database
           </Link>
           <Link className={getNavItemClass("/brackets")} to="/brackets">
-            Bracket Lookup
+            Brackets
           </Link>
           <Link className={getNavItemClass("/calculator")} to="/calculator">
             Calculator

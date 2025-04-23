@@ -48,8 +48,17 @@ function Brackets() {
           <BracketRegistration />
         )
       }
-      <div className="notification mt-5">
-        We cache responses from the IBJJF servers. If you don't see the latest data, try again in a few minutes.
+      <div className="notification mt-5 content bracket-notification">
+        <ul>
+          <li>We cache responses from the IBJJF servers. If you don't see the latest data, try again in a few minutes.</li>
+          {
+            bracketActiveTab === 'Live' && (
+              <li>
+                Ratings shown are estimates and may differ from an athlete's final rating at the end of an event.
+              </li>
+            )
+          }
+        </ul>
       </div>
     </div>
   );

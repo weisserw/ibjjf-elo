@@ -11,6 +11,7 @@ interface BracketTableProps {
   sortColumn?: string;
   showSeed: boolean;
   showWeight?: boolean;
+  showRank?: boolean;
   isGi: boolean;
   columnClicked?: (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => void;
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => void;
@@ -143,7 +144,10 @@ function BracketTable(props: BracketTableProps) {
               <th>Weight</th>
             }
             <th className="has-text-right">Rating</th>
-            <th className="has-text-right">Rank</th>
+            {
+              props.showRank &&
+              <th className="has-text-right">Rank</th>
+            }
             <th></th>
           </tr>
         </thead>
@@ -176,9 +180,12 @@ function BracketTable(props: BracketTableProps) {
                   <td>{competitor.last_weight}</td>
                 }
                 <td className="has-text-right">
-                  <span className={immatureClass(competitor.match_count)}>{competitor.rating ?? ''}</span>
+                  <span className={immatureClass(competitor.match_count)}>{competitor.rating !== null ? Math.round(competitor.rating) : ''}</span>
                 </td>
-                <td className="has-text-right">{immatureClass(competitor.match_count) !== 'very-immature' && (competitor.rank ?? '')}</td>
+                {
+                  props.showRank &&
+                  <td className="has-text-right">{immatureClass(competitor.match_count) !== 'very-immature' && (competitor.rank ?? '')}</td>
+                }
                 <td className={classNames("has-text-centered", {"has-tooltip-multiline has-tooltip-left": competitorTooltip(competitor)})} data-tooltip={competitorTooltip(competitor)}>
                   {
                     immatureClass(competitor.match_count) === 'very-immature' ? 

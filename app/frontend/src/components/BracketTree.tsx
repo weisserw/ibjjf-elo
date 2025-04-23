@@ -38,7 +38,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 <span className={classNames({"strike-through": noMatchStrings.some(s => match.red_note?.toLowerCase() === s)})}>
                   {match.red_name}
                   {
-                    match.red_rating !== null && <span className="bracket-tree-match-rating"> ({match.red_rating}{match.red_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{match.red_handicap}</span>})</span>
+                    match.red_rating !== null && <span className="bracket-tree-match-rating"> ({Math.round(match.red_rating)}{match.red_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.red_handicap)}</span>})</span>
                   }
                 </span>
                 {
@@ -71,7 +71,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 <span className={classNames({"strike-through": noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)})}>
                   {match.blue_name}
                   {
-                    match.blue_rating !== null && <span className="bracket-tree-match-rating"> ({match.blue_rating}{match.blue_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{match.blue_handicap}</span>})</span>
+                    match.blue_rating !== null && <span className="bracket-tree-match-rating"> ({Math.round(match.blue_rating)}{match.blue_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.blue_handicap)}</span>})</span>
                   }
                 </span>
                 {
@@ -106,13 +106,17 @@ interface BracketTreeProps {
 function BracketTree(props: BracketTreeProps) {
   const leveledMatches = useMemo(() => {
     const levels: Match[][] = [[]];
+
+    // sort in reverse order by date
+    const sortedMatches = [...props.matches].sort((a, b) => {
+      return (b.when || '').localeCompare(a.when || '');
+    });
   
-    const finalMatch = props.matches.find(m => m.final);
+    const finalMatch = sortedMatches.find(m => m.final);
     if (!finalMatch) {
       return levels;
     }
-
-    const allMatches = props.matches.filter(m => !m.final);
+    const allMatches = sortedMatches.filter(m => !m.final);
 
     levels[0].push(finalMatch);
 

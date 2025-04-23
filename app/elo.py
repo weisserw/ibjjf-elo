@@ -189,7 +189,7 @@ COLOR_PROMOTION_RATING_BUMP = 140
 BLACK_PROMOTION_RATING_BUMP = 95
 
 
-def match_didnt_happen(note1: str, note2: str) -> bool:
+def match_didnt_happen(note1: str | None, note2: str | None) -> bool:
     for no_match_string in no_match_strings:
         if no_match_string in note1 or no_match_string in note2:
             return True
@@ -632,7 +632,7 @@ def compute_ratings(
             blue_end_rating = blue_start_rating
             log.debug("Winner lost points, not changing ratings")
 
-        # don't let ratings go below 0, hard to image a scenario where this would happen
+        # don't let ratings go below 0, hard to imagine a scenario where this would happen
         # but hey...
         if red_end_rating < 0:
             red_end_rating = 0
