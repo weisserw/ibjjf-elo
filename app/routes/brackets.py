@@ -591,6 +591,8 @@ def compute_match_ratings(matches, results, belt, weight, age):
                 if m["red_id"] == red_id or m["blue_id"] == red_id
             ]
             if len(red_previous_matches) > 0:
+                red_match_count += len(red_previous_matches)
+
                 red_last_match = red_previous_matches[-1]
                 if (
                     red_last_match["red_id"] == red_id
@@ -609,6 +611,8 @@ def compute_match_ratings(matches, results, belt, weight, age):
                 if m["red_id"] == blue_id or m["blue_id"] == blue_id
             ]
             if len(blue_previous_matches) > 0:
+                blue_match_count += len(blue_previous_matches)
+
                 blue_last_match = blue_previous_matches[-1]
                 if (
                     blue_last_match["blue_id"] == blue_id
@@ -907,6 +911,34 @@ def competitors():
     get_ratings(results, age, belt, weight, gender, gi, earliest_match_date, False)
 
     compute_match_ratings(parsed_matches, results, belt, weight, age)
+
+    for result in results:
+        last_match = next(
+            (
+                m
+                for m in parsed_matches[::-1]
+                if m["red_id"] == result["ibjjf_id"]
+                or m["blue_id"] == result["ibjjf_id"]
+            ),
+            None,
+        )
+        if last_match:
+            result["end_rating"] = (
+                last_match["red_end_rating"]
+                if last_match["red_id"] == result["ibjjf_id"]
+                else last_match["blue_end_rating"]
+            )
+        else:
+            result["end_rating"] = result["rating"]
+
+        result["end_match_count"] = (result["match_count"] or 0) + len(
+            [
+                m
+                for m in parsed_matches
+                if m["red_id"] == result["ibjjf_id"]
+                or m["blue_id"] == result["ibjjf_id"]
+            ]
+        )
 
     return jsonify(
         {

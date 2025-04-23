@@ -8,7 +8,9 @@ export interface Competitor {
   name: string
   team: string
   rating: number | null
+  end_rating: number | null
   match_count: number | null
+  end_match_count: number | null
   rank: number | null
   note: string | null
   last_weight: string | null

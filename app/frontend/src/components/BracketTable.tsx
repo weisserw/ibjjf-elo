@@ -12,6 +12,7 @@ interface BracketTableProps {
   showSeed: boolean;
   showWeight?: boolean;
   showRank?: boolean;
+  showEndRating?: boolean;
   isGi: boolean;
   columnClicked?: (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => void;
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => void;
@@ -106,12 +107,24 @@ function BracketTable(props: BracketTableProps) {
       }
     }
 
-
-
     if (tooltip) {
       return tooltip
     }
     return undefined
+  }
+
+  const changeClass = (start: number | null, end: number | null) => {
+    if (start === null || end === null || start === end) {
+      return 'has-text-right';
+    }
+
+    let diff = end - start;
+
+    if (diff > 0) {
+      return 'has-text-right has-text-success';
+    } else {
+      return 'has-text-right has-text-danger';
+    }
   }
 
   return (
@@ -143,12 +156,20 @@ function BracketTable(props: BracketTableProps) {
               props.showWeight &&
               <th>Weight</th>
             }
-            <th className="has-text-right">Rating</th>
+            <th className="has-text-right">
+            {
+              props.showEndRating ? 'Start Rating' : 'Rating'
+            }
+            </th>
+            <th></th>
+            {
+              props.showEndRating &&
+              <th className="has-text-right">End Rating</th>
+            }
             {
               props.showRank &&
               <th className="has-text-right">Rank</th>
             }
-            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -182,10 +203,6 @@ function BracketTable(props: BracketTableProps) {
                 <td className="has-text-right">
                   <span className={immatureClass(competitor.match_count)}>{competitor.rating !== null ? Math.round(competitor.rating) : ''}</span>
                 </td>
-                {
-                  props.showRank &&
-                  <td className="has-text-right">{immatureClass(competitor.match_count) !== 'very-immature' && (competitor.rank ?? '')}</td>
-                }
                 <td className={classNames("has-text-centered", {"has-tooltip-multiline has-tooltip-left": competitorTooltip(competitor)})} data-tooltip={competitorTooltip(competitor)}>
                   {
                     immatureClass(competitor.match_count) === 'very-immature' ? 
@@ -197,6 +214,16 @@ function BracketTable(props: BracketTableProps) {
                       )
                   }
                 </td>
+                {
+                  props.showEndRating &&
+                  <td className={changeClass(competitor.rating, competitor.end_rating)}>
+                    <span className={immatureClass(competitor.end_match_count)}>{competitor.end_rating !== null ? Math.round(competitor.end_rating) : ''}</span>
+                  </td>
+                }
+                {
+                  props.showRank &&
+                  <td className="has-text-right">{immatureClass(competitor.match_count) !== 'very-immature' && (competitor.rank ?? '')}</td>
+                }
               </tr>
             ))
           }

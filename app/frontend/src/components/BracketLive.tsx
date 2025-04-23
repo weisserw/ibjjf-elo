@@ -348,6 +348,7 @@ function BracketLive() {
             <BracketTable competitors={sortedCompetitors}
                           sortColumn={sortColumn}
                           showSeed={true}
+                          showEndRating={true}
                           showWeight={selectedCategory?.includes(' / Open') ?? false}
                           isGi={isGi(selectedEventName ?? '')}
                           columnClicked={columnClicked}
