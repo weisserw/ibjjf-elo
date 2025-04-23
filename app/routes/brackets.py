@@ -44,6 +44,8 @@ from elo import (
     EloCompetitor,
     weight_handicaps,
     match_didnt_happen,
+    DEFAULT_RATINGS,
+    compute_k_factor,
 )
 
 log = logging.getLogger("ibjjf")
@@ -326,6 +328,12 @@ def get_ratings(results, age, belt, weight, gender, gi, rating_date, get_rank):
             if result["id"] in notes_by_id:
                 result["note"] = notes_by_id[result["id"]]
 
+    for result in results:
+        if result["match_count"] is None:
+            result["match_count"] = 0
+        if result["rating"] is None:
+            result["rating"] = DEFAULT_RATINGS[belt][age]
+
     # Get the last weight for competitors in open class
     if OPEN_CLASS in weight:
         weight_cte = (
@@ -532,7 +540,7 @@ def registration_competitors():
     return jsonify({"competitors": rows})
 
 
-def compute_match_ratings(matches, results, belt, weight):
+def compute_match_ratings(matches, results, belt, weight, age):
     for i in range(len(matches)):
         match = matches[i]
 
@@ -543,6 +551,7 @@ def compute_match_ratings(matches, results, belt, weight):
         red_expected = None
         red_handicap = 0
         red_end_rating = None
+        red_match_count = 0
         blue_id = match["blue_id"]
         blue_weight = match["blue_weight"]
         blue_ordinal = None
@@ -550,16 +559,19 @@ def compute_match_ratings(matches, results, belt, weight):
         blue_expected = None
         blue_handicap = 0
         blue_end_rating = None
+        blue_match_count = 0
 
         for result in results:
             if result["ibjjf_id"] == red_id:
                 red_ordinal = result["ordinal"]
                 red_rating = result["rating"]
+                red_match_count = result["match_count"]
                 if OPEN_CLASS in weight and result["last_weight"] is not None:
                     red_weight = result["last_weight"]
             elif result["ibjjf_id"] == blue_id:
                 blue_ordinal = result["ordinal"]
                 blue_rating = result["rating"]
+                blue_match_count = result["match_count"]
                 if OPEN_CLASS in weight and result["last_weight"] is not None:
                     blue_weight = result["last_weight"]
 
@@ -609,8 +621,11 @@ def compute_match_ratings(matches, results, belt, weight):
                 ):
                     blue_rating = blue_last_match["red_end_rating"]
 
-            red_elo = EloCompetitor(red_rating + red_handicap, 32)
-            blue_elo = EloCompetitor(blue_rating + blue_handicap, 32)
+            red_k_factor = compute_k_factor(red_match_count, False, age)
+            blue_k_factor = compute_k_factor(blue_match_count, False, age)
+
+            red_elo = EloCompetitor(red_rating + red_handicap, red_k_factor)
+            blue_elo = EloCompetitor(blue_rating + blue_handicap, blue_k_factor)
 
             red_expected = red_elo.expected_score(blue_elo)
             blue_expected = blue_elo.expected_score(red_elo)
@@ -891,7 +906,7 @@ def competitors():
 
     get_ratings(results, age, belt, weight, gender, gi, earliest_match_date, False)
 
-    compute_match_ratings(parsed_matches, results, belt, weight)
+    compute_match_ratings(parsed_matches, results, belt, weight, age)
 
     return jsonify(
         {
