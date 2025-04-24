@@ -91,3 +91,26 @@
 .strike-through {
   text-decoration: line-through;
 }
+
+.bracket-tree-match-container {
+  padding-right: 40px;
+}
+
+.bracket-tree-match-calc {
+  position: absolute;
+  top: 32px;
+  left: calc(100% + 8px);
+  cursor: pointer;
+  font-size: 20px;
+  display: none;
+}
+
+.bracket-tree-match-container:hover .bracket-tree-match-calc {
+  display: block;
+}
+
+@media screen and (max-width: 768px) {
+  .bracket-tree-match-calc {
+    display: block;
+  }
+}

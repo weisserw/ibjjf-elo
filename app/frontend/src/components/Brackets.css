@@ -24,7 +24,9 @@
 }
 
 .bracket-loader {
-  margin: 30px;
+  position: absolute;
+  top: 120px;
+  right: 10px;
 }
 
 .category-list {

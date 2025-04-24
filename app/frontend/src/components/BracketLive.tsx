@@ -55,6 +55,14 @@ function BracketLive() {
     setFilters,
     setOpenFilters,
     setActiveTab,
+    setCalcFirstAthlete,
+    setCalcSecondAthlete,
+    setCalcGender,
+    setCalcAge,
+    setCalcBelt,
+    setCalcFirstWeight,
+    setCalcSecondWeight,
+    setCalcCustomInfo,
   } = useAppContext()
 
   const navigate = useNavigate()
@@ -270,6 +278,42 @@ function BracketLive() {
     return Math.round(sum / ratings.length)
   }, [competitors])
 
+  const calculateEnabled = (match: BracketMatch) => {
+    if (!match.red_id || !match.blue_id) {
+      return false
+    }
+
+    const red_competitor = competitors?.find(c => c.ibjjf_id === match.red_id)
+    const blue_competitor = competitors?.find(c => c.ibjjf_id === match.blue_id)
+    if (!red_competitor || !blue_competitor) {
+      return false
+    }
+    return (red_competitor.rating !== null && red_competitor.match_count !== null && red_competitor.match_count > 0 &&
+            blue_competitor.rating !== null && blue_competitor.match_count !== null && blue_competitor.match_count > 0)
+  }
+
+  const calculateMatch = async (match: BracketMatch) => {
+    if (!match.red_name || !match.blue_name || !selectedCategory || !selectedEventName) {
+      return
+    }
+    const [belt, age, gender, weight] = selectedCategory.split(' / ');
+    setCalcFirstAthlete(match.red_name);
+    setCalcSecondAthlete(match.blue_name);
+    setCalcGender(gender);
+    setActiveTab(isGi(selectedEventName) ? 'Gi' : 'No Gi');
+    if (!/Open/i.test(weight)) {
+      setCalcFirstWeight(weight);
+      setCalcSecondWeight(weight);
+      setCalcAge(age);
+      setCalcBelt(belt);
+      setCalcCustomInfo(true);
+    } else {
+      setCalcCustomInfo(false);
+    }
+
+    navigate('/calculator');
+  }
+
   return (
     <div className="brackets-content">
       <div>
@@ -344,6 +388,9 @@ function BracketLive() {
           error && <div className="notification is-danger mt-4">{error}</div>
         }
         {
+          loading && <div className="bracket-loader loader mt-4"></div>
+        }
+        {
           (events !== null && categories !== null && competitors !== null) && (
             <BracketTable competitors={sortedCompetitors}
                           sortColumn={sortColumn}
@@ -357,18 +404,15 @@ function BracketLive() {
         }
         {
           (events !== null && categories !== null && matches !== null) && (
-            <BracketTree matches={matches} showSeed={sortColumn === 'seed'}/>
+            <BracketTree matches={matches}
+                         showSeed={sortColumn === 'seed'}
+                         calculateClicked={calculateMatch}
+                         calculateEnabled={calculateEnabled}/>
           )
         }
         {
           (events !== null && categories !== null && competitors !== null && selectedCategoryLink !== null) &&
           <a href={`https://bjjcompsystem.com${selectedCategoryLink}`} target="_blank" rel="noreferrer" className="button is-link is-outlined mt-5">View Bracket (external)</a>
-        }
-        {
-          error && <div className="notification is-danger mt-4">{error}</div>
-        }
-        {
-          loading && <div className="bracket-loader loader mt-4"></div>
         }
       </div>
     </div>

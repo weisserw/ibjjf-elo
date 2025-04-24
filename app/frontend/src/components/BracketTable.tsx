@@ -57,7 +57,7 @@ function BracketTable(props: BracketTableProps) {
   };
 
   const calculateDisabled = () => {
-    return selectedAthletes.length !== 2 || selectedAthletes.filter(a => a.rating !== null).length !== 2
+    return selectedAthletes.length !== 2 || selectedAthletes.filter(a => a.rating !== null && a.match_count !== null && a.match_count > 0).length !== 2
   };
 
   const calculateMatchResult = () => {
