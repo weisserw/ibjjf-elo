@@ -975,9 +975,9 @@ def categories(tournament_id):
 
         for category in categories:
             try:
-                translate_age_keep_juvenile(category["age"])
-                translate_belt(category["belt"])
-                translate_weight(category["weight"])
+                category["age"] = translate_age_keep_juvenile(category["age"])
+                category["belt"] = translate_belt(category["belt"])
+                category["weight"] = translate_weight(category["weight"])
             except ValueError:
                 continue
             category["gender"] = gender
@@ -986,10 +986,10 @@ def categories(tournament_id):
     results = sorted(
         results,
         key=lambda x: (
-            belt_order.index(translate_belt(x["belt"])),
-            age_order_all.index(translate_age_keep_juvenile(x["age"])),
+            belt_order.index(x["belt"]),
+            age_order_all.index(x["age"]),
             gender_order.index(x["gender"]),
-            weight_class_order_all.index(translate_weight(x["weight"])),
+            weight_class_order_all.index(x["weight"]),
         ),
     )
 

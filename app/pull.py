@@ -104,7 +104,7 @@ def parse_match_where(match):
             r"(FIGHT|LUTA) (\d+):", fight_num_node.get_text(strip=True), re.IGNORECASE
         )
         if fight_num_match:
-            fight_num = int(fight_num_match.group(1))
+            fight_num = int(fight_num_match.group(2))
         else:
             fight_num = None
 

@@ -20,7 +20,16 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
         <div className="bracket-tree-match-description-when">
           {match.when && dayjs(match.when).format('ddd h:mma')}
           {
-            match.where && ' - ' + match.where
+            match.when && (match.where || match.fight_num) && <span> - </span>
+          }
+          {
+            match.fight_num && <span>Fight {match.fight_num}</span>
+          }
+          {
+            match.fight_num && match.when && <span>, </span>
+          }
+          {
+            match.where && <span>{match.where}</span>
           }
         </div>
       </div>
