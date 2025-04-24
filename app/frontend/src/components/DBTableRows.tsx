@@ -211,7 +211,7 @@ function DBTableRows(props: DBTableRowsProps) {
                         noLinks ? row.winner :
                         <a href="#" onClick={e => athleteClicked?.(e, row.winner)}>{row.winner}</a>
                       }
-                      {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, true)}
+                      {' '}{row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, true)}
                     </div>
                     <div className="column has-text-right-tablet" data-id={row.loserId}>
                       <strong>Loser:</strong>
@@ -219,7 +219,7 @@ function DBTableRows(props: DBTableRowsProps) {
                         noLinks ? row.loser :
                         <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>{row.loser}</a>
                       }
-                      {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, true)}
+                      {' '}{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, true)}
                     </div>
                   </div>
                   <div className="columns">
