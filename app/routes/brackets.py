@@ -565,12 +565,14 @@ def compute_match_ratings(matches, results, belt, weight, age):
             if result["ibjjf_id"] == red_id:
                 red_ordinal = result["ordinal"]
                 red_rating = result["rating"]
+                red_end_rating = red_rating
                 red_match_count = result["match_count"]
                 if OPEN_CLASS in weight and result["last_weight"] is not None:
                     red_weight = result["last_weight"]
             elif result["ibjjf_id"] == blue_id:
                 blue_ordinal = result["ordinal"]
                 blue_rating = result["rating"]
+                blue_end_rating = blue_rating
                 blue_match_count = result["match_count"]
                 if OPEN_CLASS in weight and result["last_weight"] is not None:
                     blue_weight = result["last_weight"]
