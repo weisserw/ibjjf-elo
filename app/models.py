@@ -241,6 +241,11 @@ class BracketPage(db.Model):
     link = Column(String, nullable=False)
     html = Column(Text, nullable=False)
 
+    __table_args__ = (
+        Index("ix_bracket_pages_saved_at", "saved_at"),
+        Index("ix_bracket_pages_link", "link"),
+    )
+
 
 class Suspension(db.Model):
     __tablename__ = "suspensions"
