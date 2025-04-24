@@ -101,7 +101,7 @@ def parse_match_where(match):
     fight_num_node = match_where.find("span", class_="bracket-match-header__fight")
     if fight_num_node:
         fight_num_match = re.search(
-            r"FIGHT (\d+):", fight_num_node.get_text(strip=True), re.IGNORECASE
+            r"(FIGHT|LUTA) (\d+):", fight_num_node.get_text(strip=True), re.IGNORECASE
         )
         if fight_num_match:
             fight_num = int(fight_num_match.group(1))

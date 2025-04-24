@@ -88,7 +88,8 @@ export const referencesMatchRed = (match: Match, other: Match) => {
     }
   }
   if (match.red_next_description && other.fight_num !== null && other.where !== null) {
-    if (match.red_next_description.toLowerCase().endsWith(`of fight ${other.fight_num}, ${other.where.toLowerCase()}`)) {
+    if (match.red_next_description.toLowerCase().endsWith(`of fight ${other.fight_num}, ${other.where.toLowerCase()}`) ||
+        match.red_next_description.toLowerCase().endsWith(`da luta ${other.fight_num}, ${other.where.toLowerCase()}`)) {
       return true;
     }
   }
@@ -105,7 +106,8 @@ export const referencesMatchBlue = (match: Match, other: Match) => {
     }
   }
   if (match.blue_next_description && other.fight_num !== null && other.where !== null) {
-    if (match.blue_next_description.toLowerCase().endsWith(`of fight ${other.fight_num}, ${other.where.toLowerCase()}`)) {
+    if (match.blue_next_description.toLowerCase().endsWith(`of fight ${other.fight_num}, ${other.where.toLowerCase()}`) ||
+        match.blue_next_description.toLowerCase().endsWith(`da luta ${other.fight_num}, ${other.where.toLowerCase()}`)) {
       return true;
     }
   }
