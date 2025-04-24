@@ -636,12 +636,9 @@ def compute_match_ratings(matches, results, belt, weight, age):
             red_expected = red_elo.expected_score(blue_elo)
             blue_expected = blue_elo.expected_score(red_elo)
 
-            if match_didnt_happen(match["red_note"], match["blue_note"]) or (
+            if not match_didnt_happen(match["red_note"], match["blue_note"]) and not (
                 not match["red_loser"] and not match["blue_loser"]
             ):
-                red_end_rating = red_rating
-                blue_end_rating = blue_rating
-            else:
                 if match["red_loser"] and match["blue_loser"]:
                     red_elo.tied(blue_elo)
                 elif not match["red_loser"]:
