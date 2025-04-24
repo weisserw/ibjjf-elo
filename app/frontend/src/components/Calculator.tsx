@@ -300,6 +300,8 @@ function Calculator() {
       }).catch((exception) => {
         axiosErrorToast(exception)
       })
+    } else {
+      setData([])
     }
   }, [firstAthleteToFetch, secondAthleteToFetch]);
 
