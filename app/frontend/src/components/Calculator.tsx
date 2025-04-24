@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import GiTabs from "./GiTabs"
 import Autosuggest from 'react-autosuggest'
 import axios, { AxiosResponse } from 'axios'
 import { debounce } from 'lodash'
-import { axiosErrorToast, ages, type DBRow as Row, type DBResults as Results } from '../utils'
+import { axiosErrorToast, ages, isHistorical, type DBRow as Row, type DBResults as Results } from '../utils'
 import { useAppContext } from '../AppContext'
 import DBTableRows from './DBTableRows'
 
@@ -305,6 +305,8 @@ function Calculator() {
     }
   }, [firstAthleteToFetch, secondAthleteToFetch]);
 
+  const hasHistorical = useMemo(() => data.some(isHistorical), [data]);
+
   return (
     <div className="container calculator-container">
       <GiTabs />
@@ -547,6 +549,13 @@ function Calculator() {
                   <DBTableRows data={data}
                                loading={false}
                                noLinks={true} />
+                  {
+                    hasHistorical && (
+                      <div className="notification is-historical">
+                        Match data before December 2024 may be incomplete or inaccurate
+                      </div>
+                    )
+                  }
                 </div>
               )
             }
