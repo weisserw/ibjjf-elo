@@ -79,7 +79,7 @@ export const handleError = (err: any, errFunc: (error: string) => void) => {
 // the fight_num and where of the other
 
 export const referencesMatchRed = (match: Match, other: Match) => {
-  if (!match.red_bye) {
+  if (!match.red_bye && match.red_seed !== null) {
     if (!other.red_bye && match.red_seed === other.red_seed) {
       return true;
     }
@@ -96,7 +96,7 @@ export const referencesMatchRed = (match: Match, other: Match) => {
 }
 
 export const referencesMatchBlue = (match: Match, other: Match) => {
-  if (!match.blue_bye) {
+  if (!match.blue_bye && match.blue_seed !== null) {
     if (!other.red_bye && match.blue_seed === other.red_seed) {
       return true;
     }
