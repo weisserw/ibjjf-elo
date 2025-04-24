@@ -1,7 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
 import axios, { AxiosResponse } from 'axios';
-import classNames from 'classnames';
-import dayjs from 'dayjs';
 import DBFilters, {
   ageToFilter,
   genderToFilter,
@@ -10,80 +8,11 @@ import DBFilters, {
   type FilterKeys
 } from './DBFilters';
 import DBPagination from './DBPagination';
+import DBTableRows from './DBTableRows';
 import { useAppContext } from '../AppContext';
-import { axiosErrorToast } from '../utils';
-
+import { axiosErrorToast, isHistorical, type DBRow as Row, type DBResults as Results } from '../utils';
 
 import "./DBTable.css"
-
-interface Row {
-  id: string
-  winner: string
-  winnerId: string
-  winnerStartRating: number
-  winnerEndRating: number
-  winnerWeightForOpen: string | null
-  winnerRatingNote: string | null
-  winnerStartMatchCount: number
-  winnerEndMatchCount: number
-  loser: string
-  loserId: string
-  loserStartRating: number
-  loserEndRating: number
-  loserWeightForOpen: string | null
-  loserRatingNote: string | null
-  loserStartMatchCount: number
-  loserEndMatchCount: number
-  event: string
-  age: string
-  gender: string
-  belt: string
-  weight: string
-  date: string
-  rated: boolean
-  notes: string
-}
-
-interface Results {
-  rows: Row[]
-  totalPages: number
-}
-
-const BLACK_WEIGHT_HANDICAPS = [
-  0,
-  54,
-  64,
-  132,
-  169,
-  176,
-  224,
-  373,
-  435,
-]
-
-const COLOR_WEIGHT_HANDICAPS = [
-  0,
-  23,
-  61,
-  74,
-  120,
-  182,
-  224,
-  373,
-  435,
-]
-
-const WEIGHT_CLASSES: Record<string, number> = {
-  'Rooster': 0,
-  'Light Feather': 1,
-  'Feather': 2,
-  'Light': 3,
-  'Middle': 4,
-  'Medium Heavy': 5,
-  'Heavy': 6,
-  'Super Heavy': 7,
-  'Ultra Heavy': 8
-}
 
 function DBTable() {
   const [loading, setLoading] = useState(true)
@@ -127,13 +56,6 @@ function DBTable() {
     })
   }, [gi, filters, page]);
 
-  const shortEvent = (row: Row) => {
-    if (row.event.length > 32) {
-      return row.event.substring(0, 32) + '...'
-    }
-    return row.event
-  }
-
   const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
     setPage(1)
@@ -156,16 +78,6 @@ function DBTable() {
   const onPageClick = (pageNumber: number, event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
     setPage(pageNumber)
-  }
-
-  const outcomeClass = (startRating: number, endRating: number) => {
-    if (endRating > startRating) {
-      return 'has-text-success'
-    } else if (endRating < startRating) {
-      return 'has-text-danger'
-    } else {
-      return '';
-    }
   }
 
   const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {
@@ -202,58 +114,6 @@ function DBTable() {
     setOpenFilters({...openFilters, division: true});
   }
 
-  const openWeightText = (row: Row): JSX.Element | undefined => {
-    if (row.weight.startsWith('Open Class')) {
-      if (row.winnerWeightForOpen && row.loserWeightForOpen && WEIGHT_CLASSES[row.winnerWeightForOpen] !== undefined && WEIGHT_CLASSES[row.loserWeightForOpen] !== undefined) {
-        const winnerWeightIndex = WEIGHT_CLASSES[row.winnerWeightForOpen];
-        const loserWeightIndex = WEIGHT_CLASSES[row.loserWeightForOpen];
-
-        if (winnerWeightIndex !== loserWeightIndex) {
-          const handicapTable = row.belt === 'BLACK' ? BLACK_WEIGHT_HANDICAPS : COLOR_WEIGHT_HANDICAPS;
-          if (winnerWeightIndex > loserWeightIndex) {
-            const diff = winnerWeightIndex - loserWeightIndex;
-            const handicap = handicapTable[diff];
-            return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen} ({diff} {diff === 1 ? 'class' : 'classes'} apart), adjustment: <strong className="fw-600">{row.winnerStartRating + handicap}</strong> (+{handicap}) vs {row.loserStartRating}</span>
-          } else {
-            const diff = loserWeightIndex - winnerWeightIndex;
-            const handicap = handicapTable[diff];
-            return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen} ({diff} {diff === 1 ? 'class' : 'classes'} apart), adjustment: {row.winnerStartRating} vs <strong className="fw-600">{row.loserStartRating + handicap}</strong> (+{handicap})</span>
-          }
-        }
-      }
-      return <span>{row.winnerWeightForOpen ?? 'Unknown Weight'} vs {row.loserWeightForOpen  ?? 'Unknown Weight'}, no adjustment</span>
-    } else {
-      return undefined
-    }
-  }
-
-  const notesWithWeight = (row: Row) => {
-    const weightText = openWeightText(row);
-    if (row.notes && weightText) {
-      return <span>{weightText}, {row.notes}</span>
-    } else if (weightText) {
-      return weightText
-    } else {
-      return <span>{row.notes}</span>
-    }
-  }
-
-  const ratingAsterisk = (note: string | null, bottom: boolean) => {
-    if (note) {
-      return (
-        <span className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": bottom})} data-tooltip={note}>
-          <strong>*</strong>
-        </span>
-      )
-    } else {
-      return ''
-    }
-  }
-
-  const isHistorical = (row: Row) => {
-    return /\([^\)]+\)/.test(row.event);
-  }
-
   const hasHistorical = useMemo(() => data.some(isHistorical), [data]);
 
   if (loading) {
@@ -270,111 +130,11 @@ function DBTable() {
   return (
     <div>
       <DBFilters />
-      <div className="table-container is-hidden-touch">
-        <table className={classNames("table db-table is-striped", {"is-narrow": !loading && !!data.length})}>
-          <thead>
-            <tr>
-              <th>Winner</th>
-              <th>Rating</th>
-              <th>Loser</th>
-              <th>Rating</th>
-              <th>Event</th>
-              <th>Division</th>
-              <th>Date</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {
-              data.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="empty-row">
-                    <div className="columns is-centered">
-                      No matches found for the selected filters
-                    </div>
-                  </td>
-                </tr>
-              )
-            }
-            {
-              !!data.length && data.map((row: Row, index: number) => (
-                <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row)})}>
-                  <td data-id={row.winnerId}><a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a></td>
-                  <td>{row.winnerStartRating}→ <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}</td>
-                  <td data-id={row.loserId}><a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a></td>
-                  <td>{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, index === 0)}</td>
-                  <td className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": index === 0})} data-tooltip={shortEvent(row) !== row.event ? row.event : undefined}>
-                    <a href="#" onClick={e => eventClicked(e, row.event)}>{shortEvent(row)}</a>
-                  </td>
-                  <td>
-                    <a href="#" onClick={e => divisionClicked(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
-                  </td>
-                  <td>{dayjs(row.date).format('MMM D YYYY, h:mma')}</td>
-                  <td>{notesWithWeight(row)}</td>
-                </tr>
-              ))
-            }
-          </tbody>
-        </table>
-      </div>
-      <div className="cards-container is-hidden-desktop">
-        {
-          data.length === 0 && (
-            <div className="card db-row-card">
-              <div className="card-content">
-                <div className="columns is-centered">
-                  <div className="column is-narrow">
-                    No matches found for the selected filters
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        }
-        {
-          !!data.length && data.map((row: Row) => {
-            const weightText = openWeightText(row);
-            return (
-              <div key={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row)})}>
-                <div className="date-box">
-                  {dayjs(row.date).format('MMM D YYYY, h:mma')}
-                </div>
-                <div className="card-content">
-                  <div className="columns">
-                    <div className="column" data-id={row.winnerId}>
-                      <strong>Winner:</strong> <a href="#" onClick={e => athleteClicked(e, row.winner)}>{row.winner}</a> {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, true)}
-                    </div>
-                    <div className="column has-text-right-tablet" data-id={row.loserId}>
-                      <strong>Loser:</strong> <a href="#" onClick={e => athleteClicked(e, row.loser)}>{row.loser}</a> {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, true)}
-                    </div>
-                  </div>
-                  <div className="columns">
-                    <div className="column">
-                      <a href="#" onClick={e => eventClicked(e, row.event)}>{row.event}</a>
-                    </div>
-                    <div className="column has-text-right-tablet">
-                      <a href="#" onClick={e => divisionClicked(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
-                    </div>
-                  </div>
-                  {(weightText || row.notes) &&
-                    <div className="columns">
-                      <div className="column">
-                        {weightText &&
-                          <p>{weightText}</p>
-                        }
-                        {row.notes &&
-                          <p>{row.notes}</p>
-                        }
-                      </div>
-                    </div>
-                  }
-                </div>
-              </div>
-              );
-            }
-          )
-        }
-      </div>
+      <DBTableRows data={data}
+                   loading={loading}
+                   athleteClicked={athleteClicked}
+                   eventClicked={eventClicked}
+                   divisionClicked={divisionClicked} />
       {
         data.length > 0 && (
           <DBPagination loading={reloading}

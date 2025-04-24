@@ -40,6 +40,7 @@ from time import time
 matches_route = Blueprint("matches_route", __name__)
 
 MATCH_PAGE_SIZE = 12
+ATHLETES_MATCH_PAGE_SIZE = 100
 
 INITIAL_RATE_LIMIT = 15
 RATE_LIMIT_WINDOW = 10
@@ -85,6 +86,7 @@ matches_route.before_request(rate_limit)
 def matches():
     gi = request.args.get("gi")
     athlete_name = request.args.get("athlete_name")
+    athlete_name2 = request.args.get("athlete_name2")
     event_name = request.args.get("event_name")
     gender_male = request.args.get("gender_male")
     gender_female = request.args.get("gender_female")
@@ -187,26 +189,31 @@ def matches():
 
     filters = ""
 
-    if athlete_name:
+    def add_athlete_name_filter(f, name, variable):
         operator = "LIKE"
-        exact = athlete_name.strip().startswith('"') and athlete_name.strip().endswith(
-            '"'
-        )
+        exact = name.strip().startswith('"') and name.strip().endswith('"')
         if exact:
             operator = "="
-            athlete_name = athlete_name.strip()[1:-1]
-        filters += f"""AND EXISTS (
+            name = name.strip()[1:-1]
+        f += f"""AND EXISTS (
             SELECT 1
             FROM athletes a
             JOIN match_participants mp ON a.id = mp.athlete_id
             WHERE mp.match_id = m.id
-            AND a.normalized_name {operator} :athlete_name
+            AND a.normalized_name {operator} :{variable}
         )
         """
         if exact:
-            params["athlete_name"] = normalize(athlete_name)
+            params[variable] = normalize(name)
         else:
-            params["athlete_name"] = f"%{normalize(athlete_name)}%"
+            params[variable] = f"%{normalize(name)}%"
+        return f
+
+    if athlete_name:
+        filters = add_athlete_name_filter(filters, athlete_name, "athlete_name")
+    if athlete_name2:
+        filters = add_athlete_name_filter(filters, athlete_name2, "athlete_name2")
+
     if event_name:
         operator = "LIKE"
         exact = event_name.strip().startswith('"') and event_name.strip().endswith('"')
@@ -328,9 +335,13 @@ def matches():
         {filters}
     """
 
+    page_size = MATCH_PAGE_SIZE
+    if athlete_name and athlete_name2 and athlete_name != athlete_name2:
+        page_size = ATHLETES_MATCH_PAGE_SIZE
+
     # get one extra match to determine if there are more pages
-    params["limit"] = (MATCH_PAGE_SIZE + 1) * 2
-    params["offset"] = (page - 1) * MATCH_PAGE_SIZE * 2
+    params["limit"] = (page_size + 1) * 2
+    params["offset"] = (page - 1) * page_size * 2
     results = db.session.execute(
         text(
             f"""
@@ -430,10 +441,10 @@ def matches():
             )
 
     totalPages = page + 1
-    if len(response) <= MATCH_PAGE_SIZE:
+    if len(response) <= page_size:
         totalPages -= 1
 
-    if len(response) > MATCH_PAGE_SIZE:
-        response = response[:MATCH_PAGE_SIZE]
+    if len(response) > page_size:
+        response = response[:page_size]
 
     return jsonify({"rows": response, "totalPages": totalPages})

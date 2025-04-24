@@ -47,3 +47,40 @@ export const ages = [
   'Master 6',
   'Master 7',
 ]
+
+export interface DBRow {
+  id: string
+  winner: string
+  winnerId: string
+  winnerStartRating: number
+  winnerEndRating: number
+  winnerWeightForOpen: string | null
+  winnerRatingNote: string | null
+  winnerStartMatchCount: number
+  winnerEndMatchCount: number
+  loser: string
+  loserId: string
+  loserStartRating: number
+  loserEndRating: number
+  loserWeightForOpen: string | null
+  loserRatingNote: string | null
+  loserStartMatchCount: number
+  loserEndMatchCount: number
+  event: string
+  age: string
+  gender: string
+  belt: string
+  weight: string
+  date: string
+  rated: boolean
+  notes: string
+}
+
+export interface DBResults {
+  rows: DBRow[]
+  totalPages: number
+}
+
+export const isHistorical = (row: DBRow) => {
+  return /\([^\)]+\)/.test(row.event);
+}

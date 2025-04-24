@@ -2,10 +2,11 @@ import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import GiTabs from "./GiTabs"
 import Autosuggest from 'react-autosuggest'
-import axios from 'axios'
+import axios, { AxiosResponse } from 'axios'
 import { debounce } from 'lodash'
-import { axiosErrorToast, ages } from '../utils'
+import { axiosErrorToast, ages, type DBRow as Row, type DBResults as Results } from '../utils'
 import { useAppContext } from '../AppContext'
+import DBTableRows from './DBTableRows'
 
 import "./Calculator.css"
 
@@ -71,6 +72,7 @@ function Calculator() {
   const [firstLoss, setFirstLoss] = useState(0)
   const [firstHandicap, setFirstHandicap] = useState(0)
   const [secondHandicap, setSecondHandicap] = useState(0)
+  const [data, setData] = useState<Row[]>([])
 
   const {
     activeTab,
@@ -284,6 +286,22 @@ function Calculator() {
       </span>
     )
   }
+
+  useEffect(() => {
+    if (firstAthleteToFetch && secondAthleteToFetch && firstAthleteToFetch !== secondAthleteToFetch) {
+      axios.get<Results>('/api/matches', {
+        params: {
+          gi: activeTab === 'Gi' ? 'true' : 'false',
+          athlete_name: '"' + firstAthleteToFetch + '"',
+          athlete_name2: '"' + secondAthleteToFetch + '"',
+        }
+      }).then((response: AxiosResponse<Results>) => {
+        setData(response.data.rows)
+      }).catch((exception) => {
+        axiosErrorToast(exception)
+      })
+    }
+  }, [firstAthleteToFetch, secondAthleteToFetch]);
 
   return (
     <div className="container calculator-container">
@@ -507,7 +525,7 @@ function Calculator() {
                 </tr>
               </tbody>
             </table>
-            <div className="card pt-1 pr-4 pb-4">
+            <div className="card pt-1 pr-4 pb-4 mb-5">
               <div className="content">
                 <ul>
                   {
@@ -518,6 +536,18 @@ function Calculator() {
                 </ul>
               </div>
             </div>
+            {
+              data && data.length > 0 && (
+                <div>
+                  <p className="has-text-weight-bold mb-3">
+                    Match history:
+                  </p>
+                  <DBTableRows data={data}
+                               loading={false}
+                               noLinks={true} />
+                </div>
+              )
+            }
           </>
         }
     </div>
