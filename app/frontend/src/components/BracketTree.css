@@ -14,7 +14,7 @@
 .bracket-level {
   display: flex;
   flex-direction: column;
-  justify-content: space-evenly;
+  justify-content: space-around;
   gap: 60px;
   padding-top: 8px;
   padding-bottom: 8px;
