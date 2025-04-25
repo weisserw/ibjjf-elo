@@ -173,23 +173,26 @@ function BracketTree(props: BracketTreeProps) {
   }, [props.matches]);
 
   return (
-    <div className="bracket-tree">
-      {
-        leveledMatches.map((level, levelIndex) => (
-          <div key={levelIndex} className="bracket-level">
-            {level.map((match, matchIndex) => (
-              <BracketTreeMatch
-                key={matchIndex}
-                match={match}
-                showSeed={props.showSeed}
-                levelIndex={levelIndex}
-                calculateClicked={props.calculateClicked}
-                calculateEnabled={props.calculateEnabled}
-              />
-            ))}
-          </div>
-        ))
-      }
+    <div className="bracket-tree-container">
+      <div className="bracket-tree">
+        {
+          leveledMatches.map((level, levelIndex) => (
+            <div key={levelIndex} className="bracket-level">
+              {level.map((match, matchIndex) => (
+                <BracketTreeMatch
+                  key={matchIndex}
+                  match={match}
+                  showSeed={props.showSeed}
+                  levelIndex={levelIndex}
+                  calculateClicked={props.calculateClicked}
+                  calculateEnabled={props.calculateEnabled}
+                />
+              ))}
+            </div>
+          ))
+        }
+        <hr className="bracket-tree-divider" />
+      </div>
     </div>
   );
 }

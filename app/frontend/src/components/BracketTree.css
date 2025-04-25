@@ -1,16 +1,21 @@
+.bracket-tree-container {
+  overflow-x: auto;
+  width: 100%;
+}
+
 .bracket-tree {
-  display: flex;
+  display: inline-flex;
   flex-direction: row;
   padding-top: 24px;
-  gap: 64px;
-  overflow-x: auto;
+  gap: 24px;
+  position: relative;
 }
 
 .bracket-level {
   display: flex;
   flex-direction: column;
   justify-content: space-evenly;
-  gap: 48px;
+  gap: 60px;
   padding-top: 8px;
   padding-bottom: 8px;
 }
@@ -19,6 +24,7 @@
   border: 1px solid #ccc;
   position: relative;
   white-space: nowrap;
+  z-index: 1;
 }
 
 .bracket-tree-match-description {
@@ -64,6 +70,10 @@
 
 .bracket-tree-match-competitors tr:first-child {
   background-color: #baedff;
+}
+
+.bracket-tree-match-competitors tr:last-child {
+  background-color: #ffffff;
 }
 
 .bracket-tree-match-competitor-name-name {
@@ -113,4 +123,15 @@
   .bracket-tree-match-calc {
     display: block;
   }
+}
+
+.bracket-tree-divider {
+  border: none;
+  border-top: 3px solid #ccc;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  top: calc(50% + 11px);
+  left: 0;
+  right: 40px;
 }
