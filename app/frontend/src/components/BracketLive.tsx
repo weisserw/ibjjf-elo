@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
@@ -36,6 +36,9 @@ interface LiveCompetitorsResponse extends CompetitorsResponse {
 function BracketLive() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [naturalWidth, setNaturalWidth] = useState<number | null>(null);
 
   const {
     bracketEvents: events,
@@ -314,19 +317,72 @@ function BracketLive() {
     navigate('/calculator');
   }
 
-  useEffect(() => {
-    // Enable pinch-to-zoom for this page
-    const metaViewport = document.querySelector('meta[name="viewport"]');
-    const originalContent = metaViewport?.getAttribute('content');
-    if (metaViewport) {
-      metaViewport.setAttribute('content', 'initial-scale=1, maximum-scale=10, user-scalable=yes');
-    }
+  const handleZoomChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setZoomLevel(Number(event.target.value));
+  };
 
-    return () => {
-      // Restore the original viewport settings when leaving the page
-      if (metaViewport && originalContent) {
-        metaViewport.setAttribute('content', originalContent);
+  const handlePinchZoom = (event: TouchEvent) => {
+    if (event.touches.length === 2) {
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+
+      const distance = Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) +
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+      );
+
+      if (event.type === 'touchstart') {
+        scrollContainerRef.current?.setAttribute('data-initial-distance', distance.toString());
+      } else if (event.type === 'touchmove') {
+        const initialDistance = parseFloat(scrollContainerRef.current?.getAttribute('data-initial-distance') || '0');
+        if (initialDistance > 0) {
+          const scaleChange = distance / initialDistance;
+          const newZoomLevel = Math.min(Math.max(zoomLevel * scaleChange, 0.2), 1);
+          setZoomLevel(newZoomLevel);
+          scrollContainerRef.current?.setAttribute('data-initial-distance', distance.toString());
+        }
       }
+    }
+  };
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('touchstart', handlePinchZoom);
+      container.addEventListener('touchmove', handlePinchZoom);
+      container.addEventListener('touchend', () => {
+        container.removeAttribute('data-initial-distance');
+      });
+
+      return () => {
+        container.removeEventListener('touchstart', handlePinchZoom);
+        container.removeEventListener('touchmove', handlePinchZoom);
+        container.removeEventListener('touchend', () => {
+          container.removeAttribute('data-initial-distance');
+        });
+      };
+    }
+  }, [zoomLevel]);
+
+  useEffect(() => {
+    setZoomLevel(1);
+  }, [matches]);
+
+  const updateNaturalWidth = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      setNaturalWidth(container.offsetWidth);
+    }
+  };
+
+  useEffect(() => {
+    updateNaturalWidth();
+  }, [matches]);
+
+  useEffect(() => {
+    window.addEventListener('resize', updateNaturalWidth);
+    return () => {
+      window.removeEventListener('resize', updateNaturalWidth);
     };
   }, []);
 
@@ -408,27 +464,66 @@ function BracketLive() {
         }
         {
           (events !== null && categories !== null && competitors !== null) && (
-            <BracketTable competitors={sortedCompetitors}
-                          sortColumn={sortColumn}
-                          showSeed={true}
-                          showEndRating={true}
-                          showWeight={selectedCategory?.includes(' / Open') ?? false}
-                          isGi={isGi(selectedEventName ?? '')}
-                          columnClicked={columnClicked}
-                          athleteClicked={athleteClicked} />
+            <BracketTable
+              competitors={sortedCompetitors}
+              sortColumn={sortColumn}
+              showSeed={true}
+              showEndRating={true}
+              showWeight={selectedCategory?.includes(' / Open') ?? false}
+              isGi={isGi(selectedEventName ?? '')}
+              columnClicked={columnClicked}
+              athleteClicked={athleteClicked}
+            />
           )
         }
         {
           (events !== null && categories !== null && matches !== null) && (
-            <BracketTree matches={matches}
-                         showSeed={sortColumn === 'seed'}
-                         calculateClicked={calculateMatch}
-                         calculateEnabled={calculateEnabled}/>
+            <div>
+              <div className="bracket-tree-slider">
+                <span className="icon">
+                  <i className="fas fa-magnifying-glass"></i>
+                </span>
+                <input
+                  id="zoom-slider"
+                  type="range"
+                  min="0.2"
+                  max="1"
+                  step="0.05"
+                  value={zoomLevel}
+                  onChange={handleZoomChange}
+                />
+              </div>
+              <div className="bracket-tree-border" ref={scrollContainerRef}>
+                <div
+                  style={{
+                    overflow: 'visible',
+                    transformOrigin: '0 0',
+                    transform: `scale(${zoomLevel})`,
+                    width: naturalWidth ? `${naturalWidth * zoomLevel}px` : 'fit-content',
+                    height: `${640 * zoomLevel}px`,
+                  }}
+                >
+                  <BracketTree
+                    matches={matches}
+                    showSeed={sortColumn === 'seed'}
+                    calculateClicked={calculateMatch}
+                    calculateEnabled={calculateEnabled}
+                  />
+                </div>
+              </div>
+            </div>
           )
         }
         {
           (events !== null && categories !== null && competitors !== null && selectedCategoryLink !== null) &&
-          <a href={`https://bjjcompsystem.com${selectedCategoryLink}`} target="_blank" rel="noreferrer" className="button is-link is-outlined mt-5">View Bracket (external)</a>
+          <a
+            href={`https://bjjcompsystem.com${selectedCategoryLink}`}
+            target="_blank"
+            rel="noreferrer"
+            className="button is-link is-outlined mt-5"
+          >
+            View Bracket (external)
+          </a>
         }
       </div>
     </div>
