@@ -79,7 +79,6 @@
   height: 640px;
   border: 1px solid #ccc;
   padding: 12px;
-  touch-action: none;
 }
 
 .bracket-tree-slider {

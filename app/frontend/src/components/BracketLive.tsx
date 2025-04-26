@@ -321,53 +321,6 @@ function BracketLive() {
     setZoomLevel(Number(event.target.value));
   };
 
-  const handlePinchZoom = (event: TouchEvent) => {
-    if (event.touches.length === 2) {
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
-
-      const distance = Math.sqrt(
-        Math.pow(touch2.clientX - touch1.clientX, 2) +
-        Math.pow(touch2.clientY - touch1.clientY, 2)
-      );
-
-      if (event.type === 'touchstart') {
-        scrollContainerRef.current?.setAttribute('data-initial-distance', distance.toString());
-      } else if (event.type === 'touchmove') {
-        const initialDistance = parseFloat(scrollContainerRef.current?.getAttribute('data-initial-distance') || '0');
-        if (initialDistance > 0) {
-          const scaleChange = distance / initialDistance;
-          const newZoomLevel = Math.min(Math.max(zoomLevel * scaleChange, 0.2), 1);
-          setZoomLevel(newZoomLevel);
-          scrollContainerRef.current?.setAttribute('data-initial-distance', distance.toString());
-        }
-      }
-    }
-  };
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.addEventListener('touchstart', handlePinchZoom);
-      container.addEventListener('touchmove', handlePinchZoom);
-      container.addEventListener('touchend', () => {
-        container.removeAttribute('data-initial-distance');
-      });
-
-      return () => {
-        container.removeEventListener('touchstart', handlePinchZoom);
-        container.removeEventListener('touchmove', handlePinchZoom);
-        container.removeEventListener('touchend', () => {
-          container.removeAttribute('data-initial-distance');
-        });
-      };
-    }
-  }, [zoomLevel]);
-
-  useEffect(() => {
-    setZoomLevel(1);
-  }, [matches]);
-
   const updateNaturalWidth = () => {
     const container = scrollContainerRef.current;
     if (container) {
