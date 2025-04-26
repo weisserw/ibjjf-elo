@@ -86,7 +86,13 @@
   align-items: center;
   margin-bottom: 12px;
   gap: 12px;
-  width: 250px;
+  width: 50%;
+}
+
+@media screen and (max-width: 768px) {
+  .bracket-tree-slider {
+    width: 100%;
+  } 
 }
 
 .bracket-tree-slider input {
