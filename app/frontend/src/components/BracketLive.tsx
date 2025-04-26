@@ -314,6 +314,22 @@ function BracketLive() {
     navigate('/calculator');
   }
 
+  useEffect(() => {
+    // Enable pinch-to-zoom for this page
+    const metaViewport = document.querySelector('meta[name="viewport"]');
+    const originalContent = metaViewport?.getAttribute('content');
+    if (metaViewport) {
+      metaViewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=10, user-scalable=yes');
+    }
+
+    return () => {
+      // Restore the original viewport settings when leaving the page
+      if (metaViewport && originalContent) {
+        metaViewport.setAttribute('content', originalContent);
+      }
+    };
+  }, []);
+
   return (
     <div className="brackets-content">
       <div>
