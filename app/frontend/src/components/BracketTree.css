@@ -1,8 +1,3 @@
-.bracket-tree-container {
-  overflow-x: auto;
-  width: 100%;
-}
-
 .bracket-tree {
   display: inline-flex;
   flex-direction: row;
