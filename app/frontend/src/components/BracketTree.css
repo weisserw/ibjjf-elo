@@ -127,7 +127,7 @@
 
 .bracket-tree-divider {
   border: none;
-  border-top: 3px solid #ccc;
+  border-top: 3px dashed #ccc;
   margin: 0;
   padding: 0;
   position: absolute;

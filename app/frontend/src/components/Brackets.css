@@ -10,6 +10,10 @@
   align-items: flex-start;
 }
 
+.bracket-list select {
+  width: 100%;
+}
+
 .registrations {
   margin-top: 24px;
   display: flex;

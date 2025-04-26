@@ -127,6 +127,21 @@ function BracketTable(props: BracketTableProps) {
     }
   }
 
+  const competitorMedal = (medal: string | undefined) => {
+    if (medal === undefined) {
+      return null;
+    }
+    if (medal === '1') {
+      return <span> 🥇</span>;
+    } else if (medal === '2') {
+      return <span> 🥈</span>;
+    } else if (medal === '3') {
+      return <span> 🥉</span> 
+    } else {
+      return null;
+    }
+  }
+
   return (
     <div className="table-container">
       <table className="table is-fullwidth bracket-table">
@@ -192,8 +207,8 @@ function BracketTable(props: BracketTableProps) {
                 }
                 {
                   competitor.id !== null ?
-                    <td><a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}</a></td> :
-                    <td>{competitor.name}</td>
+                    <td><a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}{competitorMedal(competitor.medal)}</a></td> :
+                    <td>{competitor.name}{competitorMedal(competitor.medal)}</td>
                 }
                 <td>{competitor.team}</td>
                 {

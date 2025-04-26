@@ -14,6 +14,7 @@ export interface Competitor {
   rank: number | null
   note: string | null
   last_weight: string | null
+  medal?: string
 }
 
 export interface Match {

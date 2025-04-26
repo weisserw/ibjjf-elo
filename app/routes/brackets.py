@@ -914,6 +914,9 @@ def competitors():
     compute_match_ratings(parsed_matches, results, belt, weight, age)
 
     for result in results:
+        if result["name"] in medals:
+            result["medal"] = medals[result["name"]]
+
         last_match = next(
             (
                 m
