@@ -319,7 +319,7 @@ function BracketLive() {
     const metaViewport = document.querySelector('meta[name="viewport"]');
     const originalContent = metaViewport?.getAttribute('content');
     if (metaViewport) {
-      metaViewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=10, user-scalable=yes');
+      metaViewport.setAttribute('content', 'initial-scale=1, maximum-scale=10, user-scalable=yes');
     }
 
     return () => {
