@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { referencesMatchRed, referencesMatchBlue, type Match, noMatchStrings } from "./BracketUtils"
 import classNames from 'classnames';
 import dayjs from 'dayjs';
+import { immatureClass } from '../utils';
 
 import "./BracketTree.css";
 
@@ -15,6 +16,17 @@ interface BracketTreeMatchProps {
 
 function BracketTreeMatch(props: BracketTreeMatchProps) {
   const { match, levelIndex } = props;
+
+  const tooltip = (numMatches: number | null) => {
+    const immature = immatureClass(numMatches);
+    if (immature === '') {
+      return undefined;
+    }
+    if (immature === 'very-immature') {
+      return `Athlete's rating is provisional due to insufficient matches (${numMatches})`;
+    }
+    return `Athlete's rating is semi-provisional due to insufficient matches (${numMatches})`;
+  }
 
   return (
     <div className="bracket-tree-match-container">
@@ -58,7 +70,18 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.red_note?.toLowerCase() === s)})}>
                     {match.red_name}
                     {
-                      match.red_rating !== null && <span className="bracket-tree-match-rating"> ({Math.round(match.red_rating)}{match.red_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.red_handicap)}</span>})</span>
+                      match.red_rating !== null &&
+                        <span className="bracket-tree-match-rating"> ({Math.round(match.red_rating)}{
+                          match.red_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.red_handicap)}</span>
+                        })
+                        {
+                          immatureClass(match.red_match_count) === 'very-immature' ?
+                            <span className="has-tooltip-multiline" data-tooltip={tooltip(match.red_match_count)}> <span className="very-immature-bullet">&nbsp;</span></span> : (
+                              immatureClass(match.red_match_count) === 'immature' &&
+                              <span className="has-tooltip-multiline" data-tooltip={tooltip(match.red_match_count)}> <span className="immature-bullet">&nbsp;</span></span>
+                            )
+                        }
+                        </span>
                     }
                   </span>
                   {
@@ -91,7 +114,18 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)})}>
                     {match.blue_name}
                     {
-                      match.blue_rating !== null && <span className="bracket-tree-match-rating"> ({Math.round(match.blue_rating)}{match.blue_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.blue_handicap)}</span>})</span>
+                      match.blue_rating !== null &&
+                      <span className="bracket-tree-match-rating"> ({Math.round(match.blue_rating)}{
+                        match.blue_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.blue_handicap)}</span>
+                      })
+                      {
+                        immatureClass(match.blue_match_count) === 'very-immature' ?
+                          <span className="has-tooltip-multiline" data-tooltip={tooltip(match.blue_match_count)}> <span className="very-immature-bullet">&nbsp;</span></span> : (
+                            immatureClass(match.blue_match_count) === 'immature' &&
+                            <span className="has-tooltip-multiline" data-tooltip={tooltip(match.blue_match_count)}> <span className="immature-bullet">&nbsp;</span></span>
+                          )
+                      }
+                      </span>
                     }
                   </span>
                   {

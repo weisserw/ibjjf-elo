@@ -668,6 +668,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["red_handicap"] = red_handicap
         match["red_weight"] = red_weight
         match["red_end_rating"] = red_end_rating
+        match["red_match_count"] = red_match_count
 
         match["blue_ordinal"] = blue_ordinal
         match["blue_rating"] = blue_rating
@@ -675,6 +676,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["blue_handicap"] = blue_handicap
         match["blue_weight"] = blue_weight
         match["blue_end_rating"] = blue_end_rating
+        match["blue_match_count"] = blue_match_count
 
 
 def parse_match(match, weight):
@@ -784,6 +786,7 @@ def parse_match(match, weight):
         "red_handicap": 0,
         "red_weight": "Unknown" if OPEN_CLASS in weight else weight,
         "red_medal": None,
+        "red_match_count": None,
         "blue_bye": blue_bye,
         "blue_id": blue_id,
         "blue_seed": blue_seed,
@@ -799,6 +802,7 @@ def parse_match(match, weight):
         "blue_handicap": 0,
         "blue_weight": "Unknown" if OPEN_CLASS in weight else weight,
         "blue_medal": None,
+        "blue_match_count": None,
     }
 
 

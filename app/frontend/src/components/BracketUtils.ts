@@ -36,6 +36,7 @@ export interface Match {
   red_handicap: number
   red_weight: string | null
   red_medal: string | null
+  red_match_count: number | null
   blue_bye: boolean
   blue_id: string | null
   blue_seed: number | null
@@ -50,6 +51,7 @@ export interface Match {
   blue_handicap: number
   blue_weight: string | null
   blue_medal: string | null
+  blue_match_count: number | null
 }
 
 export interface CompetitorsResponse {
