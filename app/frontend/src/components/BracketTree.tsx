@@ -216,15 +216,17 @@ function BracketTree(props: BracketTreeProps) {
       for (const match of levels[levels.length - 1]) {
         const firstReferencedMatchIndex = allMatches.findIndex(m => referencesMatchRed(match, m));
         if (firstReferencedMatchIndex > -1) {
-          missingMatches++;
           nextLevelMatches.push(allMatches[firstReferencedMatchIndex]);
           allMatches.splice(firstReferencedMatchIndex, 1);
+        } else {
+          missingMatches++;
         }
         const secondReferencedMatchIndex = allMatches.findIndex(m => referencesMatchBlue(match, m));
         if (secondReferencedMatchIndex > -1) {
-          missingMatches++;
           nextLevelMatches.push(allMatches[secondReferencedMatchIndex]);
           allMatches.splice(secondReferencedMatchIndex, 1);
+        } else {
+          missingMatches++;
         }
       }
 
