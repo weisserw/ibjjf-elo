@@ -63,3 +63,7 @@ body {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' on;
 }
+
+.cursor-pointer {
+  cursor: pointer;
+}

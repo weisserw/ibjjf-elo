@@ -72,30 +72,3 @@
   margin: 0;
   margin-left: 1em;
 }
-
-.bracket-tree-border {
-  overflow: auto;
-  width: 100%;
-  height: 640px;
-  border: 1px solid #ccc;
-  padding: 12px;
-}
-
-.bracket-tree-slider {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-  gap: 12px;
-  width: 50%;
-}
-
-@media screen and (max-width: 768px) {
-  .bracket-tree-slider {
-    width: 100%;
-  } 
-}
-
-.bracket-tree-slider input {
-  flex-grow: 1;
-  cursor: pointer;
-}

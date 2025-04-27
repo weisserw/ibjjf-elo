@@ -431,40 +431,12 @@ function BracketLive() {
         }
         {
           (events !== null && categories !== null && matches !== null) && (
-            <div>
-              <div className="bracket-tree-slider">
-                <span className="icon">
-                  <i className="fas fa-magnifying-glass"></i>
-                </span>
-                <input
-                  id="zoom-slider"
-                  type="range"
-                  min="0.2"
-                  max="1"
-                  step="0.05"
-                  value={zoomLevel}
-                  onChange={handleZoomChange}
-                />
-              </div>
-              <div className="bracket-tree-border" ref={scrollContainerRef}>
-                <div
-                  style={{
-                    overflow: 'visible',
-                    transformOrigin: '0 0',
-                    transform: `scale(${zoomLevel})`,
-                    width: naturalWidth ? `${naturalWidth * zoomLevel}px` : 'fit-content',
-                    height: `${640 * zoomLevel}px`,
-                  }}
-                >
-                  <BracketTree
-                    matches={matches}
-                    showSeed={sortColumn === 'seed'}
-                    calculateClicked={calculateMatch}
-                    calculateEnabled={calculateEnabled}
-                  />
-                </div>
-              </div>
-            </div>
+            <BracketTree
+              matches={matches}
+              showSeed={sortColumn === 'seed'}
+              calculateClicked={calculateMatch}
+              calculateEnabled={calculateEnabled}
+            />
           )
         }
         {

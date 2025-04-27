@@ -4,6 +4,7 @@
   padding-top: 24px;
   gap: 24px;
   position: relative;
+  align-items: center;
 }
 
 .bracket-level {
@@ -13,6 +14,7 @@
   gap: 60px;
   padding-top: 8px;
   padding-bottom: 8px;
+  position: relative;
 }
 
 .bracket-tree-match {
@@ -99,6 +101,7 @@
 
 .bracket-tree-match-container {
   padding-right: 40px;
+  height: 95px;
 }
 
 .bracket-tree-match-calc {
@@ -121,12 +124,54 @@
 }
 
 .bracket-tree-divider {
+  background-color: #fff;
   border: none;
-  border-top: 3px dashed #ccc;
+  border-left: 3px dashed #ccc;
+  position: absolute;
   margin: 0;
   padding: 0;
+  top: -500px;
+  width: 0;
+  height: calc(100% + 1000px);
+  left: -25px;
+}
+
+.bracket-level-divider {
+  background-color: #fff;
+  border: none;
+  border-top: 3px dashed #ccc;
   position: absolute;
-  top: calc(50% + 11px);
+  margin: 0;
+  padding: 0;
+  top: -31px;
+  width: calc(100% + 1200px);
+  height: 0;
   left: 0;
-  right: 40px;
+}
+
+.bracket-tree-border {
+  overflow: auto;
+  width: 100%;
+  height: 640px;
+  border: 1px solid #ccc;
+  padding: 12px;
+}
+
+.bracket-tree-slider {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+  width: 50%;
+}
+
+@media screen and (max-width: 768px) {
+  .bracket-tree-slider {
+    width: 100%;
+  } 
+}
+
+.bracket-tree-slider input {
+  flex-grow: 1;
+  cursor: pointer;
 }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { referencesMatchRed, referencesMatchBlue, type Match, noMatchStrings } from "./BracketUtils"
 import classNames from 'classnames';
 import dayjs from 'dayjs';
@@ -10,12 +10,13 @@ interface BracketTreeMatchProps {
   match: Match;
   showSeed: boolean;
   levelIndex: number;
+  matchIndex: number;
   calculateEnabled: (match: Match) => boolean;
   calculateClicked: (match: Match) => void;
 }
 
 function BracketTreeMatch(props: BracketTreeMatchProps) {
-  const { match, levelIndex } = props;
+  const { match, levelIndex, matchIndex } = props;
 
   const tooltip = (numMatches: number | null) => {
     const immature = immatureClass(numMatches);
@@ -31,6 +32,11 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
   return (
     <div className="bracket-tree-match-container">
       <div className="bracket-tree-match">
+        {
+          ((levelIndex % 4) === 0) && (matchIndex > 0) && ((matchIndex % 8) === 0) && (
+            <hr className="bracket-level-divider" />
+          )
+        }
         {
           props.calculateEnabled(match) &&
           <div className="bracket-tree-match-calc" onClick={() => props.calculateClicked(match)}>
@@ -161,6 +167,32 @@ interface BracketTreeProps {
 }
 
 function BracketTree(props: BracketTreeProps) {
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [naturalWidth, setNaturalWidth] = useState<number | null>(null);
+
+  const handleZoomChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setZoomLevel(Number(event.target.value));
+  };
+
+  const updateNaturalWidth = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      setNaturalWidth(container.offsetWidth);
+    }
+  };
+
+  useEffect(() => {
+    updateNaturalWidth();
+  }, [props.matches]);
+
+  useEffect(() => {
+    window.addEventListener('resize', updateNaturalWidth);
+    return () => {
+      window.removeEventListener('resize', updateNaturalWidth);
+    };
+  }, []);
+
   const leveledMatches = useMemo(() => {
     const levels: Match[][] = [[]];
 
@@ -207,25 +239,61 @@ function BracketTree(props: BracketTreeProps) {
   }, [props.matches]);
 
   return (
-    <div className="bracket-tree-container">
-      <div className="bracket-tree">
-        {
-          leveledMatches.map((level, levelIndex) => (
-            <div key={levelIndex} className="bracket-level">
-              {level.map((match, matchIndex) => (
-                <BracketTreeMatch
-                  key={matchIndex}
-                  match={match}
-                  showSeed={props.showSeed}
-                  levelIndex={levelIndex}
-                  calculateClicked={props.calculateClicked}
-                  calculateEnabled={props.calculateEnabled}
-                />
-              ))}
-            </div>
-          ))
-        }
-        <hr className="bracket-tree-divider" />
+    <div>
+      <div className="bracket-tree-slider">
+        <span className="icon cursor-pointer" onClick={() => setZoomLevel(Math.max(0.2, zoomLevel - 0.05))}>
+          <i className="fas fa-magnifying-glass-minus"></i>
+        </span>
+        <input
+          id="zoom-slider"
+          type="range"
+          min="0.2"
+          max="1"
+          step="0.05"
+          value={zoomLevel}
+          onChange={handleZoomChange}
+        />
+        <span className="icon cursor-pointer" onClick={() => setZoomLevel(Math.min(1, zoomLevel + 0.05))}>
+          <i className="fas fa-magnifying-glass-plus"></i>
+        </span>
+      </div>
+      <div className="bracket-tree-border" ref={scrollContainerRef}>
+        <div
+          style={{
+            overflow: 'visible',
+            transformOrigin: '0 0',
+            transform: `scale(${zoomLevel})`,
+            width: naturalWidth ? `${naturalWidth * zoomLevel}px` : 'fit-content',
+            height: `${640 * zoomLevel}px`,
+          }}
+        >
+          <div className="bracket-tree">
+            {
+              leveledMatches.map((level, levelIndex) => (
+                <div key={levelIndex} className="bracket-level" style={{
+                  height: `${155 * leveledMatches[4 * Math.floor(levelIndex/4)].length}px`
+                }}>
+                  {level.map((match, matchIndex) => (
+                    <BracketTreeMatch
+                      key={matchIndex}
+                      match={match}
+                      showSeed={props.showSeed}
+                      levelIndex={levelIndex}
+                      calculateClicked={props.calculateClicked}
+                      calculateEnabled={props.calculateEnabled}
+                      matchIndex={matchIndex}
+                    />
+                  ))}
+                  {
+                    (levelIndex > 0) && (levelIndex % 4) === 0 && (
+                      <hr key={`${levelIndex}-divider`} className="bracket-tree-divider" />
+                    )
+                  }
+                </div>
+              ))
+            }
+          </div>
+        </div>
       </div>
     </div>
   );
