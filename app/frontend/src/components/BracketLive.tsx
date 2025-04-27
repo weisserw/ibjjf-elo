@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import axios from 'axios'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
@@ -36,9 +36,6 @@ interface LiveCompetitorsResponse extends CompetitorsResponse {
 function BracketLive() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [naturalWidth, setNaturalWidth] = useState<number | null>(null);
 
   const {
     bracketEvents: events,
@@ -316,28 +313,6 @@ function BracketLive() {
 
     navigate('/calculator');
   }
-
-  const handleZoomChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setZoomLevel(Number(event.target.value));
-  };
-
-  const updateNaturalWidth = () => {
-    const container = scrollContainerRef.current;
-    if (container) {
-      setNaturalWidth(container.offsetWidth);
-    }
-  };
-
-  useEffect(() => {
-    updateNaturalWidth();
-  }, [matches]);
-
-  useEffect(() => {
-    window.addEventListener('resize', updateNaturalWidth);
-    return () => {
-      window.removeEventListener('resize', updateNaturalWidth);
-    };
-  }, []);
 
   return (
     <div className="brackets-content">
