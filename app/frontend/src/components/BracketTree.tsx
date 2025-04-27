@@ -211,25 +211,27 @@ function BracketTree(props: BracketTreeProps) {
 
     while (allMatches.length) {
       const nextLevelMatches: Match[] = [];
-      let foundMatch = false;
+      let missingMatches = 0;
 
       for (const match of levels[levels.length - 1]) {
         const firstReferencedMatchIndex = allMatches.findIndex(m => referencesMatchRed(match, m));
         if (firstReferencedMatchIndex > -1) {
-          foundMatch = true;
+          missingMatches++;
           nextLevelMatches.push(allMatches[firstReferencedMatchIndex]);
           allMatches.splice(firstReferencedMatchIndex, 1);
         }
         const secondReferencedMatchIndex = allMatches.findIndex(m => referencesMatchBlue(match, m));
         if (secondReferencedMatchIndex > -1) {
-          foundMatch = true;
+          missingMatches++;
           nextLevelMatches.push(allMatches[secondReferencedMatchIndex]);
           allMatches.splice(secondReferencedMatchIndex, 1);
         }
       }
 
-      if (!foundMatch) {
-        break;
+      // If we weren't able to find ancestors for all matches,
+      // just guess that the next matches by date are in this level
+      if (missingMatches > 0) {
+        nextLevelMatches.push(...allMatches.splice(0, missingMatches));
       }
 
       levels.push(nextLevelMatches);
