@@ -1141,7 +1141,7 @@ def archive_competitors():
 
     medals_by_id = {}
     for medal in medals:
-        medals_by_id[medal.athlete_id] = medal.place
+        medals_by_id[str(medal.athlete_id)] = str(medal.place)
 
     use_seeds = "(" not in event_name
 
@@ -1166,7 +1166,7 @@ def archive_competitors():
                 "where": None,
                 "fight_num": None,
                 "red_bye": False,
-                "red_id": red.athlete_id,
+                "red_id": str(red.athlete_id),
                 "red_seed": red.seed if use_seeds else None,
                 "red_loser": not red.winner,
                 "red_name": red.athlete.name,
@@ -1179,10 +1179,10 @@ def archive_competitors():
                 "red_expected": red_elo.expected_score(blue_elo),
                 "red_handicap": red_handicap,
                 "red_weight": red_weight,
-                "red_medal": medals_by_id.get(red.athlete_id),
+                "red_medal": None,
                 "red_match_count": red.start_match_count,
                 "blue_bye": False,
-                "blue_id": blue.athlete_id,
+                "blue_id": str(blue.athlete_id),
                 "blue_seed": blue.seed if use_seeds else None,
                 "blue_loser": not blue.winner,
                 "blue_name": blue.athlete.name,
@@ -1195,13 +1195,22 @@ def archive_competitors():
                 "blue_expected": blue_elo.expected_score(red_elo),
                 "blue_handicap": blue_handicap,
                 "blue_weight": blue_weight,
-                "blue_medal": medals_by_id.get(blue.athlete_id),
+                "blue_medal": None,
                 "blue_match_count": blue.start_match_count,
             }
         )
 
     if len(parsed_matches):
         parsed_matches[-1]["final"] = True
+
+    for athlete_id, medal in medals_by_id.items():
+        for match in parsed_matches[::-1]:
+            if match["red_id"] == athlete_id:
+                match["red_medal"] = medal
+                break
+            elif match["blue_id"] == athlete_id:
+                match["blue_medal"] = medal
+                break
 
     added_competitors = set()
     for match in parsed_matches:
@@ -1219,12 +1228,14 @@ def archive_competitors():
                     "rank": None,
                     "note": match["red_note"],
                     "last_weight": match["red_weight"],
+                    "medal": match["red_medal"],
                 }
             )
             added_competitors.add(match["red_id"])
         else:
             existing = [c for c in competitors if c["ibjjf_id"] == match["red_id"]][0]
             existing["end_rating"] = match["red_end_rating"]
+            existing["medal"] = match["red_medal"]
         if match["blue_id"] not in added_competitors:
             competitors.append(
                 {
@@ -1239,12 +1250,14 @@ def archive_competitors():
                     "rank": None,
                     "note": match["blue_note"],
                     "last_weight": match["blue_weight"],
+                    "medal": match["blue_medal"],
                 }
             )
             added_competitors.add(match["blue_id"])
         else:
             existing = [c for c in competitors if c["ibjjf_id"] == match["blue_id"]][0]
             existing["end_rating"] = match["blue_end_rating"]
+            existing["medal"] = match["blue_medal"]
 
     if use_seeds and len(competitors) > 4:
         competitors.sort(key=lambda x: x["seed"])
