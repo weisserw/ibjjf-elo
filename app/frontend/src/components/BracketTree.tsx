@@ -41,7 +41,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
           props.calculateEnabled(match) &&
           <button className="button is-small bracket-tree-match-calc" onClick={() => props.calculateClicked(match)}>
             <span className="icon is-small has-text-info">
-              <i className="fas fa-project-diagram"/>
+              <i className="fas fa-calculator"/>
             </span>
           </button>
         }
