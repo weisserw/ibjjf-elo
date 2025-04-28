@@ -75,10 +75,20 @@ def get_or_create_event_or_athlete(session, model, ibjjf_id, name, do_update=Tru
                 session.flush()
             return instance
         else:
-            instance = get_or_create_event_or_athlete(session, model, "", name)
-            instance.ibjjf_id = ibjjf_id
-            session.flush()
-            return instance
+            instance = (
+                session.query(model).filter_by(normalized_name=normalized_name).first()
+            )
+            if instance and instance.ibjjf_id is None:
+                instance.ibjjf_id = ibjjf_id
+                instance.name = name
+                instance.normalized_name = normalized_name
+                session.flush()
+                return instance
+            else:
+                instance = model(ibjjf_id=ibjjf_id, name=name, normalized_name=normalized_name)
+                session.add(instance)
+                session.flush()
+                return instance
 
 
 def get_or_create_team(session, name):
