@@ -167,7 +167,7 @@ interface BracketTreeProps {
 }
 
 function BracketTree(props: BracketTreeProps) {
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomLevel, setZoomLevel] = useState(.9);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [naturalWidth, setNaturalWidth] = useState<number | null>(null);
 
@@ -252,7 +252,7 @@ function BracketTree(props: BracketTreeProps) {
           id="zoom-slider"
           type="range"
           min="0.2"
-          max="1"
+          max="0.9"
           step="0.05"
           value={zoomLevel}
           onChange={handleZoomChange}

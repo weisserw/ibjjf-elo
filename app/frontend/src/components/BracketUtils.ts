@@ -59,6 +59,28 @@ export interface CompetitorsResponse {
   competitors?: Competitor[]
 }
 
+
+export interface Category {
+  link?: string
+  age: string
+  belt: string
+  weight: string
+  gender: string
+}
+
+export interface CategoriesResponse {
+  error?: string
+  categories?: Category[]
+}
+
+export interface LiveCompetitorsResponse extends CompetitorsResponse {
+  matches?: Match[]
+}
+
+export const categoryString = (category: Category) => {
+  return `${category.belt} / ${category.age} / ${category.gender} / ${category.weight}`
+}
+
 export const isGi = (name: string) => {
   return !/no[ -]gi/.test(name.toLowerCase()) && !/sem kimono/.test(name.toLowerCase());
 }

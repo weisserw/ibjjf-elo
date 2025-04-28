@@ -21,6 +21,8 @@ from models import (
     Match,
     Division,
     BracketPage,
+    Event,
+    Medal,
 )
 import logging
 from normalize import normalize
@@ -376,6 +378,10 @@ def get_ratings(results, age, belt, weight, gender, gi, rating_date, get_rank):
 
     results.sort(key=lambda x: x["rating"] or -1, reverse=True)
 
+    compute_ordinals(results)
+
+
+def compute_ordinals(results):
     ordinal = 0
     ties = 0
     last_rating = None
@@ -1025,3 +1031,292 @@ def events():
             tournaments.append({"id": option["value"], "name": option.text})
 
     return jsonify({"events": tournaments})
+
+
+@brackets_route.route("/api/brackets/archive/categories")
+def archive_categories():
+    event_name = request.args.get("event_name")
+
+    if not event_name:
+        return jsonify({"error": "Missing parameter"}), 400
+
+    if event_name.startswith('"') and event_name.endswith('"'):
+        event_name = event_name[1:-1]
+
+    division_ids = (
+        db.session.query(Match.division_id)
+        .join(Event)
+        .filter(Event.name == event_name)
+        .union(
+            db.session.query(Medal.division_id)
+            .join(Event)
+            .filter(Event.name == event_name)
+        )
+        .all()
+    )
+
+    if not division_ids:
+        return jsonify({"categories": []}), 200
+
+    divisions = (
+        db.session.query(Division)
+        .filter(Division.id.in_([d[0] for d in division_ids]))
+        .all()
+    )
+
+    divisions.sort(
+        key=lambda x: (
+            belt_order.index(x.belt),
+            age_order_all.index(x.age),
+            gender_order.index(x.gender),
+            weight_class_order_all.index(x.weight),
+        )
+    )
+
+    return jsonify(
+        {
+            "categories": [
+                {
+                    "age": division.age,
+                    "belt": division.belt,
+                    "weight": division.weight,
+                    "gender": division.gender,
+                }
+                for division in divisions
+            ],
+        }
+    )
+
+
+@brackets_route.route("/api/brackets/archive/competitors")
+def archive_competitors():
+    event_name = request.args.get("event_name")
+    age = request.args.get("age")
+    belt = request.args.get("belt")
+    weight = request.args.get("weight")
+    gender = request.args.get("gender")
+    gi = request.args.get("gi")
+
+    if not event_name or not age or not belt or not weight or not gender or not gi:
+        return jsonify({"error": "Missing parameter"}), 400
+
+    gi = gi.lower() == "true"
+
+    if event_name.startswith('"') and event_name.endswith('"'):
+        event_name = event_name[1:-1]
+
+    event = db.session.query(Event).filter(Event.name == event_name).first()
+
+    if not event:
+        return jsonify({"error": "Event not found"}), 404
+
+    division = (
+        db.session.query(Division)
+        .filter(
+            Division.age == age,
+            Division.belt == belt,
+            Division.weight == weight,
+            Division.gender == gender,
+            Division.gi == gi,
+        )
+        .first()
+    )
+
+    if not division:
+        return jsonify({"error": "Division not found"}), 404
+
+    matches = (
+        db.session.query(Match)
+        .filter(
+            Match.event_id == event.id,
+            Match.division_id == division.id,
+        )
+        .order_by(Match.happened_at)
+        .all()
+    )
+
+    medals = (
+        db.session.query(Medal)
+        .filter(
+            Medal.event_id == event.id,
+            Medal.division_id == division.id,
+        )
+        .all()
+    )
+
+    medals_by_id = {}
+    for medal in medals:
+        medals_by_id[medal.athlete_id] = medal.place
+
+    use_seeds = "(" not in event_name
+
+    competitors = []
+    parsed_matches = []
+    for match in matches:
+        red = [p for p in match.participants if p.red][0]
+        blue = [p for p in match.participants if not p.red][0]
+
+        red_weight = red.weight_for_open or weight
+        blue_weight = blue.weight_for_open or weight
+
+        red_handicap, blue_handicap = weight_handicaps(belt, red_weight, blue_weight)
+
+        blue_elo = EloCompetitor(blue.start_rating + blue_handicap, 32)
+        red_elo = EloCompetitor(red.start_rating + red_handicap, 32)
+
+        parsed_matches.append(
+            {
+                "final": False,
+                "when": match.happened_at.isoformat(),
+                "where": None,
+                "fight_num": None,
+                "red_bye": False,
+                "red_id": red.athlete_id,
+                "red_seed": red.seed if use_seeds else None,
+                "red_loser": not red.winner,
+                "red_name": red.athlete.name,
+                "red_team": red.team.name,
+                "red_note": red.note,
+                "red_next_description": None,
+                "red_ordinal": None,
+                "red_rating": red.start_rating,
+                "red_end_rating": red.end_rating,
+                "red_expected": red_elo.expected_score(blue_elo),
+                "red_handicap": red_handicap,
+                "red_weight": red_weight,
+                "red_medal": medals_by_id.get(red.athlete_id),
+                "red_match_count": red.start_match_count,
+                "blue_bye": False,
+                "blue_id": blue.athlete_id,
+                "blue_seed": blue.seed if use_seeds else None,
+                "blue_loser": not blue.winner,
+                "blue_name": blue.athlete.name,
+                "blue_team": blue.team.name,
+                "blue_note": blue.note,
+                "blue_next_description": None,
+                "blue_ordinal": None,
+                "blue_rating": blue.start_rating,
+                "blue_end_rating": blue.end_rating,
+                "blue_expected": blue_elo.expected_score(red_elo),
+                "blue_handicap": blue_handicap,
+                "blue_weight": blue_weight,
+                "blue_medal": medals_by_id.get(blue.athlete_id),
+                "blue_match_count": blue.start_match_count,
+            }
+        )
+
+    if len(parsed_matches):
+        parsed_matches[-1]["final"] = True
+
+    added_competitors = set()
+    for match in parsed_matches:
+        if match["red_id"] not in added_competitors:
+            competitors.append(
+                {
+                    "id": match["red_id"],
+                    "ibjjf_id": match["red_id"],
+                    "seed": match["red_seed"],
+                    "name": match["red_name"],
+                    "team": match["red_team"],
+                    "rating": match["red_rating"],
+                    "end_rating": match["red_end_rating"],
+                    "match_count": match["red_match_count"],
+                    "rank": None,
+                    "note": match["red_note"],
+                    "last_weight": None,
+                }
+            )
+            added_competitors.add(match["red_id"])
+        else:
+            existing = [c for c in competitors if c["ibjjf_id"] == match["red_id"]][0]
+            existing["end_rating"] = match["red_end_rating"]
+        if match["blue_id"] not in added_competitors:
+            competitors.append(
+                {
+                    "id": match["blue_id"],
+                    "ibjjf_id": match["blue_id"],
+                    "seed": match["blue_seed"],
+                    "name": match["blue_name"],
+                    "team": match["blue_team"],
+                    "rating": match["blue_rating"],
+                    "end_rating": match["blue_end_rating"],
+                    "match_count": match["blue_match_count"],
+                    "rank": None,
+                    "note": match["blue_note"],
+                    "last_weight": None,
+                }
+            )
+            added_competitors.add(match["blue_id"])
+        else:
+            existing = [c for c in competitors if c["ibjjf_id"] == match["blue_id"]][0]
+            existing["end_rating"] = match["blue_end_rating"]
+
+    if use_seeds:
+        competitors.sort(key=lambda x: x["seed"])
+
+        # calculate how many byes will be needed for len(competitors)
+        # to get to the next power of 2
+        bye_count = 0
+        while len(competitors) + bye_count < 2 ** (len(competitors) - 1).bit_length():
+            bye_count += 1
+        for i in range(bye_count):
+            parsed_matches.insert(
+                0,
+                {
+                    "final": False,
+                    "when": None,
+                    "where": None,
+                    "fight_num": None,
+                    "red_bye": False,
+                    "red_id": competitors[i]["ibjjf_id"],
+                    "red_seed": competitors[i]["seed"],
+                    "red_loser": False,
+                    "red_name": competitors[i]["name"],
+                    "red_team": competitors[i]["team"],
+                    "red_note": None,
+                    "red_ordinal": None,
+                    "red_rating": competitors[i]["rating"],
+                    "red_end_rating": competitors[i]["rating"],
+                    "red_expected": None,
+                    "red_handicap": 0,
+                    "red_weight": None,
+                    "red_medal": None,
+                    "red_match_count": competitors[i]["match_count"],
+                    "blue_bye": True,
+                    "blue_id": None,
+                    "blue_seed": None,
+                    "blue_loser": False,
+                    "blue_name": None,
+                    "blue_team": None,
+                    "blue_note": None,
+                    "blue_ordinal": None,
+                    "blue_rating": None,
+                    "blue_end_rating": None,
+                    "blue_expected": None,
+                    "blue_handicap": 0,
+                    "blue_weight": None,
+                    "blue_medal": None,
+                    "blue_match_count": None,
+                },
+            )
+
+    competitors.sort(key=lambda x: x["rating"], reverse=True)
+
+    compute_ordinals(competitors)
+
+    ordinals_by_id = {}
+    for competitor in competitors:
+        ordinals_by_id[competitor["ibjjf_id"]] = competitor["ordinal"]
+
+    for match in parsed_matches:
+        if match["red_id"] in ordinals_by_id:
+            match["red_ordinal"] = ordinals_by_id[match["red_id"]]
+        if match["blue_id"] in ordinals_by_id:
+            match["blue_ordinal"] = ordinals_by_id[match["blue_id"]]
+
+    return jsonify(
+        {
+            "competitors": competitors,
+            "matches": parsed_matches,
+        }
+    )

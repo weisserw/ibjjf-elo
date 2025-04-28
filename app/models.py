@@ -156,6 +156,7 @@ class MatchParticipant(db.Model):
 
     athlete = relationship("Athlete", lazy="select", viewonly=True)
     match = relationship("Match", lazy="select", viewonly=True)
+    team = relationship("Team", lazy="select", viewonly=True)
 
     def to_dict(self):
         return {

@@ -1,39 +1,47 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree from './BracketTree'
-import { isGi, handleError, categoryString } from './BracketUtils'
-import type { CategoriesResponse, LiveCompetitorsResponse, Match as BracketMatch } from './BracketUtils'
+import Autosuggest from 'react-autosuggest'
+import { axiosErrorToast } from '../utils';
+import debounce from 'lodash/debounce';
+import { isGi, handleError } from './BracketUtils'
+import type { LiveCompetitorsResponse, Match as BracketMatch } from './BracketUtils'
 
-export interface Event {
-  id: string
-  name: string
+export interface Category {
+  age: string
+  belt: string
+  weight: string
+  gender: string
 }
 
-interface EventsResponse {
+interface CategoriesResponse {
   error?: string
-  events?: Event[]
+  categories?: Category[]
 }
 
-function BracketLive() {
+
+function BracketArchive() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [eventSuggestions, setEventSuggestions] = useState<string[]>([])
 
   const {
-    bracketEvents: events,
-    setBracketEvents: setEvents,
-    bracketSelectedEvent: selectedEvent,
-    setBracketSelectedEvent: setSelectedEvent,
-    bracketCategories: categories,
-    setBracketCategories: setCategories,
-    bracketSelectedCategory: selectedCategory,
-    setBracketSelectedCategory: setSelectedCategory,
-    bracketCompetitors: competitors,
-    setBracketCompetitors: setCompetitors,
-    bracketMatches: matches,
-    setBracketMatches: setMatches,
+    activeTab,
+    bracketArchiveEventName: eventName,
+    setBracketArchiveEventName: setEventName,
+    bracketArchiveEventNameFetch: eventNameFetch,
+    setBracketArchiveEventNameFetch: setEventNameFetch,
+    bracketArchiveCategories: categories,
+    setBracketArchiveCategories: setCategories,
+    bracketArchiveSelectedCategory: selectedCategory,
+    setBracketArchiveSelectedCategory: setSelectedCategory,
+    bracketArchiveCompetitors: competitors,
+    setBracketArchiveCompetitors: setCompetitors,
+    bracketArchiveMatches: matches,
+    setBracketArchiveMatches: setMatches,
     bracketSortColumn: sortColumn,
     setBracketSortColumn: setSortColumn,
     setFilters,
@@ -51,6 +59,25 @@ function BracketLive() {
 
   const navigate = useNavigate()
 
+  const gi = activeTab === 'Gi' ? true : false
+
+  const getEventSuggestions = async ({ value }: { value: string }) => {
+    try {
+      const response = await axios.get(`/api/events?search=${encodeURIComponent(value)}&gi=${gi}&historical=false`);
+      setEventSuggestions(response.data);
+    } catch (error) {
+      axiosErrorToast(error);
+    }
+  }
+
+  const debouncedGetEventSuggestions = useCallback(debounce(getEventSuggestions, 300, {trailing: true}), [gi]);
+
+  const debouncedSetEventNameFetch = useCallback(debounce(setEventNameFetch, 750, {trailing: true}), []);
+
+  const categoryString = (category: Category) => {
+    return `${category.belt} / ${category.age} / ${category.gender} / ${category.weight}`
+  }
+
   const columnClicked = (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => {
     ev.preventDefault()
     setSortColumn(column)
@@ -58,55 +85,26 @@ function BracketLive() {
 
   const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => {
     ev.preventDefault()
-    const event = events?.find(e => e.id === selectedEvent);
-    if (!event) {
+    if (!eventNameFetch) {
       return;
     }
     setFilters({
       athlete_name: '"' + name + '"',
     });
     setOpenFilters({athlete: true, event: false, division: false});
-    setActiveTab(isGi(event.name) ? 'Gi' : 'No Gi');
+    setActiveTab(isGi(eventNameFetch) ? 'Gi' : 'No Gi');
     navigate('/database');
   }
-
-  const getEvents = async () => {
-    setLoading(true)
-    try {
-      const { data } = await axios.get<EventsResponse>('/api/brackets/events');
-      if (data.error) {
-        setEvents(null)
-        setError(data.error)
-      } else if (data.events) {
-        setEvents(data.events)
-        setError(null)
-
-        const event = data.events.find(e => e.id === selectedEvent)
-        if (event) {
-          setSelectedEvent(event.id)
-        } else if (!event && data.events.length > 0) {
-          setSelectedEvent(data.events[0].id)
-        } else {
-          setSelectedEvent(null)
-          setCategories(null)
-          setCompetitors(null)
-        }
-      }
-    } catch (err) {
-      handleError(err, setError)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    getEvents()
-  }, [])
 
   const getCategories = async () => {
     setLoading(true)
     try {
-      const { data } = await axios.get<CategoriesResponse>('/api/brackets/categories/' + selectedEvent);
+      const { data } = await axios.get<CategoriesResponse>('/api/brackets/archive/categories', {
+        params: {
+          event_name: eventNameFetch,
+        }
+      });
+
       if (data.error) {
         setCategories(null)
         setError(data.error)
@@ -161,27 +159,26 @@ function BracketLive() {
   }
 
   useEffect(() => {
-    if (selectedEvent) {
+    if (eventNameFetch) {
       getCategories()
     }
-  }, [events, selectedEvent])
+  }, [eventNameFetch])
 
   const viewBracket = async () => {
     setLoading(true)
     try {
-      const event = events?.find(e => e.id === selectedEvent)
       const category = categories?.find(c => categoryString(c) === selectedCategory)
-      if (!event || !category) {
+      if (!eventNameFetch || !category) {
         return
       }
-      const { data } = await axios.get<LiveCompetitorsResponse>('/api/brackets/competitors', {
+      const { data } = await axios.get<LiveCompetitorsResponse>('/api/brackets/archive/competitors', {
         params: {
-          link: category.link,
+          event_name: eventNameFetch,
           age: category.age,
           gender: category.gender,
-          gi: isGi(event.name),
           belt: category.belt,
-          weight: category.weight
+          weight: category.weight,
+          gi: isGi(eventNameFetch),
         }
       });
       if (data.error) {
@@ -206,26 +203,6 @@ function BracketLive() {
       viewBracket()
     }
   }, [categories, selectedCategory])
-
-  const selectedCategoryLink = useMemo(() => {
-    if (selectedCategory && categories) {
-      const category = categories.find(c => categoryString(c) === selectedCategory)
-      if (category) {
-        return category.link
-      }
-    }
-    return null
-  }, [selectedCategory, categories])
-
-  const selectedEventName = useMemo(() => {
-    if (events && selectedEvent) {
-      const event = events.find(e => e.id === selectedEvent)
-      if (event) {
-        return event.name
-      }
-    }
-    return null
-  }, [events, selectedEvent])
 
   const sortedCompetitors = useMemo(() => {
     if (competitors === null) {
@@ -273,14 +250,14 @@ function BracketLive() {
   }
 
   const calculateMatch = async (match: BracketMatch) => {
-    if (!match.red_name || !match.blue_name || !selectedCategory || !selectedEventName) {
+    if (!match.red_name || !match.blue_name || !selectedCategory || !eventNameFetch) {
       return
     }
     const [belt, age, gender, weight] = selectedCategory.split(' / ');
     setCalcFirstAthlete(match.red_name);
     setCalcSecondAthlete(match.blue_name);
     setCalcGender(gender);
-    setActiveTab(isGi(selectedEventName) ? 'Gi' : 'No Gi');
+    setActiveTab(isGi(eventNameFetch) ? 'Gi' : 'No Gi');
     if (!/Open/i.test(weight)) {
       setCalcFirstWeight(weight);
       setCalcSecondWeight(weight);
@@ -294,41 +271,37 @@ function BracketLive() {
     navigate('/calculator');
   }
 
+  const showSeed = !eventName.includes('(');
+
   return (
     <div className="brackets-content">
       <div>
-        {
-          events !== null && (
-            <div className="bracket-list">
-              {
-                events.length > 0 && (
-                  <div className="columns no-bottom-margin">
-                    <div className="column no-padding">
-                      <div className="field">
-                        <div className="select">
-                          <select value={selectedEvent ?? ''} onChange={e => { setSelectedEvent(e.target.value); }}>
-                            {
-                              events.map(event => (
-                                <option key={event.id} value={event.id}>{event.name}</option>
-                              ))
-                            }
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              }
-              {
-                events.length === 0 && (
-                  <div className="notification is-warning">No events found</div>
-                )
-              }
+        <div className="bracket-list">
+          <div className="field">
+            <div className="control is-expanded bracket-event-name">
+              <Autosuggest suggestions={eventSuggestions}
+                              onSuggestionsFetchRequested={debouncedGetEventSuggestions}
+                              onSuggestionsClearRequested={() => setEventSuggestions([])}
+                              multiSection={false}
+                              getSuggestionValue={(suggestion) => '"' + suggestion + '"'}
+                              renderSuggestion={(suggestion) => suggestion}
+                              inputProps={{
+                              className: "input",
+                              value: eventName,
+                              placeholder: "Event Name",
+                              onChange: (_: any, { newValue }) => {
+                                  setEventName(newValue);
+                                  debouncedSetEventNameFetch(newValue);
+                                  setCategories(null);
+                                  setCompetitors(null);
+                                  setMatches(null);
+                              }
+                              }} />
             </div>
-          )
-        }
+          </div>
+        </div>
         {
-          (events !== null && categories !== null) && (
+          (categories !== null) && (
             <div className="category-list">
               {
                 categories.length > 0 && (
@@ -356,58 +329,45 @@ function BracketLive() {
                   </div>
                 )
               }
-              {
-                categories.length === 0 && (
-                  <div className="notification is-warning">No valid brackets found. Note: we do not load kids divisions.</div>
-                )
-              }
             </div>
           )
-        }
-        {
-          error && <div className="notification is-danger mt-4">{error}</div>
         }
         {
           loading && <div className="bracket-loader loader mt-4"></div>
         }
         {
-          (events !== null && categories !== null && competitors !== null) && (
-            <BracketTable
-              competitors={sortedCompetitors}
-              sortColumn={sortColumn}
-              showSeed={true}
-              showEndRating={true}
-              showWeight={selectedCategory?.includes(' / Open') ?? false}
-              isGi={isGi(selectedEventName ?? '')}
-              columnClicked={columnClicked}
-              athleteClicked={athleteClicked}
-            />
+          error && <div className="notification is-danger mt-4">{error}</div>
+        }
+        {
+          (!!eventNameFetch && categories !== null && competitors !== null) && (
+            <BracketTable competitors={sortedCompetitors}
+                          sortColumn={showSeed ? sortColumn : 'rating'}
+                          showSeed={showSeed}
+                          showEndRating={true}
+                          showWeight={selectedCategory?.includes(' / Open') ?? false}
+                          isGi={isGi(eventNameFetch)}
+                          columnClicked={columnClicked}
+                          athleteClicked={athleteClicked} />
           )
         }
         {
-          (events !== null && categories !== null && matches !== null) && (
-            <BracketTree
-              matches={matches}
-              showSeed={sortColumn === 'seed'}
-              calculateClicked={calculateMatch}
-              calculateEnabled={calculateEnabled}
-            />
+          (!!eventNameFetch && categories !== null && matches !== null) && (
+            <BracketTree matches={matches}
+                        showSeed={sortColumn === 'seed'}
+                        calculateClicked={calculateMatch}
+                        calculateEnabled={calculateEnabled}/>
           )
-        }
-        {
-          (events !== null && categories !== null && competitors !== null && selectedCategoryLink !== null) &&
-          <a
-            href={`https://bjjcompsystem.com${selectedCategoryLink}`}
-            target="_blank"
-            rel="noreferrer"
-            className="button is-link is-outlined mt-5"
-          >
-            View Bracket (external)
-          </a>
         }
       </div>
+      {
+        !showSeed && (
+          <div className="notification is-historical mt-4">
+            Match data before December 2024 may be incomplete or inaccurate
+          </div>
+        )
+      }
     </div>
   );
 }
 
-export default BracketLive;
+export default BracketArchive;

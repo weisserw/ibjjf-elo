@@ -13,6 +13,7 @@ MAX_RESULTS = 50
 def events():
     search = normalize(request.args.get("search", ""))
     gi = request.args.get("gi")
+    historical = request.args.get("historical", "true").lower() == "true"
 
     if gi is None:
         return jsonify({"error": "Missing mandatory query parameter: gi"}), 400
@@ -33,6 +34,8 @@ def events():
     )
     for name_part in search.split():
         query = query.filter(Event.normalized_name.like(f"%{name_part}%"))
+    if not historical:
+        query = query.filter(Event.name.not_like("%(%"))
     query = query.order_by(Event.name).limit(MAX_RESULTS)
     results = query.all()
 

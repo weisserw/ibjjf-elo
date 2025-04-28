@@ -72,3 +72,8 @@
   margin: 0;
   margin-left: 1em;
 }
+
+.bracket-event-name {
+  width: 800px;
+  max-width: 100%;
+}
