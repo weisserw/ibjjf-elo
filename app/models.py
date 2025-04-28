@@ -103,6 +103,7 @@ class Medal(db.Model):
 
     division = relationship("Division", lazy="select", viewonly=True)
     athlete = relationship("Athlete", lazy="select", viewonly=True)
+    team = relationship("Team", lazy="select", viewonly=True)
     event = relationship("Event", lazy="select", viewonly=True)
 
     __table_args__ = (

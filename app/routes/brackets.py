@@ -1047,11 +1047,6 @@ def archive_categories():
         db.session.query(Match.division_id)
         .join(Event)
         .filter(Event.name == event_name)
-        .union(
-            db.session.query(Medal.division_id)
-            .join(Event)
-            .filter(Event.name == event_name)
-        )
         .all()
     )
 
@@ -1223,7 +1218,7 @@ def archive_competitors():
                     "match_count": match["red_match_count"],
                     "rank": None,
                     "note": match["red_note"],
-                    "last_weight": None,
+                    "last_weight": match["red_weight"],
                 }
             )
             added_competitors.add(match["red_id"])
@@ -1243,7 +1238,7 @@ def archive_competitors():
                     "match_count": match["blue_match_count"],
                     "rank": None,
                     "note": match["blue_note"],
-                    "last_weight": None,
+                    "last_weight": match["blue_weight"],
                 }
             )
             added_competitors.add(match["blue_id"])
