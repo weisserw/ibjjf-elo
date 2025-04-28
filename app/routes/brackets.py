@@ -176,14 +176,16 @@ def get_ratings(results, age, belt, weight, gender, gi, rating_date, get_rank):
     athletes_by_name = {}
 
     for athlete in athlete_results:
-        athletes_by_id[athlete.ibjjf_id] = athlete.id
-        athletes_by_name[athlete.normalized_name] = athlete.id
+        athletes_by_id[athlete.ibjjf_id] = athlete
+        athletes_by_name[athlete.normalized_name] = athlete
 
     for result in results:
         if result["ibjjf_id"] is not None and result["ibjjf_id"] in athletes_by_id:
-            result["id"] = athletes_by_id[result["ibjjf_id"]]
+            result["id"] = athletes_by_id[result["ibjjf_id"]].id
         elif normalize(result["name"]) in athletes_by_name:
-            result["id"] = athletes_by_name[normalize(result["name"])]
+            athlete = athletes_by_name[normalize(result["name"])]
+            if result["ibjjf_id"] is None or athlete.ibjjf_id is None:
+                result["id"] = athlete.id
 
     if get_rank:
         ratings_results = (
