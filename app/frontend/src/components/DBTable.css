@@ -50,3 +50,7 @@ div.notification.is-historical {
   align-items: center;
   gap: 8px;
 }
+
+button.is-small.is-tiny {
+  font-size: 0.55rem;
+}
