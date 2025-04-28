@@ -46,7 +46,7 @@ interface DBTableRowsProps {
   athleteClicked?: (e: React.MouseEvent<HTMLAnchorElement>, name: string) => void
   eventClicked?: (e: React.MouseEvent<HTMLAnchorElement>, name: string) => void
   divisionClicked?: (e: React.MouseEvent<HTMLAnchorElement>, row: Row) => void
-  divisionBracketClicked?: (row: Row) => void
+  divisionBracketClicked: (row: Row) => void
 }
 
 function DBTableRows(props: DBTableRowsProps) {
@@ -175,7 +175,7 @@ function DBTableRows(props: DBTableRowsProps) {
                         <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
                       }
                       {
-                        (!noLinks && !isHistorical(row)) &&
+                        !isHistorical(row) &&
                         <button className="button is-small is-tiny" onClick={() => divisionBracketClicked?.(row)}>
                           <span className="icon has-text-info">
                             <i className="fas fa-project-diagram"/>
@@ -247,7 +247,7 @@ function DBTableRows(props: DBTableRowsProps) {
                           <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
                         }
                         {
-                          (!noLinks && !isHistorical(row)) &&
+                          !isHistorical(row) &&
                           <button className="button is-small is-tiny" onClick={() => divisionBracketClicked?.(row)}>
                             <span className="icon has-text-info">
                               <i className="fas fa-project-diagram"/>

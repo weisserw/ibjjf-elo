@@ -94,9 +94,21 @@ function Calculator() {
     setCalcSecondWeight,
     calcCustomInfo,
     setCalcCustomInfo,
+    setBracketActiveTab,
+    setBracketArchiveEventName,
+    setBracketArchiveEventNameFetch,
+    setBracketArchiveSelectedCategory,
   } = useAppContext();
 
   const navigate = useNavigate();
+
+  const divisionBracketClicked = (row: Row) => {
+    setBracketActiveTab('Archive')
+    setBracketArchiveEventName('"' + row.event + '"')
+    setBracketArchiveEventNameFetch('"' + row.event + '"')
+    setBracketArchiveSelectedCategory(`${row.belt} / ${row.age} / ${row.gender} / ${row.weight}`)
+    navigate('/brackets')
+  }
 
   const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => {
     ev.preventDefault()
@@ -548,7 +560,8 @@ function Calculator() {
                   </p>
                   <DBTableRows data={data}
                                loading={false}
-                               noLinks={true} />
+                               noLinks={true}
+                               divisionBracketClicked={divisionBracketClicked}/>
                   {
                     hasHistorical && (
                       <div className="notification is-historical">
