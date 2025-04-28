@@ -175,7 +175,7 @@ function DBTableRows(props: DBTableRowsProps) {
                         <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
                       }
                       {
-                        !noLinks &&
+                        (!noLinks && !isHistorical(row)) &&
                         <button className="button is-small is-tiny" onClick={() => divisionBracketClicked?.(row)}>
                           <span className="icon has-text-info">
                             <i className="fas fa-project-diagram"/>
@@ -247,7 +247,7 @@ function DBTableRows(props: DBTableRowsProps) {
                           <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
                         }
                         {
-                          !noLinks &&
+                          (!noLinks && !isHistorical(row)) &&
                           <button className="button is-small is-tiny" onClick={() => divisionBracketClicked?.(row)}>
                             <span className="icon has-text-info">
                               <i className="fas fa-project-diagram"/>
