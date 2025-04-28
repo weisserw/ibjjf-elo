@@ -1251,7 +1251,7 @@ def archive_competitors():
             existing = [c for c in competitors if c["ibjjf_id"] == match["blue_id"]][0]
             existing["end_rating"] = match["blue_end_rating"]
 
-    if use_seeds:
+    if use_seeds and len(competitors) > 4:
         competitors.sort(key=lambda x: x["seed"])
 
         # calculate how many byes will be needed for len(competitors)
