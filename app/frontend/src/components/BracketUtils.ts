@@ -146,3 +146,47 @@ export const noMatchStrings = [
   "disqualified by withdraw",
 ];
 
+export const numLevels = (n: number) => {
+  return Math.ceil(Math.log2(n));
+}
+
+export const createBye = (id: string | null, name: string | null, team: string | null,
+  seed: number | null, ordinal: number | null, weight: string | null, rating: number | null,
+  match_count: number | null): Match => {
+  return {
+    final: false,
+    when: null,
+    where: null,
+    fight_num: null,
+    red_id: id,
+    red_name: name,
+    red_team: team,
+    red_bye: false,
+    red_seed: seed,
+    red_loser: false,
+    red_note: null,
+    red_next_description: null,
+    red_medal: null,
+    red_ordinal: ordinal,
+    red_weight: weight,
+    red_handicap: 0,
+    red_expected: null,
+    red_rating: rating,
+    red_match_count: match_count,
+    blue_id: null,
+    blue_name: null,
+    blue_team: null,
+    blue_bye: true,
+    blue_seed: null,
+    blue_loser: false,
+    blue_note: null,
+    blue_next_description: null,
+    blue_medal: null,
+    blue_ordinal: null,
+    blue_weight: null,
+    blue_handicap: 0,
+    blue_expected: null,
+    blue_rating: null,
+    blue_match_count: null,
+  }
+}

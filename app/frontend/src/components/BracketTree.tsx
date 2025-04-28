@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { referencesMatchRed, referencesMatchBlue, type Match, noMatchStrings } from "./BracketUtils"
+import { referencesMatchRed, referencesMatchBlue, noMatchStrings, numLevels, createBye, type Match } from "./BracketUtils"
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import { immatureClass } from '../utils';
 
 import "./BracketTree.css";
+
 
 interface BracketTreeMatchProps {
   match: Match;
@@ -162,6 +163,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
 interface BracketTreeProps {
   matches: Match[];
   showSeed: boolean;
+  createByes: boolean;
   calculateClicked: (match: Match) => void;
   calculateEnabled: (match: Match) => boolean;
 }
@@ -219,14 +221,24 @@ function BracketTree(props: BracketTreeProps) {
           nextLevelMatches.push(allMatches[firstReferencedMatchIndex]);
           allMatches.splice(firstReferencedMatchIndex, 1);
         } else {
-          missingMatches++;
+          if (props.createByes && props.matches.length > 4 && levels.length + 1 === numLevels(props.matches.length)) {
+            nextLevelMatches.push(createBye(match.red_id, match.red_name, match.red_team,
+              match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count));
+          } else {
+            missingMatches++;
+          }
         }
         const secondReferencedMatchIndex = allMatches.findIndex(m => referencesMatchBlue(match, m));
         if (secondReferencedMatchIndex > -1) {
           nextLevelMatches.push(allMatches[secondReferencedMatchIndex]);
           allMatches.splice(secondReferencedMatchIndex, 1);
         } else {
-          missingMatches++;
+          if (props.createByes && props.matches.length > 4 && levels.length + 1 === numLevels(props.matches.length)) {
+            nextLevelMatches.push(createBye(match.blue_id, match.blue_name, match.blue_team,
+              match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count));
+          } else {
+            missingMatches++;
+          }
         }
       }
 

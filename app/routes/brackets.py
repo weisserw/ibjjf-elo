@@ -1259,55 +1259,6 @@ def archive_competitors():
             existing["end_rating"] = match["blue_end_rating"]
             existing["medal"] = match["blue_medal"]
 
-    if use_seeds and len(competitors) > 4:
-        competitors.sort(key=lambda x: x["seed"])
-
-        # calculate how many byes will be needed for len(competitors)
-        # to get to the next power of 2
-        bye_count = 0
-        while len(competitors) + bye_count < 2 ** (len(competitors) - 1).bit_length():
-            bye_count += 1
-        for i in range(bye_count):
-            parsed_matches.insert(
-                0,
-                {
-                    "final": False,
-                    "when": None,
-                    "where": None,
-                    "fight_num": None,
-                    "red_bye": False,
-                    "red_id": competitors[i]["ibjjf_id"],
-                    "red_seed": competitors[i]["seed"],
-                    "red_loser": False,
-                    "red_name": competitors[i]["name"],
-                    "red_team": competitors[i]["team"],
-                    "red_note": None,
-                    "red_ordinal": None,
-                    "red_rating": competitors[i]["rating"],
-                    "red_end_rating": competitors[i]["rating"],
-                    "red_expected": None,
-                    "red_handicap": 0,
-                    "red_weight": None,
-                    "red_medal": None,
-                    "red_match_count": competitors[i]["match_count"],
-                    "blue_bye": True,
-                    "blue_id": None,
-                    "blue_seed": None,
-                    "blue_loser": False,
-                    "blue_name": None,
-                    "blue_team": None,
-                    "blue_note": None,
-                    "blue_ordinal": None,
-                    "blue_rating": None,
-                    "blue_end_rating": None,
-                    "blue_expected": None,
-                    "blue_handicap": 0,
-                    "blue_weight": None,
-                    "blue_medal": None,
-                    "blue_match_count": None,
-                },
-            )
-
     competitors.sort(key=lambda x: x["rating"], reverse=True)
 
     compute_ordinals(competitors)

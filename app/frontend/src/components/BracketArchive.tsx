@@ -366,9 +366,10 @@ function BracketArchive() {
         {
           (!!eventNameFetch && categories !== null && matches !== null) && (
             <BracketTree matches={matches}
-                        showSeed={sortColumn === 'seed'}
-                        calculateClicked={calculateMatch}
-                        calculateEnabled={calculateEnabled}/>
+                         createByes={true}
+                         showSeed={sortColumn === 'seed'}
+                         calculateClicked={calculateMatch}
+                         calculateEnabled={calculateEnabled}/>
           )
         }
       </div>

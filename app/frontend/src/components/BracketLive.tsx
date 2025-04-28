@@ -388,6 +388,7 @@ function BracketLive() {
           (events !== null && categories !== null && matches !== null) && (
             <BracketTree
               matches={matches}
+              createByes={false}
               showSeed={sortColumn === 'seed'}
               calculateClicked={calculateMatch}
               calculateEnabled={calculateEnabled}
