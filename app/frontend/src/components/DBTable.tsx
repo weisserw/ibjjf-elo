@@ -11,6 +11,7 @@ import DBPagination from './DBPagination';
 import DBTableRows from './DBTableRows';
 import { useAppContext } from '../AppContext';
 import { axiosErrorToast, isHistorical, type DBRow as Row, type DBResults as Results } from '../utils';
+import { useNavigate } from 'react-router-dom';
 
 import "./DBTable.css"
 
@@ -28,7 +29,13 @@ function DBTable() {
     setOpenFilters,
     dbPage: page,
     setDbPage: setPage,
+    setBracketActiveTab,
+    setBracketArchiveEventName,
+    setBracketArchiveEventNameFetch,
+    setBracketArchiveSelectedCategory,
   } = useAppContext();
+
+  const navigate = useNavigate()
 
   const gi = activeTab === 'Gi'
 
@@ -114,6 +121,14 @@ function DBTable() {
     setOpenFilters({...openFilters, division: true});
   }
 
+  const divisionBracketClicked = (row: Row) => {
+    setBracketActiveTab('Archive')
+    setBracketArchiveEventName('"' + row.event + '"')
+    setBracketArchiveEventNameFetch('"' + row.event + '"')
+    setBracketArchiveSelectedCategory(`${row.belt} / ${row.age} / ${row.gender} / ${row.weight}`)
+    navigate('/brackets')
+  }
+
   const hasHistorical = useMemo(() => data.some(isHistorical), [data]);
 
   if (loading) {
@@ -134,7 +149,8 @@ function DBTable() {
                    loading={loading}
                    athleteClicked={athleteClicked}
                    eventClicked={eventClicked}
-                   divisionClicked={divisionClicked} />
+                   divisionClicked={divisionClicked}
+                   divisionBracketClicked={divisionBracketClicked} />
       {
         data.length > 0 && (
           <DBPagination loading={reloading}

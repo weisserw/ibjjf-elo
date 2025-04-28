@@ -46,10 +46,11 @@ interface DBTableRowsProps {
   athleteClicked?: (e: React.MouseEvent<HTMLAnchorElement>, name: string) => void
   eventClicked?: (e: React.MouseEvent<HTMLAnchorElement>, name: string) => void
   divisionClicked?: (e: React.MouseEvent<HTMLAnchorElement>, row: Row) => void
+  divisionBracketClicked?: (row: Row) => void
 }
 
 function DBTableRows(props: DBTableRowsProps) {
-  const { data, loading, athleteClicked, eventClicked, divisionClicked, noLinks } = props;
+  const { data, loading, athleteClicked, eventClicked, divisionClicked, divisionBracketClicked, noLinks } = props;
 
   const notesWithWeight = (row: Row) => {
     const weightText = openWeightText(row);
@@ -168,10 +169,20 @@ function DBTableRows(props: DBTableRowsProps) {
                     }
                   </td>
                   <td>
-                    {
-                      noLinks ? <span>{row.age} / {row.gender} / {row.belt} / {row.weight}</span> :
-                      <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
-                    }
+                    <div className="division-box">
+                      {
+                        noLinks ? <span>{row.age} / {row.gender} / {row.belt} / {row.weight}</span> :
+                        <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
+                      }
+                      {
+                        !noLinks &&
+                        <button className="button is-small" onClick={() => divisionBracketClicked?.(row)}>
+                          <span className="icon is-small has-text-info">
+                            <i className="fas fa-project-diagram"/>
+                          </span>
+                        </button>
+                      }
+                    </div>
                   </td>
                   <td>{dayjs(row.date).format('MMM D YYYY, h:mma')}</td>
                   <td>{notesWithWeight(row)}</td>
@@ -230,10 +241,20 @@ function DBTableRows(props: DBTableRowsProps) {
                       }
                     </div>
                     <div className="column has-text-right-tablet">
-                      {
-                        noLinks ? <span>{row.age} / {row.gender} / {row.belt} / {row.weight}</span> :
-                        <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
-                      }
+                      <div className="division-box">
+                        {
+                          noLinks ? <span>{row.age} / {row.gender} / {row.belt} / {row.weight}</span> :
+                          <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
+                        }
+                        {
+                          !noLinks &&
+                          <button className="button is-small" onClick={() => divisionBracketClicked?.(row)}>
+                            <span className="icon is-small has-text-info">
+                              <i className="fas fa-project-diagram"/>
+                            </span>
+                          </button>
+                        }
+                      </div>
                     </div>
                   </div>
                   {(weightText || row.notes) &&

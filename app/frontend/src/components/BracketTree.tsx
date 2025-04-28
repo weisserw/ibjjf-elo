@@ -39,11 +39,11 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
         }
         {
           props.calculateEnabled(match) &&
-          <div className="bracket-tree-match-calc" onClick={() => props.calculateClicked(match)}>
-            <span className="icon has-text-info">
-              <i className="fas fa-calculator"></i>
+          <button className="button is-small bracket-tree-match-calc" onClick={() => props.calculateClicked(match)}>
+            <span className="icon is-small has-text-info">
+              <i className="fas fa-project-diagram"/>
             </span>
-          </div>
+          </button>
         }
         <div className="bracket-tree-match-description">
           <div className="bracket-tree-match-description-when">

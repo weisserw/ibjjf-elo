@@ -277,7 +277,7 @@ function BracketArchive() {
     <div className="brackets-content">
       <div>
         <div className="bracket-list">
-          <div className="field">
+          <div className="field position-relative">
             <div className="control is-expanded bracket-event-name">
               <Autosuggest suggestions={eventSuggestions}
                               onSuggestionsFetchRequested={debouncedGetEventSuggestions}
@@ -298,6 +298,19 @@ function BracketArchive() {
                               }
                               }} />
             </div>
+            {
+              eventName && (
+                <span className="icon is-small clear-filter" onClick={() => {
+                  setEventName('')
+                  setEventNameFetch('')
+                  setCategories(null);
+                  setCompetitors(null);
+                  setMatches(null);
+                }}>
+                  <i className="fas fa-times"></i>
+                </span>
+              )
+            }
           </div>
         </div>
         {
