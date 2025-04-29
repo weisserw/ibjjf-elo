@@ -368,6 +368,7 @@ function BracketArchive() {
             <BracketTree matches={matches}
                          hasMatchNums={false}
                          showSeed={sortColumn === 'seed'}
+                         showRefresh={false}
                          calculateClicked={calculateMatch}
                          calculateEnabled={calculateEnabled}/>
           )

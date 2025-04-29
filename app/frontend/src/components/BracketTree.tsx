@@ -164,7 +164,10 @@ interface BracketTreeProps {
   matches: Match[];
   showSeed: boolean;
   hasMatchNums: boolean;
+  showRefresh: boolean;
+  isRefreshing?: boolean;
   calculateClicked: (match: Match) => void;
+  refreshClicked?: () => void;
   calculateEnabled: (match: Match) => boolean;
 }
 
@@ -206,21 +209,32 @@ function BracketTree(props: BracketTreeProps) {
   return (
     <div>
       <div className="bracket-tree-slider">
-        <span className="icon cursor-pointer" onClick={() => setZoomLevel(Math.max(0.2, zoomLevel - 0.05))}>
-          <i className="fas fa-magnifying-glass-minus"></i>
-        </span>
-        <input
-          id="zoom-slider"
-          type="range"
-          min="0.2"
-          max="0.9"
-          step="0.05"
-          value={zoomLevel}
-          onChange={handleZoomChange}
-        />
-        <span className="icon cursor-pointer" onClick={() => setZoomLevel(Math.min(1, zoomLevel + 0.05))}>
-          <i className="fas fa-magnifying-glass-plus"></i>
-        </span>
+        <div className="bracket-tree-slider-controls">
+          <span className="icon cursor-pointer" onClick={() => setZoomLevel(Math.max(0.2, zoomLevel - 0.05))}>
+            <i className="fas fa-magnifying-glass-minus"></i>
+          </span>
+          <input
+            id="zoom-slider"
+            type="range"
+            min="0.2"
+            max="0.9"
+            step="0.05"
+            value={zoomLevel}
+            onChange={handleZoomChange}
+          />
+          <span className="icon cursor-pointer" onClick={() => setZoomLevel(Math.min(1, zoomLevel + 0.05))}>
+            <i className="fas fa-magnifying-glass-plus"></i>
+          </span>
+        </div>
+        <div className="bracket-tree-slider-refresh">
+          {props.showRefresh && (
+            <button disabled={props.isRefreshing} className={classNames("button is-small", {"is-loading": props.isRefreshing})} onClick={() => props.refreshClicked?.()}>
+              <span className="icon is-small">
+                <i className="fas fa-sync"></i>
+              </span>
+            </button>
+          )}
+        </div>
       </div>
       <div className="bracket-tree-border" ref={scrollContainerRef}>
         <div

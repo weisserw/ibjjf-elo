@@ -147,19 +147,26 @@
 
 .bracket-tree-slider {
   display: flex;
-  align-items: center;
+  justify-content: space-between;
   margin-bottom: 12px;
+  gap: 12px;
+}
+
+
+.bracket-tree-slider-controls {
+  display: flex;
+  align-items: center;
   gap: 12px;
   width: 50%;
 }
 
 @media screen and (max-width: 768px) {
-  .bracket-tree-slider {
+  .bracket-tree-slider-controls {
     width: 100%;
   } 
 }
 
-.bracket-tree-slider input {
+.bracket-tree-slider-controls input {
   flex-grow: 1;
   cursor: pointer;
 }

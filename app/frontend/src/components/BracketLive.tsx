@@ -306,7 +306,7 @@ function BracketLive() {
                     <div className="column no-padding">
                       <div className="field">
                         <div className="select">
-                          <select value={selectedEvent ?? ''} onChange={e => { setSelectedEvent(e.target.value); }}>
+                          <select disabled={loading} value={selectedEvent ?? ''} onChange={e => { setSelectedEvent(e.target.value); }}>
                             {
                               events.map(event => (
                                 <option key={event.id} value={event.id}>{event.name}</option>
@@ -336,7 +336,7 @@ function BracketLive() {
                     <div className="column column-padding is-vcentered">
                       <div className="field">
                         <div className="select">
-                          <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
+                          <select disabled={loading} className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
                             {
                               categories.map(category => (
                                 <option key={category.link} value={categoryString(category)}>{categoryString(category)}</option>
@@ -390,8 +390,11 @@ function BracketLive() {
               matches={matches}
               hasMatchNums={true}
               showSeed={sortColumn === 'seed'}
+              showRefresh={true}
+              isRefreshing={loading}
               calculateClicked={calculateMatch}
               calculateEnabled={calculateEnabled}
+              refreshClicked={viewBracket}
             />
           )
         }
