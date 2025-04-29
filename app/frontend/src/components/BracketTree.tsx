@@ -172,7 +172,7 @@ interface BracketTreeProps {
 }
 
 function BracketTree(props: BracketTreeProps) {
-  const [zoomLevel, setZoomLevel] = useState(.9);
+  const [zoomLevel, setZoomLevel] = useState(.55);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [naturalWidth, setNaturalWidth] = useState<number | null>(null);
 
