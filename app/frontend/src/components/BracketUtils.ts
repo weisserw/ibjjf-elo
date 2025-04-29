@@ -236,13 +236,10 @@ export const createTreeFromTop = (matches: Match[]): Match[][] => {
 
   levels[0].push(finalMatch);
 
-  while (allMatches.length) {
-    const nextLevelMatches: Match[] = [];
+  const levelCount = numLevels(matches.length);
 
-    // not enough matches to fill the next level
-    if (levels.length > 0 && allMatches.length < levels[levels.length - 1].length * 2) {
-      break;
-    }
+  while (allMatches.length && levels.length < levelCount) {
+    const nextLevelMatches: Match[] = [];
 
     let removed = 0;
 
@@ -271,6 +268,11 @@ export const createTreeFromTop = (matches: Match[]): Match[][] => {
       break;
     }
 
+    // not enough matches to fill the next level
+    if (levels.length > 0 && nextLevelMatches.length < levels[levels.length - 1].length * 2) {
+      break;
+    }
+    
     levels.push(nextLevelMatches);
   }
 
