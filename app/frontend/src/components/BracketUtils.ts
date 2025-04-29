@@ -1,5 +1,4 @@
 import axios, { type AxiosError } from 'axios'
-import { remove } from 'lodash'
 
 export interface Competitor {
   ordinal: number
