@@ -549,6 +549,16 @@ def registration_competitors():
 
 
 def compute_match_ratings(matches, results, belt, weight, age):
+    athlete_results = {}
+    for result in results:
+        athlete_results[result["ibjjf_id"]] = result
+    athlete_ratings = {}
+    for result in results:
+        athlete_ratings[result["ibjjf_id"]] = result["rating"]
+    athlete_match_counts = {}
+    for result in results:
+        athlete_match_counts[result["ibjjf_id"]] = result["match_count"]
+
     for i in range(len(matches)):
         match = matches[i]
 
@@ -556,34 +566,38 @@ def compute_match_ratings(matches, results, belt, weight, age):
         red_weight = match["red_weight"]
         red_ordinal = None
         red_rating = None
+        red_end_rating = None
+        red_match_count = None
+        if red_id in athlete_results:
+            if (
+                OPEN_CLASS in weight
+                and athlete_results[red_id]["last_weight"] is not None
+            ):
+                red_weight = athlete_results[red_id]["last_weight"]
+            red_ordinal = athlete_results[red_id]["ordinal"]
+            red_rating = athlete_ratings[red_id]
+            red_end_rating = athlete_ratings[red_id]
+            red_match_count = athlete_match_counts[red_id]
         red_expected = None
         red_handicap = 0
-        red_end_rating = None
-        red_match_count = 0
         blue_id = match["blue_id"]
         blue_weight = match["blue_weight"]
         blue_ordinal = None
         blue_rating = None
+        blue_end_rating = None
+        blue_match_count = None
+        if blue_id in athlete_results:
+            if (
+                OPEN_CLASS in weight
+                and athlete_results[blue_id]["last_weight"] is not None
+            ):
+                blue_weight = athlete_results[blue_id]["last_weight"]
+            blue_ordinal = athlete_results[blue_id]["ordinal"]
+            blue_rating = athlete_ratings[blue_id]
+            blue_end_rating = athlete_ratings[blue_id]
+            blue_match_count = athlete_match_counts[blue_id]
         blue_expected = None
         blue_handicap = 0
-        blue_end_rating = None
-        blue_match_count = 0
-
-        for result in results:
-            if result["ibjjf_id"] == red_id:
-                red_ordinal = result["ordinal"]
-                red_rating = result["rating"]
-                red_end_rating = red_rating
-                red_match_count = result["match_count"]
-                if OPEN_CLASS in weight and result["last_weight"] is not None:
-                    red_weight = result["last_weight"]
-            elif result["ibjjf_id"] == blue_id:
-                blue_ordinal = result["ordinal"]
-                blue_rating = result["rating"]
-                blue_end_rating = blue_rating
-                blue_match_count = result["match_count"]
-                if OPEN_CLASS in weight and result["last_weight"] is not None:
-                    blue_weight = result["last_weight"]
 
         if red_rating is not None and blue_rating is not None:
             if (
@@ -595,46 +609,6 @@ def compute_match_ratings(matches, results, belt, weight, age):
                     belt, red_weight, blue_weight
                 )
 
-            red_previous_matches = [
-                m
-                for m in matches[:i]
-                if m["red_id"] == red_id or m["blue_id"] == red_id
-            ]
-            if len(red_previous_matches) > 0:
-                red_match_count += len(red_previous_matches)
-
-                red_last_match = red_previous_matches[-1]
-                if (
-                    red_last_match["red_id"] == red_id
-                    and red_last_match["red_end_rating"] is not None
-                ):
-                    red_rating = red_last_match["red_end_rating"]
-                if (
-                    red_last_match["blue_id"] == red_id
-                    and red_last_match["blue_end_rating"] is not None
-                ):
-                    red_rating = red_last_match["blue_end_rating"]
-
-            blue_previous_matches = [
-                m
-                for m in matches[:i]
-                if m["red_id"] == blue_id or m["blue_id"] == blue_id
-            ]
-            if len(blue_previous_matches) > 0:
-                blue_match_count += len(blue_previous_matches)
-
-                blue_last_match = blue_previous_matches[-1]
-                if (
-                    blue_last_match["blue_id"] == blue_id
-                    and blue_last_match["blue_end_rating"] is not None
-                ):
-                    blue_rating = blue_last_match["blue_end_rating"]
-                if (
-                    blue_last_match["red_id"] == blue_id
-                    and blue_last_match["red_end_rating"] is not None
-                ):
-                    blue_rating = blue_last_match["red_end_rating"]
-
             red_k_factor = compute_k_factor(red_match_count, False, age)
             blue_k_factor = compute_k_factor(blue_match_count, False, age)
 
@@ -644,8 +618,15 @@ def compute_match_ratings(matches, results, belt, weight, age):
             red_expected = red_elo.expected_score(blue_elo)
             blue_expected = blue_elo.expected_score(red_elo)
 
-            if not match_didnt_happen(match["red_note"], match["blue_note"]) and not (
-                not match["red_loser"] and not match["blue_loser"]
+            if (
+                not match_didnt_happen(match["red_note"], match["blue_note"])
+                and not (not match["red_loser"] and not match["blue_loser"])
+                and not (
+                    match["red_loser"]
+                    and match["blue_loser"]
+                    and not match["red_note"]
+                    and not match["blue_note"]
+                )
             ):
                 if match["red_loser"] and match["blue_loser"]:
                     red_elo.tied(blue_elo)
@@ -669,6 +650,11 @@ def compute_match_ratings(matches, results, belt, weight, age):
                     red_end_rating = 0
                 if blue_end_rating < 0:
                     blue_end_rating = 0
+
+                athlete_ratings[red_id] = red_end_rating
+                athlete_ratings[blue_id] = blue_end_rating
+                athlete_match_counts[red_id] = red_match_count + 1
+                athlete_match_counts[blue_id] = blue_match_count + 1
 
         match["red_ordinal"] = red_ordinal
         match["red_rating"] = red_rating
