@@ -142,9 +142,11 @@ export const referencesMatchBlue = (match: Match, other: Match) => {
 
 export const noMatchStrings = [
   "disqualified by no show",
+  "desqualificado por no show",
   "disqualified by overweight",
   "disqualified by acima do peso",
   "disqualified by withdraw",
+  "desqualificado por retirada",
 ];
 
 export const numLevels = (n: number) => {

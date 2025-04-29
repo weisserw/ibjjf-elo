@@ -178,9 +178,11 @@ COLOR_WEIGHT_HANDICAPS = [
 
 no_match_strings = [
     "Disqualified by no show",
+    "Desqualificado por no show",
     "Disqualified by overweight",
     "Disqualified by acima do peso",
     "Disqualified by withdraw",
+    "Desqualificado por retirada",
 ]
 
 WINNER_NOT_RECORDED = "Winner not recorded by the IBJJF"
