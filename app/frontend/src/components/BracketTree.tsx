@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { referencesMatchRed, referencesMatchBlue, noMatchStrings, numLevels, createBye, type Match } from "./BracketUtils"
+import { noMatchStrings, createTreeFromTop, createTreeFromMatchNums, type Match } from "./BracketUtils"
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import { immatureClass } from '../utils';
@@ -163,7 +163,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
 interface BracketTreeProps {
   matches: Match[];
   showSeed: boolean;
-  createByes: boolean;
+  hasMatchNums: boolean;
   calculateClicked: (match: Match) => void;
   calculateEnabled: (match: Match) => boolean;
 }
@@ -196,62 +196,11 @@ function BracketTree(props: BracketTreeProps) {
   }, []);
 
   const leveledMatches = useMemo(() => {
-    const levels: Match[][] = [[]];
-
-    // sort in reverse order by date
-    const sortedMatches = [...props.matches].sort((a, b) => {
-      return (b.when || '').localeCompare(a.when || '');
-    });
-  
-    const finalMatch = sortedMatches.find(m => m.final);
-    if (!finalMatch) {
-      return levels;
+    if (!props.hasMatchNums) {
+      return createTreeFromTop(props.matches);
+    } else {
+      return createTreeFromMatchNums(props.matches);
     }
-    const allMatches = sortedMatches.filter(m => !m.final);
-
-    levels[0].push(finalMatch);
-
-    while (allMatches.length) {
-      const nextLevelMatches: Match[] = [];
-      let missingMatches = 0;
-
-      for (const match of levels[levels.length - 1]) {
-        const firstReferencedMatchIndex = allMatches.findIndex(m => referencesMatchRed(match, m));
-        if (firstReferencedMatchIndex > -1) {
-          nextLevelMatches.push(allMatches[firstReferencedMatchIndex]);
-          allMatches.splice(firstReferencedMatchIndex, 1);
-        } else {
-          if (props.createByes && props.matches.length > 4 && levels.length + 1 === numLevels(props.matches.length)) {
-            nextLevelMatches.push(createBye(match.red_id, match.red_name, match.red_team,
-              match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count));
-          } else {
-            missingMatches++;
-          }
-        }
-        const secondReferencedMatchIndex = allMatches.findIndex(m => referencesMatchBlue(match, m));
-        if (secondReferencedMatchIndex > -1) {
-          nextLevelMatches.push(allMatches[secondReferencedMatchIndex]);
-          allMatches.splice(secondReferencedMatchIndex, 1);
-        } else {
-          if (props.createByes && props.matches.length > 4 && levels.length + 1 === numLevels(props.matches.length)) {
-            nextLevelMatches.push(createBye(match.blue_id, match.blue_name, match.blue_team,
-              match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count));
-          } else {
-            missingMatches++;
-          }
-        }
-      }
-
-      // If we weren't able to find ancestors for all matches,
-      // just guess that the next matches by date are in this level
-      if (missingMatches > 0) {
-        nextLevelMatches.push(...allMatches.splice(0, missingMatches));
-      }
-
-      levels.push(nextLevelMatches);
-    }
-
-    return levels.reverse();
   }, [props.matches]);
 
   return (

@@ -85,7 +85,9 @@ def get_or_create_event_or_athlete(session, model, ibjjf_id, name, do_update=Tru
                 session.flush()
                 return instance
             else:
-                instance = model(ibjjf_id=ibjjf_id, name=name, normalized_name=normalized_name)
+                instance = model(
+                    ibjjf_id=ibjjf_id, name=name, normalized_name=normalized_name
+                )
                 session.add(instance)
                 session.flush()
                 return instance

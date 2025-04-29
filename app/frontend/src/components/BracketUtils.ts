@@ -1,4 +1,5 @@
 import axios, { type AxiosError } from 'axios'
+import { remove } from 'lodash'
 
 export interface Competitor {
   ordinal: number
@@ -18,6 +19,7 @@ export interface Competitor {
 }
 
 export interface Match {
+  match_num: number | null
   final: boolean
   when: string | null
   where: string | null
@@ -154,6 +156,7 @@ export const createBye = (id: string | null, name: string | null, team: string |
   seed: number | null, ordinal: number | null, weight: string | null, rating: number | null,
   match_count: number | null): Match => {
   return {
+    match_num: null,
     final: false,
     when: null,
     where: null,
@@ -189,4 +192,85 @@ export const createBye = (id: string | null, name: string | null, team: string |
     blue_rating: null,
     blue_match_count: null,
   }
+}
+
+export const createTreeFromMatchNums = (matches: Match[]): Match[][] => {
+  const levels: Match[][] = [];
+
+  // sort in order by match_num
+  const allMatches = [...matches].sort((a, b) => {
+    return (a.match_num ?? 0) - (b.match_num ?? 0);
+  });
+
+  const levelCount = numLevels(allMatches.length);
+
+  for (let i = 0; i < levelCount; i++) {
+    const levelMatches: Match[] = [];
+    const numMatches = Math.pow(2, levelCount - i - 1);
+    for (let j = 0; j < numMatches; j++) {
+      if (allMatches.length > 0) {
+        levelMatches.push(allMatches.shift()!);
+      }
+    }
+    levels.push(levelMatches);
+  }
+
+  return levels;
+}
+
+export const createTreeFromTop = (matches: Match[]): Match[][] => {
+  const levels: Match[][] = [[]];
+
+  // sort in reverse order by date
+  const sortedMatches = [...matches].sort((a, b) => {
+    return (b.when || '').localeCompare(a.when || '');
+  });
+
+  const finalMatch = sortedMatches.find(m => m.final);
+  if (!finalMatch) {
+    return levels;
+  }
+  const allMatches = sortedMatches.filter(m => !m.final);
+
+  levels[0].push(finalMatch);
+
+  while (allMatches.length) {
+    const nextLevelMatches: Match[] = [];
+
+    // not enough matches to fill the next level
+    if (levels.length > 0 && allMatches.length < levels[levels.length - 1].length * 2) {
+      break;
+    }
+
+    let removed = 0;
+
+    for (const match of levels[levels.length - 1]) {
+      const firstReferencedMatchIndex = allMatches.findIndex(m => referencesMatchRed(match, m));
+      if (firstReferencedMatchIndex > -1) {
+        nextLevelMatches.push(allMatches[firstReferencedMatchIndex]);
+        allMatches.splice(firstReferencedMatchIndex, 1);
+        removed++;
+      } else if (matches.length > 4 && levels.length + 1 === numLevels(matches.length)) {
+        nextLevelMatches.push(createBye(match.red_id, match.red_name, match.red_team,
+          match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count));
+      }
+      const secondReferencedMatchIndex = allMatches.findIndex(m => referencesMatchBlue(match, m));
+      if (secondReferencedMatchIndex > -1) {
+        nextLevelMatches.push(allMatches[secondReferencedMatchIndex]);
+        allMatches.splice(secondReferencedMatchIndex, 1);
+        removed++;
+      } else if (matches.length > 4 && levels.length + 1 === numLevels(matches.length)) {
+          nextLevelMatches.push(createBye(match.blue_id, match.blue_name, match.blue_team,
+            match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count));
+      }
+    }
+
+    if (removed === 0) {
+      break;
+    }
+
+    levels.push(nextLevelMatches);
+  }
+
+  return levels.reverse();
 }

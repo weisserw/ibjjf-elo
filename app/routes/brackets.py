@@ -691,6 +691,22 @@ def parse_match(match, weight):
     when = parse_match_when(match, datetime.now().year)
     where, fight_num = parse_match_where(match)
 
+    matchnum = None
+    card = match.find("div", class_="tournament-category__match-card")
+    for classname in card.attrs["class"]:
+        if classname.startswith("match-"):
+            matchnum = classname.split("-")[1]
+            break
+    if matchnum is None:
+        log.info("No match number found")
+        return None
+
+    try:
+        matchnum = int(matchnum)
+    except ValueError:
+        log.info("Invalid match number:", matchnum)
+        return None
+
     final = match.find("span", class_="tournament-category__final-label") is not None
 
     competitors = match.find_all("div", class_="match-card__competitor")
@@ -775,6 +791,7 @@ def parse_match(match, weight):
         blue_next_description = blue_next[0].get_text(strip=True)
 
     return {
+        "match_num": matchnum,
         "final": final,
         "when": when,
         "where": where,
@@ -1163,6 +1180,7 @@ def archive_competitors():
 
         parsed_matches.append(
             {
+                "match_num": None,
                 "final": False,
                 "when": match.happened_at.isoformat(),
                 "where": None,
@@ -1227,6 +1245,7 @@ def archive_competitors():
                     "rating": match["red_rating"],
                     "end_rating": match["red_end_rating"],
                     "match_count": match["red_match_count"],
+                    "end_match_count": match["red_match_count"],
                     "rank": None,
                     "note": match["red_note"],
                     "last_weight": match["red_weight"],
@@ -1237,6 +1256,7 @@ def archive_competitors():
         else:
             existing = [c for c in competitors if c["ibjjf_id"] == match["red_id"]][0]
             existing["end_rating"] = match["red_end_rating"]
+            existing["end_match_count"] = match["red_match_count"]
             existing["medal"] = match["red_medal"]
         if match["blue_id"] not in added_competitors:
             competitors.append(
@@ -1249,6 +1269,7 @@ def archive_competitors():
                     "rating": match["blue_rating"],
                     "end_rating": match["blue_end_rating"],
                     "match_count": match["blue_match_count"],
+                    "end_match_count": match["blue_match_count"],
                     "rank": None,
                     "note": match["blue_note"],
                     "last_weight": match["blue_weight"],
@@ -1259,6 +1280,7 @@ def archive_competitors():
         else:
             existing = [c for c in competitors if c["ibjjf_id"] == match["blue_id"]][0]
             existing["end_rating"] = match["blue_end_rating"]
+            existing["end_match_count"] = match["blue_match_count"]
             existing["medal"] = match["blue_medal"]
 
     competitors.sort(key=lambda x: x["rating"], reverse=True)
