@@ -148,6 +148,9 @@ export const noMatchStrings = [
 ];
 
 export const numLevels = (n: number) => {
+  if (n === 1) {
+    return 1;
+  }
   return Math.ceil(Math.log2(n));
 }
 
