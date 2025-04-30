@@ -1028,7 +1028,7 @@ def categories(tournament_id):
     ]:
         try:
             soup = BeautifulSoup(
-                get_bracket_page(url, datetime.now() - timedelta(minutes=120)),
+                get_bracket_page(url, datetime.now() - timedelta(minutes=10)),
                 "html.parser",
             )
         except Exception as e:
