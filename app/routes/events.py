@@ -15,23 +15,21 @@ def events():
     gi = request.args.get("gi")
     historical = request.args.get("historical", "true").lower() == "true"
 
-    if gi is None:
-        return jsonify({"error": "Missing mandatory query parameter: gi"}), 400
+    if gi is not None:
+        gi = gi.lower() == "true"
 
-    gi = gi.lower() == "true"
+    query = db.session.query(Event.name)
 
-    subquery_gi = (
-        db.session.query(Match.event_id)
-        .join(Division)
-        .filter(
-            Division.gi == gi,
+    if gi is not None:
+        subquery_gi = (
+            db.session.query(Match.event_id)
+            .join(Division)
+            .filter(
+                Division.gi == gi,
+            )
+            .subquery()
         )
-        .subquery()
-    )
-
-    query = db.session.query(Event.name).filter(
-        exists().where(Event.id == subquery_gi.c.event_id)
-    )
+        query = query.filter(exists().where(Event.id == subquery_gi.c.event_id))
     for name_part in search.split():
         query = query.filter(Event.normalized_name.like(f"%{name_part}%"))
     if not historical:

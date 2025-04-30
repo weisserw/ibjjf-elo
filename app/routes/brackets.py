@@ -976,10 +976,14 @@ def competitors():
                 else last_match["blue_match_count"] + 1
             )
 
-            if not last_match["red_loser"] and not last_match["blue_loser"] and not (
-                last_match["red_note"] or last_match["blue_note"]
+            if (
+                not last_match["red_loser"]
+                and not last_match["blue_loser"]
+                and not (last_match["red_note"] or last_match["blue_note"])
             ):
-                result["next"] = f"{datetime.fromisoformat(last_match['when']).strftime('%a %-I:%M%p')} - {last_match['where']}"
+                result["next"] = (
+                    f"{datetime.fromisoformat(last_match['when']).strftime('%a %-I:%M%p')} - {last_match['where']}"
+                )
         else:
             result["end_rating"] = result["rating"]
             result["end_match_count"] = result["match_count"]

@@ -63,7 +63,7 @@ function BracketArchive() {
 
   const getEventSuggestions = async ({ value }: { value: string }) => {
     try {
-      const response = await axios.get(`/api/events?search=${encodeURIComponent(value)}&gi=${gi}&historical=false`);
+      const response = await axios.get(`/api/events?search=${encodeURIComponent(value)}&historical=false`);
       setEventSuggestions(response.data);
     } catch (error) {
       axiosErrorToast(error);
