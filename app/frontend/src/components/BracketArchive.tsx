@@ -59,8 +59,6 @@ function BracketArchive() {
 
   const navigate = useNavigate()
 
-  const gi = activeTab === 'Gi' ? true : false
-
   const getEventSuggestions = async ({ value }: { value: string }) => {
     try {
       const response = await axios.get(`/api/events?search=${encodeURIComponent(value)}&historical=false`);
@@ -70,7 +68,7 @@ function BracketArchive() {
     }
   }
 
-  const debouncedGetEventSuggestions = useCallback(debounce(getEventSuggestions, 300, {trailing: true}), [gi]);
+  const debouncedGetEventSuggestions = useCallback(debounce(getEventSuggestions, 300, {trailing: true}), []);
 
   const debouncedSetEventNameFetch = useCallback(debounce(setEventNameFetch, 750, {trailing: true}), []);
 
