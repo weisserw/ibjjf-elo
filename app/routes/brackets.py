@@ -817,6 +817,26 @@ def parse_match(match, weight):
     }
 
 
+def dq_earlier_matches(matches):
+    for i in range(len(matches)):
+        match = matches[i]
+
+        if match_didnt_happen(match["red_note"], match["red_note"]):
+            for j in range(i):
+                earlier_match = matches[j]
+                if earlier_match["red_id"] == match["red_id"]:
+                    earlier_match["red_note"] = match["red_note"]
+                elif earlier_match["blue_id"] == match["red_id"]:
+                    earlier_match["blue_note"] = match["red_note"]
+        if match_didnt_happen(match["blue_note"], match["blue_note"]):
+            for j in range(i):
+                earlier_match = matches[j]
+                if earlier_match["red_id"] == match["blue_id"]:
+                    earlier_match["red_note"] = match["blue_note"]
+                elif earlier_match["blue_id"] == match["blue_id"]:
+                    earlier_match["blue_note"] = match["blue_note"]
+
+
 @brackets_route.route("/api/brackets/competitors")
 def competitors():
     link = request.args.get("link")
@@ -928,6 +948,8 @@ def competitors():
 
     compute_match_ratings(parsed_matches, results, belt, weight, age)
 
+    dq_earlier_matches(parsed_matches)
+
     for result in results:
         if result["name"] in medals:
             result["medal"] = medals[result["name"]]
@@ -947,17 +969,30 @@ def competitors():
                 if last_match["red_id"] == result["ibjjf_id"]
                 else last_match["blue_end_rating"]
             )
+            result["end_match_count"] = (
+                last_match["red_match_count"] + 1
+                if last_match["red_id"] == result["ibjjf_id"]
+                else last_match["blue_match_count"] + 1
+            )
         else:
             result["end_rating"] = result["rating"]
+            result["end_match_count"] = result["match_count"]
 
-        result["end_match_count"] = (result["match_count"] or 0) + len(
-            [
+        first_match = next(
+            (
                 m
                 for m in parsed_matches
                 if m["red_id"] == result["ibjjf_id"]
                 or m["blue_id"] == result["ibjjf_id"]
-            ]
+            ),
+            None,
         )
+        if first_match:
+            result["note"] = (
+                first_match["red_note"]
+                if first_match["red_id"] == result["ibjjf_id"]
+                else first_match["blue_note"]
+            )
 
     return jsonify(
         {

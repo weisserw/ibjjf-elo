@@ -158,7 +158,7 @@ export const numLevels = (n: number) => {
 
 export const createBye = (id: string | null, name: string | null, team: string | null,
   seed: number | null, ordinal: number | null, weight: string | null, rating: number | null,
-  match_count: number | null): Match => {
+  match_count: number | null, note: string | null): Match => {
   return {
     match_num: null,
     final: false,
@@ -171,7 +171,7 @@ export const createBye = (id: string | null, name: string | null, team: string |
     red_bye: false,
     red_seed: seed,
     red_loser: false,
-    red_note: null,
+    red_note: note,
     red_next_description: null,
     red_medal: null,
     red_ordinal: ordinal,
@@ -253,7 +253,7 @@ export const createTreeFromTop = (matches: Match[]): Match[][] => {
         removed++;
       } else if (matches.length > 4 && levels.length + 1 === numLevels(matches.length)) {
         nextLevelMatches.push(createBye(match.red_id, match.red_name, match.red_team,
-          match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count));
+          match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note));
       }
       const secondReferencedMatchIndex = allMatches.findIndex(m => referencesMatchBlue(match, m));
       if (secondReferencedMatchIndex > -1) {
@@ -262,7 +262,7 @@ export const createTreeFromTop = (matches: Match[]): Match[][] => {
         removed++;
       } else if (matches.length > 4 && levels.length + 1 === numLevels(matches.length)) {
           nextLevelMatches.push(createBye(match.blue_id, match.blue_name, match.blue_team,
-            match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count));
+            match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note));
       }
     }
 

@@ -193,7 +193,9 @@ BLACK_PROMOTION_RATING_BUMP = 95
 
 def match_didnt_happen(note1: str | None, note2: str | None) -> bool:
     for no_match_string in no_match_strings:
-        if no_match_string in note1 or no_match_string in note2:
+        if (note1 is not None and no_match_string in note1) or (
+            note2 is not None and no_match_string in note2
+        ):
             return True
     return False
 

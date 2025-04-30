@@ -3,7 +3,7 @@ import classNames from 'classnames';
 import { useAppContext } from '../AppContext'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Competitor } from "./BracketUtils"
+import { noMatchStrings, type Competitor } from "./BracketUtils"
 
 
 interface BracketTableProps {
@@ -207,8 +207,8 @@ function BracketTable(props: BracketTableProps) {
                 }
                 {
                   competitor.id !== null ?
-                    <td><a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}{competitorMedal(competitor.medal)}</a></td> :
-                    <td>{competitor.name}{competitorMedal(competitor.medal)}</td>
+                    <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}><a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}{competitorMedal(competitor.medal)}</a></td> :
+                    <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>{competitor.name}{competitorMedal(competitor.medal)}</td>
                 }
                 <td>{competitor.team}</td>
                 {

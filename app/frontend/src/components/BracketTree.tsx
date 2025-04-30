@@ -106,7 +106,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 {match.red_medal === "1" && <span>🥇</span>}
                 {match.red_medal === "2" && <span>🥈</span>}
                 {match.red_medal === "3" && <span>🥉</span>}
-                {match.red_note && <span className={classNames("bracket-tree-match-note has-tooltip", {"has-tooltip-right": levelIndex === 0})} data-tooltip={match.red_note}>ℹ️</span>}
+                {match.red_note && <span className={classNames("bracket-tree-match-note has-tooltip")} data-tooltip={match.red_note}>ℹ️</span>}
               </td>
             </tr>
             <tr className={classNames({"bracket-tree-match-winner": match.red_loser && !match.blue_loser})}>
@@ -150,7 +150,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 {match.blue_medal === "1" && <span>🥇</span>}
                 {match.blue_medal === "2" && <span>🥈</span>}
                 {match.blue_medal === "3" && <span>🥉</span>}
-                {match.blue_note && <span className={classNames("bracket-tree-match-note has-tooltip", {"has-tooltip-right": levelIndex === 0})} data-tooltip={match.blue_note}>ℹ️</span>}
+                {match.blue_note && <span className={classNames("bracket-tree-match-note has-tooltip")} data-tooltip={match.blue_note}>ℹ️</span>}
               </td>
             </tr>
           </tbody>
