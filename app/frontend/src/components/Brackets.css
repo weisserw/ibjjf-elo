@@ -36,9 +36,41 @@
 .category-list {
   margin-top: 24px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 16px;
   align-items: flex-start;
+  width: 100%;
+}
+
+.category-flex {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-grow: 1;
+}
+
+.category-column {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+@media screen and (max-width: 768px) {
+  .category-flex {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .category-column {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+  .category-column:not(:first-child), .category-column .average {
+    margin-bottom: .75rem;
+  }
 }
 
 .bracket-table {

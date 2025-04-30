@@ -918,6 +918,7 @@ def competitors():
                         "rank": None,
                         "note": None,
                         "last_weight": None,
+                        "next": None,
                     }
                 )
 
@@ -974,6 +975,11 @@ def competitors():
                 if last_match["red_id"] == result["ibjjf_id"]
                 else last_match["blue_match_count"] + 1
             )
+
+            if not last_match["red_loser"] and not last_match["blue_loser"] and not (
+                last_match["red_note"] or last_match["blue_note"]
+            ):
+                result["next"] = f"{datetime.fromisoformat(last_match['when']).strftime('%a %-I:%M%p')} - {last_match['where']}"
         else:
             result["end_rating"] = result["rating"]
             result["end_match_count"] = result["match_count"]
@@ -1271,6 +1277,7 @@ def archive_competitors():
                     "note": match["red_note"],
                     "last_weight": match["red_weight"],
                     "medal": match["red_medal"],
+                    "next": None,
                 }
             )
             added_competitors.add(match["red_id"])
@@ -1295,6 +1302,7 @@ def archive_competitors():
                     "note": match["blue_note"],
                     "last_weight": match["blue_weight"],
                     "medal": match["blue_medal"],
+                    "next": None,
                 }
             )
             added_competitors.add(match["blue_id"])

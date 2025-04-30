@@ -13,6 +13,7 @@ interface BracketTableProps {
   showWeight?: boolean;
   showRank?: boolean;
   showEndRating?: boolean;
+  showNext?: boolean;
   isGi: boolean;
   columnClicked?: (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => void;
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => void;
@@ -178,6 +179,10 @@ function BracketTable(props: BracketTableProps) {
             </th>
             <th></th>
             {
+              props.showNext &&
+              <th>Next</th>
+            }
+            {
               props.showEndRating &&
               <th className="has-text-right">End Rating</th>
             }
@@ -229,6 +234,10 @@ function BracketTable(props: BracketTableProps) {
                       )
                   }
                 </td>
+                {
+                  props.showNext &&
+                  <td>{competitor.next}</td>
+                }
                 {
                   props.showEndRating &&
                   <td className={changeClass(competitor.rating, competitor.end_rating)}>

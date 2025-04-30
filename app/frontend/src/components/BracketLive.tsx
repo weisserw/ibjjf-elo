@@ -4,6 +4,7 @@ import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree from './BracketTree'
+import classNames from 'classnames'
 import { isGi, handleError, categoryString } from './BracketUtils'
 import type { CategoriesResponse, LiveCompetitorsResponse, Match as BracketMatch } from './BracketUtils'
 
@@ -332,8 +333,8 @@ function BracketLive() {
             <div className="category-list">
               {
                 categories.length > 0 && (
-                  <div className="columns no-bottom-margin">
-                    <div className="column column-padding is-vcentered">
+                  <div className="category-flex">
+                    <div className="category-column">
                       <div className="field">
                         <div className="select">
                           <select disabled={loading} className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
@@ -345,13 +346,20 @@ function BracketLive() {
                           </select>
                         </div>
                       </div>
+                      <div className="average">
+                      {
+                        averageRating !== undefined && (
+                          <span>{`Average rating: ${averageRating}`}</span>
+                        )
+                      }
+                      </div>
                     </div>
-                    <div className="column is-vcentered">
-                    {
-                      averageRating !== undefined && (
-                        <span>{`Average rating: ${averageRating}`}</span>
-                      )
-                    }
+                    <div className="category-column">
+                      <button disabled={loading} className={classNames("button is-small", {"is-loading": loading})} onClick={viewBracket}>
+                        <span className="icon is-small">
+                          <i className="fas fa-sync"></i>
+                        </span>
+                      </button>
                     </div>
                   </div>
                 )
@@ -377,6 +385,7 @@ function BracketLive() {
               sortColumn={sortColumn}
               showSeed={true}
               showEndRating={true}
+              showNext={sortedCompetitors?.some(c => c.next !== null) ?? false}
               showWeight={selectedCategory?.includes(' / Open') ?? false}
               isGi={isGi(selectedEventName ?? '')}
               columnClicked={columnClicked}
