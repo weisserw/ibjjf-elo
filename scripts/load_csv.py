@@ -303,6 +303,16 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 row.get("Rate Winner Only", "false").lower() == "true"
                             )
 
+                            match_num = None
+                            try:
+                                match_num = row.get("Match Number")
+                                if match_num is not None and match_num != "":
+                                    match_num = int(match_num)
+                            except ValueError:
+                                print(
+                                    "Invalid match number value:", row["Match Number"]
+                                )
+
                             match = Match(
                                 happened_at=datetime.strptime(
                                     row["Date"], "%Y-%m-%dT%H:%M:%S"
@@ -311,6 +321,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 division_id=division.id,
                                 rated=happened and not (red_winner and blue_winner),
                                 rated_winner_only=rated_winner_only,
+                                match_number=match_num,
                             )
                             db.session.add(match)
                             db.session.flush()
