@@ -1,5 +1,6 @@
 import { immatureClass } from "../utils"
 import classNames from 'classnames';
+import dayjs from 'dayjs'
 import { useAppContext } from '../AppContext'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -19,7 +20,7 @@ interface BracketTableProps {
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => void;
 }
 
-export type SortColumn = 'rating' | 'seed'
+export type SortColumn = 'rating' | 'seed' | 'next'
 
 function BracketTable(props: BracketTableProps) {
   const {
@@ -180,7 +181,13 @@ function BracketTable(props: BracketTableProps) {
             <th></th>
             {
               props.showNext &&
-              <th>Next</th>
+              <th>
+              {
+                (sortColumn !== undefined && sortColumn !== 'next') ?
+                  <a href="#" onClick={columnClicked?.bind(null, 'next')}>Next</a> :
+                  <span>Next ↓</span>
+              }
+              </th>
             }
             {
               props.showEndRating &&
@@ -236,7 +243,7 @@ function BracketTable(props: BracketTableProps) {
                 </td>
                 {
                   props.showNext &&
-                  <td>{competitor.next}</td>
+                  <td>{competitor.next_where && competitor.next_when && `${competitor.next_where} - ${dayjs(competitor.next_when).format('ddd h:mma')}`}</td>
                 }
                 {
                   props.showEndRating &&

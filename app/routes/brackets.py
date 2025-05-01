@@ -918,7 +918,8 @@ def competitors():
                         "rank": None,
                         "note": None,
                         "last_weight": None,
-                        "next": None,
+                        "next_where": None,
+                        "next_when": None,
                     }
                 )
 
@@ -981,9 +982,8 @@ def competitors():
                 and not last_match["blue_loser"]
                 and not (last_match["red_note"] or last_match["blue_note"])
             ):
-                result["next"] = (
-                    f"{datetime.fromisoformat(last_match['when']).strftime('%a %-I:%M%p')} - {last_match['where']}"
-                )
+                result["next_where"] = last_match["where"]
+                result["next_when"] = last_match["when"]
         else:
             result["end_rating"] = result["rating"]
             result["end_match_count"] = result["match_count"]
@@ -1281,7 +1281,8 @@ def archive_competitors():
                     "note": match["red_note"],
                     "last_weight": match["red_weight"],
                     "medal": match["red_medal"],
-                    "next": None,
+                    "next_where": None,
+                    "next_when": None,
                 }
             )
             added_competitors.add(match["red_id"])
@@ -1306,7 +1307,8 @@ def archive_competitors():
                     "note": match["blue_note"],
                     "last_weight": match["blue_weight"],
                     "medal": match["blue_medal"],
-                    "next": None,
+                    "next_where": None,
+                    "next_when": None,
                 }
             )
             added_competitors.add(match["blue_id"])

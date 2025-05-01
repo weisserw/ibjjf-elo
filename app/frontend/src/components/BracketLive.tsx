@@ -233,16 +233,36 @@ function BracketLive() {
       return null
     }
     return [...competitors].sort((a, b) => {
+      const aRating = a.ordinal ?? -1;
+      const bRating = b.ordinal ?? -1;
       if (sortColumn === 'rating') {
-        const aRating = a.ordinal ?? -1;
-        const bRating = b.ordinal ?? -1;
         if (aRating === bRating) {
           return a.seed - b.seed
         } else {
           return aRating - bRating
         }
-      } else {
+      } else if (sortColumn === 'seed') {
         return a.seed - b.seed
+      } else {
+        if (!a.next_when || !b.next_when) {
+          return 0
+        } else if (!a.next_when) {
+          return 1
+        } else if (!b.next_when) {
+          return -1
+        } else if (a.next_when === b.next_when) {
+          if (a.next_where && b.next_where) {
+            if (a.next_where === b.next_where) {
+              return aRating - bRating
+            } else {
+              return a.next_where.localeCompare(b.next_where)
+            }
+          } else {
+            return 0
+          }
+        } else {
+          return a.next_when.localeCompare(b.next_when)
+        }
       }
     })
   }, [competitors, sortColumn])
@@ -385,7 +405,7 @@ function BracketLive() {
               sortColumn={sortColumn}
               showSeed={true}
               showEndRating={true}
-              showNext={sortedCompetitors?.some(c => c.next !== null) ?? false}
+              showNext={sortedCompetitors?.some(c => c.next_when && c.next_where) ?? false}
               showWeight={selectedCategory?.includes(' / Open') ?? false}
               isGi={isGi(selectedEventName ?? '')}
               columnClicked={columnClicked}

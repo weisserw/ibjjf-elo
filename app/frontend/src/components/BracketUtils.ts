@@ -14,7 +14,8 @@ export interface Competitor {
   rank: number | null
   note: string | null
   last_weight: string | null
-  next: string | null
+  next_where: string | null
+  next_when: string | null
   medal?: string
 }
 
