@@ -173,12 +173,6 @@ function BracketTable(props: BracketTableProps) {
               props.showWeight &&
               <th>Weight</th>
             }
-            <th className="has-text-right">
-            {
-              props.showEndRating ? 'Start Rating' : 'Rating'
-            }
-            </th>
-            <th></th>
             {
               props.showNext &&
               <th>
@@ -189,6 +183,12 @@ function BracketTable(props: BracketTableProps) {
               }
               </th>
             }
+            <th className="has-text-right">
+            {
+              props.showEndRating ? 'Start Rating' : 'Rating'
+            }
+            </th>
+            <th></th>
             {
               props.showEndRating &&
               <th className="has-text-right">End Rating</th>
@@ -227,6 +227,10 @@ function BracketTable(props: BracketTableProps) {
                   props.showWeight &&
                   <td>{competitor.last_weight}</td>
                 }
+              {
+                  props.showNext &&
+                  <td>{competitor.next_where && competitor.next_when && `${competitor.next_where} - ${dayjs(competitor.next_when).format('ddd h:mma')}`}</td>
+                }
                 <td className="has-text-right">
                   <span className={immatureClass(competitor.match_count)}>{competitor.rating !== null ? Math.round(competitor.rating) : ''}</span>
                 </td>
@@ -241,10 +245,6 @@ function BracketTable(props: BracketTableProps) {
                       )
                   }
                 </td>
-                {
-                  props.showNext &&
-                  <td>{competitor.next_where && competitor.next_when && `${competitor.next_where} - ${dayjs(competitor.next_when).format('ddd h:mma')}`}</td>
-                }
                 {
                   props.showEndRating &&
                   <td className={changeClass(competitor.rating, competitor.end_rating)}>

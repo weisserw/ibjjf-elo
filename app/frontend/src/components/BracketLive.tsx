@@ -315,6 +315,16 @@ function BracketLive() {
     navigate('/calculator');
   }
 
+  const showNext = useMemo(() => (
+    sortedCompetitors?.some(c => c.next_when && c.next_where) ?? false
+  ), [sortedCompetitors]);
+
+  useEffect(() => {
+    if (!showNext && sortColumn === 'next') {
+      setSortColumn('rating')
+    }
+  }, [showNext, sortColumn])
+
   return (
     <div className="brackets-content">
       <div>
@@ -405,7 +415,7 @@ function BracketLive() {
               sortColumn={sortColumn}
               showSeed={true}
               showEndRating={true}
-              showNext={sortedCompetitors?.some(c => c.next_when && c.next_where) ?? false}
+              showNext={showNext}
               showWeight={selectedCategory?.includes(' / Open') ?? false}
               isGi={isGi(selectedEventName ?? '')}
               columnClicked={columnClicked}
