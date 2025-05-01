@@ -232,20 +232,6 @@ function BracketArchive() {
     return Math.round(sum / ratings.length)
   }, [competitors])
 
-  const calculateEnabled = (match: BracketMatch) => {
-    if (!match.red_id || !match.blue_id) {
-      return false
-    }
-
-    const red_competitor = competitors?.find(c => c.ibjjf_id === match.red_id)
-    const blue_competitor = competitors?.find(c => c.ibjjf_id === match.blue_id)
-    if (!red_competitor || !blue_competitor) {
-      return false
-    }
-    return (red_competitor.rating !== null && red_competitor.match_count !== null && red_competitor.match_count > 0 &&
-            blue_competitor.rating !== null && blue_competitor.match_count !== null && blue_competitor.match_count > 0)
-  }
-
   const calculateMatch = async (match: BracketMatch) => {
     if (!match.red_name || !match.blue_name || !selectedCategory || !eventNameFetch) {
       return
@@ -357,7 +343,8 @@ function BracketArchive() {
                           showWeight={selectedCategory?.includes(' / Open') ?? false}
                           isGi={isGi(eventNameFetch)}
                           columnClicked={columnClicked}
-                          athleteClicked={athleteClicked} />
+                          athleteClicked={athleteClicked}
+                          calculateEnabled={() => true}/>
           )
         }
         {
@@ -367,7 +354,7 @@ function BracketArchive() {
                          showSeed={sortColumn === 'seed'}
                          showRefresh={false}
                          calculateClicked={calculateMatch}
-                         calculateEnabled={calculateEnabled}/>
+                         calculateEnabled={() => true}/>
           )
         }
       </div>

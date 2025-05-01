@@ -2,9 +2,10 @@ import { immatureClass } from "../utils"
 import classNames from 'classnames';
 import dayjs from 'dayjs'
 import { useAppContext } from '../AppContext'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { noMatchStrings, type Competitor } from "./BracketUtils"
+import { set } from "lodash";
 
 
 interface BracketTableProps {
@@ -18,6 +19,7 @@ interface BracketTableProps {
   isGi: boolean;
   columnClicked?: (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => void;
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => void;
+  calculateEnabled: (athlete: Competitor) => boolean;
 }
 
 export type SortColumn = 'rating' | 'seed' | 'next'
@@ -48,6 +50,10 @@ function BracketTable(props: BracketTableProps) {
 
   const [selectedAthletes, setSelectedAthletes] = useState<Competitor[]>([]);
 
+  useEffect(() => {
+    setSelectedAthletes([]);
+  }, [competitors]);
+
   const handleCheckboxChange = (competitor: Competitor) => {
     setSelectedAthletes(prev => {
       if (prev.includes(competitor)) {
@@ -56,10 +62,6 @@ function BracketTable(props: BracketTableProps) {
         return [...prev, competitor];
       }
     });
-  };
-
-  const calculateDisabled = () => {
-    return selectedAthletes.length !== 2 || selectedAthletes.filter(a => a.rating !== null && a.match_count !== null && a.match_count > 0).length !== 2
   };
 
   const calculateMatchResult = () => {
@@ -143,6 +145,10 @@ function BracketTable(props: BracketTableProps) {
       return null;
     }
   }
+
+  const calculateDisabled = () => {
+    return selectedAthletes.length !== 2 || selectedAthletes.filter(a => props.calculateEnabled(a)).length !== 2
+  };
 
   return (
     <div className="table-container">

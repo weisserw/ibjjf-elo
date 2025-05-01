@@ -6,7 +6,7 @@ import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree from './BracketTree'
 import classNames from 'classnames'
 import { isGi, handleError, categoryString } from './BracketUtils'
-import type { CategoriesResponse, LiveCompetitorsResponse, Match as BracketMatch } from './BracketUtils'
+import type { CategoriesResponse, LiveCompetitorsResponse, Match as BracketMatch, Competitor } from './BracketUtils'
 
 export interface Event {
   id: string
@@ -293,6 +293,10 @@ function BracketLive() {
             blue_competitor.rating !== null && blue_competitor.match_count !== null && blue_competitor.match_count > 0)
   }
 
+  const calculateEnabledAthlete = (athlete: Competitor) => {
+    return athlete.rating !== null && athlete.match_count !== null && athlete.match_count > 0
+  }
+
   const calculateMatch = async (match: BracketMatch) => {
     if (!match.red_name || !match.blue_name || !selectedCategory || !selectedEventName) {
       return
@@ -420,6 +424,7 @@ function BracketLive() {
               isGi={isGi(selectedEventName ?? '')}
               columnClicked={columnClicked}
               athleteClicked={athleteClicked}
+              calculateEnabled={calculateEnabledAthlete}
             />
           )
         }
