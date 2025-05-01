@@ -29,7 +29,6 @@ function BracketArchive() {
   const [eventSuggestions, setEventSuggestions] = useState<string[]>([])
 
   const {
-    activeTab,
     bracketArchiveEventName: eventName,
     setBracketArchiveEventName: setEventName,
     bracketArchiveEventNameFetch: eventNameFetch,
