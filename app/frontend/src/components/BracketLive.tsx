@@ -244,7 +244,7 @@ function BracketLive() {
       } else if (sortColumn === 'seed') {
         return a.seed - b.seed
       } else {
-        if (!a.next_when || !b.next_when) {
+        if (!a.next_when && !b.next_when) {
           return 0
         } else if (!a.next_when) {
           return 1
