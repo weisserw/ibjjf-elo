@@ -3,7 +3,7 @@ import axios from 'axios'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable from './BracketTable'
-import { isGi, handleError, type CompetitorsResponse } from './BracketUtils'
+import { isGi, handleError, type CompetitorsResponse, type Competitor } from './BracketUtils'
 
 interface RegistrationCategoriesResponse {
   event_name?: string
@@ -159,6 +159,10 @@ function BracketRegistration() {
     }
   }
 
+  const calculateEnabledAthlete = (athlete: Competitor) => {
+    return athlete.rating !== null && athlete.match_count !== null && athlete.match_count > 0
+  }
+
   return (
     <div className="brackets-content">
       <div>
@@ -225,7 +229,8 @@ function BracketRegistration() {
                           showSeed={false}
                           showRank={true}
                           isGi={isGi(registrationEventName ?? '')}
-                          athleteClicked={registrationAthleteClicked} />
+                          athleteClicked={registrationAthleteClicked}
+                          calculateEnabled={calculateEnabledAthlete} />
           )
         }
         {

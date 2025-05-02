@@ -5,7 +5,6 @@ import { useAppContext } from '../AppContext'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { noMatchStrings, type Competitor } from "./BracketUtils"
-import { set } from "lodash";
 
 
 interface BracketTableProps {
