@@ -8,7 +8,7 @@ function About() {
           site and are not affiliated with the IBJJF.
         </p>
         <p className="content">
-          Competitors are rated using the <a href="https://en.wikipedia.org/wiki/Elo_rating_system" target="_blank" rel="noopener noreferrer">Elo rating system</a>, which is a method for calculating the relative skill levels of players in two-player games such as chess. We allow users to search for competitors, view their ratings, and see their match history.
+          Competitors are rated using the <a href="https://en.wikipedia.org/wiki/Elo_rating_system" target="_blank" rel="noopener noreferrer">Elo rating system</a>, which is a method for calculating the relative skill levels of players in competitive games. We allow users to search for competitors, view their ratings, and see their match history.
         </p>
         <p className="content">
           This app is a work in progress and is being developed by <a href="https://www.facebook.com/Trumpetdanbjj" target="_blank" rel="noopener noreferrer">Dan Lukehart</a> and <a href="https://www.instagram.com/weisserwill/" target="_blank" rel="noopener noreferrer">Will Weisser</a>. The source code is available on <a href="https://github.com/weisserw/ibjjf-elo">GitHub</a>.
