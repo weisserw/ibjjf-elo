@@ -1,4 +1,4 @@
-import axios, { all, type AxiosError } from 'axios'
+import axios, { type AxiosError } from 'axios'
 
 export interface Competitor {
   ordinal: number
