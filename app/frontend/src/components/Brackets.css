@@ -107,5 +107,5 @@
 
 .bracket-event-name {
   width: 800px;
-  max-width: 100%;
+  max-width: calc(100vw - 12px);
 }
