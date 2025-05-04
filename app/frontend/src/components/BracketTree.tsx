@@ -162,6 +162,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
 
 interface BracketTreeProps {
   matches: Match[];
+  matchCount: number;
   showSeed: boolean;
   hasMatchNums: boolean;
   showRefresh: boolean;
@@ -202,7 +203,7 @@ function BracketTree(props: BracketTreeProps) {
     if (!props.hasMatchNums) {
       return createTreeFromTop(props.matches);
     } else {
-      return createTreeFromMatchNums(props.matches);
+      return createTreeFromMatchNums(props.matches, props.matchCount);
     }
   }, [props.matches]);
 

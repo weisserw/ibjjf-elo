@@ -7,7 +7,7 @@ import BracketTree from './BracketTree'
 import Autosuggest from 'react-autosuggest'
 import { axiosErrorToast } from '../utils';
 import debounce from 'lodash/debounce';
-import { isGi, handleError } from './BracketUtils'
+import { isGi, handleError, nearestPowerOfTwo } from './BracketUtils'
 import type { LiveCompetitorsResponse, Match as BracketMatch } from './BracketUtils'
 
 export interface Category {
@@ -256,6 +256,23 @@ function BracketArchive() {
 
   const showSeed = !eventName.includes('(');
 
+  const hasMatchNums = useMemo(() => {
+    return matches?.some(match => match.match_num !== null) ?? false
+  }, [matches]);
+
+  const expectedMatchCount = useMemo(() => {
+    if (hasMatchNums) {
+      return Math.max(nearestPowerOfTwo(competitors?.length ?? 1), 
+                      nearestPowerOfTwo(Math.max(...(competitors?.map(c => c.seed) ?? [1])))) - 1;
+    } else {
+      return matches?.length ?? 0;
+    }
+  }, [matches, competitors, hasMatchNums])
+
+  const calculateEnabled = (match: BracketMatch) => {
+    return match.red_name !== null && match.blue_name !== null;
+  }
+
   return (
     <div className="brackets-content">
       <div>
@@ -266,7 +283,7 @@ function BracketArchive() {
                               onSuggestionsFetchRequested={debouncedGetEventSuggestions}
                               onSuggestionsClearRequested={() => setEventSuggestions([])}
                               multiSection={false}
-                              getSuggestionValue={(suggestion) => '"' + suggestion + '"'}
+                              getSuggestionValue={(suggestion) => suggestion}
                               renderSuggestion={(suggestion) => suggestion}
                               inputProps={{
                               className: "input",
@@ -308,7 +325,7 @@ function BracketArchive() {
                           <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
                             {
                               categories.map(category => (
-                                <option key={category.link} value={categoryString(category)}>{categoryString(category)}</option>
+                                <option key={categoryString(category)} value={categoryString(category)}>{categoryString(category)}</option>
                               ))
                             }
                           </select>
@@ -350,11 +367,12 @@ function BracketArchive() {
         {
           (!!eventNameFetch && categories !== null && matches !== null) && (
             <BracketTree matches={matches}
-                         hasMatchNums={false}
+                         matchCount={expectedMatchCount}
+                         hasMatchNums={hasMatchNums}
                          showSeed={sortColumn === 'seed'}
                          showRefresh={false}
                          calculateClicked={calculateMatch}
-                         calculateEnabled={() => true}/>
+                         calculateEnabled={calculateEnabled}/>
           )
         }
       </div>

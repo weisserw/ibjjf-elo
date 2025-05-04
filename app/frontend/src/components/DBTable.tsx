@@ -123,8 +123,8 @@ function DBTable() {
 
   const divisionBracketClicked = (row: Row) => {
     setBracketActiveTab('Archive')
-    setBracketArchiveEventName('"' + row.event + '"')
-    setBracketArchiveEventNameFetch('"' + row.event + '"')
+    setBracketArchiveEventName(row.event)
+    setBracketArchiveEventNameFetch(row.event)
     setBracketArchiveSelectedCategory(`${row.belt} / ${row.age} / ${row.gender} / ${row.weight}`)
     navigate('/brackets')
   }

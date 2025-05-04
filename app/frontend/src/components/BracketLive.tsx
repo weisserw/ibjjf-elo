@@ -432,6 +432,7 @@ function BracketLive() {
           (events !== null && categories !== null && matches !== null) && (
             <BracketTree
               matches={matches}
+              matchCount={matches.length}
               hasMatchNums={true}
               showSeed={sortColumn === 'seed'}
               showRefresh={true}

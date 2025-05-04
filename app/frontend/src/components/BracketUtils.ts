@@ -1,4 +1,4 @@
-import axios, { type AxiosError } from 'axios'
+import axios, { all, type AxiosError } from 'axios'
 
 export interface Competitor {
   ordinal: number
@@ -158,6 +158,17 @@ export const numLevels = (n: number) => {
   return Math.ceil(Math.log2(n));
 }
 
+export const nearestPowerOfTwo = (n: number) => {
+  if (n <= 4) {
+    return n;
+  }
+  let power = 1;
+  while (power < n) {
+    power *= 2;
+  }
+  return power;
+}  
+
 export const createBye = (id: string | null, name: string | null, team: string | null,
   seed: number | null, ordinal: number | null, weight: string | null, rating: number | null,
   match_count: number | null, note: string | null): Match => {
@@ -200,13 +211,68 @@ export const createBye = (id: string | null, name: string | null, team: string |
   }
 }
 
-export const createTreeFromMatchNums = (matches: Match[]): Match[][] => {
+const createEmptyMatch = (match_num: number): Match => {
+  return {
+    match_num,
+    final: false,
+    when: null,
+    where: null,
+    fight_num: null,
+    red_bye: false,
+    red_id: null,
+    red_seed: null,
+    red_loser: false,
+    red_name: null,
+    red_team: null,
+    red_note: null,
+    red_next_description: null,
+    red_medal: null,
+    red_ordinal: null,
+    red_weight: null,
+    red_handicap: 0,
+    red_expected: null,
+    red_rating: null,
+    red_match_count: null,
+    blue_bye: false,
+    blue_id: null,
+    blue_seed: null,
+    blue_loser: false,
+    blue_name: null,
+    blue_team: null,
+    blue_note: null,
+    blue_next_description: null,
+    blue_medal: null,
+    blue_ordinal: null,
+    blue_weight: null,
+    blue_handicap: 0,
+    blue_expected: null,
+    blue_rating: null,
+    blue_match_count: null
+  }
+}
+
+export const createTreeFromMatchNums = (matches: Match[], matchCount: number): Match[][] => {
   const levels: Match[][] = [];
 
   // sort in order by match_num
   const allMatches = [...matches].sort((a, b) => {
     return (a.match_num ?? 0) - (b.match_num ?? 0);
   });
+
+  // insert empty matches if any match_num is missing
+  for (let i = 0; i < allMatches.length; i++) {
+    if (allMatches[i].match_num !== i + 1) {
+      const emptyMatch = createEmptyMatch(i + 1);
+      allMatches.splice(i, 0, emptyMatch);
+      i++;
+    }
+  }
+
+  // insert empty matches at the end if there are any missing
+  for (let i = allMatches.length; i < matchCount; i++) {
+    const emptyMatch = createEmptyMatch(i + 1);
+    allMatches.push(emptyMatch);
+  }
 
   const levelCount = numLevels(allMatches.length);
 

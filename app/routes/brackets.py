@@ -1211,7 +1211,7 @@ def archive_competitors():
 
         parsed_matches.append(
             {
-                "match_num": None,
+                "match_num": match.match_number,
                 "final": False,
                 "when": match.happened_at.isoformat(),
                 "where": None,
