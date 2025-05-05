@@ -261,7 +261,7 @@ export const createTreeFromMatchNums = (matches: Match[], matchCount: number): M
 
   // insert empty matches if any match_num is missing
   for (let i = 0; i < allMatches.length; i++) {
-    if (allMatches[i].match_num !== i + 1) {
+    while (allMatches[i].match_num !== i + 1) {
       const emptyMatch = createEmptyMatch(i + 1);
       allMatches.splice(i, 0, emptyMatch);
       i++;
@@ -285,6 +285,40 @@ export const createTreeFromMatchNums = (matches: Match[], matchCount: number): M
       }
     }
     levels.push(levelMatches);
+
+    if (levels.length === 2) {
+      // if there are any athletes in the second level with no matches in the first level,
+      // and a blank match is directly below them, replace the blank match with a bye
+      for (let k = 0; k < levels[1].length; k++) {
+        const match = levels[1][k];
+        if (match.red_id !== null && !levels[0].some(m => m.red_id === match.red_id || m.blue_id === match.red_id)) {
+          let possibleEmpty = levels[0][k * 2];
+          if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
+            levels[0][k * 2] = createBye(match.red_id, match.red_name, match.red_team,
+              match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note);
+          } else {
+            possibleEmpty = levels[0][k * 2 + 1];
+            if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
+              levels[0][k * 2 + 1] = createBye(match.red_id, match.red_name, match.red_team,
+                match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note);
+            }
+          }
+        }
+        if (match.blue_id !== null && !levels[0].some(m => m.red_id === match.blue_id || m.blue_id === match.blue_id)) {
+          let possibleEmpty = levels[0][k * 2];
+          if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
+            levels[0][k * 2] = createBye(match.blue_id, match.blue_name, match.blue_team,
+              match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note);
+          } else {
+            possibleEmpty = levels[0][k * 2 + 1];
+            if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
+              levels[0][k * 2 + 1] = createBye(match.blue_id, match.blue_name, match.blue_team,
+                match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note);
+            }
+          }
+        }
+      }
+    }
   }
 
   return levels;
