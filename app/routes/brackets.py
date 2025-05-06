@@ -40,6 +40,7 @@ from constants import (
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
     OPEN_CLASS_LIGHT,
+    JUVENILE,
 )
 from elo import (
     compute_start_rating,
@@ -1096,7 +1097,9 @@ def archive_categories():
     division_ids = (
         db.session.query(Match.division_id)
         .join(Event)
+        .join(Division)
         .filter(Event.name == event_name)
+        .filter(Division.age != JUVENILE)
         .all()
     )
 

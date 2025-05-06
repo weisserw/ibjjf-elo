@@ -175,7 +175,7 @@ function DBTableRows(props: DBTableRowsProps) {
                         <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
                       }
                       {
-                        !isHistorical(row) &&
+                        !isHistorical(row) && row.age !== "Juvenile" &&
                         <button className="button is-small is-tiny" onClick={() => divisionBracketClicked?.(row)}>
                           <span className="icon has-text-info">
                             <i className="fas fa-project-diagram"/>
