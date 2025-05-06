@@ -160,7 +160,7 @@ age_order_all = [
 
 
 def translate_age(age: str) -> str:
-    if age == "Juvenil" or age == "Juvenile 1" or age == "Juvenile 2":
+    if age in ("Juvenil", "Juvenile 1", "Juvenile 2", "Juvenil 1", "Juvenil 2"):
         return JUVENILE
     if age == "Adulto":
         return ADULT
@@ -182,6 +182,10 @@ def translate_age(age: str) -> str:
 def translate_age_keep_juvenile(age: str) -> str:
     if age == "Juvenil":
         return JUVENILE
+    if age == "Juvenil 1":
+        return JUVENILE_1
+    if age == "Juvenil 2":
+        return JUVENILE_2
     if age == "Adulto":
         return ADULT
     if age not in [
