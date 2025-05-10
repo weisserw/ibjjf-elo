@@ -346,7 +346,10 @@ def append_rating_note(note: Optional[str], add_note: str) -> str:
 
 
 def compute_start_rating(
-    division: Division, last_match: MatchParticipant, has_same_or_higher_age_match: bool
+    division: Division,
+    last_match: MatchParticipant,
+    has_same_or_higher_age_match: bool,
+    match_count: int,
 ) -> Tuple[float, Optional[str]]:
     rating_note = None
 
@@ -363,7 +366,7 @@ def compute_start_rating(
             log.debug("Invalid data: athlete promoted backward")
 
     # if the athlete has no previous matches, use the default rating
-    if last_match is None:
+    if last_match is None or match_count == 0:
         log.debug("Athlete has no previous matches, using default rating")
         start_rating = DEFAULT_RATINGS[division.belt][division.age]
     elif (
@@ -519,10 +522,16 @@ def compute_ratings(
     blue_end_match_count = blue_match_count
 
     red_start_rating, red_rating_note = compute_start_rating(
-        division, red_last_match, red_same_or_higher_age_match is not None
+        division,
+        red_last_match,
+        red_same_or_higher_age_match is not None,
+        red_match_count,
     )
     blue_start_rating, blue_rating_note = compute_start_rating(
-        division, blue_last_match, blue_same_or_higher_age_match is not None
+        division,
+        blue_last_match,
+        blue_same_or_higher_age_match is not None,
+        blue_match_count,
     )
 
     log.debug("Start ratings: red %s, blue %s", red_start_rating, blue_start_rating)

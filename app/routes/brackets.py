@@ -312,7 +312,10 @@ def get_ratings(results, age, belt, weight, gender, gi, rating_date, get_rank):
                 )
 
                 adjusted_start_rating, note = compute_start_rating(
-                    division, last_match, same_or_higher_age_match is not None
+                    division,
+                    last_match,
+                    same_or_higher_age_match is not None,
+                    rating.end_match_count,
                 )
 
                 ratings_by_id[rating.athlete_id] = (
