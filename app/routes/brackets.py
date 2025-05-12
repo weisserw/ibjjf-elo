@@ -523,11 +523,6 @@ def registration_competitors():
             for competitor in entry["RegistrationCategories"]:
                 team = competitor["AcademyTeamName"]
                 name = competitor["AthleteName"]
-
-                # TODO: remove this after worlds
-                if name == "Meyram Maquiné Alves":
-                    name = "Mayram Daniel Maquiné Alves"
-
                 rows.append(
                     {
                         "name": name,
