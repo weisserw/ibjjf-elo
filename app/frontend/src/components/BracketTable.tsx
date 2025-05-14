@@ -9,6 +9,7 @@ import { noMatchStrings, type Competitor } from "./BracketUtils"
 
 interface BracketTableProps {
   competitors: Competitor[] | null;
+  selectedCategory: string | null;
   sortColumn?: string;
   showSeed: boolean;
   showWeight?: boolean;
@@ -30,10 +31,10 @@ function BracketTable(props: BracketTableProps) {
     columnClicked,
     athleteClicked,
     isGi,
+    selectedCategory,
   } = props;
 
   const {
-    bracketSelectedCategory,
     setCalcFirstAthlete,
     setCalcSecondAthlete,
     setCalcGender,
@@ -71,8 +72,8 @@ function BracketTable(props: BracketTableProps) {
     const firstAthlete = sortedSelectedAtheletes[0];
     const secondAthlete = sortedSelectedAtheletes[1];
 
-    if (firstAthlete && secondAthlete && bracketSelectedCategory) {
-      const [belt, age, gender, weight] = bracketSelectedCategory.split(' / ');
+    if (firstAthlete && secondAthlete && selectedCategory) {
+      const [belt, age, gender, weight] = selectedCategory.split(' / ');
       setCalcFirstAthlete(firstAthlete.name);
       setCalcSecondAthlete(secondAthlete.name);
       setCalcGender(gender);

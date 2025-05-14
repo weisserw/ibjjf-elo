@@ -358,6 +358,7 @@ function BracketArchive() {
                           showSeed={showSeed}
                           showEndRating={true}
                           showWeight={selectedCategory?.includes(' / Open') ?? false}
+                          selectedCategory={selectedCategory}
                           isGi={isGi(eventNameFetch)}
                           columnClicked={columnClicked}
                           athleteClicked={athleteClicked}

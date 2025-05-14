@@ -421,6 +421,7 @@ function BracketLive() {
               showEndRating={true}
               showNext={showNext}
               showWeight={selectedCategory?.includes(' / Open') ?? false}
+              selectedCategory={selectedCategory}
               isGi={isGi(selectedEventName ?? '')}
               columnClicked={columnClicked}
               athleteClicked={athleteClicked}

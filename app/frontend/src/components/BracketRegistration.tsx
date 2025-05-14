@@ -228,6 +228,7 @@ function BracketRegistration() {
             <BracketTable competitors={sortedRegistrationCompetitors}
                           showSeed={false}
                           showRank={true}
+                          selectedCategory={selectedRegistrationCategory}
                           isGi={isGi(registrationEventName ?? '')}
                           athleteClicked={registrationAthleteClicked}
                           calculateEnabled={calculateEnabledAthlete} />
