@@ -250,6 +250,18 @@ class BracketPage(db.Model):
     )
 
 
+class RegistrationLink(db.Model):
+    __tablename__ = "registration_links"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    normalized_name = Column(String, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+    link = Column(String, nullable=False)
+
+    __table_args__ = (Index("ix_registration_links_link", "link", unique=True),)
+
+
 class Suspension(db.Model):
     __tablename__ = "suspensions"
 

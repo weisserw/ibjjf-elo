@@ -113,3 +113,7 @@
 .bracket-list .control input {
   padding-left: 10px;
 }
+
+.recent-label {
+  white-space: nowrap;
+}

@@ -12,9 +12,21 @@ interface RegistrationCategoriesResponse {
   error?: string
 }
 
+interface RecentLink {
+  name: string
+  link: string
+}
+
+interface RecentLinksResponse {
+  links?: RecentLink[]
+}
+
 function BracketRegistration() {
   const [error, setError] = useState<string | null>(null)
+  const [recentLinks, setRecentLinks] = useState<RecentLink[]>([])
+  const [selectedRecentLink, setSelectedRecentLink] = useState<string>('')
   const [loading, setLoading] = useState(false)
+
 
   const {
     bracketRegistrationUrl: registrationUrl,
@@ -68,6 +80,17 @@ function BracketRegistration() {
     }
   }, [registrationEventUrl, selectedRegistrationCategory])
 
+  useEffect(() => {
+    const getRecentLinks = async () => {
+      const { data } = await axios.get<RecentLinksResponse>('/api/brackets/registrations/recent');
+
+      if (data.links) {
+        setRecentLinks(data.links)
+      }
+    }
+    getRecentLinks()
+  }, [])
+
   const registrationAthleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => {
     ev.preventDefault()
     setFilters({
@@ -107,16 +130,16 @@ function BracketRegistration() {
 
   const onRegistrationUrlKeyDown = (ev: React.KeyboardEvent<HTMLInputElement>) => {
     if (ev.key === 'Enter' && registrationUrl) {
-      getRegistrationCategories()
+      getRegistrationCategories(registrationUrl)
     }
   }
 
-  const getRegistrationCategories = async () => {
+  const getRegistrationCategories = async (url: string) => {
     setLoading(true)
     try {
       const { data } = await axios.get<RegistrationCategoriesResponse>('/api/brackets/registrations/categories', {
         params: {
-          link: registrationUrl
+          link: url
         }
       });
       if (data.error) {
@@ -129,7 +152,7 @@ function BracketRegistration() {
         setError(null)
         setRegistrationEventName(data.event_name)
         setRegistrationEventTotal(data.total_competitors ?? null)
-        setRegistrationEventUrl(registrationUrl)
+        setRegistrationEventUrl(url)
         setRegistrationCategories(data.categories)
 
         let selected: string | null | undefined = null
@@ -173,8 +196,40 @@ function BracketRegistration() {
             </div>
           </div>
           <div className="registrations-get">
-            <button className="button is-info" onClick={getRegistrationCategories} disabled={!registrationUrl}>Get Categories</button>
+            <button className="button is-info" onClick={() => getRegistrationCategories(registrationUrl)} disabled={!registrationUrl}>Get Categories</button>
           </div>
+          {
+            recentLinks.length > 0 &&
+            <div className="field mt-4 is-horizontal">
+              <div className="field-label is-normal">
+                <label className="label recent-label">Recently Imported:</label>
+              </div>
+              <div className="field-body">
+                <div className="field">
+                  <div className="control">
+                    <div className="select">
+                      <select className="select" value={selectedRecentLink} onChange={e => {
+                        if (e.target.value === '') {
+                          setSelectedRecentLink('')
+                          return;
+                        }
+                        setSelectedRecentLink(e.target.value)
+                        setRegistrationUrl(e.target.value)
+                        getRegistrationCategories(e.target.value)
+                      }}>
+                        <option value=""></option>
+                        {
+                          recentLinks.map(link => (
+                            <option key={link.link} value={link.link}>{link.name}</option>
+                          ))
+                        }
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
         </div>
         {
           error && <div className="notification is-danger mt-4">{error}</div>

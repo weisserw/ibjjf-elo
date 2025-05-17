@@ -23,6 +23,7 @@ from models import (
     BracketPage,
     Event,
     Medal,
+    RegistrationLink,
 )
 import logging
 from normalize import normalize
@@ -419,6 +420,47 @@ def parse_registrations(soup):
     return json_data
 
 
+def find_first_index(lst, predicate):
+    for index, element in enumerate(lst):
+        if predicate(element):
+            return index
+    return -1
+
+
+def bring_to_front(lst, name):
+    index = find_first_index(lst, lambda x: x.normalized_name.startswith(name))
+    if index != -1:
+        item = lst.pop(index)
+        lst.insert(0, item)
+
+
+@brackets_route.route("/api/brackets/registrations/recent")
+def recent_registrations():
+    links = (
+        db.session.query(RegistrationLink)
+        .order_by(RegistrationLink.updated_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    bring_to_front(links, "european ibjjf ")
+    bring_to_front(links, "pan ibjjf ")
+    bring_to_front(links, "campeonato brasileiro ")
+    bring_to_front(links, "world ibjjf ")
+
+    rows = []
+    for link in links:
+        rows.append(
+            {
+                "name": link.name,
+                "updated_at": link.updated_at.isoformat(),
+                "link": link.link,
+            }
+        )
+
+    return jsonify({"links": rows})
+
+
 @brackets_route.route("/api/brackets/registrations/categories")
 def registration_categories():
     link = request.args.get("link")
@@ -439,6 +481,8 @@ def registration_categories():
 
     url = m.group(1) + m.group(2) if m.group(2) else m.group(1)
 
+    updated_at = None
+
     try:
         soup = BeautifulSoup(
             get_bracket_page(url, newer_than=datetime.now() - timedelta(minutes=10)),
@@ -449,9 +493,45 @@ def registration_categories():
         title_tag = container.find("h2", class_="title")
         tournament_name = title_tag.get_text(strip=True) if title_tag else "Unknown"
 
+        for span in soup.find_all("span"):
+            strong = span.find("strong")
+            if strong and "Last Updated:" in strong.get_text():
+                text = span.get_text().replace(strong.get_text(), "").strip()
+                date_part = text.split("(")[0].strip()
+                try:
+                    updated_at = datetime.strptime(date_part, "%b/%d/%Y %H:%M:%S")
+                except Exception:
+                    try:
+                        updated_at = datetime.strptime(date_part, "%B/%d/%Y %H:%M:%S")
+                    except Exception:
+                        updated_at = None
+                break
+
         json_data = parse_registrations(soup)
     except Exception as e:
         return jsonify({"error": str(e)})
+
+    if updated_at is not None:
+        link = (
+            db.session.query(RegistrationLink)
+            .filter(RegistrationLink.link == url)
+            .first()
+        )
+
+        if link:
+            link.updated_at = updated_at
+            link.name = tournament_name
+            link.normalized_name = normalize(tournament_name)
+        else:
+            link = RegistrationLink(
+                name=tournament_name,
+                normalized_name=normalize(tournament_name),
+                updated_at=updated_at,
+                link=url,
+            )
+            db.session.add(link)
+
+        db.session.commit()
 
     rows = []
     total_competitors = 0
