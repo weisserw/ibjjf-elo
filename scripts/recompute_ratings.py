@@ -47,14 +47,14 @@ def main():
         "--athlete-id", type=str, help="Only recompute ratings for this athlete."
     )
     parser.add_argument(
-        "--fg",
+        "--bg",
         action="store_true",
-        help="Run in foreground. If not set, the script will run in the background.",
+        help="Run in the background.",
     )
 
     args = parser.parse_args()
 
-    if not args.fg:
+    if args.bg:
         log_file = "recompute_ratings.log"
 
         log.info(f"Running in background and logging to {log_file}")
