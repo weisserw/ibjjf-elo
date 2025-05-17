@@ -438,6 +438,8 @@ def bring_to_front(lst, name):
 def recent_registrations():
     links = (
         db.session.query(RegistrationLink)
+        .filter(RegistrationLink.normalized_name.notlike("%idade 04 a 15 anos%"))
+        .filter(RegistrationLink.normalized_name.notlike("% kids %"))
         .order_by(RegistrationLink.updated_at.desc())
         .limit(20)
         .all()
