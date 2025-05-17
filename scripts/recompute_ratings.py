@@ -54,6 +54,15 @@ def main():
 
     args = parser.parse_args()
 
+    if not args.start_date and not args.rank_only and not args.athlete_id:
+        # warn user that this will take a long time and make them confirm they want to proceed
+        confirm = input(
+            "This will recompute ALL ratings in the database. Are you sure you want to proceed? (y/n) "
+        )
+        if confirm.lower() != "y":
+            print("Exiting...")
+            return 0
+
     if args.bg:
         log_file = "recompute_ratings.log"
 
