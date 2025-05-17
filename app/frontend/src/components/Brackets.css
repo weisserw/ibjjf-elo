@@ -42,6 +42,20 @@
   width: 100%;
 }
 
+.event-name {
+  margin-bottom: 0;
+}
+
+@media screen and (max-width: 768px) {
+  .category-list {
+    flex-direction: column;
+    gap: 0;
+  }
+  .event-name {
+    margin-bottom: 24px;
+  }
+}
+
 .category-flex {
   display: flex;
   flex-direction: row;

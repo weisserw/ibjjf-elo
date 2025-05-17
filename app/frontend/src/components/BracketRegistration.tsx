@@ -217,7 +217,7 @@ function BracketRegistration() {
                         setRegistrationUrl(e.target.value)
                         getRegistrationCategories(e.target.value)
                       }}>
-                        <option value=""></option>
+                        <option value="">Choose a recent URL</option>
                         {
                           recentLinks.map(link => (
                             <option key={link.link} value={link.link}>{link.name}</option>
@@ -237,14 +237,14 @@ function BracketRegistration() {
         {
         (registrationEventUrl !== null && registrationCategories !== null) && (
           <div className="category-list">
-            <p>
+            <div className="event-name">
               <strong>{registrationEventName}</strong>
               {
                 registrationEventTotal !== null && (
                   <span> - {registrationEventTotal.toLocaleString()} competitors</span>
                 )
               }
-            </p>
+            </div>
             {
               registrationCategories.length > 0 && (
                 <div className="columns no-bottom-margin">
