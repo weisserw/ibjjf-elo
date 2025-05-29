@@ -4,7 +4,6 @@ import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree from './BracketTree'
-import classNames from 'classnames'
 import { isGi, handleError, categoryString } from './BracketUtils'
 import type { CategoriesResponse, LiveCompetitorsResponse, Match as BracketMatch, Competitor } from './BracketUtils'
 
