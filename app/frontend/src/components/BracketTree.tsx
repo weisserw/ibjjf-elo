@@ -208,7 +208,7 @@ function BracketTree(props: BracketTreeProps) {
   }, [props.matches]);
 
   return (
-    <div>
+    <div className="mt-4">
       <div className="bracket-tree-slider">
         <div className="bracket-tree-slider-controls">
           <span className="icon cursor-pointer" onClick={() => setZoomLevel(Math.max(0.2, zoomLevel - 0.05))}>

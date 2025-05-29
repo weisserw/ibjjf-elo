@@ -352,6 +352,17 @@ function BracketArchive() {
           error && <div className="notification is-danger mt-4">{error}</div>
         }
         {
+          (!!eventNameFetch && categories !== null && matches !== null) && (
+            <BracketTree matches={matches}
+                         matchCount={expectedMatchCount}
+                         hasMatchNums={hasMatchNums}
+                         showSeed={sortColumn === 'seed'}
+                         showRefresh={false}
+                         calculateClicked={calculateMatch}
+                         calculateEnabled={calculateEnabled}/>
+          )
+        }
+        {
           (!!eventNameFetch && categories !== null && competitors !== null) && (
             <BracketTable competitors={sortedCompetitors}
                           sortColumn={showSeed ? sortColumn : 'rating'}
@@ -363,17 +374,6 @@ function BracketArchive() {
                           columnClicked={columnClicked}
                           athleteClicked={athleteClicked}
                           calculateEnabled={() => true}/>
-          )
-        }
-        {
-          (!!eventNameFetch && categories !== null && matches !== null) && (
-            <BracketTree matches={matches}
-                         matchCount={expectedMatchCount}
-                         hasMatchNums={hasMatchNums}
-                         showSeed={sortColumn === 'seed'}
-                         showRefresh={false}
-                         calculateClicked={calculateMatch}
-                         calculateEnabled={calculateEnabled}/>
           )
         }
       </div>

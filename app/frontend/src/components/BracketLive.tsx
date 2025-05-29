@@ -388,13 +388,6 @@ function BracketLive() {
                       }
                       </div>
                     </div>
-                    <div className="category-column">
-                      <button disabled={loading} className={classNames("button is-small", {"is-loading": loading})} onClick={viewBracket}>
-                        <span className="icon is-small">
-                          <i className="fas fa-sync"></i>
-                        </span>
-                      </button>
-                    </div>
                   </div>
                 )
               }
@@ -411,23 +404,6 @@ function BracketLive() {
         }
         {
           loading && <div className="bracket-loader loader mt-4"></div>
-        }
-        {
-          (events !== null && categories !== null && competitors !== null) && (
-            <BracketTable
-              competitors={sortedCompetitors}
-              sortColumn={sortColumn}
-              showSeed={true}
-              showEndRating={true}
-              showNext={showNext}
-              showWeight={selectedCategory?.includes(' / Open') ?? false}
-              selectedCategory={selectedCategory}
-              isGi={isGi(selectedEventName ?? '')}
-              columnClicked={columnClicked}
-              athleteClicked={athleteClicked}
-              calculateEnabled={calculateEnabledAthlete}
-            />
-          )
         }
         {
           (events !== null && categories !== null && matches !== null) && (
@@ -454,6 +430,23 @@ function BracketLive() {
           >
             View Bracket (external)
           </a>
+        }
+        {
+          (events !== null && categories !== null && competitors !== null) && (
+            <BracketTable
+              competitors={sortedCompetitors}
+              sortColumn={sortColumn}
+              showSeed={true}
+              showEndRating={true}
+              showNext={showNext}
+              showWeight={selectedCategory?.includes(' / Open') ?? false}
+              selectedCategory={selectedCategory}
+              isGi={isGi(selectedEventName ?? '')}
+              columnClicked={columnClicked}
+              athleteClicked={athleteClicked}
+              calculateEnabled={calculateEnabledAthlete}
+            />
+          )
         }
       </div>
     </div>
