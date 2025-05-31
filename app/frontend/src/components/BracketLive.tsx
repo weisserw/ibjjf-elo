@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import axios from 'axios'
+import classNames from 'classnames'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
@@ -419,17 +420,24 @@ function BracketLive() {
             />
           )
         }
-        {
-          (events !== null && categories !== null && competitors !== null && selectedCategoryLink !== null) &&
-          <a
-            href={`https://bjjcompsystem.com${selectedCategoryLink}`}
-            target="_blank"
-            rel="noreferrer"
-            className="button is-link is-outlined mt-5"
-          >
-            View Bracket (external)
-          </a>
-        }
+        <div className="bracket-live-actions">
+          {
+            (events !== null && categories !== null && competitors !== null && selectedCategoryLink !== null) &&
+            <a
+              href={`https://bjjcompsystem.com${selectedCategoryLink}`}
+              target="_blank"
+              rel="noreferrer"
+              className="button is-link is-outlined mt-5"
+            >
+              View Bracket (external)
+            </a>
+          }
+          <button disabled={loading} className={classNames("button is-small", {"is-loading": loading})} onClick={viewBracket}>
+            <span className="icon is-small">
+              <i className="fas fa-sync"></i>
+            </span>
+          </button>
+        </div>
         {
           (events !== null && categories !== null && competitors !== null) && (
             <BracketTable

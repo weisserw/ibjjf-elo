@@ -131,3 +131,10 @@
 .recent-label {
   white-space: nowrap;
 }
+
+.bracket-live-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
