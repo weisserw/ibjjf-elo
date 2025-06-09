@@ -190,38 +190,35 @@ function BracketRegistration() {
     <div className="brackets-content">
       <div>
         <div className="registrations">
-          {
-            recentLinks.length > 0 &&
-            <div className="field is-horizontal recent-label">
-              <div className="field-label is-normal">
-                <label className="label recent-label">Recently Imported:</label>
-              </div>
-              <div className="field-body">
-                <div className="field">
-                  <div className="control">
-                    <div className="select">
-                      <select className="select" value={selectedRecentLink} onChange={e => {
-                        if (e.target.value === '') {
-                          setSelectedRecentLink('')
-                          return;
-                        }
-                        setSelectedRecentLink(e.target.value)
-                        setRegistrationUrl(e.target.value)
-                        getRegistrationCategories(e.target.value)
-                      }}>
-                        <option value="">Choose a recent URL</option>
-                        {
-                          recentLinks.map(link => (
-                            <option key={link.link} value={link.link}>{link.name}</option>
-                          ))
-                        }
-                      </select>
-                    </div>
+          <div className="field is-horizontal recent-label">
+            <div className="field-label is-normal">
+              <label className="label recent-label">Recently Imported:</label>
+            </div>
+            <div className="field-body">
+              <div className="field">
+                <div className="control">
+                  <div className="select">
+                    <select className="select" disabled={!recentLinks.length} value={selectedRecentLink} onChange={e => {
+                      if (e.target.value === '') {
+                        setSelectedRecentLink('')
+                        return;
+                      }
+                      setSelectedRecentLink(e.target.value)
+                      setRegistrationUrl(e.target.value)
+                      getRegistrationCategories(e.target.value)
+                    }}>
+                      <option value="">Choose a recent URL</option>
+                      {
+                        recentLinks.map(link => (
+                          <option key={link.link} value={link.link}>{link.name}</option>
+                        ))
+                      }
+                    </select>
                   </div>
                 </div>
               </div>
             </div>
-          }
+          </div>
           <p className="mb-2">
             This tool imports registrations from the IBJJF registration system and displays the current ratings of the competitors. To view registrations, {' '} 
             <b>select a recently imported event above</b>, or find an event on <a href="https://ibjjf.com/" target="_blank" rel="nofollow noreferrer">ibjjf.com</a>, select "ATHLETES LIST BY DIVISIONS" from the event page,
