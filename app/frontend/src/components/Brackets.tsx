@@ -32,15 +32,6 @@ function Brackets() {
         )
       }
       {
-        bracketActiveTab === 'Registrations' && (
-          <p>
-            This tool imports registrations from the IBJJF registration system and displays the current ratings of the competitors. To import a registration URL,
-            find an event on <a href="https://ibjjf.com/" target="_blank" rel="nofollow noreferrer">ibjjf.com</a>, select "ATHLETES LIST BY DIVISIONS" from the event page,
-            then copy and paste the URL from the browser address bar into the box below:
-          </p>
-        )
-      }
-      {
         bracketActiveTab === 'Archive' && (
           <p>
             Search for a past event in our database to view brackets. Brackets are not available before December 2024.

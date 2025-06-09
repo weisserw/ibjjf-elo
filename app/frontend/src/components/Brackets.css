@@ -138,3 +138,7 @@
   align-items: center;
   justify-content: space-between;
 }
+
+.recent-label {
+  width: 150px;
+}

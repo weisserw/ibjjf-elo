@@ -190,17 +190,9 @@ function BracketRegistration() {
     <div className="brackets-content">
       <div>
         <div className="registrations">
-          <div className="field">
-            <div className="control">
-              <input className="input" type="text" placeholder="Paste registration URL e.g. https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations" value={registrationUrl} onKeyDown={onRegistrationUrlKeyDown} onChange={e => setRegistrationUrl(e.target.value)} />
-            </div>
-          </div>
-          <div className="registrations-get">
-            <button className="button is-info" onClick={() => getRegistrationCategories(registrationUrl)} disabled={!registrationUrl}>Get Categories</button>
-          </div>
           {
             recentLinks.length > 0 &&
-            <div className="field mt-4 is-horizontal">
+            <div className="field is-horizontal recent-label">
               <div className="field-label is-normal">
                 <label className="label recent-label">Recently Imported:</label>
               </div>
@@ -230,6 +222,19 @@ function BracketRegistration() {
               </div>
             </div>
           }
+          <p className="mb-2">
+            This tool imports registrations from the IBJJF registration system and displays the current ratings of the competitors. To view registrations, {' '} 
+            <b>select a recently imported event above</b>, or find an event on <a href="https://ibjjf.com/" target="_blank" rel="nofollow noreferrer">ibjjf.com</a>, select "ATHLETES LIST BY DIVISIONS" from the event page,
+            then copy and paste the URL from the browser address bar into the box below:
+          </p>
+          <div className="field">
+            <div className="control">
+              <input className="input" type="text" placeholder="Paste registration URL e.g. https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations" value={registrationUrl} onKeyDown={onRegistrationUrlKeyDown} onChange={e => setRegistrationUrl(e.target.value)} />
+            </div>
+          </div>
+          <div className="registrations-get">
+            <button className="button is-info" onClick={() => getRegistrationCategories(registrationUrl)} disabled={!registrationUrl}>Get Categories</button>
+          </div>
         </div>
         {
           error && <div className="notification is-danger mt-4">{error}</div>
