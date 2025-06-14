@@ -440,6 +440,7 @@ def recent_registrations():
         db.session.query(RegistrationLink)
         .filter(RegistrationLink.normalized_name.notlike("%idade 04 a 15 anos%"))
         .filter(RegistrationLink.normalized_name.notlike("% kids %"))
+        .filter(RegistrationLink.normalized_name.notlike("%criancas%"))
         .order_by(RegistrationLink.updated_at.desc())
         .limit(20)
         .all()
@@ -1164,6 +1165,14 @@ def events():
     tournaments = []
     for option in tournaments_select.find_all("option"):
         if option.get("value"):
+            name = option.text.strip()
+            normalized_name = normalize(name)
+            if (
+                "idade 04 a 15 anos" in normalized_name
+                or " kids " in normalized_name
+                or "criancas" in normalized_name
+            ):
+                continue
             tournaments.append({"id": option["value"], "name": option.text})
 
     return jsonify({"events": tournaments})
