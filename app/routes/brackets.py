@@ -1290,7 +1290,7 @@ def archive_competitors():
     for medal in medals:
         medals_by_id[str(medal.athlete_id)] = str(medal.place)
 
-    use_seeds = "(" not in event_name
+    use_seeds = "idade 04 a 15 anos" in event_name or "(" not in event_name
 
     competitors = []
     parsed_matches = []
