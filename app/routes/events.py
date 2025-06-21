@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from sqlalchemy.sql import exists
+from sqlalchemy.sql import exists, or_
 from extensions import db
 from models import Event, Match, Division
 from normalize import normalize
@@ -33,7 +33,9 @@ def events():
     for name_part in search.split():
         query = query.filter(Event.normalized_name.like(f"%{name_part}%"))
     if not historical:
-        query = query.filter(Event.name.not_like("%(%"))
+        query = query.filter(
+            or_(Event.name.not_like("%(%"), Event.name.like("%idade 04 a 15 anos%"))
+        )
     query = query.order_by(Event.name).limit(MAX_RESULTS)
     results = query.all()
 
