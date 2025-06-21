@@ -47,6 +47,11 @@ def main():
         "--athlete-id", type=str, help="Only recompute ratings for this athlete."
     )
     parser.add_argument(
+        "--teens",
+        action="store_true",
+        help="Only recompute ratings for teens.",
+    )
+    parser.add_argument(
         "--bg",
         action="store_true",
         help="Run in the background.",
@@ -54,7 +59,12 @@ def main():
 
     args = parser.parse_args()
 
-    if not args.start_date and not args.rank_only and not args.athlete_id:
+    if (
+        not args.start_date
+        and not args.rank_only
+        and not args.athlete_id
+        and not args.teens
+    ):
         # warn user that this will take a long time and make them confirm they want to proceed
         confirm = input(
             "This will recompute ALL ratings in the database. Are you sure you want to proceed? (y/n) "
@@ -126,6 +136,7 @@ def run_recompute(args):
                 reranknogi=False,
                 rank_previous_date=rank_previous_date,
                 athlete_id=args.athlete_id,
+                teens=args.teens,
             )
             recompute_all_ratings(
                 db,
@@ -138,6 +149,7 @@ def run_recompute(args):
                 reranknogi=True,
                 rank_previous_date=rank_previous_date,
                 athlete_id=args.athlete_id,
+                teens=args.teens,
             )
         else:
             recompute_all_ratings(
@@ -151,6 +163,7 @@ def run_recompute(args):
                 reranknogi=not args.gi,
                 rank_previous_date=rank_previous_date,
                 athlete_id=args.athlete_id,
+                teens=args.teens,
             )
 
         db.session.commit()

@@ -7,6 +7,7 @@ from models import Match, Division, Suspension, Athlete, MatchParticipant
 from elo import compute_ratings
 from current import generate_current_ratings
 from normalize import normalize
+from constants import TEEN_1, TEEN_2, TEEN_3
 
 log = logging.getLogger("ibjjf")
 
@@ -22,6 +23,7 @@ def recompute_all_ratings(
     reranknogi: bool = True,
     rank_previous_date: Optional[datetime] = None,
     athlete_id: Optional[str] = None,
+    teens: bool = False,
 ) -> None:
     if score:
         query = db.session.query(Match).join(Division).filter(Division.gi == gi)
@@ -30,6 +32,8 @@ def recompute_all_ratings(
             query = query.filter(Division.gender == gender)
         if start_date is not None:
             query = query.filter(Match.happened_at >= start_date)
+        if teens:
+            query = query.filter(Division.age.in_([TEEN_1, TEEN_2, TEEN_3]))
 
         if athlete_id is not None:
             subquery = (
@@ -146,7 +150,7 @@ def recompute_all_ratings(
                 if changed:
                     db.session.flush()
 
-    if rerank and (rerankgi or reranknogi):
+    if not teens and rerank and (rerankgi or reranknogi):
         if rerankgi and reranknogi:
             desc = "gi/no-gi"
         elif rerankgi:
