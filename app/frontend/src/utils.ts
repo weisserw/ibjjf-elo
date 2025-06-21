@@ -82,5 +82,5 @@ export interface DBResults {
 }
 
 export const isHistorical = (row: DBRow) => {
-  return /\([^\)]+\)/.test(row.event);
+  return !/idade 04 a 15 anos/.test(row.event) && /\([^\)]+\)/.test(row.event);
 }
