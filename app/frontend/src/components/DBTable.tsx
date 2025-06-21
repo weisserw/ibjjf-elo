@@ -129,7 +129,7 @@ function DBTable() {
     navigate('/brackets')
   }
 
-  const hasHistorical = useMemo(() => data.some(isHistorical), [data]);
+  const hasHistorical = useMemo(() => data.map(row => row.event).some(isHistorical), [data]);
 
   if (loading) {
     return (

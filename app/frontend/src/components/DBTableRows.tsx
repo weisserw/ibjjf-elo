@@ -151,7 +151,7 @@ function DBTableRows(props: DBTableRowsProps) {
             }
             {
               !!data.length && data.map((row: Row, index: number) => (
-                <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row)})}>
+                <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row.event)})}>
                   <td data-id={row.winnerId}>
                     {
                       noLinks ? row.winner :
@@ -193,7 +193,7 @@ function DBTableRows(props: DBTableRowsProps) {
                         <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
                       }
                       {
-                        !isHistorical(row) && row.age !== "Juvenile" &&
+                        !isHistorical(row.event) && row.age !== "Juvenile" &&
                         <button className="button is-small is-tiny" onClick={() => divisionBracketClicked?.(row)}>
                           <span className="icon has-text-info">
                             <i className="fas fa-project-diagram"/>
@@ -228,7 +228,7 @@ function DBTableRows(props: DBTableRowsProps) {
           !!data.length && data.map((row: Row) => {
             const weightText = openWeightText(row);
             return (
-              <div key={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row)})}>
+              <div key={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row.event)})}>
                 <div className="date-box">
                   {dayjs(row.date).format('MMM D YYYY, h:mma')}
                 </div>
@@ -276,7 +276,7 @@ function DBTableRows(props: DBTableRowsProps) {
                           <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
                         }
                         {
-                          !isHistorical(row) &&
+                          !isHistorical(row.event) &&
                           <button className="button is-small is-tiny" onClick={() => divisionBracketClicked?.(row)}>
                             <span className="icon has-text-info">
                               <i className="fas fa-project-diagram"/>

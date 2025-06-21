@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree from './BracketTree'
 import Autosuggest from 'react-autosuggest'
-import { axiosErrorToast } from '../utils';
+import { axiosErrorToast, isHistorical } from '../utils';
 import debounce from 'lodash/debounce';
 import { isGi, handleError, nearestPowerOfTwo } from './BracketUtils'
 import type { LiveCompetitorsResponse, Match as BracketMatch } from './BracketUtils'
@@ -270,7 +270,7 @@ function BracketArchive() {
     navigate('/calculator');
   }
 
-  const showSeed = !eventName.includes('(');
+  const showSeed = !isHistorical(eventName);
 
   const hasMatchNums = useMemo(() => {
     return matches?.some(match => match.match_num !== null) ?? false

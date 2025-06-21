@@ -317,7 +317,7 @@ function Calculator() {
     }
   }, [firstAthleteToFetch, secondAthleteToFetch]);
 
-  const hasHistorical = useMemo(() => data.some(isHistorical), [data]);
+  const hasHistorical = useMemo(() => data.map(row => row.event).some(isHistorical), [data]);
 
   return (
     <div className="container calculator-container">
