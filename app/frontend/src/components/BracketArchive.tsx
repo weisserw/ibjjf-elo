@@ -211,18 +211,25 @@ function BracketArchive() {
     return true
   }, [selectedCategory, categories])
 
-  useEffect(() => {
+  const showSeed = !isHistorical(eventName);
+
+  const usableSortColumn = useMemo(() => {
+    let column = sortColumn
     if (!showRatings && sortColumn === 'rating') {
-      setSortColumn('seed')
+      column = 'seed'
     }
-  }, [showRatings, sortColumn])
+    if (!showSeed && sortColumn === 'seed') {
+      column = 'rating'
+    }
+    return column
+  }, [sortColumn, showRatings, showSeed])
 
   const sortedCompetitors = useMemo(() => {
     if (competitors === null) {
       return null
     }
     return [...competitors].sort((a, b) => {
-      if (sortColumn === 'rating') {
+      if (usableSortColumn === 'rating') {
         const aRating = a.ordinal ?? -1;
         const bRating = b.ordinal ?? -1;
         if (aRating === bRating) {
@@ -234,7 +241,7 @@ function BracketArchive() {
         return a.seed - b.seed
       }
     })
-  }, [competitors, sortColumn])
+  }, [competitors, usableSortColumn])
 
   const averageRating = useMemo(() => {
     if (competitors === null || competitors.length === 0) {
@@ -269,8 +276,6 @@ function BracketArchive() {
 
     navigate('/calculator');
   }
-
-  const showSeed = !isHistorical(eventName);
 
   const hasMatchNums = useMemo(() => {
     return matches?.some(match => match.match_num !== null) ?? false
@@ -372,7 +377,7 @@ function BracketArchive() {
             <BracketTree matches={matches}
                          matchCount={expectedMatchCount}
                          hasMatchNums={hasMatchNums}
-                         showSeed={sortColumn === 'seed'}
+                         showSeed={usableSortColumn === 'seed'}
                          showRefresh={false}
                          showRatings={showRatings}
                          calculateClicked={calculateMatch}
@@ -382,7 +387,7 @@ function BracketArchive() {
         {
           (!!eventNameFetch && categories !== null && competitors !== null) && (
             <BracketTable competitors={sortedCompetitors}
-                          sortColumn={showSeed ? sortColumn : 'rating'}
+                          sortColumn={usableSortColumn}
                           showSeed={showSeed}
                           showEndRating={true}
                           showRatings={showRatings}

@@ -218,12 +218,6 @@ function BracketLive() {
     return true
   }, [selectedCategory, categories])
 
-  useEffect(() => {
-    if (!showRatings && sortColumn === 'rating') {
-      setSortColumn('seed')
-    }
-  }, [showRatings, sortColumn])
-
   const selectedCategoryLink = useMemo(() => {
     if (selectedCategory && categories) {
       const category = categories.find(c => categoryString(c) === selectedCategory)
@@ -244,6 +238,21 @@ function BracketLive() {
     return null
   }, [events, selectedEvent])
 
+  const showNext = useMemo(() => (
+    competitors?.some(c => c.next_when && c.next_where) ?? false
+  ), [competitors]);
+
+  const usableSortColumn = useMemo(() => {
+    let column = sortColumn;
+    if (!showNext && column === 'next') {
+      column = 'rating';
+    }
+    if (!showRatings && column === 'rating') {
+      column = 'seed';
+    }
+    return column;
+  }, [sortColumn, showRatings, showNext]);
+
   const sortedCompetitors = useMemo(() => {
     if (competitors === null) {
       return null
@@ -251,13 +260,13 @@ function BracketLive() {
     return [...competitors].sort((a, b) => {
       const aRating = a.ordinal ?? -1;
       const bRating = b.ordinal ?? -1;
-      if (sortColumn === 'rating') {
+      if (usableSortColumn === 'rating') {
         if (aRating === bRating) {
           return a.seed - b.seed
         } else {
           return aRating - bRating
         }
-      } else if (sortColumn === 'seed') {
+      } else if (usableSortColumn === 'seed') {
         return a.seed - b.seed
       } else {
         if (!a.next_when && !b.next_when) {
@@ -281,7 +290,7 @@ function BracketLive() {
         }
       }
     })
-  }, [competitors, sortColumn])
+  }, [competitors, usableSortColumn])
 
   const averageRating = useMemo(() => {
     if (competitors === null || competitors.length === 0) {
@@ -334,16 +343,6 @@ function BracketLive() {
 
     navigate('/calculator');
   }
-
-  const showNext = useMemo(() => (
-    sortedCompetitors?.some(c => c.next_when && c.next_where) ?? false
-  ), [sortedCompetitors]);
-
-  useEffect(() => {
-    if (!showNext && sortColumn === 'next') {
-      setSortColumn('rating')
-    }
-  }, [showNext, sortColumn])
 
   return (
     <div className="brackets-content">
@@ -427,7 +426,7 @@ function BracketLive() {
               matches={matches}
               matchCount={matches.length}
               hasMatchNums={true}
-              showSeed={sortColumn === 'seed'}
+              showSeed={usableSortColumn === 'seed'}
               showRefresh={true}
               isRefreshing={loading}
               showRatings={showRatings}
@@ -459,7 +458,7 @@ function BracketLive() {
           (events !== null && categories !== null && competitors !== null) && (
             <BracketTable
               competitors={sortedCompetitors}
-              sortColumn={sortColumn}
+              sortColumn={usableSortColumn}
               showSeed={true}
               showEndRating={true}
               showNext={showNext}
