@@ -13,6 +13,7 @@ from constants import (
     JUVENILE,
     JUVENILE_1,
     JUVENILE_2,
+    rated_ages_in,
 )
 from elo import RATING_VERY_IMMATURE_COUNT
 import logging
@@ -46,6 +47,7 @@ def create_ratings_tables(
                     JOIN athletes a ON a.id = mp.athlete_id
                     JOIN divisions d ON d.id = m.division_id
                     WHERE {date_where}
+                    AND d.age IN ({rated_ages_in})
                     AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
                     GROUP BY mp.athlete_id
                 )
@@ -80,6 +82,7 @@ def create_ratings_tables(
             WHERE {date_where}
             AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
             AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2)
+            AND d.age IN ({rated_ages_in})
             """
         ),
         {
@@ -116,6 +119,7 @@ def create_ratings_tables(
             AND {date_where}
             AND m.happened_at >= :activity_period
             AND d.gi in ({gi_in})
+            AND d.age in ({rated_ages_in})
             AND m.rated
             AND (
                 (ta.athlete_id IS NOT NULL AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
@@ -158,6 +162,7 @@ def create_ratings_tables(
             AND {date_where}
             AND m.happened_at >= :activity_period
             AND d.gi in ({gi_in})
+            AND d.age in ({rated_ages_in})
             AND m.rated
             AND (
                 (ta.athlete_id IS NOT NULL AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
@@ -255,6 +260,7 @@ def create_ratings_tables(
                 JOIN divisions d ON d.id = m.division_id
                 JOIN {name}_athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
                 WHERE d.gi in ({gi_in}) AND {date_where}
+                AND d.age in ({rated_ages_in})
             ), ratings AS (
                 SELECT
                     rm.athlete_id,
@@ -348,7 +354,8 @@ def generate_current_ratings(
                 FROM matches m
                 JOIN divisions d ON m.division_id = d.id
                 WHERE m.happened_at >= :previous_date
-                AND d.gi in ({gi_in})
+                AND d.age IN ({rated_ages_in})
+                AND d.gi IN ({gi_in})
                 """
             ),
             {"previous_date": previous_date},

@@ -117,6 +117,10 @@ function DBTableRows(props: DBTableRowsProps) {
     return row.event
   }
 
+  const showRating = (row: Row) => {
+    return !row.age.startsWith('Teen')
+  }
+
   return (
     <>
       <div className="table-container is-hidden-touch">
@@ -154,14 +158,28 @@ function DBTableRows(props: DBTableRowsProps) {
                       <a href="#" onClick={e => athleteClicked?.(e, row.winner)}>{row.winner}</a>
                     }
                   </td>
-                  <td>{row.winnerStartRating}→ <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}</td>
+                  <td>
+                    {
+                    showRating(row) &&
+                      <span>
+                      {row.winnerStartRating}→ <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}
+                      </span>
+                    }
+                  </td>
                   <td data-id={row.loserId}>
                     {
                       noLinks ? row.loser :
                       <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>{row.loser}</a>
                     }
                   </td>
-                  <td>{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, index === 0)}</td>
+                  <td>
+                    {
+                    showRating(row) &&
+                      <span>
+                      {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, index === 0)}
+                      </span>
+                    }
+                  </td>
                   <td className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": index === 0})} data-tooltip={shortEvent(row) !== row.event ? row.event : undefined}>
                     {
                       noLinks ? shortEvent(row) :
@@ -222,7 +240,13 @@ function DBTableRows(props: DBTableRowsProps) {
                         noLinks ? row.winner :
                         <a href="#" onClick={e => athleteClicked?.(e, row.winner)}>{row.winner}</a>
                       }
-                      {' '}{row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, true)}
+                      {' '}
+                      {
+                      showRating(row) &&
+                        <span>
+                          {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, true)}
+                        </span>
+                      }
                     </div>
                     <div className="column has-text-right-tablet" data-id={row.loserId}>
                       <strong>Loser:</strong>{' '}
@@ -230,7 +254,12 @@ function DBTableRows(props: DBTableRowsProps) {
                         noLinks ? row.loser :
                         <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>{row.loser}</a>
                       }
-                      {' '}{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, true)}
+                      {
+                      showRating(row) &&
+                        <span>
+                          {' '}{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, true)}
+                        </span>
+                      }
                     </div>
                   </div>
                   <div className="columns">

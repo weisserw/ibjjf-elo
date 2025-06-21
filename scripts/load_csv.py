@@ -212,7 +212,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                             try:
                                 age = translate_age(row["Age"])
                             except ValueError:
-                                continue  # kids ages raise ValueError
+                                continue  # < teen 1 ages raise ValueError
 
                             belt = translate_belt(row["Belt"])
                             weight = translate_weight(row["Weight"])

@@ -51,6 +51,11 @@ export interface FilterValues {
   age_master6?: boolean;
   age_master7?: boolean;
   age_juvenile?: boolean;
+  age_teen?: boolean;
+  belt_grey?: boolean;
+  belt_yellow?: boolean;
+  belt_orange?: boolean;
+  belt_green?: boolean;
   belt_white?: boolean;
   belt_blue?: boolean;
   belt_purple?: boolean;
@@ -181,7 +186,7 @@ function DBFilters() {
 
   const getAthleteSuggestions = async ({ value }: { value: string }) => {
     try {
-      const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
+      const response = await axios.get(`/api/athletes?allowteen=true&search=${encodeURIComponent(value)}`);
       setAthleteSuggestions(response.data);
     } catch (error) {
       axiosErrorToast(error);
@@ -347,7 +352,7 @@ function DBFilters() {
                      isBold={anyDivisionFiltersSet}>
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Age:</label>
-                {['Adult', 'Master 1', 'Master 2', 'Master 3', 'Master 4', 'Master 5', 'Master 6', 'Master 7', 'Juvenile'].map(age => {
+                {['Adult', 'Master 1', 'Master 2', 'Master 3', 'Master 4', 'Master 5', 'Master 6', 'Master 7', 'Juvenile', 'Teen'].map(age => {
                   const key = ageToFilter(age);
                   return (
                     <label key={age} className="checkbox checkbox-filter">
@@ -385,7 +390,7 @@ function DBFilters() {
               </div>
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Belt:</label>
-                {['White', 'Blue', 'Purple', 'Brown', 'Black'].map(belt => {
+                {['White', 'Grey', 'Yellow', 'Orange', 'Green', 'Blue', 'Purple', 'Brown', 'Black'].map(belt => {
                   const key = beltToFilter(belt);
                   return (
                     <label key={belt} className="checkbox checkbox-filter">

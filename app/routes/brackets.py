@@ -42,6 +42,7 @@ from constants import (
     OPEN_CLASS_HEAVY,
     OPEN_CLASS_LIGHT,
     JUVENILE,
+    rated_ages,
 )
 from elo import (
     compute_start_rating,
@@ -438,9 +439,6 @@ def bring_to_front(lst, name):
 def recent_registrations():
     links = (
         db.session.query(RegistrationLink)
-        .filter(RegistrationLink.normalized_name.notlike("%idade 04 a 15 anos%"))
-        .filter(RegistrationLink.normalized_name.notlike("% kids %"))
-        .filter(RegistrationLink.normalized_name.notlike("%criancas%"))
         .order_by(RegistrationLink.updated_at.desc())
         .limit(20)
         .all()
@@ -544,7 +542,12 @@ def registration_categories():
         total_competitors += len(entry["RegistrationCategories"])
 
         lowered = division_name.lower()
-        if not ("master" in lowered or "adult" in lowered or "juven" in lowered):
+        if not (
+            "master" in lowered
+            or "adult" in lowered
+            or "juven" in lowered
+            or "teen" in lowered
+        ):
             continue
 
         rows.append(weightre.sub("", division_name))
@@ -598,7 +601,12 @@ def registration_competitors():
     for entry in json_data:
         division_name = entry["FriendlyName"]
         lowered = division_name.lower()
-        if not ("master" in lowered or "adult" in lowered or "juven" in lowered):
+        if not (
+            "master" in lowered
+            or "adult" in lowered
+            or "juven" in lowered
+            or "teen" in lowered
+        ):
             continue
         division_name = weightre.sub("", division_name)
 
@@ -686,7 +694,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         blue_expected = None
         blue_handicap = 0
 
-        if red_rating is not None and blue_rating is not None:
+        if red_rating is not None and blue_rating is not None and age in rated_ages:
             if (
                 red_weight != blue_weight
                 and red_weight != "Unknown"
@@ -1165,14 +1173,6 @@ def events():
     tournaments = []
     for option in tournaments_select.find_all("option"):
         if option.get("value"):
-            name = option.text.strip()
-            normalized_name = normalize(name)
-            if (
-                "idade 04 a 15 anos" in normalized_name
-                or " kids " in normalized_name
-                or "criancas" in normalized_name
-            ):
-                continue
             tournaments.append({"id": option["value"], "name": option.text})
 
     return jsonify({"events": tournaments})

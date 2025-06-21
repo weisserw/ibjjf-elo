@@ -133,7 +133,8 @@ function About() {
           <strong>Q: Are you going to track kids divisions?</strong>
         </p>
         <p className="content">
-          A: We have decided not to track age divisions below Juvenile at this time.
+          A: We have decided to store a searchable list of teen matches as some of these athletes are beginning their serious competitive journey in the sport.
+          However, we do not compute ratings for teens and we do not track younger divisions in order to promote a healthy competitive environment for children.
         </p>
       </div>
     </section>

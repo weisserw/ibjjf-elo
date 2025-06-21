@@ -9,6 +9,10 @@ from constants import (
     BROWN,
     PURPLE,
     BLUE,
+    GREEN,
+    ORANGE,
+    YELLOW,
+    GREY,
     WHITE,
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
@@ -22,9 +26,13 @@ from constants import (
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    TEEN_1,
+    TEEN_2,
+    TEEN_3,
     weight_class_order,
     belt_order,
     age_order,
+    rated_ages,
 )
 
 log = logging.getLogger("ibjjf")
@@ -132,11 +140,39 @@ WHITE_DEFAULT_RATINGS = {
     MASTER_7: 892.46,
 }
 
+GREEN_DEFAULT_RATINGS = {
+    TEEN_1: 0,
+    TEEN_2: 0,
+    TEEN_3: 0,
+}
+
+ORANGE_DEFAULT_RATINGS = {
+    TEEN_1: 0,
+    TEEN_2: 0,
+    TEEN_3: 0,
+}
+
+YELLOW_DEFAULT_RATINGS = {
+    TEEN_1: 0,
+    TEEN_2: 0,
+    TEEN_3: 0,
+}
+
+GREY_DEFAULT_RATINGS = {
+    TEEN_1: 0,
+    TEEN_2: 0,
+    TEEN_3: 0,
+}
+
 DEFAULT_RATINGS = {
     BLACK: BLACK_DEFAULT_RATINGS,
     BROWN: BROWN_DEFAULT_RATINGS,
     PURPLE: PURPLE_DEFAULT_RATINGS,
     BLUE: BLUE_DEFAULT_RATINGS,
+    GREEN: GREEN_DEFAULT_RATINGS,
+    ORANGE: ORANGE_DEFAULT_RATINGS,
+    YELLOW: YELLOW_DEFAULT_RATINGS,
+    GREY: GREY_DEFAULT_RATINGS,
     WHITE: WHITE_DEFAULT_RATINGS,
 }
 
@@ -493,6 +529,30 @@ def compute_ratings(
         red_note,
         blue_note,
     )
+
+    if division.age not in rated_ages:
+        log.debug("Division age %s is not rated, skipping", division.age)
+        red_weight, blue_weight = None, None
+        if division.weight in (OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY):
+            red_weight = get_weight(db, division, red_athlete_id, happened_at, event_id)
+            blue_weight = get_weight(
+                db, division, blue_athlete_id, happened_at, event_id
+            )
+        return (
+            False,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            red_weight,
+            blue_weight,
+            "Unrated: age division not rated",
+            "Unrated: age division not rated",
+            0,
+            0,
+            0,
+            0,
+        )
 
     red_last_match, red_same_or_higher_age_match = get_last_matches(
         db, division, red_athlete_id, happened_at, match_id

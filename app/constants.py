@@ -2,12 +2,24 @@ BLACK = "BLACK"
 BROWN = "BROWN"
 PURPLE = "PURPLE"
 BLUE = "BLUE"
+GREEN = "GREEN"
+ORANGE = "ORANGE"
+YELLOW = "YELLOW"
+GREY = "GREY"
 WHITE = "WHITE"
 
-belt_order = [WHITE, BLUE, PURPLE, BROWN, BLACK]
+belt_order = [WHITE, GREY, YELLOW, ORANGE, GREEN, BLUE, PURPLE, BROWN, BLACK]
 
 
 def translate_belt(belt: str) -> str:
+    if belt == "CINZA":
+        return GREY
+    if belt == "AMARELA":
+        return YELLOW
+    if belt == "LARANJA":
+        return ORANGE
+    if belt == "VERDE":
+        return GREEN
     if belt == "AZUL":
         return BLUE
     if belt == "BRANCA":
@@ -18,7 +30,7 @@ def translate_belt(belt: str) -> str:
         return BLACK
     if belt == "ROXA":
         return PURPLE
-    if belt not in [BLACK, BROWN, PURPLE, BLUE, WHITE]:
+    if belt not in belt_order:
         raise ValueError("Invalid belt " + belt)
     return belt
 
@@ -118,6 +130,9 @@ weight_class_order_all = [
 ]
 
 
+TEEN_1 = "Teen 1"
+TEEN_2 = "Teen 2"
+TEEN_3 = "Teen 3"
 JUVENILE = "Juvenile"
 JUVENILE_1 = "Juvenile 1"
 JUVENILE_2 = "Juvenile 2"
@@ -133,6 +148,9 @@ MASTER_7 = "Master 7"
 
 
 age_order = [
+    TEEN_1,
+    TEEN_2,
+    TEEN_3,
     JUVENILE,
     ADULT,
     MASTER_1,
@@ -145,6 +163,9 @@ age_order = [
 ]
 
 age_order_all = [
+    TEEN_1,
+    TEEN_2,
+    TEEN_3,
     JUVENILE_1,
     JUVENILE_2,
     JUVENILE,
@@ -158,13 +179,38 @@ age_order_all = [
     MASTER_7,
 ]
 
+rated_ages = [
+    JUVENILE_1,
+    JUVENILE_2,
+    JUVENILE,
+    ADULT,
+    MASTER_1,
+    MASTER_2,
+    MASTER_3,
+    MASTER_4,
+    MASTER_5,
+    MASTER_6,
+    MASTER_7,
+]
+
+rated_ages_in = ", ".join(f"'{age}'" for age in rated_ages)
+
 
 def translate_age(age: str) -> str:
+    if age == "Infanto Juvenil 1":
+        return TEEN_1
+    if age == "Infanto Juvenil 2":
+        return TEEN_2
+    if age == "Infanto Juvenil 3":
+        return TEEN_3
     if age in ("Juvenil", "Juvenile 1", "Juvenile 2", "Juvenil 1", "Juvenil 2"):
         return JUVENILE
     if age == "Adulto":
         return ADULT
     if age not in [
+        TEEN_1,
+        TEEN_2,
+        TEEN_3,
         JUVENILE,
         ADULT,
         MASTER_1,
@@ -180,6 +226,12 @@ def translate_age(age: str) -> str:
 
 
 def translate_age_keep_juvenile(age: str) -> str:
+    if age == "Infanto Juvenil 1":
+        return TEEN_1
+    if age == "Infanto Juvenil 2":
+        return TEEN_2
+    if age == "Infanto Juvenil 3":
+        return TEEN_3
     if age == "Juvenil":
         return JUVENILE
     if age == "Juvenil 1":
@@ -189,6 +241,9 @@ def translate_age_keep_juvenile(age: str) -> str:
     if age == "Adulto":
         return ADULT
     if age not in [
+        TEEN_1,
+        TEEN_2,
+        TEEN_3,
         JUVENILE,
         JUVENILE_1,
         JUVENILE_2,

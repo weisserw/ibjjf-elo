@@ -12,6 +12,7 @@ interface BracketTreeMatchProps {
   showSeed: boolean;
   levelIndex: number;
   matchIndex: number;
+  showRatings: boolean;
   calculateEnabled: (match: Match) => boolean;
   calculateClicked: (match: Match) => void;
 }
@@ -39,7 +40,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
           )
         }
         {
-          props.calculateEnabled(match) &&
+          (props.showRatings && props.calculateEnabled(match)) &&
           <button className="button is-small bracket-tree-match-calc" onClick={() => props.calculateClicked(match)}>
             <span className="icon is-small has-text-info">
               <i className="fas fa-calculator"/>
@@ -77,7 +78,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.red_note?.toLowerCase() === s)})}>
                     {match.red_name}
                     {
-                      match.red_rating !== null &&
+                      (props.showRatings && match.red_rating !== null) &&
                         <span className="bracket-tree-match-rating"> ({Math.round(match.red_rating)}{
                           match.red_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.red_handicap)}</span>
                         })
@@ -121,7 +122,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)})}>
                     {match.blue_name}
                     {
-                      match.blue_rating !== null &&
+                      (props.showRatings && match.blue_rating !== null) &&
                       <span className="bracket-tree-match-rating"> ({Math.round(match.blue_rating)}{
                         match.blue_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.blue_handicap)}</span>
                       })
@@ -166,6 +167,7 @@ interface BracketTreeProps {
   showSeed: boolean;
   hasMatchNums: boolean;
   showRefresh: boolean;
+  showRatings: boolean;
   isRefreshing?: boolean;
   calculateClicked: (match: Match) => void;
   refreshClicked?: () => void;
@@ -259,6 +261,7 @@ function BracketTree(props: BracketTreeProps) {
                       match={match}
                       showSeed={props.showSeed}
                       levelIndex={levelIndex}
+                      showRatings={props.showRatings}
                       calculateClicked={props.calculateClicked}
                       calculateEnabled={props.calculateEnabled}
                       matchIndex={matchIndex}

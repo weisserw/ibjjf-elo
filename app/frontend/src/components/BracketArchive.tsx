@@ -201,6 +201,22 @@ function BracketArchive() {
     }
   }, [categories, selectedCategory])
 
+  const showRatings = useMemo(() => {
+    if (selectedCategory && categories) {
+      const category = categories.find(c => categoryString(c) === selectedCategory)
+      if (category) {
+        return !category.age.startsWith('Teen')
+      }
+    }
+    return true
+  }, [selectedCategory, categories])
+
+  useEffect(() => {
+    if (!showRatings && sortColumn === 'rating') {
+      setSortColumn('seed')
+    }
+  }, [showRatings, sortColumn])
+
   const sortedCompetitors = useMemo(() => {
     if (competitors === null) {
       return null
@@ -334,7 +350,7 @@ function BracketArchive() {
                     </div>
                     <div className="column is-vcentered">
                     {
-                      averageRating !== undefined && (
+                      (showRatings && averageRating !== undefined) && (
                         <span>{`Average rating: ${averageRating}`}</span>
                       )
                     }
@@ -358,6 +374,7 @@ function BracketArchive() {
                          hasMatchNums={hasMatchNums}
                          showSeed={sortColumn === 'seed'}
                          showRefresh={false}
+                         showRatings={showRatings}
                          calculateClicked={calculateMatch}
                          calculateEnabled={calculateEnabled}/>
           )
@@ -368,6 +385,7 @@ function BracketArchive() {
                           sortColumn={showSeed ? sortColumn : 'rating'}
                           showSeed={showSeed}
                           showEndRating={true}
+                          showRatings={showRatings}
                           showWeight={selectedCategory?.includes(' / Open') ?? false}
                           selectedCategory={selectedCategory}
                           isGi={isGi(eventNameFetch)}

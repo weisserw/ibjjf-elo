@@ -186,6 +186,13 @@ function BracketRegistration() {
     return athlete.rating !== null && athlete.match_count !== null && athlete.match_count > 0
   }
 
+  const showRatings = useMemo(() => {
+    if (selectedRegistrationCategory) {
+      return !/Teen/.test(selectedRegistrationCategory)
+    }
+    return true
+  }, [selectedRegistrationCategory])
+
   return (
     <div className="brackets-content">
       <div>
@@ -265,7 +272,7 @@ function BracketRegistration() {
                   </div>
                   <div className="column is-vcentered">
                   {
-                    averageRating !== undefined && (
+                    (showRatings && averageRating !== undefined) && (
                       <span>{`Average rating: ${averageRating}`}</span>
                     )
                   }
@@ -275,7 +282,7 @@ function BracketRegistration() {
             }
             {
               registrationCategories.length === 0 && (
-                <div className="notification is-warning">No valid brackets found. Note: we do not load kids divisions.</div>
+                <div className="notification is-warning">No valid brackets found. Note: we do not load age divisions below Teen 1.</div>
               )
             }
           </div>)
@@ -286,6 +293,7 @@ function BracketRegistration() {
                           showSeed={false}
                           showRank={true}
                           selectedCategory={selectedRegistrationCategory}
+                          showRatings={showRatings}
                           isGi={isGi(registrationEventName ?? '')}
                           athleteClicked={registrationAthleteClicked}
                           calculateEnabled={calculateEnabledAthlete} />

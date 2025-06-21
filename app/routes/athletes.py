@@ -4,7 +4,14 @@ from extensions import db
 from models import Athlete, MatchParticipant, Match, Division
 from normalize import normalize
 from elo import EloCompetitor, AGE_K_FACTOR_MODIFIERS, weight_handicaps
-from constants import OPEN_CLASS, OPEN_CLASS_HEAVY, OPEN_CLASS_LIGHT
+from constants import (
+    OPEN_CLASS,
+    OPEN_CLASS_HEAVY,
+    OPEN_CLASS_LIGHT,
+    TEEN_1,
+    TEEN_2,
+    TEEN_3,
+)
 
 athletes_route = Blueprint("athletes_route", __name__)
 
@@ -94,6 +101,9 @@ def ratings():
         .join(Athlete)
         .filter(Athlete.normalized_name == name)
         .filter(Division.gi == gi)
+        .filter(Division.age != TEEN_1)
+        .filter(Division.age != TEEN_2)
+        .filter(Division.age != TEEN_3)
     )
 
     weight_query = (
@@ -109,6 +119,9 @@ def ratings():
         .filter(Division.weight != OPEN_CLASS)
         .filter(Division.weight != OPEN_CLASS_HEAVY)
         .filter(Division.weight != OPEN_CLASS_LIGHT)
+        .filter(Division.age != TEEN_1)
+        .filter(Division.age != TEEN_2)
+        .filter(Division.age != TEEN_3)
     )
 
     info = {
@@ -133,6 +146,7 @@ def athletes():
     search = normalize(request.args.get("search", ""))
     gi = request.args.get("gi")
     gender = request.args.get("gender")
+    allowteen = request.args.get("allow_teen", "")
 
     query = db.session.query(Athlete.name).filter(
         Athlete.normalized_name.like(f"{search}%")
@@ -164,6 +178,32 @@ def athletes():
         )
 
         query = query.filter(exists().where(Athlete.id == subquery_gender.c.athlete_id))
+
+    if not (allowteen.lower() == "true"):
+        # use subquery to remove athletes whose most recent match was in a teen division
+        recent_match_subq = (
+            db.session.query(Match.happened_at)
+            .join(MatchParticipant, Match.id == MatchParticipant.match_id)
+            .filter(MatchParticipant.athlete_id == Athlete.id)
+            .order_by(Match.happened_at.desc())
+            .limit(1)
+            .correlate(Athlete)
+            .scalar_subquery()
+        )
+
+        teen_recent_match_exists = (
+            db.session.query(MatchParticipant.id)
+            .join(Match)
+            .join(Division)
+            .filter(
+                MatchParticipant.athlete_id == Athlete.id,
+                Division.age.in_([TEEN_1, TEEN_2, TEEN_3]),
+                Match.happened_at == recent_match_subq,
+            )
+            .exists()
+        )
+
+        query = query.filter(~teen_recent_match_exists)
 
     query = query.order_by(Athlete.name).limit(MAX_RESULTS)
     results = query.all()

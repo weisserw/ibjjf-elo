@@ -14,6 +14,13 @@ from constants import (
     MASTER_6,
     MASTER_7,
     JUVENILE,
+    TEEN_1,
+    TEEN_2,
+    TEEN_3,
+    GREY,
+    YELLOW,
+    ORANGE,
+    GREEN,
     WHITE,
     BLUE,
     PURPLE,
@@ -99,6 +106,11 @@ def matches():
     age_master6 = request.args.get("age_master6")
     age_master7 = request.args.get("age_master7")
     age_juvenile = request.args.get("age_juvenile")
+    age_teen = request.args.get("age_teen")
+    belt_grey = request.args.get("belt_grey")
+    belt_yellow = request.args.get("belt_yellow")
+    belt_orange = request.args.get("belt_orange")
+    belt_green = request.args.get("belt_green")
     belt_white = request.args.get("belt_white")
     belt_blue = request.args.get("belt_blue")
     belt_purple = request.args.get("belt_purple")
@@ -154,6 +166,16 @@ def matches():
         age_master7 = age_master7.lower() == "true"
     if age_juvenile:
         age_juvenile = age_juvenile.lower() == "true"
+    if age_teen:
+        age_teen = age_teen.lower() == "true"
+    if belt_grey:
+        belt_grey = belt_grey.lower() == "true"
+    if belt_yellow:
+        belt_yellow = belt_yellow.lower() == "true"
+    if belt_orange:
+        belt_orange = belt_orange.lower() == "true"
+    if belt_green:
+        belt_green = belt_green.lower() == "true"
     if belt_white:
         belt_white = belt_white.lower() == "true"
     if belt_blue:
@@ -253,10 +275,22 @@ def matches():
         ages.append(MASTER_7)
     if age_juvenile:
         ages.append(JUVENILE)
+    if age_teen:
+        ages.append(TEEN_1)
+        ages.append(TEEN_2)
+        ages.append(TEEN_3)
     if len(ages):
         filters += "AND d.age IN (" + ", ".join(f"'{a}'" for a in ages) + ")\n"
 
     belts = []
+    if belt_grey:
+        belts.append(GREY)
+    if belt_yellow:
+        belts.append(YELLOW)
+    if belt_orange:
+        belts.append(ORANGE)
+    if belt_green:
+        belts.append(GREEN)
     if belt_white:
         belts.append(WHITE)
     if belt_blue:

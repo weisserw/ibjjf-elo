@@ -208,6 +208,22 @@ function BracketLive() {
     }
   }, [categories, selectedCategory])
 
+  const showRatings = useMemo(() => {
+    if (selectedCategory && categories) {
+      const category = categories.find(c => categoryString(c) === selectedCategory)
+      if (category) {
+        return !category.age.startsWith('Teen')
+      }
+    }
+    return true
+  }, [selectedCategory, categories])
+
+  useEffect(() => {
+    if (!showRatings && sortColumn === 'rating') {
+      setSortColumn('seed')
+    }
+  }, [showRatings, sortColumn])
+
   const selectedCategoryLink = useMemo(() => {
     if (selectedCategory && categories) {
       const category = categories.find(c => categoryString(c) === selectedCategory)
@@ -382,7 +398,7 @@ function BracketLive() {
                       </div>
                       <div className="average">
                       {
-                        averageRating !== undefined && (
+                        (showRatings && averageRating !== undefined) && (
                           <span>{`Average rating: ${averageRating}`}</span>
                         )
                       }
@@ -393,7 +409,7 @@ function BracketLive() {
               }
               {
                 categories.length === 0 && (
-                  <div className="notification is-warning">No valid brackets found. Note: we do not load kids divisions.</div>
+                  <div className="notification is-warning">No valid brackets found. Note: we do not load age divisions below Teen 1.</div>
                 )
               }
             </div>
@@ -414,6 +430,7 @@ function BracketLive() {
               showSeed={sortColumn === 'seed'}
               showRefresh={true}
               isRefreshing={loading}
+              showRatings={showRatings}
               calculateClicked={calculateMatch}
               calculateEnabled={calculateEnabled}
               refreshClicked={viewBracket}
@@ -446,6 +463,7 @@ function BracketLive() {
               showSeed={true}
               showEndRating={true}
               showNext={showNext}
+              showRatings={showRatings}
               showWeight={selectedCategory?.includes(' / Open') ?? false}
               selectedCategory={selectedCategory}
               isGi={isGi(selectedEventName ?? '')}
