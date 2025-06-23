@@ -408,7 +408,7 @@ function BracketLive() {
               }
               {
                 categories.length === 0 && (
-                  <div className="notification is-warning">No valid brackets found. Note: we do not load age divisions below Teen 1.</div>
+                  <div className="notification is-warning">No valid brackets found. Note: we do not load age divisions younger than Teen 1.</div>
                 )
               }
             </div>
@@ -416,6 +416,11 @@ function BracketLive() {
         }
         {
           error && <div className="notification is-danger mt-4">{error}</div>
+        }
+        {
+          categories?.some(c => /Teen/.test(c.age)) && (
+            <div className="notification is-warning mt-4">Note: we do not load age divisions younger than Teen 1.</div>
+          )
         }
         {
           loading && <div className="bracket-loader loader mt-4"></div>

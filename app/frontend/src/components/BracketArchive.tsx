@@ -367,6 +367,11 @@ function BracketArchive() {
           )
         }
         {
+          categories?.some(c => /Teen/.test(c.age)) && (
+            <div className="notification is-warning mt-4">Note: we do not load age divisions younger than Teen 1.</div>
+          )
+        }
+        {
           loading && <div className="bracket-loader loader mt-4"></div>
         }
         {

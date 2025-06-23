@@ -282,10 +282,15 @@ function BracketRegistration() {
             }
             {
               registrationCategories.length === 0 && (
-                <div className="notification is-warning">No valid brackets found. Note: we do not load age divisions below Teen 1.</div>
+                <div className="notification is-warning">No valid brackets found. Note: we do not load age divisions younger than Teen 1.</div>
               )
             }
           </div>)
+        }
+        {
+          registrationCategories?.some(c => /Teen/.test(c)) && (
+            <div className="notification is-warning mt-4">Note: we do not load age divisions younger than Teen 1.</div>
+          )
         }
         {
           (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
