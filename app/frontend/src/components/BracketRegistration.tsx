@@ -201,8 +201,8 @@ function BracketRegistration() {
             <div className="field-label is-normal">
               <label className="label recent-label">Recently Imported:</label>
             </div>
-            <div className="field-body">
-              <div className="field">
+            <div className="field-body recent-field-body">
+              <div className="field recent-field">
                 <div className="control">
                   <div className="select">
                     <select className="select" disabled={!recentLinks.length} value={selectedRecentLink} onChange={e => {
