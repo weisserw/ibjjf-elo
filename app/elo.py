@@ -607,15 +607,25 @@ def compute_ratings(
     red_suspension = suspensions.get(red_athlete_id)
     blue_suspension = suspensions.get(blue_athlete_id)
 
-    # calculate the new ratings
-    if (
+    red_was_suspended = (
         red_suspension is not None
         and red_suspension.start_date <= happened_at
         and red_suspension.end_date >= happened_at
-    ) or (
+    )
+    blue_was_suspended = (
         blue_suspension is not None
         and blue_suspension.start_date <= happened_at
         and blue_suspension.end_date >= happened_at
+    )
+
+    # calculate the new ratings
+    if (
+        # don't rate if a suspended athlete won
+        (red_was_suspended and red_winner)
+        or (blue_was_suspended and blue_winner)
+        and not (  # if both were suspended, rate as normal
+            red_was_suspended and blue_was_suspended
+        )
     ):
         red_end_rating = red_start_rating
         blue_end_rating = blue_start_rating
