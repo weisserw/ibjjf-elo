@@ -157,7 +157,9 @@ def get_bracket_page(link, newer_than):
 
 def get_ratings(results, age, belt, weight, gender, gi, rating_date, get_rank):
     athlete_results = (
-        db.session.query(Athlete.id, Athlete.ibjjf_id, Athlete.normalized_name)
+        db.session.query(
+            Athlete.id, Athlete.ibjjf_id, Athlete.normalized_name, Athlete.name
+        )
         .filter(
             or_(
                 Athlete.ibjjf_id.in_(
@@ -185,6 +187,7 @@ def get_ratings(results, age, belt, weight, gender, gi, rating_date, get_rank):
     for result in results:
         if result["ibjjf_id"] is not None and result["ibjjf_id"] in athletes_by_id:
             result["id"] = athletes_by_id[result["ibjjf_id"]].id
+            result["name"] = athletes_by_id[result["ibjjf_id"]].name
         elif normalize(result["name"]) in athletes_by_name:
             athlete = athletes_by_name[normalize(result["name"])]
             if result["ibjjf_id"] is None or athlete.ibjjf_id is None:
@@ -663,6 +666,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         red_rating = None
         red_end_rating = None
         red_match_count = None
+        red_name = match["red_name"]
         if red_id in athlete_results:
             if (
                 OPEN_CLASS in weight
@@ -673,6 +677,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
             red_rating = athlete_ratings[red_id]
             red_end_rating = athlete_ratings[red_id]
             red_match_count = athlete_match_counts[red_id]
+            red_name = athlete_results[red_id]["name"]
         red_expected = None
         red_handicap = 0
         blue_id = match["blue_id"]
@@ -681,6 +686,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         blue_rating = None
         blue_end_rating = None
         blue_match_count = None
+        blue_name = match["blue_name"]
         if blue_id in athlete_results:
             if (
                 OPEN_CLASS in weight
@@ -691,6 +697,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
             blue_rating = athlete_ratings[blue_id]
             blue_end_rating = athlete_ratings[blue_id]
             blue_match_count = athlete_match_counts[blue_id]
+            blue_name = athlete_results[blue_id]["name"]
         blue_expected = None
         blue_handicap = 0
 
@@ -758,6 +765,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["red_weight"] = red_weight
         match["red_end_rating"] = red_end_rating
         match["red_match_count"] = red_match_count
+        match["red_name"] = red_name
 
         match["blue_ordinal"] = blue_ordinal
         match["blue_rating"] = blue_rating
@@ -766,6 +774,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["blue_weight"] = blue_weight
         match["blue_end_rating"] = blue_end_rating
         match["blue_match_count"] = blue_match_count
+        match["blue_name"] = blue_name
 
 
 def parse_match(match, weight):
