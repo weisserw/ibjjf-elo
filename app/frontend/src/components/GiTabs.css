@@ -1,0 +1,35 @@
+@media screen and (max-width: 1024px) {
+  .is-fullwidth-mobile {
+    display: flex;
+    width: 100%;
+  }
+  .tabs.is-fullwidth-mobile ul {
+    display: flex;
+    width: 100%;
+  }
+  .tabs.is-fullwidth-mobile ul li {
+    flex: 1 1 0;
+  }
+  .tabs.is-fullwidth-mobile ul li a {
+    width: 100%;
+    justify-content: center;
+    display: flex;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .tabs.is-fullwidth-desktop ul {
+    display: flex;
+    width: auto;
+    justify-content: center;
+  }
+  .tabs.is-fullwidth-desktop ul li {
+    flex: 0 0 200px;
+    max-width: 200px;
+  }
+  .tabs.is-fullwidth-desktop ul li a {
+    width: 100%;
+    justify-content: center;
+    display: flex;
+  }
+}

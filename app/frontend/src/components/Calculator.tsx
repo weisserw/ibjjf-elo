@@ -320,261 +320,265 @@ function Calculator() {
   const hasHistorical = useMemo(() => data.map(row => row.event).some(isHistorical), [data]);
 
   return (
-    <div className="container calculator-container">
-      <GiTabs />
-      <p>
-        Select two athletes (or manually enter ratings) to see the predicted outcome of a match and potential Elo gain / loss.
-      </p>
-      <div className="calculator-header mt-4 mb-4">
-        <div className="field">
-          <div className="select">
-            <select value={calcGender} onChange={e => setCalcGender(e.target.value)}>
-              <option>Male</option>
-              <option>Female</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      <div className="columns">
-        <div className="column">
-          <div className="calculator-header">
-            <div className="field position-relative">
-              <label className="label">Search for Athlete</label>
-              <Autosuggest suggestions={athleteSuggestions1}
-                           onSuggestionsFetchRequested={debouncedGetAthleteSuggestions1}
-                           onSuggestionsClearRequested={() => setAthleteSuggestions1([])}
-                           onSuggestionSelected={(_, { suggestion }) => {
-                             setFirstAthleteToFetch(suggestion);
-                           }}
-                           multiSection={false}
-                           getSuggestionValue={(suggestion) => suggestion}
-                           renderSuggestion={(suggestion) => suggestion}
-                           inputProps={{
-                             className: "input",
-                             value: calcFirstAthlete,
-                             placeholder: "Enter Athlete Name...",
-                             onChange: (_: any, { newValue }) => {
-                               setCalcFirstAthlete(newValue)
-                               setCalcCustomInfo(false)
-                             }
-                           }} />
-              {
-                calcFirstAthlete && (
-                  <span className="icon is-small clear-filter-2" onClick={() => {
-                    setCalcFirstAthlete('');
-                    setFirstAthleteToFetch(null);
-                  }}>
-                    <i className="fas fa-times"></i>
-                  </span>
-                )
-              }
-            </div>
-            <div className="field position-relative">
-              <label className="label">Search for Opponent</label>
-              <Autosuggest suggestions={athleteSuggestions2}
-                           onSuggestionsFetchRequested={debouncedGetAthleteSuggestions2}
-                           onSuggestionsClearRequested={() => setAthleteSuggestions2([])}
-                           onSuggestionSelected={(_, { suggestion }) => {
-                             setSecondAthleteToFetch(suggestion);
-                           }}
-                           multiSection={false}
-                           getSuggestionValue={(suggestion) => suggestion}
-                           renderSuggestion={(suggestion) => suggestion}
-                           inputProps={{
-                             className: "input",
-                             value: calcSecondAthlete,
-                             placeholder: "Enter Athlete Name...",
-                             onChange: (_: any, { newValue }) => {
-                               setCalcSecondAthlete(newValue)
-                               setCalcCustomInfo(false)
-                             }
-                           }} />
-                {
-                  calcSecondAthlete && (
-                    <span className="icon is-small clear-filter-2" onClick={() => {
-                      setCalcSecondAthlete('');
-                      setSecondAthleteToFetch(null);
-                    }}>
-                      <i className="fas fa-times"></i>
-                    </span>
-                  )
-                }
-              </div>
-            </div>
-          </div>
-          <div className="column">
-            <div className="calculator-header">
-              <div className="field">
-                <label className="label">Athlete Rating</label>
-                <div className="control">
-                  <input
-                    className="input"
-                    type="number"
-                    value={firstRating}
-                    min={0}
-                    max={9999}
-                    onChange={(e) => {
-                      setFirstRating(e.target.value);
-                      firstRatingChanged(e.target.value);
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="field">
-                <label className="label">Opponent Rating</label>
-                <div className="control">
-                  <input
-                    className="input"
-                    type="number"
-                    value={secondRating}
-                    min={0}
-                    max={9999}
-                    onChange={(e) => {
-                      setSecondRating(e.target.value);
-                      secondRatingChanged(e.target.value);
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="columns">
-          <div className="column is-2">
+    <section className="section has-background-light py-0" style={{ minHeight: '100vh' }}>
+      <div className="container">
+        <div className="box" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)', borderRadius: '12px' }}>
+          <GiTabs />
+          <p>
+            Select two athletes (or manually enter ratings) to see the predicted outcome of a match and potential Elo gain / loss.
+          </p>
+          <div className="calculator-header mt-4 mb-4">
             <div className="field">
-              <label className="label">Age</label>
-              <div className="control">
+              <div className="select">
+                <select value={calcGender} onChange={e => setCalcGender(e.target.value)}>
+                  <option>Male</option>
+                  <option>Female</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div className="columns">
+            <div className="column">
+              <div className="calculator-header">
+                <div className="field position-relative">
+                  <label className="label">Search for Athlete</label>
+                  <Autosuggest suggestions={athleteSuggestions1}
+                               onSuggestionsFetchRequested={debouncedGetAthleteSuggestions1}
+                               onSuggestionsClearRequested={() => setAthleteSuggestions1([])}
+                               onSuggestionSelected={(_, { suggestion }) => {
+                                 setFirstAthleteToFetch(suggestion);
+                               }}
+                               multiSection={false}
+                               getSuggestionValue={(suggestion) => suggestion}
+                               renderSuggestion={(suggestion) => suggestion}
+                               inputProps={{
+                                 className: "input",
+                                 value: calcFirstAthlete,
+                                 placeholder: "Enter Athlete Name...",
+                                 onChange: (_: any, { newValue }) => {
+                                   setCalcFirstAthlete(newValue)
+                                   setCalcCustomInfo(false)
+                                 }
+                               }} />
+                    {
+                      calcFirstAthlete && (
+                        <span className="icon is-small clear-filter-2" onClick={() => {
+                          setCalcFirstAthlete('');
+                          setFirstAthleteToFetch(null);
+                        }}>
+                          <i className="fas fa-times"></i>
+                        </span>
+                      )
+                    }
+                </div>
+                <div className="field position-relative">
+                  <label className="label">Search for Opponent</label>
+                  <Autosuggest suggestions={athleteSuggestions2}
+                               onSuggestionsFetchRequested={debouncedGetAthleteSuggestions2}
+                               onSuggestionsClearRequested={() => setAthleteSuggestions2([])}
+                               onSuggestionSelected={(_, { suggestion }) => {
+                                 setSecondAthleteToFetch(suggestion);
+                               }}
+                               multiSection={false}
+                               getSuggestionValue={(suggestion) => suggestion}
+                               renderSuggestion={(suggestion) => suggestion}
+                               inputProps={{
+                                 className: "input",
+                                 value: calcSecondAthlete,
+                                 placeholder: "Enter Athlete Name...",
+                                 onChange: (_: any, { newValue }) => {
+                                   setCalcSecondAthlete(newValue)
+                                   setCalcCustomInfo(false)
+                                 }
+                               }} />
+                    {
+                      calcSecondAthlete && (
+                        <span className="icon is-small clear-filter-2" onClick={() => {
+                          setCalcSecondAthlete('');
+                          setSecondAthleteToFetch(null);
+                        }}>
+                          <i className="fas fa-times"></i>
+                        </span>
+                      )
+                    }
+                </div>
+              </div>
+            </div>
+            <div className="column">
+              <div className="calculator-header">
+                <div className="field">
+                  <label className="label">Athlete Rating</label>
+                  <div className="control">
+                    <input
+                      className="input"
+                      type="number"
+                      value={firstRating}
+                      min={0}
+                      max={9999}
+                      onChange={(e) => {
+                        setFirstRating(e.target.value);
+                        firstRatingChanged(e.target.value);
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="field">
+                  <label className="label">Opponent Rating</label>
+                  <div className="control">
+                    <input
+                      className="input"
+                      type="number"
+                      value={secondRating}
+                      min={0}
+                      max={9999}
+                      onChange={(e) => {
+                        setSecondRating(e.target.value);
+                        secondRatingChanged(e.target.value);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="columns">
+            <div className="column is-2">
+              <div className="field">
+                <label className="label">Age</label>
+                <div className="control">
+                  <div className="select">
+                    <select value={calcAge} onChange={e => {
+                      setCalcAge(e.target.value)
+                      setCalcCustomInfo(true)
+                    }}>
+                      <option>Juvenile</option>
+                      <option>Adult</option>
+                      <option>Master 1</option>
+                      <option>Master 2</option>
+                      <option>Master 3</option>
+                      <option>Master 4</option>
+                      <option>Master 5</option>
+                      <option>Master 6</option>
+                      <option>Master 7</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="column is-2">
+              <div className="field">
+                <label className="label">Belt</label>
                 <div className="select">
-                  <select value={calcAge} onChange={e => {
-                    setCalcAge(e.target.value)
+                  <select value={calcBelt} onChange={e => {
+                    setCalcBelt(e.target.value)
                     setCalcCustomInfo(true)
                   }}>
-                    <option>Juvenile</option>
-                    <option>Adult</option>
-                    <option>Master 1</option>
-                    <option>Master 2</option>
-                    <option>Master 3</option>
-                    <option>Master 4</option>
-                    <option>Master 5</option>
-                    <option>Master 6</option>
-                    <option>Master 7</option>
+                    <option value="WHITE">White</option>
+                    <option value="BLUE">Blue</option>
+                    <option value="PURPLE">Purple</option>
+                    <option value="BROWN">Brown</option>
+                    <option value="BLACK">Black</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="column is-3">
+              <div className="field">
+                <label className="label">Athlete Weight</label>
+                <div className="select">
+                  <select value={calcFirstWeight} onChange={e => {
+                    setCalcFirstWeight(e.target.value)
+                    setCalcCustomInfo(true)
+                  }}>
+                  {
+                    weights.map((value) => (
+                      <option key={value} value={value}>{value}</option>
+                    ))
+                  }
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="column is-3">
+              <div className="field">
+                <label className="label">Opponent Weight</label>
+                <div className="select">
+                  <select value={calcSecondWeight} onChange={e => {
+                    setCalcSecondWeight(e.target.value)
+                    setCalcCustomInfo(true)
+                  }}>
+                  {
+                    weights.map((value) => (
+                      <option key={value} value={value}>{value}</option>
+                    ))
+                  }
                   </select>
                 </div>
               </div>
             </div>
           </div>
-          <div className="column is-2">
-            <div className="field">
-              <label className="label">Belt</label>
-              <div className="select">
-                <select value={calcBelt} onChange={e => {
-                  setCalcBelt(e.target.value)
-                  setCalcCustomInfo(true)
-                }}>
-                  <option value="WHITE">White</option>
-                  <option value="BLUE">Blue</option>
-                  <option value="PURPLE">Purple</option>
-                  <option value="BROWN">Brown</option>
-                  <option value="BLACK">Black</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <div className="column is-3">
-            <div className="field">
-              <label className="label">Athlete Weight</label>
-              <div className="select">
-                <select value={calcFirstWeight} onChange={e => {
-                  setCalcFirstWeight(e.target.value)
-                  setCalcCustomInfo(true)
-                }}>
-                {
-                  weights.map((value) => (
-                    <option key={value} value={value}>{value}</option>
-                  ))
-                }
-                </select>
-              </div>
-            </div>
-          </div>
-          <div className="column is-3">
-            <div className="field">
-              <label className="label">Opponent Weight</label>
-              <div className="select">
-                <select value={calcSecondWeight} onChange={e => {
-                  setCalcSecondWeight(e.target.value)
-                  setCalcCustomInfo(true)
-                }}>
-                {
-                  weights.map((value) => (
-                    <option key={value} value={value}>{value}</option>
-                  ))
-                }
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-        { (firstExpected !== null && secondExpected !== null) &&
-          <>
-            <h2 className="mb-4 mt-5">
-              {formatAthleteRatings()}
-            </h2>
-            <table className="table is-fullwidth">
-              <thead></thead>
-              <tbody>
-                <tr>
-                  <td>{firstAthleteToFetch ? firstAthleteToFetch : 'Athlete'} expected victory:</td>
-                  <td className="has-text-right">{Math.round(firstExpected * 100)}%</td>
-                </tr>
-                <tr>
-                  <td>{secondAthleteToFetch ? secondAthleteToFetch : 'Opponent'} expected victory:</td>
-                  <td className="has-text-right">{Math.round(secondExpected * 100)}%</td>
-                </tr>
-                <tr>
-                  <td>Rating change if {firstAthleteToFetch ? firstAthleteToFetch : 'athlete'} wins:</td>
-                  <td className="has-text-right">{addPlus(Math.round(firstWin))}</td>
-                </tr>
-                <tr>
-                  <td>Rating change if {secondAthleteToFetch ? secondAthleteToFetch : 'opponent'} wins:</td>
-                  <td className="has-text-right">{addPlus(Math.round(firstLoss))}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div className="card pt-1 pr-4 pb-4 mb-5">
-              <div className="content">
-                <ul>
-                  {
-                    (firstFetchedAthlete?.belt && secondFetchedAthlete?.belt && firstFetchedAthlete.belt !== secondFetchedAthlete.belt) &&
-                    <li >This matchup is across belts. Athletes will receive additional promotion points as they get promoted which could change the projected outcome.</li>
-                  }
-                  <li>Athletes with provisional ratings (six or fewer matches) will gain / lose more Elo than shown above.</li>
-                </ul>
-              </div>
-            </div>
-            {
-              data && data.length > 0 && (
-                <div>
-                  <p className="has-text-weight-bold mb-3">
-                    Match history:
-                  </p>
-                  <DBTableRows data={data}
-                               loading={false}
-                               noLinks={true}
-                               divisionBracketClicked={divisionBracketClicked}/>
-                  {
-                    hasHistorical && (
-                      <div className="notification is-historical">
-                        Match data before December 2024 may be incomplete or inaccurate
-                      </div>
-                    )
-                  }
+          { (firstExpected !== null && secondExpected !== null) &&
+            <>
+              <h2 className="mb-4 mt-5">
+                {formatAthleteRatings()}
+              </h2>
+              <table className="table is-fullwidth">
+                <thead></thead>
+                <tbody>
+                  <tr>
+                    <td>{firstAthleteToFetch ? firstAthleteToFetch : 'Athlete'} expected victory:</td>
+                    <td className="has-text-right">{Math.round(firstExpected * 100)}%</td>
+                  </tr>
+                  <tr>
+                    <td>{secondAthleteToFetch ? secondAthleteToFetch : 'Opponent'} expected victory:</td>
+                    <td className="has-text-right">{Math.round(secondExpected * 100)}%</td>
+                  </tr>
+                  <tr>
+                    <td>Rating change if {firstAthleteToFetch ? firstAthleteToFetch : 'athlete'} wins:</td>
+                    <td className="has-text-right">{addPlus(Math.round(firstWin))}</td>
+                  </tr>
+                  <tr>
+                    <td>Rating change if {secondAthleteToFetch ? secondAthleteToFetch : 'opponent'} wins:</td>
+                    <td className="has-text-right">{addPlus(Math.round(firstLoss))}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="card pt-1 pr-4 pb-4 mb-5">
+                <div className="content">
+                  <ul>
+                    {
+                      (firstFetchedAthlete?.belt && secondFetchedAthlete?.belt && firstFetchedAthlete.belt !== secondFetchedAthlete.belt) &&
+                      <li >This matchup is across belts. Athletes will receive additional promotion points as they get promoted which could change the projected outcome.</li>
+                    }
+                    <li>Athletes with provisional ratings (six or fewer matches) will gain / lose more Elo than shown above.</li>
+                  </ul>
                 </div>
-              )
-            }
-          </>
-        }
-    </div>
+              </div>
+              {
+                data && data.length > 0 && (
+                  <div>
+                    <p className="has-text-weight-bold mb-3">
+                      Match history:
+                    </p>
+                    <DBTableRows data={data}
+                                 loading={false}
+                                 noLinks={true}
+                                 divisionBracketClicked={divisionBracketClicked}/>
+                    {
+                      hasHistorical && (
+                        <div className="notification is-historical">
+                          Match data before December 2024 may be incomplete or inaccurate
+                        </div>
+                      )
+                    }
+                  </div>
+                )
+              }
+            </>
+          }
+        </div>
+      </div>
+    </section>
   )
 }
 

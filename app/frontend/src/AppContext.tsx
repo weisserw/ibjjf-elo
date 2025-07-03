@@ -1,5 +1,5 @@
 import { createContext, useState, useContext, useCallback, ReactNode } from 'react';
-import type { FilterValues, OpenFilters } from './components/DBFilters';
+import type { FilterValues, OpenFilters } from './components/DbFilters/DBFilters';
 import type { TabName } from './components/GiTabs';
 import type {
   Tabs as BracketTabs,

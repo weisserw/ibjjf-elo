@@ -1,12 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import axios, { AxiosResponse } from 'axios';
-import DBFilters, {
-  ageToFilter,
-  genderToFilter,
-  beltToFilter,
-  weightToFilter,
-  type FilterKeys
-} from './DBFilters';
+import DBFilters from './DbFilters/DBFilters';
 import DBPagination from './DBPagination';
 import DBTableRows from './DBTableRows';
 import { useAppContext } from '../AppContext';
@@ -14,6 +8,7 @@ import { axiosErrorToast, isHistorical, type DBRow as Row, type DBResults as Res
 import { useNavigate } from 'react-router-dom';
 
 import "./DBTable.css"
+import { FilterKeys, ageToFilter, genderToFilter, beltToFilter, weightToFilter } from './DbFilters/filterTypes';
 
 function DBTable() {
   const [loading, setLoading] = useState(true)

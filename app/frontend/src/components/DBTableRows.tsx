@@ -2,6 +2,8 @@ import React from 'react';
 import classNames from "classnames";
 import dayjs from "dayjs";
 import { isHistorical, type DBRow as Row } from "../utils";
+import './DBTable.css';
+import './ResponsiveTable.css'
 
 const BLACK_WEIGHT_HANDICAPS = [
   0,
@@ -122,191 +124,94 @@ function DBTableRows(props: DBTableRowsProps) {
   }
 
   return (
-    <>
-      <div className="table-container is-hidden-touch">
-        <table className={classNames("table db-table is-striped", {"is-narrow": !loading && !!data.length})}>
-          <thead>
-            <tr>
-              <th>Winner</th>
-              <th>Rating</th>
-              <th>Loser</th>
-              <th>Rating</th>
-              <th>Event</th>
-              <th>Division</th>
-              <th>Date</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {
-              data.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="empty-row">
-                    <div className="columns is-centered">
-                      No matches found for the selected filters
-                    </div>
-                  </td>
-                </tr>
-              )
-            }
-            {
-              !!data.length && data.map((row: Row, index: number) => (
-                <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row.event)})}>
-                  <td data-id={row.winnerId}>
-                    {
-                      noLinks ? row.winner :
-                      <a href="#" onClick={e => athleteClicked?.(e, row.winner)}>{row.winner}</a>
-                    }
-                  </td>
-                  <td>
-                    {
-                    showRating(row) &&
-                      <span>
-                      {row.winnerStartRating}→ <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}
-                      </span>
-                    }
-                  </td>
-                  <td data-id={row.loserId}>
-                    {
-                      noLinks ? row.loser :
-                      <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>{row.loser}</a>
-                    }
-                  </td>
-                  <td>
-                    {
-                    showRating(row) &&
-                      <span>
-                      {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, index === 0)}
-                      </span>
-                    }
-                  </td>
-                  <td className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": index === 0})} data-tooltip={shortEvent(row) !== row.event ? row.event : undefined}>
-                    {
-                      noLinks ? shortEvent(row) :
-                      <a href="#" onClick={e => eventClicked?.(e, row.event)}>{shortEvent(row)}</a>
-                    }
-                  </td>
-                  <td>
-                    <div className="division-box">
-                      {
-                        noLinks ? <span>{row.age} / {row.gender} / {row.belt} / {row.weight}</span> :
-                        <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
-                      }
-                      {
-                        !isHistorical(row.event) && row.age !== "Juvenile" &&
-                        <button className="button is-small is-tiny" onClick={() => divisionBracketClicked?.(row)}>
-                          <span className="icon has-text-info">
-                            <i className="fas fa-project-diagram"/>
-                          </span>
-                        </button>
-                      }
-                    </div>
-                  </td>
-                  <td>{dayjs(row.date).format('MMM D YYYY, h:mma')}</td>
-                  <td>{notesWithWeight(row)}</td>
-                </tr>
-              ))
-            }
-          </tbody>
-        </table>
-      </div>
-      <div className="cards-container is-hidden-desktop">
-        {
-          data.length === 0 && (
-            <div className="card db-row-card">
-              <div className="card-content">
-                <div className="columns is-centered">
-                  <div className="column is-narrow">
+    <div className="table-container">
+      <table className="table is-fullwidth is-striped table-margin">
+        <thead>
+          <tr>
+            <th>Winner</th>
+            <th>Rating</th>
+            <th>Loser</th>
+            <th>Rating</th>
+            <th>Event</th>
+            <th>Division</th>
+            <th>Date</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            data.length === 0 && (
+              <tr>
+                <td colSpan={8} className="empty-row">
+                  <div className="columns is-centered">
                     No matches found for the selected filters
                   </div>
-                </div>
-              </div>
-            </div>
-          )
-        }
-        {
-          !!data.length && data.map((row: Row) => {
-            const weightText = openWeightText(row);
-            return (
-              <div key={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row.event)})}>
-                <div className="date-box">
-                  {dayjs(row.date).format('MMM D YYYY, h:mma')}
-                </div>
-                <div className="card-content">
-                  <div className="columns">
-                    <div className="column" data-id={row.winnerId}>
-                      <strong>Winner:</strong>{' '}
-                      {
-                        noLinks ? row.winner :
-                        <a href="#" onClick={e => athleteClicked?.(e, row.winner)}>{row.winner}</a>
-                      }
-                      {' '}
-                      {
-                      showRating(row) &&
-                        <span>
-                          {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, true)}
-                        </span>
-                      }
-                    </div>
-                    <div className="column has-text-right-tablet" data-id={row.loserId}>
-                      <strong>Loser:</strong>{' '}
-                      {
-                        noLinks ? row.loser :
-                        <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>{row.loser}</a>
-                      }
-                      {
-                      showRating(row) &&
-                        <span>
-                          {' '}{row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, true)}
-                        </span>
-                      }
-                    </div>
-                  </div>
-                  <div className="columns">
-                    <div className="column">
-                      {
-                        noLinks ? row.event :
-                        <a href="#" onClick={e => eventClicked?.(e, row.event)}>{row.event}</a>
-                      }
-                    </div>
-                    <div className="column has-text-right-tablet">
-                      <div className="division-box">
-                        {
-                          noLinks ? <span>{row.age} / {row.gender} / {row.belt} / {row.weight}</span> :
-                          <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
-                        }
-                        {
-                          !isHistorical(row.event) &&
-                          <button className="button is-small is-tiny" onClick={() => divisionBracketClicked?.(row)}>
-                            <span className="icon has-text-info">
-                              <i className="fas fa-project-diagram"/>
-                            </span>
-                          </button>
-                        }
-                      </div>
-                    </div>
-                  </div>
-                  {(weightText || row.notes) &&
-                    <div className="columns">
-                      <div className="column">
-                        {weightText &&
-                          <p>{weightText}</p>
-                        }
-                        {row.notes &&
-                          <p>{row.notes}</p>
-                        }
-                      </div>
-                    </div>
+                </td>
+              </tr>
+            )
+          }
+          {
+            !!data.length && data.map((row: Row, index: number) => (
+              <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row.event)})}>
+                <td data-label="Winner" data-id={row.winnerId}>
+                  {
+                    noLinks ? row.winner :
+                    <a href="#" onClick={e => athleteClicked?.(e, row.winner)}>{row.winner}</a>
                   }
-                </div>
-              </div>
-              );
-            }
-          )
-        }
-      </div>
-    </>
+                </td>
+                <td data-label="Rating">
+                  {
+                  showRating(row) &&
+                    <span>
+                    {row.winnerStartRating}→ <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}
+                    </span>
+                  }
+                </td>
+                <td data-label="Loser" data-id={row.loserId}>
+                  {
+                    noLinks ? row.loser :
+                    <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>{row.loser}</a>
+                  }
+                </td>
+                <td data-label="Rating">
+                  {
+                  showRating(row) &&
+                    <span>
+                    {row.loserStartRating} → <span className={outcomeClass(row.loserStartRating, row.loserEndRating)}>{row.loserEndRating}</span>{ratingAsterisk(row.loserRatingNote, index === 0)}
+                    </span>
+                  }
+                </td>
+                <td data-label="Event" >
+                  {
+                    noLinks ? shortEvent(row) :
+                    <a href="#" className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": index === 0})} data-tooltip={shortEvent(row) !== row.event ? row.event : undefined} onClick={e => eventClicked?.(e, row.event)}>{shortEvent(row)}</a>
+                  }
+                </td>
+                <td data-label="Division">
+                  <div className="division-box">
+                    {
+                      noLinks ? <span>{row.age} / {row.gender} / {row.belt} / {row.weight}</span> :
+                      <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
+                    }
+                    {
+                      !isHistorical(row.event) && row.age !== "Juvenile" &&
+                      <button className="button is-small is-tiny" onClick={() => divisionBracketClicked?.(row)}>
+                        <span className="icon has-text-info">
+                          <i className="fas fa-project-diagram"/>
+                        </span>
+                      </button>
+                    }
+                  </div>
+                </td>
+                <td data-label="Date">{dayjs(row.date).format('MMM D YYYY, h:mma')}</td>
+                <td data-label="Notes">{notesWithWeight(row)}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
   )
 }
 
-export default DBTableRows
+export default DBTableRows;

@@ -1,3 +1,7 @@
+html, body {
+  background-color: #f5f5f5 !important;
+}
+
 .react-autosuggest__container {
   position: relative;
 }
@@ -66,4 +70,21 @@ body {
 
 .cursor-pointer {
   cursor: pointer;
+}
+
+.w-full { width: 100%; }
+
+@media (max-width: 1024px) {
+  .container.no-mobile-padding {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .box.no-mobile-radius {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  .section {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 }

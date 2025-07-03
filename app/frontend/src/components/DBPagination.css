@@ -1,8 +1,17 @@
-.pagination-margin {
-  margin-bottom: 20px;
+.pagination {
+  justify-content: space-between;
 }
 
-.pagination-loader {
+.pagination.is-centered .pagination-previous {
   order: 1;
-  margin-right: 10px;
+  max-width: 110px;
+}
+
+.pagination.is-centered .pagination-next {
+  order: 3;
+  max-width: 110px;
+}
+
+.pagination.is-centered .pagination-list {
+  order: 2;
 }

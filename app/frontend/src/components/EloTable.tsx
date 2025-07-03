@@ -1,15 +1,15 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
-import { debounce } from 'lodash';
 import { useAppContext } from '../AppContext';
 import DBPagination from './DBPagination';
 import EloFilters from './EloFilters';
-import Autosuggest from 'react-autosuggest';
+import SearchEloTable from './SearchEloTable';
 import classNames from 'classnames';
 import { axiosErrorToast, immatureClass } from '../utils';
 
 import "./EloTable.css"
+import './ResponsiveTable.css'
 
 interface Row {
   rank: number
@@ -42,12 +42,10 @@ function EloTable() {
     setOpenFilters,
   } = useAppContext();
 
-  const [nameFilterSearch, setNameFilterSearch] = useState(nameFilter)
   const [loading, setLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
   const [data, setData] = useState<Row[]>([])
   const [totalPages, setTotalPages] = useState(1)
-  const [athleteSuggestions, setAthleteSuggestions] = useState<string[]>([])
 
   const navigate = useNavigate()
 
@@ -81,27 +79,6 @@ function EloTable() {
       setReloading(false)
     })
   }, [gender, age, belt, weight, changed, nameFilter, gi, page]);
-
-  const getAthleteSuggestions = async ({ value }: { value: string }) => {
-    try {
-      const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
-      setAthleteSuggestions(response.data);
-    } catch (error) {
-      axiosErrorToast(error);
-    }
-  }
-
-  const debouncedGetAthleteSuggestions = useCallback(debounce(getAthleteSuggestions, 300, {trailing: true}), []);
-
-  const debouncedSetNameFilter = useCallback(
-    debounce((value: string) => setNameFilter(value), 750),
-    []
-  );
-
-  const onNameFilterChange = (value: string) => {
-    setNameFilterSearch(value)
-    debouncedSetNameFilter(value)
-  }
 
   const onNameClick = (e: React.MouseEvent, name: string) => {
     e.preventDefault();
@@ -171,19 +148,19 @@ function EloTable() {
 
   const changeClass = (start: number | null, end: number, reverse: boolean) => {
     if (start === null && reverse) {
-      return 'has-text-right new-marker-td';
+      return 'has-text-right-desktop-only new-marker-td';
     }
     if (start === null || start === end) {
-      return 'has-text-right';
+      return 'has-text-right-desktop-only';
     }
 
     let diff = end - start;
     if (reverse) { diff *= -1; }
 
     if (diff > 0) {
-      return 'has-text-right has-text-success';
+      return 'has-text-right-desktop-only has-text-success';
     } else {
-      return 'has-text-right has-text-danger';
+      return 'has-text-right-desktop-only has-text-danger';
     }
   }
 
@@ -202,37 +179,7 @@ function EloTable() {
     <div className="elo-container">
       <div className="elo-sub-container">
         <EloFilters />
-        <div className="field position-relative">
-          <div className="control has-icons-left">
-            <Autosuggest suggestions={athleteSuggestions}
-                          onSuggestionsFetchRequested={debouncedGetAthleteSuggestions}
-                          onSuggestionsClearRequested={() => setAthleteSuggestions([])}
-                          multiSection={false}
-                          getSuggestionValue={(suggestion) => '"' + suggestion + '"'}
-                          renderSuggestion={(suggestion) => suggestion}
-                          inputProps={{
-                            className: "input",
-                            value: nameFilterSearch,
-                            placeholder: "Search Within Division",
-                            onChange: (_: any, { newValue }) => {
-                            onNameFilterChange(newValue)
-                            }
-                          }} />
-            <span className="icon is-small is-left">
-              <i className="fas fa-filter"></i>
-            </span>
-          </div>
-          {
-            nameFilterSearch && (
-              <span className="icon is-small clear-filter" onClick={() => {
-                setNameFilterSearch('')
-                setNameFilter('')
-              }}>
-                <i className="fas fa-times"></i>
-              </span>
-            )
-          }
-        </div>
+        <SearchEloTable nameFilter={nameFilter} setNameFilter={setNameFilter} />
         {
           loading && (
             <div className="table-loader">
@@ -245,11 +192,11 @@ function EloTable() {
             <table className="table is-fullwidth table-margin">
               <thead>
                 <tr>
-                  <th className="has-text-right">#</th>
-                  <th className="has-text-right">↑↓</th>
+                  <th className="has-text-right-desktop-only">#</th>
+                  <th className="has-text-right-desktop-only">↑↓</th>
                   <th>Name</th>
-                  <th className="has-text-right">Rating</th>
-                  <th className="has-text-right">+/-</th>
+                  <th className="has-text-right-desktop-only">Rating</th>
+                  <th className="has-text-right-desktop-only">+/-</th>
                   <th></th>
                 </tr>
               </thead>
@@ -268,18 +215,18 @@ function EloTable() {
                 {
                   !!data.length && data.map((row: Row, index) => (
                     <tr key={index}>
-                      <td className="has-text-right">{
+                      <td className="" data-label="Rank">{
                         immatureClass(row.match_count) !== 'very-immature' && row.rank
                       }</td>
-                      <td className={changeClass(row.previous_rank, row.rank, true)}>{rankChange(row)}</td>
-                      <td>
+                      <td className={changeClass(row.previous_rank, row.rank, true)} data-label="Rank Change">{rankChange(row)}</td>
+                      <td data-label="Name">
                         <a href="#" onClick={e => onNameClick(e, row.name)}>
                           {row.name}
                         </a>
                       </td>
-                      <td className={"has-text-right " + immatureClass(row.match_count)}>{row.rating}</td>
-                      <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
-                      <td className={classNames("has-text-centered", {"has-tooltip-multiline has-tooltip-left": immatureClass(row.match_count) !== ''})} data-tooltip={rowTooltip(row)}>
+                      <td className={"has-text-right-desktop-only " + immatureClass(row.match_count)} data-label="Rating">{row.rating}</td>
+                      <td className={changeClass(row.previous_rating, row.rating, false)} data-label="Rating Change">{ratingChange(row)}</td>
+                      <td className={classNames("has-text-centered-tablet-only", {"has-tooltip-multiline has-tooltip-left": immatureClass(row.match_count) !== ''})} data-tooltip={rowTooltip(row)} data-label="Status">
                         {
                           immatureClass(row.match_count) === 'very-immature' ? 
                             <span className="very-immature-bullet">&nbsp;</span> : (

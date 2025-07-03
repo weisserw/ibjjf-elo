@@ -14,7 +14,7 @@ function App() {
       <Router>
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
           <header className="hero is-small is-bold">
-            <div className="hero-body">
+            <div className="">
               <Navbar />
             </div>
           </header>
@@ -28,9 +28,9 @@ function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
-          <footer className="footer" style={{ fontSize: '0.75rem', textAlign: 'right', padding: '0.5rem 1rem' }}>
+          <footer className="footer has-background-light" style={{ fontSize: '0.75rem', textAlign: 'right', padding: '0.5rem 1rem' }}>
             <div className="content">
-              <p>© 2025 IBJJJFRankings.com</p>
+              <p>© 2025 IBJJFRankings.com</p>
             </div>
           </footer>
         </div>

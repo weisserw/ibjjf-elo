@@ -71,7 +71,7 @@ function DBPagination({page, totalPages, showPages, onPageClick, onFirstPage, on
   }
 
   return (
-    <nav className="pagination pagination-margin" role="navigation">
+    <nav className="pagination pagination-margin is-centered" role="navigation">
       {
         !showPages && <a href="#" className={classNames("pagination-previous", {"is-disabled": page === 1})} onClick={onFirstPage}>First</a>
       }
