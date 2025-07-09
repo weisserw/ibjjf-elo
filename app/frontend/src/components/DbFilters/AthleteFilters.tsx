@@ -12,7 +12,7 @@ interface AthleteFiltersProps {
   debouncedOnChange: (key: FilterKeys, value: any) => void;
 }
 
-function AthleteFilters({ filters, setFilters, onClearProps, debouncedOnChange }: AthleteFiltersProps) {
+function AthleteFilters({ filters, onClearProps, debouncedOnChange }: AthleteFiltersProps) {
   const [athleteName, setAthleteName] = useState(filters.athlete_name || '');
   const [ratingStart, setRatingStart] = useState(filters.rating_start || '');
   const [ratingEnd, setRatingEnd] = useState(filters.rating_end || '');

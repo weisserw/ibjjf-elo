@@ -52,7 +52,7 @@ interface DBTableRowsProps {
 }
 
 function DBTableRows(props: DBTableRowsProps) {
-  const { data, loading, athleteClicked, eventClicked, divisionClicked, divisionBracketClicked, noLinks } = props;
+  const { data, athleteClicked, eventClicked, divisionClicked, divisionBracketClicked, noLinks } = props;
 
   const notesWithWeight = (row: Row) => {
     const weightText = openWeightText(row);

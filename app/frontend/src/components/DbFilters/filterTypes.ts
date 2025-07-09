@@ -38,6 +38,12 @@ export interface FilterValues {
   rating_end?: number;
 }
 
+export interface OpenFilters {
+  athlete: boolean;
+  event: boolean;
+  division: boolean;
+}
+
 export type FilterKeys = keyof FilterValues;
 
 export type DivisionFilterKeys = {
