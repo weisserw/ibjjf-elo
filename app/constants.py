@@ -3,12 +3,26 @@ BROWN = "BROWN"
 PURPLE = "PURPLE"
 BLUE = "BLUE"
 GREEN = "GREEN"
+GREEN_ORANGE = "GREEN-ORANGE"
 ORANGE = "ORANGE"
 YELLOW = "YELLOW"
+YELLOW_GREY = "YELLOW-GREY"
 GREY = "GREY"
 WHITE = "WHITE"
 
-belt_order = [WHITE, GREY, YELLOW, ORANGE, GREEN, BLUE, PURPLE, BROWN, BLACK]
+belt_order = [
+    WHITE,
+    GREY,
+    YELLOW_GREY,
+    YELLOW,
+    ORANGE,
+    GREEN_ORANGE,
+    GREEN,
+    BLUE,
+    PURPLE,
+    BROWN,
+    BLACK,
+]
 
 
 def translate_belt(belt: str) -> str:
@@ -16,10 +30,14 @@ def translate_belt(belt: str) -> str:
         return GREY
     if belt == "AMARELA":
         return YELLOW
+    if belt == "AMARELA-CINZA":
+        return YELLOW_GREY
     if belt == "LARANJA":
         return ORANGE
     if belt == "VERDE":
         return GREEN
+    if belt == "VERDE-LARANJA":
+        return GREEN_ORANGE
     if belt == "AZUL":
         return BLUE
     if belt == "BRANCA":

@@ -19,8 +19,10 @@ from constants import (
     TEEN_3,
     GREY,
     YELLOW,
+    YELLOW_GREY,
     ORANGE,
     GREEN,
+    GREEN_ORANGE,
     WHITE,
     BLUE,
     PURPLE,
@@ -285,12 +287,16 @@ def matches():
     belts = []
     if belt_grey:
         belts.append(GREY)
+        belts.append(YELLOW_GREY)
     if belt_yellow:
         belts.append(YELLOW)
+        belts.append(YELLOW_GREY)
     if belt_orange:
         belts.append(ORANGE)
+        belts.append(GREEN_ORANGE)
     if belt_green:
         belts.append(GREEN)
+        belts.append(GREEN_ORANGE)
     if belt_white:
         belts.append(WHITE)
     if belt_blue:
