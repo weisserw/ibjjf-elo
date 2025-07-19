@@ -80,6 +80,8 @@ headers = [
     "Blue Note",
     "Blue Medal",
     "Match Number",
+    "Match Location",
+    "Fight Number",
 ]
 
 
@@ -278,6 +280,7 @@ def pull_tournament(
 
             for match in matches:
                 match_datetime_iso = parse_match_when(match, year)
+                match_location, fight_num = parse_match_where(match)
 
                 matchnum = ""
                 card = match.find("div", class_="tournament-category__match-card")
@@ -352,6 +355,9 @@ def pull_tournament(
                                 "",
                                 "",
                                 "",
+                                "",
+                                "",
+                                "",
                             ]
                         )
                         file.flush()
@@ -403,6 +409,8 @@ def pull_tournament(
                         blue_competitor_note,
                         medals.get(blue_competitor_name, ""),
                         matchnum,
+                        match_location if match_location else "",
+                        fight_num if fight_num else "",
                     ]
                 )
                 file.flush()

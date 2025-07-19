@@ -124,6 +124,8 @@ class Match(db.Model):
     rated = Column(Boolean, nullable=False)
     rated_winner_only = Column(Boolean, nullable=True)
     match_number = Column(Integer, nullable=True)
+    match_location = Column(String, nullable=True)
+    fight_number = Column(Integer, nullable=True)
 
     participants = relationship("MatchParticipant", lazy="select", viewonly=True)
     division = relationship("Division", lazy="select", viewonly=True)
