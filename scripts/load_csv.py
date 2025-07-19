@@ -313,7 +313,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                                     "Invalid match number value:", row["Match Number"]
                                 )
 
-                            match_location = row.get("Location", "") or None
+                            match_location = row.get("Match Location", "") or None
                             fight_num = None
                             try:
                                 fight_num = row.get("Fight Number", "") or None
