@@ -407,10 +407,13 @@ def compute_ordinals(results, weight, belt):
                         and other["last_weight"] is not None
                         and other != result
                     ):
-                        handicap, _ = weight_handicaps(
+                        handicap_plus, handicap_minus = weight_handicaps(
                             belt, result["last_weight"], other["last_weight"]
                         )
-                        handicap_sum += handicap
+                        if handicap_plus > 0:
+                            handicap_sum += handicap_plus
+                        elif handicap_minus < 0:
+                            handicap_sum -= handicap_minus
                         count += 1
                 if count > 0:
                     log.debug(
