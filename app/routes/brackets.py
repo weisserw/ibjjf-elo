@@ -412,7 +412,7 @@ def compute_ordinals(results, weight, belt):
                         )
                         if handicap_plus > 0:
                             handicap_sum += handicap_plus
-                        elif handicap_minus < 0:
+                        elif handicap_minus > 0:
                             handicap_sum -= handicap_minus
                         count += 1
                 if count > 0:
