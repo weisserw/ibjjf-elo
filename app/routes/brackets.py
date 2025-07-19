@@ -389,25 +389,60 @@ def get_ratings(results, age, belt, weight, gender, gi, rating_date, get_rank):
 
     results.sort(key=lambda x: x["rating"] or -1, reverse=True)
 
-    compute_ordinals(results)
+    compute_ordinals(results, weight, belt)
 
 
-def compute_ordinals(results):
+def compute_ordinals(results, weight, belt):
+    # for each competitor, get the average handicap against the rest of the competitors and add it to their rating
+    for result in results:
+        result["adjusted_rating"] = result["rating"]
+
+        if OPEN_CLASS in weight:
+            if result["rating"] is not None and result["last_weight"] is not None:
+                handicap_sum = 0
+                count = 0
+                for other in results:
+                    if (
+                        other["rating"] is not None
+                        and other["last_weight"] is not None
+                        and other != result
+                    ):
+                        handicap, _ = weight_handicaps(
+                            belt, result["last_weight"], other["last_weight"]
+                        )
+                        handicap_sum += handicap
+                        count += 1
+                if count > 0:
+                    log.debug(
+                        f"Adjusting {result['name']} ({result['last_weight']}) by {handicap_sum / count} (handicap sum: {handicap_sum}, count: {count}), new rating: {result['adjusted_rating'] + handicap_sum / count}"
+                    )
+                    result["adjusted_rating"] += handicap_sum / count
+
+    if OPEN_CLASS in weight:
+        # sort results by adjusted ratings
+        results.sort(
+            key=lambda x: (
+                x["adjusted_rating"] if x["adjusted_rating"] is not None else -1
+            ),
+            reverse=True,
+        )
+
     ordinal = 0
     ties = 0
     last_rating = None
     for result in results:
+        result_rating = result["adjusted_rating"]
         if (
             last_rating is None
-            or result["rating"] is None
-            or round(result["rating"]) != last_rating
+            or result_rating is None
+            or round(result_rating) != last_rating
         ):
             ordinal += 1 + ties
             ties = 0
         else:
             ties += 1
         result["ordinal"] = ordinal
-        last_rating = None if result["rating"] is None else round(result["rating"])
+        last_rating = None if result_rating is None else round(result_rating)
 
 
 def parse_registrations(soup):
@@ -1426,7 +1461,7 @@ def archive_competitors():
 
     competitors.sort(key=lambda x: x["rating"], reverse=True)
 
-    compute_ordinals(competitors)
+    compute_ordinals(competitors, weight, belt)
 
     ordinals_by_id = {}
     for competitor in competitors:
