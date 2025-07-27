@@ -608,24 +608,30 @@ def registration_categories():
         with app.app_context():
             session = app_db.session()
             link = session.query(RegistrationLink).get(link_id)
-            added_row = False
-            for entry in json_data:
-                division_name = entry["FriendlyName"]
-                division_name_clean = weightre.sub("", division_name)
-                if division_name_clean not in division_set:
-                    continue
-                try:
-                    current_divdata = parse_division(division_name_clean, throw=True)
-                    db_division, added = get_db_division(gi, current_divdata)
-                    if added:
-                        added_row = True
-                except ValueError:
-                    log.warning(f"Invalid division name: {division_name_clean}")
-                    continue
-                for competitor in entry["RegistrationCategories"]:
-                    name = competitor["AthleteName"]
-                    if save_registration_link_competitor(link, db_division, name):
-                        added_row = True
+            if link is not None:
+                added_row = False
+                for entry in json_data:
+                    division_name = entry["FriendlyName"]
+                    division_name_clean = weightre.sub("", division_name)
+                    if division_name_clean not in division_set:
+                        continue
+                    try:
+                        current_divdata = parse_division(
+                            division_name_clean, throw=True
+                        )
+                        db_division, added = get_db_division(gi, current_divdata)
+                        if added:
+                            added_row = True
+                    except ValueError:
+                        log.warning(f"Invalid division name: {division_name_clean}")
+                        continue
+                    if db_division is not None:
+                        for competitor in entry["RegistrationCategories"]:
+                            name = competitor["AthleteName"]
+                            if save_registration_link_competitor(
+                                link, db_division, name
+                            ):
+                                added_row = True
             if added_row:
                 session.commit()
             session.close()
@@ -648,6 +654,9 @@ def registration_categories():
 
 def get_db_division(gi, divdata):
     added_row = False
+
+    if "Open Class" in divdata["weight"]:
+        return None, False
 
     db_division = (
         db.session.query(Division)
@@ -687,7 +696,6 @@ def save_registration_link_competitor(db_link, db_division, name):
         .filter(
             RegistrationLinkCompetitor.registration_link_id == db_link.id,
             RegistrationLinkCompetitor.athlete_name == name,
-            RegistrationLinkCompetitor.division_id == db_division.id,
         )
         .first()
     )
@@ -699,6 +707,9 @@ def save_registration_link_competitor(db_link, db_division, name):
             division_id=db_division.id,
         )
         db.session.add(competitor_entry)
+        added_row = True
+    elif competitor_entry.division_id != db_division.id:
+        competitor_entry.division_id = db_division.id
         added_row = True
 
     return added_row
