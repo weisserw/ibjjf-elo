@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 import requests
+import threading
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from pull import (
@@ -560,7 +561,6 @@ def registration_categories():
     except Exception as e:
         return jsonify({"error": str(e)})
 
-    added_row = False
     gi = is_gi(tournament_name)
 
     if updated_at is not None:
@@ -582,16 +582,13 @@ def registration_categories():
                 link=url,
             )
             db.session.add(link)
-            added_row = True
-            db.session.flush()
+            db.session.commit()
 
     rows = []
     total_competitors = 0
     for entry in json_data:
         division_name = entry["FriendlyName"]
-
         total_competitors += len(entry["RegistrationCategories"])
-
         lowered = division_name.lower()
         if not (
             "master" in lowered
@@ -600,29 +597,45 @@ def registration_categories():
             or "teen" in lowered
         ):
             continue
+        division_name_clean = weightre.sub("", division_name)
+        rows.append(division_name_clean)
 
-        division_name = weightre.sub("", division_name)
+    # Save competitors in background thread
+    def save_competitors_bg(link_id, gi, json_data, division_set):
+        from app import db as app_db, app
 
-        rows.append(division_name)
+        log = logging.getLogger("ibjjf")
+        with app.app_context():
+            session = app_db.session()
+            link = session.query(RegistrationLink).get(link_id)
+            added_row = False
+            for entry in json_data:
+                division_name = entry["FriendlyName"]
+                division_name_clean = weightre.sub("", division_name)
+                if division_name_clean not in division_set:
+                    continue
+                try:
+                    current_divdata = parse_division(division_name_clean, throw=True)
+                    db_division, added = get_db_division(gi, current_divdata)
+                    if added:
+                        added_row = True
+                except ValueError:
+                    log.warning(f"Invalid division name: {division_name_clean}")
+                    continue
+                for competitor in entry["RegistrationCategories"]:
+                    name = competitor["AthleteName"]
+                    if save_registration_link_competitor(link, db_division, name):
+                        added_row = True
+            if added_row:
+                session.commit()
+            session.close()
 
-        db_division = None
-        if link is not None:
-            try:
-                current_divdata = parse_division(division_name, throw=True)
-                db_division, added = get_db_division(gi, current_divdata)
-                if added:
-                    added_row = True
-            except ValueError:
-                log.warning(f"Invalid division name: {division_name}")
-                continue
-
-            for competitor in entry["RegistrationCategories"]:
-                name = competitor["AthleteName"]
-                if save_registration_link_competitor(link, db_division, name):
-                    added_row = True
-
-    if added_row:
-        db.session.commit()
+    if link is not None:
+        division_set = set(rows)
+        thread = threading.Thread(
+            target=save_competitors_bg, args=(link.id, gi, json_data, division_set)
+        )
+        thread.start()
 
     return jsonify(
         {
