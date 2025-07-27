@@ -81,12 +81,6 @@ span.clear-filter {
   margin-left: 6px;
 }
 
-.flex-space-between {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 .has-tooltip-multiline[data-tooltip]::before {
   white-space: pre-line !important;
 }

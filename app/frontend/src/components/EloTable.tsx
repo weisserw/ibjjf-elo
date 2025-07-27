@@ -257,6 +257,7 @@ function EloTable() {
                   <th className="has-text-right">Rating</th>
                   <th className="has-text-right">+/-</th>
                   <th></th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -279,24 +280,13 @@ function EloTable() {
                       }</td>
                       <td className={changeClass(row.previous_rank, row.rank, true)}>{rankChange(row)}</td>
                       <td>
-                        <div className="flex-space-between">
-                          <a href="#" onClick={e => onNameClick(e, row.name)}>
-                            {row.name}
-                          </a>
-                          {row.registrations && row.registrations.length > 0 && (
-                            <span
-                              className="icon is-small has-tooltip-multiline has-tooltip-top elo-registration-icon"
-                              data-tooltip={
-                                `This athlete is registered for ${row.registrations.length === 1 ? 'an upcoming event' : 'upcoming events'}:\n` +
-                                row.registrations.map(r => `${r.event_name} — ${r.division}`).join('\n\n')
-                              }
-                            >
-                              <i className="fas fa-exclamation-circle"></i>
-                            </span>
-                          )}
-                        </div>
+                        <a href="#" onClick={e => onNameClick(e, row.name)}>
+                          {row.name}
+                        </a>
                       </td>
-                      <td className={"has-text-right " + immatureClass(row.match_count)}>{row.rating}</td>
+                      <td className={"has-text-right " + immatureClass(row.match_count)}>
+                        {row.rating}
+                      </td>
                       <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
                       <td className={classNames("has-text-centered", {"has-tooltip-multiline has-tooltip-left": immatureClass(row.match_count) !== ''})} data-tooltip={rowTooltip(row)}>
                         {
@@ -306,6 +296,19 @@ function EloTable() {
                               <span className="immature-bullet">&nbsp;</span>
                             )
                         }
+                      </td>
+                      <td>
+                        {row.registrations && row.registrations.length > 0 && (
+                          <span
+                            className="icon is-small has-tooltip-multiline has-tooltip-top elo-registration-icon"
+                            data-tooltip={
+                              `This athlete is registered for ${row.registrations.length === 1 ? 'an upcoming event' : 'upcoming events'}:\n\n` +
+                              row.registrations.map(r => `${r.event_name} — ${r.division}`).join('\n\n')
+                            }
+                          >
+                            <i className="fas fa-exclamation-circle"></i>
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))

@@ -129,7 +129,9 @@ def top():
             ),
             "previous_rank": result.previous_rank,
             "previous_match_count": result.previous_match_count,
-            "registrations": reg_links_by_athlete.get(result.name, []),
+            "registrations": sorted(
+                reg_links_by_athlete.get(result.name, []), key=lambda x: x["event_name"]
+            ),
         }
         for result in results
     ]
