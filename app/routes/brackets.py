@@ -691,16 +691,19 @@ def save_registration_link_competitor(db_link, db_division, name):
 
     added_row = False
 
-    competitor_entry = (
+    competitor_entries = (
         db.session.query(RegistrationLinkCompetitor)
         .filter(
             RegistrationLinkCompetitor.registration_link_id == db_link.id,
             RegistrationLinkCompetitor.athlete_name == name,
         )
-        .first()
+        .all()
     )
 
-    if competitor_entry is None:
+    if not competitor_entries or len(competitor_entries) > 1:
+        if len(competitor_entries) > 1:
+            for entry in competitor_entries:
+                db.session.delete(entry)
         competitor_entry = RegistrationLinkCompetitor(
             registration_link_id=db_link.id,
             athlete_name=name,
@@ -708,9 +711,11 @@ def save_registration_link_competitor(db_link, db_division, name):
         )
         db.session.add(competitor_entry)
         added_row = True
-    elif competitor_entry.division_id != db_division.id:
-        competitor_entry.division_id = db_division.id
-        added_row = True
+    elif len(competitor_entries) == 1:
+        competitor_entry = competitor_entries[0]
+        if competitor_entry.division_id != db_division.id:
+            competitor_entry.division_id = db_division.id
+            added_row = True
 
     return added_row
 
