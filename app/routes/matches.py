@@ -365,7 +365,7 @@ def matches():
     sql = f"""
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
             mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating, a.id as athlete_id, a.name, mp.note, m.rated,
-            mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count
+            mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
         JOIN events e ON m.event_id = e.id
@@ -420,6 +420,7 @@ def matches():
                 division=division,
                 event=event,
                 rated=row["rated"],
+                match_location=row["match_location"],
             )
 
         current_match.participants.append(
@@ -477,6 +478,7 @@ def matches():
                     "notes": loser.note or winner.note,
                     "winnerRatingNote": winner.rating_note,
                     "loserRatingNote": loser.rating_note,
+                    "matchLocation": current_match.match_location,
                 }
             )
 

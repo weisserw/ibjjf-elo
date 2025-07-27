@@ -74,6 +74,7 @@ export interface DBRow {
   date: string
   rated: boolean
   notes: string
+  matchLocation: string | null
 }
 
 export interface DBResults {
