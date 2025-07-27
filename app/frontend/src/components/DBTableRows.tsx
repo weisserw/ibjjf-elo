@@ -133,7 +133,7 @@ function DBTableRows(props: DBTableRowsProps) {
               <th>Rating</th>
               <th>Event</th>
               <th>Division</th>
-              <th>Date</th>
+              <th>Date / Location</th>
               <th>Notes</th>
             </tr>
           </thead>

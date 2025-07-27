@@ -717,6 +717,9 @@ def save_registration_link_competitor(db_link, db_division, name):
             competitor_entry.division_id = db_division.id
             added_row = True
 
+    if added_row:
+        db.session.flush()
+
     return added_row
 
 

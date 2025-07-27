@@ -74,3 +74,13 @@ span.clear-filter {
   border-radius: 50%;
   vertical-align: middle;
 }
+
+.elo-registration-icon {
+  color: #00bbff;
+  cursor: pointer;
+  margin-left: 6px;
+}
+
+.has-tooltip-multiline[data-tooltip]::before {
+  white-space: pre-line !important;
+}

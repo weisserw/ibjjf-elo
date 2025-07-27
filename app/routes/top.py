@@ -2,7 +2,13 @@ import math
 from flask import Blueprint, request, jsonify
 from extensions import db
 from sqlalchemy import func, or_
-from models import AthleteRating, Athlete
+from models import (
+    AthleteRating,
+    Athlete,
+    RegistrationLinkCompetitor,
+    RegistrationLink,
+    Division,
+)
 from normalize import normalize
 
 top_route = Blueprint("top_route", __name__)
@@ -81,6 +87,35 @@ def top():
     )
     results = query.all()
 
+    athlete_names = [result.name for result in results]
+    reg_link_rows = (
+        db.session.query(
+            RegistrationLinkCompetitor.athlete_name,
+            RegistrationLink.name,
+            Division.belt,
+            Division.age,
+            Division.gender,
+            Division.weight,
+        )
+        .join(
+            RegistrationLink,
+            RegistrationLinkCompetitor.registration_link_id == RegistrationLink.id,
+        )
+        .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
+        .filter(RegistrationLinkCompetitor.athlete_name.in_(athlete_names))
+        .filter(RegistrationLink.hidden.isnot(True))
+        .all()
+    )
+
+    # Map athlete_name to a list of their registration links
+    reg_links_by_athlete = {}
+    for row in reg_link_rows:
+        entry = {
+            "event_name": row.name,
+            "division": f"{row.belt} / {row.age} / {row.gender} / {row.weight}",
+        }
+        reg_links_by_athlete.setdefault(row.athlete_name, []).append(entry)
+
     response = [
         {
             "rank": result.rank,
@@ -94,6 +129,7 @@ def top():
             ),
             "previous_rank": result.previous_rank,
             "previous_match_count": result.previous_match_count,
+            "registrations": reg_links_by_athlete.get(result.name, []),
         }
         for result in results
     ]

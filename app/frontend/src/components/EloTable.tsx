@@ -11,6 +11,11 @@ import { axiosErrorToast, immatureClass } from '../utils';
 
 import "./EloTable.css"
 
+interface Registration {
+  event_name: string
+  division: string
+}
+
 interface Row {
   rank: number
   previous_rank: number | null
@@ -19,6 +24,7 @@ interface Row {
   match_count: number
   previous_rating: number | null
   previous_match_count: number | null
+  registrations: Registration[]
 }
 
 interface Results {
@@ -276,6 +282,17 @@ function EloTable() {
                         <a href="#" onClick={e => onNameClick(e, row.name)}>
                           {row.name}
                         </a>
+                        {row.registrations && row.registrations.length > 0 && (
+                          <span
+                            className="icon is-small has-tooltip-multiline has-tooltip-right elo-registration-icon"
+                            data-tooltip={
+                              `This athlete is registered for ${row.registrations.length === 1 ? 'an upcoming event' : 'upcoming events'}:\n` +
+                              row.registrations.map(r => `${r.event_name} — ${r.division}`).join('\n')
+                            }
+                          >
+                            <i className="fas fa-exclamation-circle"></i>
+                          </span>
+                        )}
                       </td>
                       <td className={"has-text-right " + immatureClass(row.match_count)}>{row.rating}</td>
                       <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>

@@ -280,8 +280,8 @@ class RegistrationLinkCompetitor(db.Model):
     __table_args__ = (
         Index(
             "ix_registration_link_competitors_all",
-            "registration_link_id",
             "athlete_name",
+            "registration_link_id",
             "division_id",
         ),
     )
