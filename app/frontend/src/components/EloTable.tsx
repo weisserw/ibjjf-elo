@@ -204,6 +204,14 @@ function EloTable() {
     return `Athlete's rating is semi-provisional due to insufficient matches (${row.match_count})`;
   }
 
+  const registrationTooltip = (row: Row) => {
+    if (!row.registrations || row.registrations.length === 0) {
+      return undefined;
+    }
+    return `This athlete is registered for ${row.registrations.length === 1 ? 'an upcoming event' : 'upcoming events'}:\n\n` +
+                              row.registrations.map(r => `${r.event_name} — ${r.division}`).join('\n\n');
+  }
+
   return (
     <div className="elo-container">
       <div className="elo-sub-container">
@@ -297,15 +305,9 @@ function EloTable() {
                             )
                         }
                       </td>
-                      <td>
+                      <td className={classNames({"has-tooltip-multiline has-tooltip-left": row.registrations && row.registrations.length > 0})} data-tooltip={registrationTooltip(row)}>
                         {row.registrations && row.registrations.length > 0 && (
-                          <span
-                            className="icon is-small has-tooltip-multiline has-tooltip-left elo-registration-icon"
-                            data-tooltip={
-                              `This athlete is registered for ${row.registrations.length === 1 ? 'an upcoming event' : 'upcoming events'}:\n\n` +
-                              row.registrations.map(r => `${r.event_name} — ${r.division}`).join('\n\n')
-                            }
-                          >
+                          <span className="icon is-small elo-registration-icon">
                             <i className="fas fa-exclamation-circle"></i>
                           </span>
                         )}
