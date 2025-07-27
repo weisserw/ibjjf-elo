@@ -279,20 +279,22 @@ function EloTable() {
                       }</td>
                       <td className={changeClass(row.previous_rank, row.rank, true)}>{rankChange(row)}</td>
                       <td>
-                        <a href="#" onClick={e => onNameClick(e, row.name)}>
-                          {row.name}
-                        </a>
-                        {row.registrations && row.registrations.length > 0 && (
-                          <span
-                            className="icon is-small has-tooltip-multiline has-tooltip-right elo-registration-icon"
-                            data-tooltip={
-                              `This athlete is registered for ${row.registrations.length === 1 ? 'an upcoming event' : 'upcoming events'}:\n` +
-                              row.registrations.map(r => `${r.event_name} — ${r.division}`).join('\n')
-                            }
-                          >
-                            <i className="fas fa-exclamation-circle"></i>
-                          </span>
-                        )}
+                        <div className="flex-space-between">
+                          <a href="#" onClick={e => onNameClick(e, row.name)}>
+                            {row.name}
+                          </a>
+                          {row.registrations && row.registrations.length > 0 && (
+                            <span
+                              className="icon is-small has-tooltip-multiline has-tooltip-top elo-registration-icon"
+                              data-tooltip={
+                                `This athlete is registered for ${row.registrations.length === 1 ? 'an upcoming event' : 'upcoming events'}:\n` +
+                                row.registrations.map(r => `${r.event_name} — ${r.division}`).join('\n\n')
+                              }
+                            >
+                              <i className="fas fa-exclamation-circle"></i>
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className={"has-text-right " + immatureClass(row.match_count)}>{row.rating}</td>
                       <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
