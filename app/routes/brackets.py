@@ -24,6 +24,7 @@ from models import (
     Event,
     Medal,
     RegistrationLink,
+    RegistrationLinkCompetitor,
 )
 import logging
 from normalize import normalize
@@ -58,7 +59,7 @@ log = logging.getLogger("ibjjf")
 brackets_route = Blueprint("brackets_route", __name__)
 
 validlink = re.compile(r"^/tournaments/\d+/categories/\d+$")
-validibjjfdblibk = re.compile(
+validibjjfdblink = re.compile(
     r"^(https://www.ibjjfdb.com/ChampionshipResults/\d+/PublicRegistrations)(\?lang=[a-zA-Z-]*)?$"
 )
 weightre = re.compile(r"\s+\(.*\)$")
@@ -480,6 +481,7 @@ def bring_to_front(lst, name):
 def recent_registrations():
     links = (
         db.session.query(RegistrationLink)
+        .filter(RegistrationLink.hidden.isnot(True))
         .order_by(RegistrationLink.updated_at.desc())
         .limit(20)
         .all()
@@ -503,6 +505,11 @@ def recent_registrations():
     return jsonify({"links": rows})
 
 
+def is_gi(event_name):
+    name = event_name.lower()
+    return not ("no-gi" in name or "no gi" in name or "sem kimono" in name)
+
+
 @brackets_route.route("/api/brackets/registrations/categories")
 def registration_categories():
     link = request.args.get("link")
@@ -510,7 +517,7 @@ def registration_categories():
     if not link:
         return jsonify({"error": "Missing parameter"}), 400
 
-    m = validibjjfdblibk.search(link)
+    m = validibjjfdblink.search(link)
     if not m:
         return (
             jsonify(
@@ -521,7 +528,7 @@ def registration_categories():
             400,
         )
 
-    url = m.group(1) + m.group(2) if m.group(2) else m.group(1)
+    url = m.group(1) + "?lang=en-US"
 
     updated_at = None
 
@@ -553,6 +560,9 @@ def registration_categories():
     except Exception as e:
         return jsonify({"error": str(e)})
 
+    added_row = False
+    gi = is_gi(tournament_name)
+
     if updated_at is not None:
         link = (
             db.session.query(RegistrationLink)
@@ -572,8 +582,8 @@ def registration_categories():
                 link=url,
             )
             db.session.add(link)
-
-        db.session.commit()
+            added_row = True
+            db.session.flush()
 
     rows = []
     total_competitors = 0
@@ -591,7 +601,28 @@ def registration_categories():
         ):
             continue
 
-        rows.append(weightre.sub("", division_name))
+        division_name = weightre.sub("", division_name)
+
+        rows.append(division_name)
+
+        db_division = None
+        if link is not None:
+            try:
+                current_divdata = parse_division(division_name, throw=True)
+                db_division, added = get_db_division(gi, current_divdata)
+                if added:
+                    added_row = True
+            except ValueError:
+                log.warning(f"Invalid division name: {division_name}")
+                continue
+
+            for competitor in entry["RegistrationCategories"]:
+                name = competitor["AthleteName"]
+                if save_registration_link_competitor(link, db_division, name):
+                    added_row = True
+
+    if added_row:
+        db.session.commit()
 
     return jsonify(
         {
@@ -600,6 +631,64 @@ def registration_categories():
             "total_competitors": total_competitors,
         }
     )
+
+
+def get_db_division(gi, divdata):
+    added_row = False
+
+    db_division = (
+        db.session.query(Division)
+        .filter(
+            Division.gi == gi,
+            Division.age == divdata["age"],
+            Division.belt == divdata["belt"],
+            Division.weight == divdata["weight"],
+            Division.gender == divdata["gender"],
+        )
+        .first()
+    )
+
+    if db_division is None:
+        db_division = Division(
+            gi=gi,
+            age=divdata["age"],
+            belt=divdata["belt"],
+            weight=divdata["weight"],
+            gender=divdata["gender"],
+        )
+        db.session.add(db_division)
+        added_row = True
+        db.session.flush()
+
+    return db_division, added_row
+
+
+def save_registration_link_competitor(db_link, db_division, name):
+    if db_link is None or db_division is None:
+        return False
+
+    added_row = False
+
+    competitor_entry = (
+        db.session.query(RegistrationLinkCompetitor)
+        .filter(
+            RegistrationLinkCompetitor.registration_link_id == db_link.id,
+            RegistrationLinkCompetitor.athlete_name == name,
+            RegistrationLinkCompetitor.division_id == db_division.id,
+        )
+        .first()
+    )
+
+    if competitor_entry is None:
+        competitor_entry = RegistrationLinkCompetitor(
+            registration_link_id=db_link.id,
+            athlete_name=name,
+            division_id=db_division.id,
+        )
+        db.session.add(competitor_entry)
+        added_row = True
+
+    return added_row
 
 
 @brackets_route.route("/api/brackets/registrations/competitors")
@@ -613,7 +702,7 @@ def registration_competitors():
 
     gi = gi.lower() == "true"
 
-    m = validibjjfdblibk.search(link)
+    m = validibjjfdblink.search(link)
     if not m:
         return (
             jsonify(
@@ -624,7 +713,7 @@ def registration_competitors():
             400,
         )
 
-    url = m.group(1) + m.group(2) if m.group(2) else m.group(1)
+    url = m.group(1) + "?lang=en-US"
 
     try:
         divdata = parse_division(division, throw=True)

@@ -260,8 +260,31 @@ class RegistrationLink(db.Model):
     normalized_name = Column(String, nullable=False)
     updated_at = Column(DateTime, nullable=False)
     link = Column(String, nullable=False)
+    hidden = Column(Boolean, nullable=True)
 
     __table_args__ = (Index("ix_registration_links_link", "link", unique=True),)
+
+
+class RegistrationLinkCompetitor(db.Model):
+    __tablename__ = "registration_link_competitors"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    registration_link_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("registration_links.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    athlete_name = Column(String, nullable=False)
+    division_id = Column(UUID(as_uuid=True), ForeignKey("divisions.id"), nullable=False)
+
+    __table_args__ = (
+        Index(
+            "ix_registration_link_competitors_all",
+            "registration_link_id",
+            "athlete_name",
+            "division_id",
+        ),
+    )
 
 
 class Suspension(db.Model):
