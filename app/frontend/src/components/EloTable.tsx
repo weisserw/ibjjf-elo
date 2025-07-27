@@ -300,7 +300,7 @@ function EloTable() {
                       <td>
                         {row.registrations && row.registrations.length > 0 && (
                           <span
-                            className="icon is-small has-tooltip-multiline has-tooltip-top elo-registration-icon"
+                            className="icon is-small has-tooltip-multiline has-tooltip-left elo-registration-icon"
                             data-tooltip={
                               `This athlete is registered for ${row.registrations.length === 1 ? 'an upcoming event' : 'upcoming events'}:\n\n` +
                               row.registrations.map(r => `${r.event_name} — ${r.division}`).join('\n\n')
