@@ -264,8 +264,8 @@ function EloTable() {
                   <th>Name</th>
                   <th className="has-text-right">Rating</th>
                   <th className="has-text-right">+/-</th>
-                  <th></th>
-                  <th></th>
+                  <th className="cell-no-padding"></th>
+                  <th className="cell-no-padding"></th>
                 </tr>
               </thead>
               <tbody>
@@ -296,16 +296,16 @@ function EloTable() {
                         {row.rating}
                       </td>
                       <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
-                      <td className={classNames("has-text-centered", {"has-tooltip-multiline has-tooltip-left": immatureClass(row.match_count) !== ''})} data-tooltip={rowTooltip(row)}>
+                      <td className={classNames("has-text-centered cell-no-padding", {"has-tooltip-multiline has-tooltip-left": immatureClass(row.match_count) !== ''})} data-tooltip={rowTooltip(row)}>
                         {
                           immatureClass(row.match_count) === 'very-immature' ? 
-                            <span className="very-immature-bullet">&nbsp;</span> : (
+                            <span className="very-immature-bullet elo-bullet">&nbsp;</span> : (
                               immatureClass(row.match_count) === 'immature' &&
-                              <span className="immature-bullet">&nbsp;</span>
+                              <span className="immature-bullet elo-bullet">&nbsp;</span>
                             )
                         }
                       </td>
-                      <td className={classNames({"has-tooltip-multiline has-tooltip-left": row.registrations && row.registrations.length > 0})} data-tooltip={registrationTooltip(row)}>
+                      <td className={classNames("cell-no-padding", {"has-tooltip-multiline has-tooltip-left": row.registrations && row.registrations.length > 0})} data-tooltip={registrationTooltip(row)}>
                         {row.registrations && row.registrations.length > 0 && (
                           <span className="icon is-small elo-registration-icon">
                             <i className="fas fa-exclamation-circle"></i>

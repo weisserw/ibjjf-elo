@@ -78,9 +78,23 @@ span.clear-filter {
 .elo-registration-icon {
   color: #00bbff;
   cursor: pointer;
-  margin-left: 6px;
+  margin-left: 4px;
+  margin-right: 4px;
 }
 
 .has-tooltip-multiline[data-tooltip]::before {
   white-space: pre-line !important;
+}
+
+.cell-no-padding {
+  padding: 0 !important;
+  vertical-align: middle !important;
+}
+
+.elo-bullet {
+  margin-left: 4px;
+}
+
+nav.pagination.pagination-margin {
+  max-width: 100%;
 }
