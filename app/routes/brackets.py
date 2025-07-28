@@ -484,7 +484,6 @@ def recent_registrations():
         db.session.query(RegistrationLink)
         .filter(RegistrationLink.hidden.isnot(True))
         .order_by(RegistrationLink.updated_at.desc())
-        .limit(20)
         .all()
     )
 
