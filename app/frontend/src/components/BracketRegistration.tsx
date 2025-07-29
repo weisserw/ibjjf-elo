@@ -12,25 +12,20 @@ interface RegistrationCategoriesResponse {
   error?: string
 }
 
-interface RecentLink {
+export interface UpcomingLink {
   name: string
   link: string
 }
 
-interface RecentLinksResponse {
-  links?: RecentLink[]
+interface UpcomingLinksResponse {
+  links?: UpcomingLink[]
 }
 
 function BracketRegistration() {
   const [error, setError] = useState<string | null>(null)
-  const [recentLinks, setRecentLinks] = useState<RecentLink[]>([])
-  const [selectedRecentLink, setSelectedRecentLink] = useState<string>('')
   const [loading, setLoading] = useState(false)
 
-
   const {
-    bracketRegistrationUrl: registrationUrl,
-    setBracketRegistrationUrl: setRegistrationUrl,
     bracketRegistrationEventName: registrationEventName,
     setBracketRegistrationEventName: setRegistrationEventName,
     bracketRegistrationEventTotal: registrationEventTotal,
@@ -43,6 +38,10 @@ function BracketRegistration() {
     setBracketRegistrationSelectedCategory: setSelectedRegistrationCategory,
     bracketRegistrationCompetitors: registrationCompetitors,
     setBracketRegistrationCompetitors: setRegistrationCompetitors,
+    bracketRegistrationUpcomingLinks: upcomingLinks,
+    setBracketRegistrationUpcomingLinks: setUpcomingLinks,
+    bracketRegistrationSelectedUpcomingLink: selectedUpcomingLink,
+    setBracketRegistrationSelectedUpcomingLink: setSelectedUpcomingLink,
     setFilters,
     setOpenFilters,
     setActiveTab,
@@ -81,14 +80,14 @@ function BracketRegistration() {
   }, [registrationEventUrl, selectedRegistrationCategory])
 
   useEffect(() => {
-    const getRecentLinks = async () => {
-      const { data } = await axios.get<RecentLinksResponse>('/api/brackets/registrations/recent');
+    const getUpcomingLinks = async () => {
+      const { data } = await axios.get<UpcomingLinksResponse>('/api/brackets/registrations/links');
 
       if (data.links) {
-        setRecentLinks(data.links)
+        setUpcomingLinks(data.links)
       }
     }
-    getRecentLinks()
+    getUpcomingLinks()
   }, [])
 
   const registrationAthleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => {
@@ -127,12 +126,6 @@ function BracketRegistration() {
     const sum = ratings.reduce((a, b) => a + b, 0)
     return Math.round(sum / ratings.length)
   }, [registrationCompetitors])
-
-  const onRegistrationUrlKeyDown = (ev: React.KeyboardEvent<HTMLInputElement>) => {
-    if (ev.key === 'Enter' && registrationUrl) {
-      getRegistrationCategories(registrationUrl)
-    }
-  }
 
   const getRegistrationCategories = async (url: string) => {
     setLoading(true)
@@ -197,26 +190,29 @@ function BracketRegistration() {
     <div className="brackets-content">
       <div>
         <div className="registrations">
-          <div className="field is-horizontal recent-label">
+          <p className="mb-2">
+            This tool imports registrations from the IBJJF registration system and displays the current ratings of the competitors. To view registrations, {' '} 
+            select an upcoming event from the list below:
+          </p>
+          <div className="field is-horizontal upcoming-label">
             <div className="field-label is-normal">
-              <label className="label recent-label">Recently Imported:</label>
+              <label className="label upcoming-label">Upcoming events:</label>
             </div>
-            <div className="field-body recent-field-body">
-              <div className="field recent-field">
+            <div className="field-body upcoming-field-body">
+              <div className="field upcoming-field">
                 <div className="control">
                   <div className="select">
-                    <select className="select" disabled={!recentLinks.length} value={selectedRecentLink} onChange={e => {
+                    <select className="select" disabled={!upcomingLinks.length} value={selectedUpcomingLink} onChange={e => {
                       if (e.target.value === '') {
-                        setSelectedRecentLink('')
+                        setSelectedUpcomingLink('')
                         return;
                       }
-                      setSelectedRecentLink(e.target.value)
-                      setRegistrationUrl(e.target.value)
+                      setSelectedUpcomingLink(e.target.value)
                       getRegistrationCategories(e.target.value)
                     }}>
-                      <option value="">Choose a recent URL</option>
+                      <option value="">Choose an event</option>
                       {
-                        recentLinks.map(link => (
+                        upcomingLinks.map(link => (
                           <option key={link.link} value={link.link}>{link.name}</option>
                         ))
                       }
@@ -225,19 +221,6 @@ function BracketRegistration() {
                 </div>
               </div>
             </div>
-          </div>
-          <p className="mb-2">
-            This tool imports registrations from the IBJJF registration system and displays the current ratings of the competitors. To view registrations, {' '} 
-            <b>select a recently imported event above</b>, or find an event on <a href="https://ibjjf.com/" target="_blank" rel="nofollow noreferrer">ibjjf.com</a>, select "ATHLETES LIST BY DIVISIONS" from the event page,
-            then copy and paste the URL from the browser address bar into the box below:
-          </p>
-          <div className="field">
-            <div className="control">
-              <input className="input" type="text" placeholder="Paste registration URL e.g. https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations" value={registrationUrl} onKeyDown={onRegistrationUrlKeyDown} onChange={e => setRegistrationUrl(e.target.value)} />
-            </div>
-          </div>
-          <div className="registrations-get">
-            <button className="button is-info" onClick={() => getRegistrationCategories(registrationUrl)} disabled={!registrationUrl}>Get Categories</button>
           </div>
         </div>
         {

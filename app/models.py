@@ -261,6 +261,8 @@ class RegistrationLink(db.Model):
     updated_at = Column(DateTime, nullable=False)
     link = Column(String, nullable=False)
     hidden = Column(Boolean, nullable=True)
+    event_start_date = Column(DateTime, nullable=True)
+    event_end_date = Column(DateTime, nullable=True)
 
     __table_args__ = (Index("ix_registration_links_link", "link", unique=True),)
 

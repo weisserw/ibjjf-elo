@@ -15,6 +15,9 @@ import type {
   Match as BracketMatch,
   Category as BracketCategory,
 } from './components/BracketUtils';
+import type {
+  UpcomingLink as BracketRegistrationUpcomingLink,
+} from './components/BracketRegistration';
 
 interface AppContextProps {
   filters: FilterValues;
@@ -55,8 +58,6 @@ interface AppContextProps {
   setBracketSortColumn: (column: BracketSortColumn) => void;
   bracketActiveTab: BracketTabs;
   setBracketActiveTab: (tab: BracketTabs) => void;
-  bracketRegistrationUrl: string;
-  setBracketRegistrationUrl: (url: string) => void;
   bracketRegistrationEventName: string;
   setBracketRegistrationEventName: (name: string) => void;
   bracketRegistrationEventTotal: number | null;
@@ -69,6 +70,10 @@ interface AppContextProps {
   setBracketRegistrationSelectedCategory: (category: string | null) => void;
   bracketRegistrationCompetitors: BracketCompetitor[] | null;
   setBracketRegistrationCompetitors: (competitors: BracketCompetitor[] | null) => void;
+  bracketRegistrationUpcomingLinks: BracketRegistrationUpcomingLink[];
+  setBracketRegistrationUpcomingLinks: (links: BracketRegistrationUpcomingLink[]) => void;
+  bracketRegistrationSelectedUpcomingLink: string;
+  setBracketRegistrationSelectedUpcomingLink: (link: string) => void;
   bracketArchiveEventName: string;
   setBracketArchiveEventName: (name: string) => void;
   bracketArchiveEventNameFetch: string;
@@ -129,13 +134,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[] | null>(null)
   const [bracketSortColumn, setBracketSortColumn] = useState<BracketSortColumn>('rating')
   const [bracketActiveTab, setBracketActiveTab] = useState<BracketTabs>('Live')
-  const [bracketRegistrationUrl, setBracketRegistrationUrl] = useState('')
   const [bracketRegistrationEventName, setBracketRegistrationEventName] = useState('')
   const [bracketRegistrationEventTotal, setBracketRegistrationEventTotal] = useState<number | null>(null)
   const [bracketRegistrationEventUrl, setBracketRegistrationEventUrl] = useState('')
   const [bracketRegistrationCategories, setBracketRegistrationCategories] = useState<string[] | null>(null)
   const [bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory] = useState<string | null>(null)
   const [bracketRegistrationCompetitors, setBracketRegistrationCompetitors] = useState<BracketCompetitor[] | null>(null)
+  const [bracketRegistrationUpcomingLinks, setBracketRegistrationUpcomingLinks] = useState<BracketRegistrationUpcomingLink[]>([])
+  const [bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink] = useState<string>('')
   const [bracketArchiveEventName, setBracketArchiveEventName] = useState('')
   const [bracketArchiveEventNameFetch, setBracketArchiveEventNameFetch] = useState('')
   const [bracketArchiveCategories, setBracketArchiveCategories] = useState<BracketCategory[] | null>(null)
@@ -214,13 +220,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketMatches, setBracketMatches,
       bracketSortColumn, setBracketSortColumn,
       bracketActiveTab, setBracketActiveTab,
-      bracketRegistrationUrl, setBracketRegistrationUrl,
       bracketRegistrationEventName, setBracketRegistrationEventName,
       bracketRegistrationEventTotal, setBracketRegistrationEventTotal,
       bracketRegistrationEventUrl, setBracketRegistrationEventUrl,
       bracketRegistrationCategories, setBracketRegistrationCategories,
       bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory,
       bracketRegistrationCompetitors, setBracketRegistrationCompetitors,
+      bracketRegistrationUpcomingLinks, setBracketRegistrationUpcomingLinks,
+      bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink,
       bracketArchiveEventName, setBracketArchiveEventName,
       bracketArchiveEventNameFetch, setBracketArchiveEventNameFetch,
       bracketArchiveCategories, setBracketArchiveCategories,

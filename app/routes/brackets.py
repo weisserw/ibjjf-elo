@@ -478,12 +478,26 @@ def bring_to_front(lst, name):
         lst.insert(0, item)
 
 
-@brackets_route.route("/api/brackets/registrations/recent")
-def recent_registrations():
+def format_event_dates(start_date, end_date):
+    if not start_date or not end_date:
+        return ""
+    if start_date == end_date:
+        # Example: Oct 15
+        return f"{start_date.strftime('%b')} {start_date.day}"
+    if start_date.month == end_date.month and start_date.year == end_date.year:
+        # Example: Oct 15 - 17
+        return f"{start_date.strftime('%b')} {start_date.day} - {end_date.day}"
+    else:
+        # Example: Oct 28 - Nov 2
+        return f"{start_date.strftime('%b')} {start_date.day} - {end_date.strftime('%b')} {end_date.day}"
+
+
+@brackets_route.route("/api/brackets/registrations/links")
+def registration_links():
     links = (
         db.session.query(RegistrationLink)
         .filter(RegistrationLink.hidden.isnot(True))
-        .order_by(RegistrationLink.updated_at.desc())
+        .order_by(RegistrationLink.event_start_date, RegistrationLink.name)
         .all()
     )
 
@@ -496,8 +510,7 @@ def recent_registrations():
     for link in links:
         rows.append(
             {
-                "name": link.name,
-                "updated_at": link.updated_at.isoformat(),
+                "name": f"{link.name} ({format_event_dates(link.event_start_date, link.event_end_date)})",
                 "link": link.link,
             }
         )
@@ -510,78 +523,91 @@ def is_gi(event_name):
     return not ("no-gi" in name or "no gi" in name or "sem kimono" in name)
 
 
-@brackets_route.route("/api/brackets/registrations/categories")
-def registration_categories():
-    link = request.args.get("link")
+def save_competitors_thread(link_id, json_data, division_set):
+    from app import db as app_db, app
 
-    if not link:
-        return jsonify({"error": "Missing parameter"}), 400
+    log = logging.getLogger("ibjjf")
+    with app.app_context():
+        try:
+            session = app_db.session()
+            save_competitors(session, link_id, json_data, division_set)
+            session.close()
+        except Exception as e:
+            log.error(f"Error saving competitors: {e}")
 
+
+def save_competitors(link_id, json_data, division_set):
+    link = db.session.query(RegistrationLink).get(link_id)
+    if link is not None:
+        gi = is_gi(link.name)
+
+        added_row = False
+        for entry in json_data:
+            division_name = entry["FriendlyName"]
+            division_name_clean = weightre.sub("", division_name)
+            if division_name_clean not in division_set:
+                continue
+            try:
+                current_divdata = parse_division(division_name_clean, throw=True)
+                db_division, added = get_db_division(gi, current_divdata)
+                if added:
+                    added_row = True
+            except ValueError:
+                log.warning(f"Invalid division name: {division_name_clean}")
+                continue
+            if db_division is not None:
+                for competitor in entry["RegistrationCategories"]:
+                    name = competitor["AthleteName"]
+                    if save_registration_link_competitor(link, db_division, name):
+                        added_row = True
+    if added_row:
+        db.session.commit()
+
+
+def normalize_registration_link(link):
     m = validibjjfdblink.search(link)
     if not m:
-        return (
-            jsonify(
-                {
-                    "error": "Link should be in the format 'https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations'"
-                }
-            ),
-            400,
+        raise ValueError(
+            "Link should be in the format 'https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations'"
         )
+    return m.group(1) + "?lang=en-US"
 
-    url = m.group(1) + "?lang=en-US"
+
+def import_registration_link(link, background):
+    url = normalize_registration_link(link)
+
+    link = (
+        db.session.query(RegistrationLink).filter(RegistrationLink.link == url).first()
+    )
+
+    if not link:
+        raise ValueError("Link not found")
+
+    soup = BeautifulSoup(
+        get_bracket_page(url, newer_than=datetime.now() - timedelta(minutes=10)),
+        "html.parser",
+    )
 
     updated_at = None
-
-    try:
-        soup = BeautifulSoup(
-            get_bracket_page(url, newer_than=datetime.now() - timedelta(minutes=10)),
-            "html.parser",
-        )
-
-        container = soup.find("div", class_="container")
-        title_tag = container.find("h2", class_="title")
-        tournament_name = title_tag.get_text(strip=True) if title_tag else "Unknown"
-
-        for span in soup.find_all("span"):
-            strong = span.find("strong")
-            if strong and "Last Updated:" in strong.get_text():
-                text = span.get_text().replace(strong.get_text(), "").strip()
-                date_part = text.split("(")[0].strip()
+    for span in soup.find_all("span"):
+        strong = span.find("strong")
+        if strong and "Last Updated:" in strong.get_text():
+            text = span.get_text().replace(strong.get_text(), "").strip()
+            date_part = text.split("(")[0].strip()
+            try:
+                updated_at = datetime.strptime(date_part, "%b/%d/%Y %H:%M:%S")
+            except Exception:
                 try:
-                    updated_at = datetime.strptime(date_part, "%b/%d/%Y %H:%M:%S")
+                    updated_at = datetime.strptime(date_part, "%B/%d/%Y %H:%M:%S")
                 except Exception:
-                    try:
-                        updated_at = datetime.strptime(date_part, "%B/%d/%Y %H:%M:%S")
-                    except Exception:
-                        updated_at = None
-                break
+                    updated_at = None
+            break
 
-        json_data = parse_registrations(soup)
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-    gi = is_gi(tournament_name)
+    json_data = parse_registrations(soup)
 
     if updated_at is not None:
-        link = (
-            db.session.query(RegistrationLink)
-            .filter(RegistrationLink.link == url)
-            .first()
-        )
-
-        if link:
-            link.updated_at = updated_at
-            link.name = tournament_name
-            link.normalized_name = normalize(tournament_name)
-        else:
-            link = RegistrationLink(
-                name=tournament_name,
-                normalized_name=normalize(tournament_name),
-                updated_at=updated_at,
-                link=url,
-            )
-            db.session.add(link)
-            db.session.commit()
+        link.updated_at = updated_at
+        db.session.commit()
 
     rows = []
     total_competitors = 0
@@ -599,56 +625,37 @@ def registration_categories():
         division_name_clean = weightre.sub("", division_name)
         rows.append(division_name_clean)
 
-    # Save competitors in background thread
-    def save_competitors_bg(link_id, gi, json_data, division_set):
-        from app import db as app_db, app
-
-        log = logging.getLogger("ibjjf")
-        with app.app_context():
-            session = app_db.session()
-            link = session.query(RegistrationLink).get(link_id)
-            if link is not None:
-                added_row = False
-                for entry in json_data:
-                    division_name = entry["FriendlyName"]
-                    division_name_clean = weightre.sub("", division_name)
-                    if division_name_clean not in division_set:
-                        continue
-                    try:
-                        current_divdata = parse_division(
-                            division_name_clean, throw=True
-                        )
-                        db_division, added = get_db_division(gi, current_divdata)
-                        if added:
-                            added_row = True
-                    except ValueError:
-                        log.warning(f"Invalid division name: {division_name_clean}")
-                        continue
-                    if db_division is not None:
-                        for competitor in entry["RegistrationCategories"]:
-                            name = competitor["AthleteName"]
-                            if save_registration_link_competitor(
-                                link, db_division, name
-                            ):
-                                added_row = True
-            if added_row:
-                session.commit()
-            session.close()
-
-    if link is not None:
+    if background:
         division_set = set(rows)
         thread = threading.Thread(
-            target=save_competitors_bg, args=(link.id, gi, json_data, division_set)
+            target=save_competitors_thread, args=(link.id, json_data, division_set)
         )
         thread.start()
+    else:
+        save_competitors(link.id, json_data, set(rows))
 
-    return jsonify(
-        {
-            "categories": rows,
-            "event_name": tournament_name,
-            "total_competitors": total_competitors,
-        }
-    )
+    return {
+        "categories": rows,
+        "event_name": link.name,
+        "total_competitors": total_competitors,
+    }
+
+
+@brackets_route.route("/api/brackets/registrations/categories")
+def registration_categories():
+    link = request.args.get("link")
+
+    if not link:
+        return jsonify({"error": "Missing parameter"}), 400
+
+    try:
+        data = import_registration_link(link, background=True)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+    return jsonify(data)
 
 
 def get_db_division(gi, divdata):

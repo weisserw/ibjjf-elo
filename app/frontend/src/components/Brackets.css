@@ -128,7 +128,7 @@
   padding-left: 10px;
 }
 
-.recent-label {
+.upcoming-label {
   white-space: nowrap;
 }
 
@@ -139,17 +139,17 @@
   justify-content: space-between;
 }
 
-.recent-label {
+.upcoming-label {
   width: 150px;
 }
 
-.recent-field-body {
+.upcoming-field-body {
   display: flex;
   flex-basis: 0;
   flex-grow: 5;
 }
 
-.recent-field {
+.upcoming-field {
   flex-grow: 1;
   max-width: calc(100vw - 20px);
 }
