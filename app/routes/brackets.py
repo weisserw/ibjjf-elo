@@ -497,7 +497,7 @@ def registration_links():
     links = (
         db.session.query(RegistrationLink)
         .filter(RegistrationLink.hidden.isnot(True))
-        .order_by(RegistrationLink.event_start_date, RegistrationLink.name)
+        .order_by(RegistrationLink.event_end_date, RegistrationLink.name)
         .all()
     )
 
