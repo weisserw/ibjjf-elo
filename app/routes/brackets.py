@@ -138,10 +138,8 @@ def get_bracket_page(link, newer_than):
     if page:
         return page.html
 
-    log.info(f"Retrieving {link}")
     session = requests.Session()
     response = session.get(link, timeout=10)
-    log.info(f"Retrieved {link} with status {response.status_code}")
 
     if response.status_code != 200:
         raise Exception(

@@ -76,6 +76,8 @@ def main():
     try:
         from app import db, app
 
+        total_competitors = 0
+
         with app.app_context():
             url = "https://ibjjf.com/api/v1/events/upcomings.json"
             log.info(f"Downloading {url}")
@@ -124,11 +126,7 @@ def main():
                     .filter(RegistrationLink.link == event_link)
                     .first()
                 )
-                if link:
-                    log.info(
-                        f"RegistrationLink already exists for {name} ({event_link})"
-                    )
-                else:
+                if not link:
                     link = RegistrationLink(
                         name=name,
                         normalized_name=normalize(name),
@@ -139,11 +137,18 @@ def main():
                     )
                     db.session.add(link)
                     db.session.commit()
-                    log.info(f"Created RegistrationLink for {name} ({event_link})")
+                    log.info(f"Found new tournament {name} ({event_link})")
 
-                import_registration_link(event_link, background=False)
-                log.info(f"Imported registration link for {name} ({event_link})")
+                competitor_count = import_registration_link(
+                    event_link, background=False
+                )["total_competitors"]
+                log.info(
+                    f"Imported tournament {name} ({event_link}), {competitor_count} competitors"
+                )
+                total_competitors += competitor_count
             db.session.commit()
+
+        log.info(f"Total competitors found: {total_competitors}")
     except Exception as e:
         log.error(f"Unhandled exception: {e}")
         traceback.print_exc()
