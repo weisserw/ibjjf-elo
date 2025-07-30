@@ -76,7 +76,7 @@ def main():
     try:
         from app import db, app
 
-        total_competitors = 0
+        total_registrations = 0
 
         with app.app_context():
             url = "https://ibjjf.com/api/v1/events/upcomings.json"
@@ -145,10 +145,10 @@ def main():
                 log.info(
                     f"Imported tournament {name} ({event_link}), {competitor_count} competitors"
                 )
-                total_competitors += competitor_count
+                total_registrations += competitor_count
             db.session.commit()
 
-        log.info(f"Total competitors found: {total_competitors}")
+        log.info(f"Total registrations found: {total_registrations}")
     except Exception as e:
         log.error(f"Unhandled exception: {e}")
         traceback.print_exc()
