@@ -323,7 +323,7 @@ function Calculator() {
     <div className="container calculator-container">
       <GiTabs />
       <p>
-        Select two athletes (or manually enter ratings) to see the predicted outcome of a match and potential Elo gain / loss.
+        Select two athletes (or manually enter ratings) to see the predicted outcome of a match, potential Elo gain / loss, and match history.
       </p>
       <div className="calculator-header mt-4 mb-4">
         <div className="field">
@@ -569,6 +569,13 @@ function Calculator() {
                       </div>
                     )
                   }
+                </div>
+              )
+            }
+            {
+              data && data.length === 0 && (
+                <div className="notification is-info">
+                  No match history found for the selected athletes.
                 </div>
               )
             }
