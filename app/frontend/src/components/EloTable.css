@@ -82,6 +82,15 @@ span.clear-filter {
   margin-right: 4px;
 }
 
+.elo-registration-two-weeks {
+  color: #ffbb00;
+}
+
+.elo-registration-one-week {
+  color: #ff0000;
+}
+
+
 .has-tooltip-multiline[data-tooltip]::before {
   white-space: pre-line !important;
 }

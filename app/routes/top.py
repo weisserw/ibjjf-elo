@@ -92,6 +92,8 @@ def top():
         db.session.query(
             RegistrationLinkCompetitor.athlete_name,
             RegistrationLink.name,
+            RegistrationLink.event_start_date,
+            RegistrationLink.event_end_date,
             Division.belt,
             Division.age,
             Division.gender,
@@ -118,6 +120,8 @@ def top():
         entry = {
             "event_name": row.name,
             "division": f"{row.belt} / {row.age} / {row.gender} / {row.weight}",
+            "event_start_date": row.event_start_date.strftime("%Y-%m-%d"),
+            "event_end_date": row.event_end_date.strftime("%Y-%m-%d"),
         }
         reg_links_by_athlete.setdefault(row.athlete_name, []).append(entry)
 

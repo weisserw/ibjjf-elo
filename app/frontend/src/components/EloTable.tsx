@@ -7,6 +7,7 @@ import DBPagination from './DBPagination';
 import EloFilters from './EloFilters';
 import Autosuggest from 'react-autosuggest';
 import classNames from 'classnames';
+import dayjs from 'dayjs';
 import { axiosErrorToast, immatureClass } from '../utils';
 
 import "./EloTable.css"
@@ -14,6 +15,8 @@ import "./EloTable.css"
 interface Registration {
   event_name: string
   division: string
+  event_start_date: string
+  event_end_date: string
 }
 
 interface Row {
@@ -30,6 +33,29 @@ interface Row {
 interface Results {
   rows: Row[]
   totalPages: number
+}
+
+function formatEventDates(startDate: string, endDate: string): string {
+    if (!startDate || !endDate) {
+        return "";
+    }
+    const start = dayjs(startDate);
+    const end = dayjs(endDate);
+
+    if (!start.isValid() || !end.isValid()) {
+        return "";
+    }
+
+    if (start.isSame(end, 'day')) {
+        // Example: Oct 15
+        return `${start.format('MMM')} ${start.date()}`;
+    }
+    if (start.month() === end.month() && start.year() === end.year()) {
+        // Example: Oct 15 - 17
+        return `${start.format('MMM')} ${start.date()} - ${end.date()}`;
+    }
+    // Example: Oct 28 - Nov 2
+    return `${start.format('MMM')} ${start.date()} - ${end.format('MMM')} ${end.date()}`;
 }
 
 function EloTable() {
@@ -209,7 +235,7 @@ function EloTable() {
       return undefined;
     }
     return `This athlete is registered for ${row.registrations.length === 1 ? 'an upcoming event' : 'upcoming events'}:\n\n` +
-                              row.registrations.map(r => `${r.event_name} — ${r.division}`).join('\n\n');
+                              row.registrations.map(r => `${r.event_name} (${formatEventDates(r.event_start_date, r.event_end_date)})\n${r.division}`).join('\n\n');
   }
 
   return (
@@ -307,7 +333,10 @@ function EloTable() {
                       </td>
                       <td className={classNames("cell-no-padding", {"has-tooltip-multiline has-tooltip-left": row.registrations && row.registrations.length > 0})} data-tooltip={registrationTooltip(row)}>
                         {row.registrations && row.registrations.length > 0 && (
-                          <span className="icon is-small elo-registration-icon">
+                          <span className={classNames("icon is-small elo-registration-icon", {
+                            "elo-registration-one-week": new Date(row.registrations[0].event_start_date).getTime() - (7 * 24 * 60 * 60 * 1000) < new Date().getTime(),
+                            "elo-registration-two-weeks": new Date(row.registrations[0].event_start_date).getTime() - (14 * 24 * 60 * 60 * 1000) < new Date().getTime(),
+                          })}>
                             <i className="fas fa-exclamation-circle"></i>
                           </span>
                         )}
