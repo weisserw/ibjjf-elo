@@ -105,7 +105,6 @@ def top():
         )
         .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
         .filter(RegistrationLinkCompetitor.athlete_name.in_(athlete_names))
-        .filter(RegistrationLink.hidden.isnot(True))
         .order_by(
             RegistrationLinkCompetitor.athlete_name,
             RegistrationLink.event_end_date,
