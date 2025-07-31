@@ -104,6 +104,11 @@ def top():
         .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
         .filter(RegistrationLinkCompetitor.athlete_name.in_(athlete_names))
         .filter(RegistrationLink.hidden.isnot(True))
+        .order_by(
+            RegistrationLinkCompetitor.athlete_name,
+            RegistrationLink.event_end_date,
+            RegistrationLink.name,
+        )
         .all()
     )
 
@@ -129,9 +134,7 @@ def top():
             ),
             "previous_rank": result.previous_rank,
             "previous_match_count": result.previous_match_count,
-            "registrations": sorted(
-                reg_links_by_athlete.get(result.name, []), key=lambda x: x["event_name"]
-            ),
+            "registrations": reg_links_by_athlete.get(result.name, []),
         }
         for result in results
     ]
