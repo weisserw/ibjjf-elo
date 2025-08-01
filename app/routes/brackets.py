@@ -518,14 +518,12 @@ def is_gi(event_name):
 
 
 def save_competitors_thread(link_id, json_data, division_set):
-    from app import db as app_db, app
+    from app import app
 
     log = logging.getLogger("ibjjf")
     with app.app_context():
         try:
-            session = app_db.session()
-            save_competitors(session, link_id, json_data, division_set)
-            session.close()
+            save_competitors(link_id, json_data, division_set)
         except Exception as e:
             log.error(f"Error saving competitors: {e}")
 
