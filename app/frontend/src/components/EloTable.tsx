@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
-import { debounce, set } from 'lodash';
+import { debounce } from 'lodash';
 import { useAppContext } from '../AppContext';
 import DBPagination from './DBPagination';
 import EloFilters from './EloFilters';
