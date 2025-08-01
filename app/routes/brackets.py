@@ -66,7 +66,11 @@ validibjjfdblink = re.compile(
 weightre = re.compile(r"\s+\(.*\)$")
 
 
-def parse_division(name, throw=True):
+def format_division(divdata):
+    return f"{divdata['belt']} / {divdata['age']} / {divdata['gender']} / {divdata['weight']}"
+
+
+def parse_division(name):
     name = weightre.sub("", name)
 
     parts = name.split(" / ")
@@ -79,9 +83,7 @@ def parse_division(name, throw=True):
         except ValueError:
             pass
     if age is None:
-        if throw:
-            raise ValueError(f"{name}: No age found")
-        age = "Unknown"
+        raise ValueError(f"{name}: No age found")
 
     weight_class = None
     for part in parts:
@@ -91,9 +93,7 @@ def parse_division(name, throw=True):
         except ValueError:
             pass
     if weight_class is None:
-        if throw:
-            raise ValueError(f"{name}: No weight class found")
-        weight_class = "Unknown"
+        raise ValueError(f"{name}: No weight class found")
 
     belt = None
     for part in parts:
@@ -103,9 +103,7 @@ def parse_division(name, throw=True):
         except ValueError:
             pass
     if belt is None:
-        if throw:
-            raise ValueError(f"{name}: No belt found")
-        belt = "Unknown"
+        raise ValueError(f"{name}: No belt found")
 
     gender = None
     for part in parts:
@@ -115,9 +113,7 @@ def parse_division(name, throw=True):
         except ValueError:
             pass
     if gender is None:
-        if throw:
-            raise ValueError(f"{name}: No gender found")
-        gender = "Unknown"
+        raise ValueError(f"{name}: No gender found")
 
     return {
         "age": age,
@@ -546,7 +542,7 @@ def save_competitors(link_id, json_data, division_set):
             if division_name_clean not in division_set:
                 continue
             try:
-                current_divdata = parse_division(division_name_clean, throw=True)
+                current_divdata = parse_division(division_name_clean)
                 db_division, added = get_db_division(gi, current_divdata)
                 if added:
                     added_row = True
@@ -612,16 +608,24 @@ def import_registration_link(link, background):
     for entry in json_data:
         division_name = entry["FriendlyName"]
         total_competitors += len(entry["RegistrationCategories"])
-        lowered = division_name.lower()
-        if not (
-            "master" in lowered
-            or "adult" in lowered
-            or "juven" in lowered
-            or "teen" in lowered
-        ):
-            continue
         division_name_clean = weightre.sub("", division_name)
-        rows.append(division_name_clean)
+
+        try:
+            divdata = parse_division(division_name_clean)
+
+            age_lower = divdata["age"].lower()
+            if not (
+                "master" in age_lower
+                or "adult" in age_lower
+                or "juven" in age_lower
+                or "teen" in age_lower
+            ):
+                continue
+
+            rows.append(format_division(divdata))
+        except ValueError:
+            log.warning(f"Invalid division name: {division_name_clean}")
+            continue
 
     if background:
         division_set = set(rows)
@@ -752,7 +756,7 @@ def registration_competitors():
     url = m.group(1) + "?lang=en-US"
 
     try:
-        divdata = parse_division(division, throw=True)
+        divdata = parse_division(division)
 
         soup = BeautifulSoup(
             get_bracket_page(url, newer_than=datetime.now() - timedelta(minutes=10)),
@@ -766,17 +770,24 @@ def registration_competitors():
     rows = []
     for entry in json_data:
         division_name = entry["FriendlyName"]
-        lowered = division_name.lower()
-        if not (
-            "master" in lowered
-            or "adult" in lowered
-            or "juven" in lowered
-            or "teen" in lowered
-        ):
-            continue
         division_name = weightre.sub("", division_name)
 
-        if division_name == division:
+        try:
+            parsed = parse_division(division_name)
+        except ValueError:
+            log.warning(f"Invalid division name: {division_name}")
+            continue
+
+        age_lower = parsed["age"].lower()
+        if not (
+            "master" in age_lower
+            or "adult" in age_lower
+            or "juven" in age_lower
+            or "teen" in age_lower
+        ):
+            continue
+
+        if format_division(parsed) == division:
             for competitor in entry["RegistrationCategories"]:
                 team = competitor["AcademyTeamName"]
                 name = competitor["AthleteName"]

@@ -3,6 +3,7 @@ import { noMatchStrings, createTreeFromTop, createTreeFromMatchNums, type Match 
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import { immatureClass } from '../utils';
+import { Tooltip } from 'react-tooltip';
 
 import "./BracketTree.css";
 
@@ -80,13 +81,13 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                     {
                       (props.showRatings && match.red_rating !== null) &&
                         <span className="bracket-tree-match-rating"> ({Math.round(match.red_rating)}{
-                          match.red_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.red_handicap)}</span>
+                          match.red_handicap > 0 && <span className="bracket-tree-handicapped-rating has-cursor-pointer" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.red_handicap)}</span>
                         })
                         {
                           immatureClass(match.red_match_count) === 'very-immature' ?
-                            <span className="has-tooltip-multiline" data-tooltip={tooltip(match.red_match_count)}> <span className="very-immature-bullet">&nbsp;</span></span> : (
+                            <span className="has-cursor-pointer" data-tooltip-id="bracket-multiline-tooltip" data-tooltip-content={tooltip(match.red_match_count)}> <span className="very-immature-bullet">&nbsp;</span></span> : (
                               immatureClass(match.red_match_count) === 'immature' &&
-                              <span className="has-tooltip-multiline" data-tooltip={tooltip(match.red_match_count)}> <span className="immature-bullet">&nbsp;</span></span>
+                              <span className="has-cursor-pointer" data-tooltip-id="bracket-multiline-tooltip" data-tooltip-content={tooltip(match.red_match_count)}> <span className="immature-bullet">&nbsp;</span></span>
                             )
                         }
                         </span>
@@ -107,7 +108,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 {match.red_medal === "1" && <span>🥇</span>}
                 {match.red_medal === "2" && <span>🥈</span>}
                 {match.red_medal === "3" && <span>🥉</span>}
-                {match.red_note && <span className={classNames("bracket-tree-match-note has-tooltip")} data-tooltip={match.red_note}>ℹ️</span>}
+                {match.red_note && <span className="bracket-tree-match-note has-cursor-pointer" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={match.red_note}>ℹ️</span>}
               </td>
             </tr>
             <tr className={classNames({"bracket-tree-match-winner": match.red_loser && !match.blue_loser})}>
@@ -124,13 +125,13 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                     {
                       (props.showRatings && match.blue_rating !== null) &&
                       <span className="bracket-tree-match-rating"> ({Math.round(match.blue_rating)}{
-                        match.blue_handicap > 0 && <span className="bracket-tree-handicapped-rating has-tooltip" data-tooltip={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.blue_handicap)}</span>
+                        match.blue_handicap > 0 && <span className="bracket-tree-handicapped-rating has-cursor-pointer" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.blue_handicap)}</span>
                       })
                       {
                         immatureClass(match.blue_match_count) === 'very-immature' ?
-                          <span className="has-tooltip-multiline" data-tooltip={tooltip(match.blue_match_count)}> <span className="very-immature-bullet">&nbsp;</span></span> : (
+                          <span className="has-cursor-pointer" data-tooltip-id="bracket-multiline-tooltip" data-tooltip-content={tooltip(match.blue_match_count)}> <span className="very-immature-bullet">&nbsp;</span></span> : (
                             immatureClass(match.blue_match_count) === 'immature' &&
-                            <span className="has-tooltip-multiline" data-tooltip={tooltip(match.blue_match_count)}> <span className="immature-bullet">&nbsp;</span></span>
+                            <span className="has-cursor-pointer" data-tooltip-id="bracket-multiline-tooltip" data-tooltip-content={tooltip(match.blue_match_count)}> <span className="immature-bullet">&nbsp;</span></span>
                           )
                       }
                       </span>
@@ -151,7 +152,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 {match.blue_medal === "1" && <span>🥇</span>}
                 {match.blue_medal === "2" && <span>🥈</span>}
                 {match.blue_medal === "3" && <span>🥉</span>}
-                {match.blue_note && <span className={classNames("bracket-tree-match-note has-tooltip")} data-tooltip={match.blue_note}>ℹ️</span>}
+                {match.blue_note && <span className={classNames("bracket-tree-match-note")} data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={match.blue_note}>ℹ️</span>}
               </td>
             </tr>
           </tbody>
@@ -278,6 +279,8 @@ function BracketTree(props: BracketTreeProps) {
           </div>
         </div>
       </div>
+      <Tooltip id="bracket-normal-tooltip" className="tooltip-normal" />
+      <Tooltip id="bracket-multiline-tooltip" className="tooltip-multiline" />
     </div>
   );
 }

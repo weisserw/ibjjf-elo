@@ -148,24 +148,26 @@ function BracketRegistration() {
         setRegistrationEventUrl(url)
         setRegistrationCategories(data.categories)
 
-        let selected: string | null | undefined = null
+        if (!selectedRegistrationCategory || !data.categories.includes(selectedRegistrationCategory)) {
+          let selected: string | null | undefined = null
 
-        selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto) \/ (Male|Masculino) \/ (Heavy|Pesado)/.test(c))
+          selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto) \/ (Male|Masculino) \/ (Heavy|Pesado)/.test(c))
 
-        // otherwise use the first adult black category
-        if (!selected) {
-          selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto)/.test(c))
-        }
-        // finally use the first category
-        if (!selected && data.categories.length > 0) {
-          selected = data.categories[0]
-        }
+          // otherwise use the first adult black category
+          if (!selected) {
+            selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto)/.test(c))
+          }
+          // finally use the first category
+          if (!selected && data.categories.length > 0) {
+            selected = data.categories[0]
+          }
 
-        if (selected) {
-          setSelectedRegistrationCategory(selected)
-        } else {
-          setSelectedRegistrationCategory(null)
-          setRegistrationCompetitors(null)
+          if (selected) {
+            setSelectedRegistrationCategory(selected)
+          } else {
+            setSelectedRegistrationCategory(null)
+            setRegistrationCompetitors(null)
+          }
         }
       }
     } catch (err) {
@@ -185,6 +187,12 @@ function BracketRegistration() {
     }
     return true
   }, [selectedRegistrationCategory])
+
+  useEffect(() => {
+    if (selectedUpcomingLink) {
+      getRegistrationCategories(selectedUpcomingLink)
+    }
+  }, [selectedUpcomingLink])
 
   return (
     <div className="brackets-content">
@@ -208,7 +216,6 @@ function BracketRegistration() {
                         return;
                       }
                       setSelectedUpcomingLink(e.target.value)
-                      getRegistrationCategories(e.target.value)
                     }}>
                       <option value="">Choose an event</option>
                       {

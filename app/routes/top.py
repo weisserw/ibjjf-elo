@@ -94,6 +94,7 @@ def top():
             RegistrationLink.name,
             RegistrationLink.event_start_date,
             RegistrationLink.event_end_date,
+            RegistrationLink.link,
             Division.belt,
             Division.age,
             Division.gender,
@@ -121,6 +122,7 @@ def top():
             "division": f"{row.belt} / {row.age} / {row.gender} / {row.weight}",
             "event_start_date": row.event_start_date.strftime("%Y-%m-%d"),
             "event_end_date": row.event_end_date.strftime("%Y-%m-%d"),
+            "link": row.link,
         }
         reg_links_by_athlete.setdefault(row.athlete_name, []).append(entry)
 

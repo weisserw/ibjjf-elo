@@ -106,10 +106,6 @@
   padding-bottom: 0 !important;
 }
 
-.has-cursor-pointer {
-  cursor: pointer;
-}
-
 .bracket-notification {
   padding: 8px;
 }

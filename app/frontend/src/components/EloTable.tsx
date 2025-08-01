@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
-import { debounce } from 'lodash';
+import { debounce, set } from 'lodash';
 import { useAppContext } from '../AppContext';
 import DBPagination from './DBPagination';
 import EloFilters from './EloFilters';
 import Autosuggest from 'react-autosuggest';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
+import { Tooltip } from 'react-tooltip';
 import { axiosErrorToast, immatureClass } from '../utils';
 
 import "./EloTable.css"
@@ -17,6 +18,7 @@ interface Registration {
   division: string
   event_start_date: string
   event_end_date: string
+  link: string
 }
 
 interface Row {
@@ -72,6 +74,9 @@ function EloTable() {
     setRankingPage: setPage,
     setFilters,
     setOpenFilters,
+    setBracketRegistrationSelectedUpcomingLink,
+    setBracketRegistrationSelectedCategory,
+    setBracketActiveTab,
   } = useAppContext();
 
   const [nameFilterSearch, setNameFilterSearch] = useState(nameFilter)
@@ -230,13 +235,15 @@ function EloTable() {
     return `Athlete's rating is semi-provisional due to insufficient matches (${row.match_count})`;
   }
 
-  const registrationTooltip = (row: Row) => {
-    if (!row.registrations || row.registrations.length === 0) {
-      return undefined;
-    }
-    return `This athlete is registered for ${row.registrations.length === 1 ? 'an upcoming event' : 'upcoming events'}:\n\n` +
-                              row.registrations.map(r => `${r.event_name} (${formatEventDates(r.event_start_date, r.event_end_date)})\n${r.division}`).join('\n\n');
+  const onRegistrationClicked = (e: React.MouseEvent, registration: Registration) => {
+    e.preventDefault();
+
+    setBracketRegistrationSelectedUpcomingLink(registration.link);
+    setBracketRegistrationSelectedCategory(registration.division);
+    setBracketActiveTab('Registrations');
+    navigate('/brackets');
   }
+
 
   return (
     <div className="elo-container">
@@ -322,7 +329,7 @@ function EloTable() {
                         {row.rating}
                       </td>
                       <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
-                      <td className={classNames("has-text-centered cell-no-padding", {"has-tooltip-multiline has-tooltip-left": immatureClass(row.match_count) !== ''})} data-tooltip={rowTooltip(row)}>
+                      <td className={classNames("has-text-centered cell-no-padding", {"has-cursor-pointer": rowTooltip(row)})} data-tooltip-id="elo-tooltip" data-tooltip-content={rowTooltip(row)}>
                         {
                           immatureClass(row.match_count) === 'very-immature' ? 
                             <span className="very-immature-bullet elo-bullet">&nbsp;</span> : (
@@ -331,7 +338,7 @@ function EloTable() {
                             )
                         }
                       </td>
-                      <td className={classNames("cell-no-padding", {"has-tooltip-multiline has-tooltip-left": row.registrations && row.registrations.length > 0})} data-tooltip={registrationTooltip(row)}>
+                      <td className={classNames("cell-no-padding", {"has-cursor-pointer": row.registrations && row.registrations.length > 0})} data-tooltip-id={row.registrations && row.registrations.length > 0 ? `elo-registration-tooltip-${index}` : undefined}>
                         {row.registrations && row.registrations.length > 0 && (
                           <span className={classNames("icon is-small elo-registration-icon", {
                             "elo-registration-one-week": new Date(row.registrations[0].event_start_date).getTime() - (7 * 24 * 60 * 60 * 1000) < new Date().getTime(),
@@ -339,6 +346,24 @@ function EloTable() {
                           })}>
                             <i className="fas fa-exclamation-circle"></i>
                           </span>
+                        )}
+                        {row.registrations && row.registrations.length > 0 && (
+                          <Tooltip id={`elo-registration-tooltip-${index}`} className="tooltip-wide" clickable place="left">
+                            <div className="elo-registration-tooltip">
+                              This athlete is registered for the following upcoming events:
+                              <ul>
+                                {row.registrations.map((r, index) => (
+                                  <li key={index}>
+                                    <a href="#" onClick={e => onRegistrationClicked(e, r)}>
+                                      {r.event_name} ({formatEventDates(r.event_start_date, r.event_end_date)})
+                                      <br />
+                                      {r.division}
+                                    </a>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </Tooltip>
                         )}
                       </td>
                     </tr>
@@ -361,6 +386,7 @@ function EloTable() {
           )
         }
       </div>
+      <Tooltip id="elo-tooltip" className="tooltip-multiline" place="left" />
     </div>
   )
 }

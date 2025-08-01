@@ -5,7 +5,7 @@ import { useAppContext } from '../AppContext'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { noMatchStrings, type Competitor } from "./BracketUtils"
-
+import { Tooltip } from 'react-tooltip';
 
 interface BracketTableProps {
   competitors: Competitor[] | null;
@@ -113,7 +113,7 @@ function BracketTable(props: BracketTableProps) {
     }
 
     if (tooltip) {
-      return tooltip
+      return tooltip;
     }
     return undefined
   }
@@ -260,7 +260,7 @@ function BracketTable(props: BracketTableProps) {
                     <td className="has-text-right">
                       <span className={immatureClass(competitor.match_count)}>{competitor.rating !== null ? Math.round(competitor.rating) : ''}</span>
                     </td>
-                    <td className={classNames("has-text-centered", {"has-tooltip-multiline has-tooltip-left": competitorTooltip(competitor)})} data-tooltip={competitorTooltip(competitor)}>
+                    <td className={classNames("has-text-centered", {"has-cursor-pointer": competitorTooltip(competitor)})} data-tooltip-place="left" data-tooltip-id="competitor-tooltip" data-tooltip-content={competitorTooltip(competitor)}>
                       {
                         immatureClass(competitor.match_count) === 'very-immature' ?
                           <span className="very-immature-bullet">&nbsp;</span> : (
@@ -297,6 +297,7 @@ function BracketTable(props: BracketTableProps) {
           Calculate Expected Match Result
         </button>
       }
+      <Tooltip id="competitor-tooltip" className="tooltip-multiline" />
     </div>
   );
 }

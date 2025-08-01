@@ -90,11 +90,6 @@ span.clear-filter {
   color: #ff0000;
 }
 
-
-.has-tooltip-multiline[data-tooltip]::before {
-  white-space: pre-line !important;
-}
-
 .cell-no-padding {
   padding: 0 !important;
   vertical-align: middle !important;
@@ -106,4 +101,12 @@ span.clear-filter {
 
 nav.pagination.pagination-margin {
   max-width: 100%;
+}
+
+.elo-registration-tooltip {
+  text-align: left;
+}
+
+.elo-registration-tooltip li {
+  margin-top: 10px;
 }

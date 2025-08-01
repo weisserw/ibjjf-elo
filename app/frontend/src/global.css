@@ -64,6 +64,30 @@ body {
   font-feature-settings: 'tnum' on;
 }
 
-.cursor-pointer {
+.has-cursor-pointer {
   cursor: pointer;
+}
+
+.tooltip-normal {
+  font-size: 12px !important;
+  text-align: center !important;
+  z-index: 1000 !important;
+}
+
+.tooltip-multiline {
+  max-width: 240px !important;
+  font-size: 12px !important;
+  text-align: center !important;
+  z-index: 1000 !important;
+}
+
+.tooltip-wide {
+  max-width: 350px !important;
+  font-size: 12px !important;
+  text-align: left !important;
+  z-index: 1000 !important;
+}
+
+.tooltip-wide a:hover {
+  color: #fff;
 }

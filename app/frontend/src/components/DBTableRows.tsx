@@ -1,6 +1,7 @@
 import React from 'react';
 import classNames from "classnames";
 import dayjs from "dayjs";
+import { Tooltip } from 'react-tooltip';
 import { isHistorical, type DBRow as Row } from "../utils";
 
 const BLACK_WEIGHT_HANDICAPS = [
@@ -66,7 +67,7 @@ function DBTableRows(props: DBTableRowsProps) {
   const ratingAsterisk = (note: string | null, bottom: boolean) => {
     if (note) {
       return (
-        <span className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": bottom})} data-tooltip={note}>
+        <span className="has-cursor-pointer" data-tooltip-id={bottom ? "db-bottom-tooltip" : "db-top-tooltip"} data-tooltip-content={note}>
           <strong>*</strong>
         </span>
       )
@@ -180,7 +181,7 @@ function DBTableRows(props: DBTableRowsProps) {
                       </span>
                     }
                   </td>
-                  <td className={classNames("has-tooltip-multiline", {"has-tooltip-bottom": index === 0})} data-tooltip={shortEvent(row) !== row.event ? row.event : undefined}>
+                  <td className="has-cursor-pointer" data-tooltip-id={index === 0 ? "db-bottom-tooltip" : "db-top-tooltip"} data-tooltip-content={shortEvent(row) !== row.event ? row.event : undefined}>
                     {
                       noLinks ? shortEvent(row) :
                       <a href="#" onClick={e => eventClicked?.(e, row.event)}>{shortEvent(row)}</a>
@@ -305,6 +306,8 @@ function DBTableRows(props: DBTableRowsProps) {
           )
         }
       </div>
+      <Tooltip id="db-top-tooltip" className="tooltip-multiline" />
+      <Tooltip id="db-bottom-tooltip" className="tooltip-multiline" place="bottom"/>
     </>
   )
 }
