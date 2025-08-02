@@ -605,7 +605,6 @@ def import_registration_link(link, background):
     total_competitors = 0
     for entry in json_data:
         division_name = entry["FriendlyName"]
-        total_competitors += len(entry["RegistrationCategories"])
         division_name_clean = weightre.sub("", division_name)
 
         try:
@@ -622,8 +621,10 @@ def import_registration_link(link, background):
 
             rows.append(format_division(divdata))
         except ValueError:
-            log.warning(f"Invalid division name: {division_name_clean}")
+            log.debug(f"Invalid division name: {division_name_clean}")
             continue
+
+        total_competitors += len(entry["RegistrationCategories"])
 
     if background:
         division_set = set(rows)
@@ -773,7 +774,7 @@ def registration_competitors():
         try:
             parsed = parse_division(division_name)
         except ValueError:
-            log.warning(f"Invalid division name: {division_name}")
+            log.debug(f"Invalid division name: {division_name}")
             continue
 
         age_lower = parsed["age"].lower()
