@@ -257,6 +257,7 @@ class RegistrationLink(db.Model):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
+    event_id = Column(String, nullable=True)
     normalized_name = Column(String, nullable=False)
     updated_at = Column(DateTime, nullable=False)
     link = Column(String, nullable=False)

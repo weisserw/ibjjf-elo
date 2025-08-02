@@ -15,6 +15,7 @@ import "./EloTable.css"
 
 interface Registration {
   event_name: string
+  event_id: string
   division: string
   event_start_date: string
   event_end_date: string
@@ -74,6 +75,8 @@ function EloTable() {
     setRankingPage: setPage,
     setFilters,
     setOpenFilters,
+    setBracketSelectedEvent,
+    setBracketSelectedCategory,
     setBracketRegistrationSelectedUpcomingLink,
     setBracketRegistrationSelectedCategory,
     setBracketActiveTab,
@@ -238,12 +241,20 @@ function EloTable() {
   const onRegistrationClicked = (e: React.MouseEvent, registration: Registration) => {
     e.preventDefault();
 
-    setBracketRegistrationSelectedUpcomingLink(registration.link);
-    setBracketRegistrationSelectedCategory(registration.division);
-    setBracketActiveTab('Registrations');
+    // if event start date is in less than 24 hours, go to live brackets
+    const eventStartDate = new Date(registration.event_start_date);
+    if (eventStartDate.getTime() - new Date().getTime() < 24 * 60 * 60 * 1000) {
+      setBracketSelectedEvent(registration.event_id);
+      setBracketSelectedCategory(registration.division);
+      setBracketActiveTab('Live');
+    } else {
+      setBracketRegistrationSelectedUpcomingLink(registration.link);
+      setBracketRegistrationSelectedCategory(registration.division);
+      setBracketActiveTab('Registrations');
+    }
+
     navigate('/brackets');
   }
-
 
   return (
     <div className="elo-container">

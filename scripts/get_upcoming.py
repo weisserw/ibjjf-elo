@@ -129,6 +129,7 @@ def main():
                 if not link:
                     link = RegistrationLink(
                         name=name,
+                        event_id=event_id,
                         normalized_name=normalize(name),
                         updated_at=datetime(2022, 1, 1),
                         link=event_link,
@@ -138,6 +139,8 @@ def main():
                     db.session.add(link)
                     db.session.commit()
                     log.info(f"Found new tournament {name} ({event_link})")
+                else:
+                    link.event_id = event_id
 
                 competitor_count = import_registration_link(
                     event_link, background=False
