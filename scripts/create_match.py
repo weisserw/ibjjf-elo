@@ -208,19 +208,20 @@ if __name__ == "__main__":
                 athlete_id=athlete_id,
             )
 
+        event_name = match.event.name
+        athlete1_name = participant1.athlete.name
+        athlete2_name = participant2.athlete.name
         with open(file_path, "a", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(
                 [
-                    str(event_uuid),
-                    str(division_uuid),
-                    str(athlete_uuids[0]),
-                    str(athlete_uuids[1]),
-                    args.gi,
+                    event_name,
                     args.gender,
                     args.age,
                     args.belt,
                     args.weight,
+                    athlete1_name,
+                    athlete2_name,
                     happened_at.strftime("%Y-%m-%dT%H:%M"),
                     args.match_number,
                     args.match_location,
