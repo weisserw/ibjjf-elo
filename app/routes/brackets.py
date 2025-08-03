@@ -59,7 +59,7 @@ log = logging.getLogger("ibjjf")
 
 brackets_route = Blueprint("brackets_route", __name__)
 
-validlink = re.compile(r"^/tournaments/\d+/categories/\d+$")
+validlink = re.compile(r"^/tournaments/(\d+)/categories/\d+$")
 validibjjfdblink = re.compile(
     r"^(https://www.ibjjfdb.com/ChampionshipResults/\d+/PublicRegistrations)(\?lang=[a-zA-Z-]*)?$"
 )
@@ -151,7 +151,9 @@ def get_bracket_page(link, newer_than):
     return response.content
 
 
-def get_ratings(results, age, belt, weight, gender, gi, rating_date, get_rank):
+def get_ratings(
+    results, event_id, age, belt, weight, gender, gi, rating_date, get_rank
+):
     athlete_results = (
         db.session.query(
             Athlete.id, Athlete.ibjjf_id, Athlete.normalized_name, Athlete.name
@@ -345,43 +347,76 @@ def get_ratings(results, age, belt, weight, gender, gi, rating_date, get_rank):
 
     # Get the last weight for competitors in open class
     if OPEN_CLASS in weight:
-        weight_cte = (
-            db.session.query(
-                MatchParticipant.athlete_id,
-                Division.weight,
-                func.row_number()
-                .over(
-                    partition_by=MatchParticipant.athlete_id,
-                    order_by=Match.happened_at.desc(),
+        if event_id is not None:
+            # look at registration_link_competitors for the event name / athlete name first
+            registration_weight_query = (
+                db.session.query(
+                    RegistrationLinkCompetitor.athlete_name,
+                    Division.weight,
                 )
-                .label("row_num"),
+                .join(RegistrationLink)
+                .join(Division)
+                .filter(
+                    RegistrationLink.event_id == event_id,
+                    RegistrationLinkCompetitor.athlete_name.in_(
+                        [result["name"] for result in results]
+                    ),
+                )
             )
-            .select_from(MatchParticipant)
-            .join(Match)
-            .join(Division)
-            .filter(
-                MatchParticipant.athlete_id.in_([result["id"] for result in results]),
-                Division.gi == gi,
-                Division.weight != OPEN_CLASS,
-                Division.weight != OPEN_CLASS_HEAVY,
-                Division.weight != OPEN_CLASS_LIGHT,
-                Match.happened_at < rating_date,
+
+            last_weight_by_name = {}
+            for last_weight in registration_weight_query.all():
+                last_weight_by_name[last_weight.athlete_name] = last_weight.weight
+
+            missing = False
+            for result in results:
+                if result["name"] in last_weight_by_name:
+                    result["last_weight"] = last_weight_by_name[result["name"]]
+                else:
+                    missing = True
+        else:
+            missing = True
+
+        if missing:
+            weight_cte = (
+                db.session.query(
+                    MatchParticipant.athlete_id,
+                    Division.weight,
+                    func.row_number()
+                    .over(
+                        partition_by=MatchParticipant.athlete_id,
+                        order_by=Match.happened_at.desc(),
+                    )
+                    .label("row_num"),
+                )
+                .select_from(MatchParticipant)
+                .join(Match)
+                .join(Division)
+                .filter(
+                    MatchParticipant.athlete_id.in_(
+                        [result["id"] for result in results]
+                    ),
+                    Division.gi == gi,
+                    Division.weight != OPEN_CLASS,
+                    Division.weight != OPEN_CLASS_HEAVY,
+                    Division.weight != OPEN_CLASS_LIGHT,
+                    Match.happened_at < rating_date,
+                )
+                .cte("weight_cte")
             )
-            .cte("weight_cte")
-        )
 
-        weight_query = db.session.query(
-            weight_cte.c.athlete_id,
-            weight_cte.c.weight,
-        ).filter(weight_cte.c.row_num == 1)
+            weight_query = db.session.query(
+                weight_cte.c.athlete_id,
+                weight_cte.c.weight,
+            ).filter(weight_cte.c.row_num == 1)
 
-        last_weight_by_id = {}
-        for last_weight in weight_query.all():
-            last_weight_by_id[last_weight.athlete_id] = last_weight.weight
+            last_weight_by_id = {}
+            for last_weight in weight_query.all():
+                last_weight_by_id[last_weight.athlete_id] = last_weight.weight
 
-        for result in results:
-            if result["id"] in last_weight_by_id:
-                result["last_weight"] = last_weight_by_id[result["id"]]
+            for result in results:
+                if result["id"] in last_weight_by_id:
+                    result["last_weight"] = last_weight_by_id[result["id"]]
 
     results.sort(key=lambda x: x["rating"] or -1, reverse=True)
 
@@ -808,6 +843,7 @@ def registration_competitors():
 
     get_ratings(
         rows,
+        None,
         divdata["age"],
         divdata["belt"],
         divdata["weight"],
@@ -1133,8 +1169,10 @@ def competitors():
 
     gi = gi.lower() == "true"
 
-    if not validlink.search(link):
+    validlinkmatch = validlink.search(link)
+    if not validlinkmatch:
         return jsonify({"error": "Invalid link"}), 400
+    event_id = validlinkmatch.group(1)
 
     try:
         soup = BeautifulSoup(
@@ -1224,7 +1262,9 @@ def competitors():
         datetime.fromisoformat(match_dates[0]) if match_dates else datetime.now()
     )
 
-    get_ratings(results, age, belt, weight, gender, gi, earliest_match_date, False)
+    get_ratings(
+        results, event_id, age, belt, weight, gender, gi, earliest_match_date, False
+    )
 
     compute_match_ratings(parsed_matches, results, belt, weight, age)
 
