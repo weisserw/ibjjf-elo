@@ -205,7 +205,7 @@ if __name__ == "__main__":
                 gi_bool,
                 start_date=happened_at,
                 rerank=False,
-                athlete_id=athlete_id,
+                athlete_id=str(athlete_id),
             )
 
         event_name = match.event.name

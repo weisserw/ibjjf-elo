@@ -50,9 +50,9 @@ if __name__ == "__main__":
         print(f"--team {athlete2.team_id}")
         print(f"--seed {athlete1.seed}")
         print(f"--seed {athlete2.seed}")
-        if hasattr(athlete1, "weight_for_open"):
+        if athlete1.weight_for_open:
             print(f"--weight-for-open '{athlete1.weight_for_open}'")
-        if hasattr(athlete2, "weight_for_open"):
+        if athlete2.weight_for_open:
             print(f"--weight-for-open '{athlete2.weight_for_open}'")
         print(f"--division-id {match.division_id}")
         print(f"--event-id {match.event_id}")
