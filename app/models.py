@@ -265,7 +265,10 @@ class RegistrationLink(db.Model):
     event_start_date = Column(DateTime, nullable=True)
     event_end_date = Column(DateTime, nullable=True)
 
-    __table_args__ = (Index("ix_registration_links_link", "link", unique=True),)
+    __table_args__ = (
+        Index("ix_registration_links_link", "link", unique=True),
+        Index("ix_registration_links_event_start_date", "event_start_date"),
+    )
 
 
 class RegistrationLinkCompetitor(db.Model):
