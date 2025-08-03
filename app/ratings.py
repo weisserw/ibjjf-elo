@@ -2,6 +2,8 @@ import logging
 from typing import Optional
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import uuid
+
 from progress_bar import Bar
 from models import Match, Division, Suspension, Athlete, MatchParticipant
 from elo import compute_ratings
@@ -39,7 +41,7 @@ def recompute_all_ratings(
             subquery = (
                 db.session.query(Match.id)
                 .join(MatchParticipant)
-                .filter(MatchParticipant.athlete_id == athlete_id)
+                .filter(MatchParticipant.athlete_id == uuid.UUID(athlete_id))
                 .subquery()
             )
             query = query.filter(Match.id.in_(subquery.select()))
