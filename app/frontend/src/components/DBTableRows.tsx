@@ -229,7 +229,7 @@ function DBTableRows(props: DBTableRowsProps) {
           !!data.length && data.map((row: Row) => {
             const weightText = openWeightText(row);
             return (
-              <div key={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row.event)})}>
+              <div key={row.id} data-id={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row.event)})}>
                 <div className="date-box">
                   {dayjs(row.date).format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${row.matchLocation}`}
                 </div>

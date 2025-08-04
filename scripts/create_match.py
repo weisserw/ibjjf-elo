@@ -13,7 +13,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 
 import argparse
 from app import db, app
-from models import Match, MatchParticipant
+from models import Match, MatchParticipant, Medal
 from ratings import recompute_all_ratings
 
 
@@ -71,7 +71,13 @@ if __name__ == "__main__":
         action="append",
         help="Weight for open for each participant (specify twice, or leave blank)",
     )
-    parser.add_argument("--division-id", type=str, required=True, help="Division ID")
+    parser.add_argument(
+        "--medal",
+        type=str,
+        required=False,
+        action="append",
+        help="Medal for each participant (none, 1, 2, or 3; specify zero, one, or two times)",
+    )
     parser.add_argument("--event-id", type=str, required=True, help="Event ID")
     parser.add_argument(
         "--date", type=str, required=True, help="Date (YYYY-MM-DDTHH:MM)"
@@ -121,7 +127,25 @@ if __name__ == "__main__":
             )
         athlete_uuids = [uuid.UUID(a) for a in args.athlete]
         team_uuids = [uuid.UUID(t) for t in args.team]
-        division_uuid = uuid.UUID(args.division_id)
+        # Find division by gi, gender, belt, age, weight
+        with app.app_context():
+            division = (
+                db.session.query(type("Division", (db.Model,), {}))
+                .filter_by(
+                    gi=gi_bool,
+                    gender=args.gender,
+                    belt=args.belt,
+                    age=args.age,
+                    weight=args.weight,
+                )
+                .first()
+            )
+            if not division:
+                print(
+                    "No division found for the given gi, gender, belt, age, and weight."
+                )
+                sys.exit(1)
+            division_uuid = division.id
         event_uuid = uuid.UUID(args.event_id)
         winner_arg = args.winner.strip().lower()
         if winner_arg not in ["1", "2", "both", "neither"]:
@@ -196,6 +220,33 @@ if __name__ == "__main__":
         )
         db.session.add(participant1)
         db.session.add(participant2)
+        db.session.commit()
+
+        # Handle medals
+        medals = args.medal if args.medal is not None else []
+        for idx, medal_val in enumerate(medals):
+            if medal_val and medal_val.lower() != "none":
+                try:
+                    place = int(medal_val)
+                    if place not in [1, 2, 3]:
+                        raise ValueError()
+                except Exception:
+                    print(
+                        f"Invalid medal value: {medal_val}. Must be 1, 2, 3, or 'none'."
+                    )
+                    sys.exit(1)
+                athlete_id = athlete_uuids[idx]
+                team_id = team_uuids[idx]
+                medal = Medal(
+                    happened_at=happened_at,
+                    event_id=event_uuid,
+                    division_id=division_uuid,
+                    athlete_id=athlete_id,
+                    team_id=team_id,
+                    place=place,
+                    default_gold=False,
+                )
+                db.session.add(medal)
         db.session.commit()
 
         for athlete_id in athlete_uuids:

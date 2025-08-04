@@ -8,7 +8,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 
 import argparse
 from app import db, app
-from models import Match, MatchParticipant
+from models import Match, MatchParticipant, Medal
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Print all info for a match by ID")
@@ -40,9 +40,12 @@ if __name__ == "__main__":
         athlete1 = participants[0]
         athlete2 = participants[1]
 
-        # Print athlete names for clarity
+        # Print athlete, team, and event names for clarity
         print(f"athlete1: {athlete1.athlete.name}")
         print(f"athlete2: {athlete2.athlete.name}")
+        print(f"team1: {athlete1.team.name}")
+        print(f"team2: {athlete2.team.name}")
+        print(f"event: {match.event.name}")
 
         print(f"--athlete {athlete1.athlete_id}")
         print(f"--athlete {athlete2.athlete_id}")
@@ -54,7 +57,6 @@ if __name__ == "__main__":
             print(f"--weight-for-open '{athlete1.weight_for_open}'")
         if athlete2.weight_for_open:
             print(f"--weight-for-open '{athlete2.weight_for_open}'")
-        print(f"--division-id {match.division_id}")
         print(f"--event-id {match.event_id}")
         print(f"--date {match.happened_at.strftime('%Y-%m-%dT%H:%M')}")
         # Winner output
@@ -83,3 +85,15 @@ if __name__ == "__main__":
             print(f"--match-location '{match.match_location}'")
         if match.fight_number is not None:
             print(f"--fight-number {match.fight_number}")
+        medals = (
+            db.session.query(Medal)
+            .filter_by(event_id=match.event_id, division_id=match.division_id)
+            .all()
+        )
+        medal_map = {str(medal.athlete_id): medal.place for medal in medals}
+        for idx, athlete in enumerate([athlete1, athlete2]):
+            medal_val = medal_map.get(str(athlete.athlete_id), None)
+            if medal_val:
+                print(f"--medal {medal_val}")
+            else:
+                print("--medal none")
