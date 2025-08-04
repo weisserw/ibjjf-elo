@@ -354,7 +354,6 @@ function EloTable() {
                           <span className={classNames("icon is-small elo-registration-icon", {
                             "elo-registration-one-week": new Date(row.registrations[0].event_start_date).getTime() - (7 * 24 * 60 * 60 * 1000) < new Date().getTime(),
                             "elo-registration-two-weeks": new Date(row.registrations[0].event_start_date).getTime() - (14 * 24 * 60 * 60 * 1000) < new Date().getTime(),
-                            "elo-registration-grey": changed,
                           })}>
                             <i className="fas fa-exclamation-circle"></i>
                           </span>
