@@ -501,7 +501,13 @@ def find_first_index(lst, predicate):
 
 
 def bring_to_front(lst, name):
-    index = find_first_index(lst, lambda x: x.normalized_name.startswith(name))
+    index = find_first_index(
+        lst,
+        lambda x: x.normalized_name.startswith(name)
+        and "15 anos" not in x.normalized_name
+        and "kids" not in x.normalized_name
+        and "criancas" not in x.normalized_name,
+    )
     if index != -1:
         item = lst.pop(index)
         lst.insert(0, item)
