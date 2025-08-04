@@ -1,5 +1,6 @@
 import math
 from flask import Blueprint, request, jsonify
+from datetime import datetime
 from extensions import db
 from sqlalchemy import func, or_
 from models import (
@@ -106,7 +107,10 @@ def top():
             RegistrationLinkCompetitor.registration_link_id == RegistrationLink.id,
         )
         .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
-        .filter(RegistrationLinkCompetitor.athlete_name.in_(athlete_names))
+        .filter(
+            RegistrationLinkCompetitor.athlete_name.in_(athlete_names),
+            RegistrationLink.event_end_date >= datetime.now(),
+        )
         .order_by(
             RegistrationLinkCompetitor.athlete_name,
             RegistrationLink.event_end_date,

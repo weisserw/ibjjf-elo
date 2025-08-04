@@ -268,6 +268,7 @@ class RegistrationLink(db.Model):
     __table_args__ = (
         Index("ix_registration_links_link", "link", unique=True),
         Index("ix_registration_links_event_start_date", "event_start_date"),
+        Index("ix_registration_links_event_end_date", "event_end_date"),
     )
 
 
