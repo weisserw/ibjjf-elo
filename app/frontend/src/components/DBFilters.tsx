@@ -390,7 +390,7 @@ function DBFilters() {
               </div>
               <div className="checkbox-filters checkboxes">
                 <label className="filter-group-label">Belt:</label>
-                {['White', 'Grey', 'Yellow', 'Orange', 'Green', 'Blue', 'Purple', 'Brown', 'Black'].map(belt => {
+                {['Black', 'Brown', 'Purple', 'Blue', 'Green', 'Orange', 'Yellow', 'Grey', 'White'].map(belt => {
                   const key = beltToFilter(belt);
                   return (
                     <label key={belt} className="checkbox checkbox-filter">
