@@ -579,15 +579,18 @@ def save_competitors(link_id, json_data, division_set):
         for entry in json_data:
             division_name = entry["FriendlyName"]
             division_name_clean = weightre.sub("", division_name)
-            if division_name_clean not in division_set:
-                continue
+
             try:
                 current_divdata = parse_division(division_name_clean)
+
+                if format_division(current_divdata) not in division_set:
+                    continue
+
                 db_division, added = get_db_division(gi, current_divdata)
                 if added:
                     added_row = True
             except ValueError:
-                log.warning(f"Invalid division name: {division_name_clean}")
+                log.debug(f"Invalid division name: {division_name_clean}")
                 continue
             if db_division is not None:
                 for competitor in entry["RegistrationCategories"]:
