@@ -86,6 +86,8 @@ body {
   font-size: 12px !important;
   text-align: left !important;
   z-index: 1000 !important;
+  max-height: 300px !important;
+  overflow-y: auto !important;
 }
 
 .tooltip-wide a:hover {
