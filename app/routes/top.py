@@ -26,6 +26,7 @@ def top():
     weight = request.args.get("weight") or ""
     name = request.args.get("name")
     changed = request.args.get("changed")
+    upcoming = request.args.get("upcoming")
     page = request.args.get("page") or 1
 
     if not all([gender, age, belt, gi]):
@@ -40,6 +41,7 @@ def top():
 
     gi = gi.lower() == "true"
     changed = changed and changed.lower() == "true"
+    upcoming = upcoming and upcoming.lower() == "true"
 
     query = (
         db.session.query(
@@ -78,6 +80,21 @@ def top():
                 AthleteRating.previous_rank.is_(None),
             )
         )
+    if upcoming:
+        subquery = (
+            db.session.query(Athlete.id)
+            .select_from(Athlete)
+            .join(
+                RegistrationLinkCompetitor,
+                RegistrationLinkCompetitor.athlete_name == Athlete.name,
+            )
+            .join(
+                RegistrationLink,
+                RegistrationLinkCompetitor.registration_link_id == RegistrationLink.id,
+            )
+            .filter(RegistrationLink.event_start_date > datetime.now())
+        )
+        query = query.filter(Athlete.id.in_(subquery))
 
     totalCount = query.count()
 
@@ -86,6 +103,8 @@ def top():
         .limit(RATINGS_PAGE_SIZE)
         .offset((page - 1) * RATINGS_PAGE_SIZE)
     )
+
+    print(query)
     results = query.all()
 
     athlete_names = [result.name for result in results]

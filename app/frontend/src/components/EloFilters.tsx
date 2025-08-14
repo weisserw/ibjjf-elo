@@ -62,11 +62,13 @@ function EloFilters() {
     rankingBelt: belt,
     rankingWeight: weight,
     rankingChanged: changed,
+    rankingUpcoming: upcoming,
     setRankingGender: setGender,
     setRankingAge: setAge,
     setRankingBelt: setBelt,
     setRankingWeight: setWeight,
     setRankingChanged: setChanged,
+    setRankingUpcoming: setUpcoming,
   } = useAppContext();
 
   const isJuvenileAge = (age: string) => {
@@ -173,8 +175,14 @@ function EloFilters() {
         <div className="field checkbox-margin">
           <div className="control">
             <label className="checkbox">
+              <input type="checkbox" checked={upcoming} onChange={() => setUpcoming(!upcoming)} />
+              &nbsp;Upcoming
+            </label>
+          </div>
+          <div className="control">
+            <label className="checkbox">
               <input type="checkbox" checked={changed} onChange={() => setChanged(!changed)} />
-              &nbsp;Changed Only
+              &nbsp;Changed
             </label>
           </div>
         </div>

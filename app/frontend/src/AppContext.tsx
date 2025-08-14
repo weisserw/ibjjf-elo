@@ -36,6 +36,8 @@ interface AppContextProps {
   setRankingWeight: (weight: string) => void;
   rankingChanged: boolean;
   setRankingChanged: (changed: boolean) => void;
+  rankingUpcoming: boolean;
+  setRankingUpcoming: (upcoming: boolean) => void;
   rankingNameFilter: string;
   setRankingNameFilter: (nameFilter: string) => void;
   rankingPage: number;
@@ -123,6 +125,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [rankingBelt, setRankingBelt] = useState('BLACK');
   const [rankingWeight, setRankingWeight] = useState('');
   const [rankingChanged, setRankingChanged] = useState(false);
+  const [rankingUpcoming, setRankingUpcoming] = useState(false);
   const [rankingNameFilter, setRankingNameFilter] = useState('');
   const [rankingPage, setRankingPage] = useState(1);
   const [dbPage, setDbPage] = useState(1);
@@ -188,6 +191,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setRankingChanged(changed);
   }, []);
 
+  const updateRankingUpcoming = useCallback((upcoming: boolean) => {
+    setRankingPage(1);
+    setRankingUpcoming(upcoming);
+  }, []);
+
   const updateRankingNameFilter = useCallback((nameFilter: string) => {
     setRankingPage(1);
     setRankingNameFilter(nameFilter);
@@ -209,6 +217,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       rankingBelt, setRankingBelt: updateRankingBelt,
       rankingWeight, setRankingWeight: updateRankingWeight,
       rankingChanged, setRankingChanged: updateRankingChanged,
+      rankingUpcoming, setRankingUpcoming: updateRankingUpcoming,
       rankingNameFilter, setRankingNameFilter: updateRankingNameFilter,
       rankingPage, setRankingPage,
       dbPage, setDbPage,
