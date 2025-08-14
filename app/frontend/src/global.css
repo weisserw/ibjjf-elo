@@ -88,6 +88,7 @@ body {
   z-index: 1000 !important;
   max-height: 300px !important;
   overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
 
 .tooltip-wide a:hover {
