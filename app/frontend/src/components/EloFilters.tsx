@@ -179,7 +179,7 @@ function EloFilters() {
               &nbsp;Upcoming
             </label>
           </div>
-          <div className="control">
+          <div className="control mt-3">
             <label className="checkbox">
               <input type="checkbox" checked={changed} onChange={() => setChanged(!changed)} />
               &nbsp;Changed
