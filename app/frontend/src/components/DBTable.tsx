@@ -126,7 +126,7 @@ function DBTable() {
     setBracketArchiveEventName(row.event)
     setBracketArchiveEventNameFetch(row.event)
     setBracketArchiveSelectedCategory(`${row.belt} / ${row.age} / ${row.gender} / ${row.weight}`)
-    navigate('/brackets')
+    navigate('/tournaments')
   }
 
   const hasHistorical = useMemo(() => data.map(row => row.event).some(isHistorical), [data]);

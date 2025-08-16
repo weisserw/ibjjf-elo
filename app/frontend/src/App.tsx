@@ -22,7 +22,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Ratings />} />
               <Route path="/database" element={<Database />} />
-              <Route path="/brackets" element={<Brackets />} />
+              <Route path="/tournaments" element={<Brackets />} />
               <Route path="/calculator" element={<Calculator />} />
               <Route path="/about" element={<About />} />
               <Route path="*" element={<NotFound />} />

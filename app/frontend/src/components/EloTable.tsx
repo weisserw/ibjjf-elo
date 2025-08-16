@@ -255,7 +255,7 @@ function EloTable() {
       setBracketActiveTab('Registrations');
     }
 
-    navigate('/brackets');
+    navigate('/tournaments');
   }
 
   return (

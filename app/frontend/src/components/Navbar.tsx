@@ -38,8 +38,8 @@ function Navbar() {
           <Link className={getNavItemClass("/database")} to="/database">
             Database
           </Link>
-          <Link className={getNavItemClass("/brackets")} to="/brackets">
-            Brackets
+          <Link className={getNavItemClass("/tournaments")} to="/tournaments">
+            Tournaments
           </Link>
           <Link className={getNavItemClass("/calculator")} to="/calculator">
             Calculator
