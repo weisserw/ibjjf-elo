@@ -27,9 +27,9 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
       return undefined;
     }
     if (immature === 'very-immature') {
-      return `Athlete's rating is provisional due to insufficient matches (${numMatches})`;
+      return `Athlete's rating is provisional due to insufficient matches within three years (${numMatches})`;
     }
-    return `Athlete's rating is semi-provisional due to insufficient matches (${numMatches})`;
+    return `Athlete's rating is semi-provisional due to insufficient matches within three years (${numMatches})`;
   }
 
   return (

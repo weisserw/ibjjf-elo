@@ -235,9 +235,9 @@ function EloTable() {
       return undefined;
     }
     if (immature === 'very-immature') {
-      return `Athlete's rating is provisional due to insufficient matches (${row.match_count})`;
+      return `Athlete's rating is provisional due to insufficient matches within three years (${row.match_count})`;
     }
-    return `Athlete's rating is semi-provisional due to insufficient matches (${row.match_count})`;
+    return `Athlete's rating is semi-provisional due to insufficient matches within three years (${row.match_count})`;
   }
 
   const onRegistrationClicked = (e: React.MouseEvent, registration: Registration) => {

@@ -106,9 +106,9 @@ function BracketTable(props: BracketTableProps) {
         tooltip += ', '
       }
       if (immature === 'very-immature') {
-        tooltip += `Athlete's rating is provisional due to insufficient matches (${competitor.match_count})`
+        tooltip += `Athlete's rating is provisional due to insufficient matches within three years (${competitor.match_count})`
       } else {
-        tooltip += `Athlete's rating is semi-provisional due to insufficient matches (${competitor.match_count})`
+        tooltip += `Athlete's rating is semi-provisional due to insufficient matches within three years (${competitor.match_count})`
       }
     }
 
