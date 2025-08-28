@@ -151,12 +151,21 @@ function BracketRegistration() {
         if (!selectedRegistrationCategory || !data.categories.includes(selectedRegistrationCategory)) {
           let selected: string | null | undefined = null
 
-          selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto) \/ (Male|Masculino) \/ (Heavy|Pesado)/.test(c))
+          selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto) \/ (Male|Masculino) \/ (Middle|Médio)/.test(c))
 
           // otherwise use the first adult black category
           if (!selected) {
-            selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto)/.test(c))
+            selected = data.categories.find(c => /(BLACK|PRETA) \/ Adult/.test(c))
           }
+
+          // otherwise use master 1
+          if (!selected) {
+            selected = data.categories.find(c => /(BLACK|PRETA) \/ Master 1 \/ (Male|Masculino) \/ (Middle|Médio)/.test(c))
+          }
+          if (!selected) {
+            selected = data.categories.find(c => /(BLACK|PRETA) \/ Master 1/.test(c))
+          }
+
           // finally use the first category
           if (!selected && data.categories.length > 0) {
             selected = data.categories[0]

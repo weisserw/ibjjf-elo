@@ -121,12 +121,12 @@ function BracketLive() {
           setSelectedCategory(categoryString(category))
         } else {
           let selected: string | null = null
-          // select adult / black / male / heavy by default
+          // select adult / black / male / middle by default
           for (const category of data.categories) {
             if ((category.age === 'Adult' || category.age === 'Adulto') &&
                 (category.belt === 'BLACK' || category.belt === 'PRETA') &&
                 (category.gender === 'Male') &&
-                (category.weight === 'Heavy' || category.weight === 'Pesado')) {
+                (category.weight === 'Middle' || category.weight === 'Médio')) {
               selected = categoryString(category)
               break
             }
@@ -135,6 +135,27 @@ function BracketLive() {
           if (!selected) {
             for (const category of data.categories) {
               if ((category.age === 'Adult' || category.age === 'Adulto') &&
+                  (category.belt === 'BLACK' || category.belt === 'PRETA')) {
+                selected = categoryString(category)
+                break
+              }
+            }
+          }
+          // otherwise use master 1 black belt
+          if (!selected) {
+            for (const category of data.categories) {
+              if (category.age === 'Master 1' &&
+                  (category.belt === 'BLACK' || category.belt === 'PRETA') &&
+                  (category.gender === 'Male') &&
+                  (category.weight === 'Middle' || category.weight === 'Médio')) {
+                selected = categoryString(category)
+                break
+              }
+            }
+          }
+          if (!selected) {
+            for (const category of data.categories) {
+              if (category.age === 'Master 1' &&
                   (category.belt === 'BLACK' || category.belt === 'PRETA')) {
                 selected = categoryString(category)
                 break

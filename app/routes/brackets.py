@@ -1407,6 +1407,17 @@ def events():
         if option.get("value"):
             tournaments.append({"id": option["value"], "name": option.text})
 
+    def sort_key(name):
+        name = name.lower()
+        if "world" in name:
+            return (0, name)
+        elif "kids" in name or "crianças" in name or "15 anos" in name:
+            return (2, name)
+        else:
+            return (1, name)
+
+    tournaments = sorted(tournaments, key=lambda x: sort_key(x["name"]))
+
     return jsonify({"events": tournaments})
 
 
