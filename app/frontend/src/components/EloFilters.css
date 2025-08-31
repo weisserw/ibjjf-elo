@@ -2,6 +2,15 @@
   .mobile-margin {
     margin-left: 16px;
   }
+  .small-mobile-margin {
+    margin-left: unset;
+  }
+}
+
+@media (max-width: 768px) {
+  .small-mobile-margin {
+    margin-left: 16px;
+  }
 }
 
 .checkbox-margin {

@@ -1,5 +1,6 @@
 import { useAppContext } from "../AppContext"
 import { ages } from "../utils"
+import classNames from "classnames"
 import { t, type translationKeys } from "../translate"
 
 import "./EloFilters.css"
@@ -58,6 +59,7 @@ const maleWeights = femaleWeights.concat([{
 
 function EloFilters() {
   const {
+    language,
     rankingGender: gender,
     rankingAge: age,
     rankingBelt: belt,
@@ -145,7 +147,7 @@ function EloFilters() {
         </div>
       </div>
       <div className="column is-third-mobile">
-        <div className="field">
+        <div className={classNames("field", {"small-mobile-margin": language === 'pr'})}>
           <label className="label">{t("Belt")}</label>
           <div className="select">
             <select value={belt} onChange={onBeltChange}>
@@ -173,7 +175,7 @@ function EloFilters() {
         </div>
       </div>
       <div className="column is-half-mobile">
-        <div className="field checkbox-margin">
+        <div className={classNames("field", "checkbox-margin", {"small-mobile-margin": language === 'pr'})}>
           <div className="control">
             <label className="checkbox">
               <input type="checkbox" checked={upcoming} onChange={() => setUpcoming(!upcoming)} />
