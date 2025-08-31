@@ -106,12 +106,12 @@ function BracketRegistration() {
       return null
     }
     return [...registrationCompetitors].sort((a, b) => {
-      const aRating = a.rating ?? -1;
-      const bRating = b.rating ?? -1;
+      const aRating = a.ordinal ?? -1;
+      const bRating = b.ordinal ?? -1;
       if (aRating === bRating) {
         return a.name.localeCompare(b.name)
       } else {
-        return bRating - aRating
+        return aRating - bRating
       }
     });
   }, [registrationCompetitors])
