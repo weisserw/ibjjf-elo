@@ -12,6 +12,7 @@ import DBTableRows from './DBTableRows';
 import { useAppContext } from '../AppContext';
 import { axiosErrorToast, isHistorical, type DBRow as Row, type DBResults as Results } from '../utils';
 import { useNavigate } from 'react-router-dom';
+import { t } from '../translate';
 
 import "./DBTable.css"
 
@@ -166,7 +167,7 @@ function DBTable() {
       {
         hasHistorical && (
           <div className="notification is-historical">
-            Match data before December 2024 may be incomplete or inaccurate
+            {t("Match data before December 2024 may be incomplete or inaccurate")}
           </div>
         )
       }

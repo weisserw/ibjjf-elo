@@ -6,6 +6,7 @@ import Autosuggest from 'react-autosuggest';
 import axios from 'axios';
 import { useAppContext } from '../AppContext';
 import { axiosErrorToast } from '../utils';
+import { t, type translationKeys } from '../translate';
 
 import './DBFilters.css';
 
@@ -212,9 +213,9 @@ function DBFilters() {
         <header className="accordion-header" onClick={toggleAccordion}>
           {
             anyFiltersSet ?
-              <p><strong>Filters</strong></p>
+              <p><strong>{t("Filters")}</strong></p>
             :
-              <p>Filters</p>
+              <p>{t("Filters")}</p>
           }
           <span className={`accordion-icon ${isOpen ? 'is-active' : ''}`}>
             <i className={`fas fa-angle-${isOpen ? 'up' : 'down'}`}></i>
@@ -222,7 +223,7 @@ function DBFilters() {
         </header>
         {isOpen && (
           <div className="accordion-body">
-            <Section title="Athlete"
+            <Section title={t("Athlete")}
                      isOpen={openFilters.athlete}
                      setIsOpen={(isOpen: boolean) => setOpenFilters({ ...openFilters, athlete: isOpen })}
                      isBold={
@@ -241,7 +242,7 @@ function DBFilters() {
                                inputProps={{
                                  className: "input is-small",
                                  value: athleteName,
-                                 placeholder: "Athlete Name",
+                                 placeholder: t("Athlete Name"),
                                  onChange: (_: any, { newValue }) => {
                                    setAthleteName(newValue);
                                    debouncedOnChange('athlete_name', newValue);
@@ -252,7 +253,7 @@ function DBFilters() {
                   <button className="button is-small is-light" onClick={() => {
                     setAthleteName('');
                     onClearProps(['athlete_name']);
-                  }}>Clear</button>
+                  }}>{t("Clear")}</button>
                 </div>
               </div>
               <div className="field is-grouped rating-range">
@@ -261,7 +262,7 @@ function DBFilters() {
                     className="input is-small rating-input"
                     type="number"
                     value={ratingStart}
-                    placeholder="Minimum rating"
+                    placeholder={t("Minimum rating")}
                     onChange={(e) => {
                       setRatingStart(e.target.value);
                       debouncedOnChange('rating_start', e.target.value);
@@ -274,7 +275,7 @@ function DBFilters() {
                     className="input is-small rating-input"
                     type="number"
                     value={ratingEnd}
-                    placeholder="Maximum rating"
+                    placeholder={t("Maximum rating")}
                     onChange={(e) => {
                       setRatingEnd(e.target.value);
                       debouncedOnChange('rating_end', e.target.value);
@@ -286,11 +287,11 @@ function DBFilters() {
                     setRatingStart('');
                     setRatingEnd('');
                     onClearProps(['rating_start', 'rating_end']);
-                  }}>Clear</button>
+                  }}>{t("Clear")}</button>
                 </div>
               </div>
             </Section>
-            <Section title="Event"
+            <Section title={t("Tournament")}
                      isOpen={openFilters.event}
                      setIsOpen={(isOpen: boolean) => setOpenFilters({ ...openFilters, event: isOpen })}
                      isBold={
@@ -309,7 +310,7 @@ function DBFilters() {
                                inputProps={{
                                  className: "input is-small",
                                  value: eventName,
-                                 placeholder: "Event Name",
+                                 placeholder: t("Tournament Name"),
                                  onChange: (_: any, { newValue }) => {
                                    setEventName(newValue);
                                    debouncedOnChange('event_name', newValue);
@@ -320,7 +321,7 @@ function DBFilters() {
                   <button className="button is-small is-light" onClick={() => {
                     setEventName('');
                     onClearProps(['event_name']);
-                  }}>Clear</button>
+                  }}>{t("Clear")}</button>
                 </div>
               </div>
               <div className="field is-grouped date-range">
@@ -329,7 +330,7 @@ function DBFilters() {
                     className="input is-small date-input"
                     type="date"
                     value={filters.date_start ? dayjs(filters.date_start).format('YYYY-MM-DD') : ''}
-                    onChange={(e) => onChange('date_start', dayjs(e.target.value).toISOString())}
+                    onChange={(e) => onChange('date_start', e.target.value ? dayjs(e.target.value).toISOString() : undefined)}
                   />
                 </div>
                 <span className="date-range-separator">-</span>
@@ -338,20 +339,20 @@ function DBFilters() {
                     className="input is-small date-input"
                     type="date"
                     value={filters.date_end ? dayjs(filters.date_end).format('YYYY-MM-DD') : ''}
-                    onChange={(e) => onChange('date_end', dayjs(e.target.value).toISOString())}
+                    onChange={(e) => onChange('date_end', e.target.value ? dayjs(e.target.value).toISOString() : undefined)}
                   />
                 </div>
                 <div className="control">
-                  <button className="button is-small is-light" onClick={onClearProps.bind(null, ['date_start', 'date_end'])}>Clear</button>
+                  <button className="button is-small is-light" onClick={onClearProps.bind(null, ['date_start', 'date_end'])}>{t("Clear")}</button>
                 </div>
               </div>
             </Section>
-            <Section title="Division"
+            <Section title={t("Division")}
                      isOpen={openFilters.division}
                      setIsOpen={(isOpen: boolean) => setOpenFilters({ ...openFilters, division: isOpen })}
                      isBold={anyDivisionFiltersSet}>
               <div className="checkbox-filters checkboxes">
-                <label className="filter-group-label">Age:</label>
+                <label className="filter-group-label">{t("Age")}:</label>
                 {['Adult', 'Master 1', 'Master 2', 'Master 3', 'Master 4', 'Master 5', 'Master 6', 'Master 7', 'Juvenile', 'Teen'].map(age => {
                   const key = ageToFilter(age);
                   return (
@@ -361,16 +362,16 @@ function DBFilters() {
                         checked={!!filters[key]}
                         onChange={(e) => onChange(key, e.target.checked)}
                       />
-                      {age}
+                      {t(age as translationKeys)}
                     </label>
                   );
                 })}
                 <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['age_adult', 'age_master1', 'age_master2', 'age_master3', 'age_master4', 'age_master5', 'age_master6', 'age_master7', 'age_juvenile'])}>
-                  {(filters.age_adult || filters.age_master1 || filters.age_master2 || filters.age_master3 || filters.age_master4 || filters.age_master5 || filters.age_master6 || filters.age_master7 || filters.age_juvenile) ? 'Clear' : 'All'}
+                  {(filters.age_adult || filters.age_master1 || filters.age_master2 || filters.age_master3 || filters.age_master4 || filters.age_master5 || filters.age_master6 || filters.age_master7 || filters.age_juvenile) ? t("Clear") : t("All")}
                 </button>
               </div>
               <div className="checkbox-filters checkboxes">
-                <label className="filter-group-label">Gender:</label>
+                <label className="filter-group-label">{t("Gender")}:</label>
                 {['Male', 'Female'].map(gender => {
                   const key = genderToFilter(gender);
                   return (
@@ -380,16 +381,16 @@ function DBFilters() {
                         checked={!!filters[key]}
                         onChange={(e) => onChange(key, e.target.checked)}
                       />
-                      {gender}
+                      {t(gender as translationKeys)}
                     </label>
                   );
                 })}
                 <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['gender_male', 'gender_female'])}>
-                  {(filters.gender_male || filters.gender_female) ? 'Clear' : 'All'}
+                  {(filters.gender_male || filters.gender_female) ? t("Clear") : t("All")}
                 </button>
               </div>
               <div className="checkbox-filters checkboxes">
-                <label className="filter-group-label">Belt:</label>
+                <label className="filter-group-label">{t("Belt")}:</label>
                 {['Black', 'Brown', 'Purple', 'Blue', 'Green', 'Orange', 'Yellow', 'Grey', 'White'].map(belt => {
                   const key = beltToFilter(belt);
                   return (
@@ -399,16 +400,16 @@ function DBFilters() {
                         checked={!!filters[key]}
                         onChange={(e) => onChange(key, e.target.checked)}
                       />
-                      {belt}
+                      {t(belt as translationKeys)}
                     </label>
                   );
                 })}
                 <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['belt_white', 'belt_blue', 'belt_purple', 'belt_brown', 'belt_black'])}>
-                  {(filters.belt_white || filters.belt_blue || filters.belt_purple || filters.belt_brown || filters.belt_black) ? 'Clear' : 'All'}
+                  {(filters.belt_white || filters.belt_blue || filters.belt_purple || filters.belt_brown || filters.belt_black) ? t("Clear") : t("All")}
                 </button>
               </div>
               <div className="checkbox-filters checkboxes">
-                <label className="filter-group-label">Weight:</label>
+                <label className="filter-group-label">{t("Weight")}:</label>
                 {['Rooster', 'Light Feather', 'Feather', 'Light', 'Middle',
                   'Medium Heavy', 'Heavy', 'Super Heavy', 'Ultra Heavy', 'Open Class'
                 ].map(weight => {
@@ -420,12 +421,12 @@ function DBFilters() {
                         checked={!!filters[key]}
                         onChange={(e) => onChange(key, e.target.checked)}
                       />
-                      {weight}
+                      {t(weight as translationKeys)}
                     </label>
                   );
                 })}
                 <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['weight_rooster', 'weight_light_feather', 'weight_feather', 'weight_light', 'weight_middle', 'weight_medium_heavy', 'weight_heavy', 'weight_super_heavy', 'weight_ultra_heavy', 'weight_open_class'])}>
-                  {(filters.weight_rooster || filters.weight_light_feather || filters.weight_feather || filters.weight_light || filters.weight_middle || filters.weight_medium_heavy || filters.weight_heavy || filters.weight_super_heavy || filters.weight_ultra_heavy || filters.weight_open_class) ? 'Clear' : 'All'}
+                  {(filters.weight_rooster || filters.weight_light_feather || filters.weight_feather || filters.weight_light || filters.weight_middle || filters.weight_medium_heavy || filters.weight_heavy || filters.weight_super_heavy || filters.weight_ultra_heavy || filters.weight_open_class) ? t("Clear") : t("All")}
                 </button>
               </div>
             </Section>

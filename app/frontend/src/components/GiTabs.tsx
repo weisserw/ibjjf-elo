@@ -1,5 +1,6 @@
 import classNames from "classnames"
 import { useAppContext } from "../AppContext"
+import { t } from "../translate"
 
 export type TabName = 'Gi' | 'No Gi'
 
@@ -8,8 +9,8 @@ function GiTabs() {
   return (
     <div className="tabs">
       <ul>
-        <li onClick={() => setActiveTab('Gi')} className={classNames({"is-active": activeTab === 'Gi'})}><a>Gi</a></li>
-        <li onClick={() => setActiveTab('No Gi')} className={classNames({"is-active": activeTab === 'No Gi'})}><a>No Gi</a></li>
+        <li onClick={() => setActiveTab('Gi')} className={classNames({"is-active": activeTab === 'Gi'})}><a>{t("Gi")}</a></li>
+        <li onClick={() => setActiveTab('No Gi')} className={classNames({"is-active": activeTab === 'No Gi'})}><a>{t("No Gi")}</a></li>
       </ul>
     </div>
   )

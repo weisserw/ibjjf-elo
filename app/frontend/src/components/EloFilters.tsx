@@ -1,5 +1,6 @@
 import { useAppContext } from "../AppContext"
 import { ages } from "../utils"
+import { t, type translationKeys } from "../translate"
 
 import "./EloFilters.css"
 
@@ -120,23 +121,23 @@ function EloFilters() {
     <div className="columns is-mobile is-multiline">
       <div className="column is-third-mobile">
         <div className="field mobile-margin">
-          <label className="label">Gender</label>
+          <label className="label">{t("Gender")}</label>
           <div className="select">
             <select value={gender} onChange={onGenderChange}>
-              <option>Male</option>
-              <option>Female</option>
+              <option value="Male">{t("Male")}</option>
+              <option value="Female">{t("Female")}</option>
             </select>
           </div>
         </div>
       </div>
       <div className="column is-third-mobile">
         <div className="field">
-          <label className="label">Age</label>
+          <label className="label">{t("Age")}</label>
           <div className="select">
             <select value={age} onChange={onAgeChange}>
               {
                 ages.map(age => (
-                  <option key={age} value={age}>{age}</option>
+                  <option key={age} value={age}>{t(age as translationKeys)}</option>
                 ))
               }
             </select>
@@ -145,12 +146,12 @@ function EloFilters() {
       </div>
       <div className="column is-third-mobile">
         <div className="field">
-          <label className="label">Belt</label>
+          <label className="label">{t("Belt")}</label>
           <div className="select">
             <select value={belt} onChange={onBeltChange}>
               {
                 ranks.map(rank => (
-                  <option key={rank} value={rank.toUpperCase()}>{rank}</option>
+                  <option key={rank} value={rank.toUpperCase()}>{t(rank as translationKeys)}</option>
                 ))
               }
             </select>
@@ -159,12 +160,12 @@ function EloFilters() {
       </div>
       <div className="column is-half-mobile">
         <div className="field mobile-margin">
-          <label className="label">Weight</label>
+          <label className="label">{t("Weight")}</label>
           <div className="select">
             <select value={weight} onChange={onWeightChange}>
               {
                 weights.map(({ name, value }) => (
-                  <option key={value} value={value}>{name}</option>
+                  <option key={value} value={value}>{t(name as translationKeys)}</option>
                 ))
               }
             </select>
@@ -176,13 +177,13 @@ function EloFilters() {
           <div className="control">
             <label className="checkbox">
               <input type="checkbox" checked={upcoming} onChange={() => setUpcoming(!upcoming)} />
-              &nbsp;Upcoming
+              &nbsp;{t("Upcoming")}
             </label>
           </div>
           <div className="control mt-3">
             <label className="checkbox">
               <input type="checkbox" checked={changed} onChange={() => setChanged(!changed)} />
-              &nbsp;Changed
+              &nbsp;{t("Changed")}
             </label>
           </div>
         </div>

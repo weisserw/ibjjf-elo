@@ -104,6 +104,8 @@ interface AppContextProps {
   setCalcSecondWeight: (weight: string) => void;
   calcCustomInfo: boolean;
   setCalcCustomInfo: (info: boolean) => void;
+  language: 'en' | 'pr';
+  setLanguage: (lang: 'en' | 'pr') => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -159,6 +161,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [calcFirstWeight, setCalcFirstWeight] = useState('Heavy')
   const [calcSecondWeight, setCalcSecondWeight] = useState('Heavy')
   const [calcCustomInfo, setCalcCustomInfo] = useState(false)
+  // Read initial language from localStorage, fallback to 'en'
+  const getInitialLanguage = () => {
+    try {
+      const stored = localStorage.getItem('language');
+      if (stored === 'pr' || stored === 'en') {
+        return stored as 'en' | 'pr';
+      }
+    } catch (e) {}
+    return 'en';
+  };
+  const [language, setLanguageState] = useState<'en' | 'pr'>(getInitialLanguage());
+
+  // Save language to localStorage and update state
+  const setLanguage = (lang: 'en' | 'pr') => {
+    setLanguageState(lang);
+    try {
+      localStorage.setItem('language', lang);
+    } catch (e) {}
+  };
 
   const updateFilters = useCallback((newFilters: FilterValues) => {
     // Reset the page when filters change
@@ -251,6 +272,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       calcFirstWeight, setCalcFirstWeight,
       calcSecondWeight, setCalcSecondWeight,
       calcCustomInfo, setCalcCustomInfo,
+      language, setLanguage,
     }}>
       {children}
     </AppContext.Provider>

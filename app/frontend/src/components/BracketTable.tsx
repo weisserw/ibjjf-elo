@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { noMatchStrings, type Competitor } from "./BracketUtils"
 import { Tooltip } from 'react-tooltip';
+import { t } from '../translate'
 
 interface BracketTableProps {
   competitors: Competitor[] | null;
@@ -106,9 +107,9 @@ function BracketTable(props: BracketTableProps) {
         tooltip += ', '
       }
       if (immature === 'very-immature') {
-        tooltip += `Athlete's rating is provisional due to insufficient matches within three years (${competitor.match_count})`
+        tooltip += `${t("Athlete's rating is provisional due to insufficient matches within three years")} (${competitor.match_count})`
       } else {
-        tooltip += `Athlete's rating is semi-provisional due to insufficient matches within three years (${competitor.match_count})`
+        tooltip += `${t("Athlete's rating is semi-provisional due to insufficient matches within three years")} (${competitor.match_count})`
       }
     }
 
@@ -175,24 +176,24 @@ function BracketTable(props: BracketTableProps) {
               <th className="has-text-right">
                 {
                   (sortColumn !== undefined && sortColumn !== 'seed') ?
-                    <a href="#" onClick={columnClicked?.bind(null, 'seed')}>IBJJF Seed</a> :
-                    <span>IBJJF Seed ↓</span>
+                    <a href="#" onClick={columnClicked?.bind(null, 'seed')}>{t("IBJJF Seed")}</a> :
+                    <span>{t("IBJJF Seed")} ↓</span>
                 }
               </th>
             }
-            <th>Name</th>
-            <th>Team</th>
+            <th>{t("Name")}</th>
+            <th>{t("Team")}</th>
             {
               props.showWeight &&
-              <th>Weight</th>
+              <th>{t("Weight")}</th>
             }
             {
               props.showNext &&
               <th>
               {
                 (sortColumn !== undefined && sortColumn !== 'next') ?
-                  <a href="#" onClick={columnClicked?.bind(null, 'next')}>Next</a> :
-                  <span>Next ↓</span>
+                  <a href="#" onClick={columnClicked?.bind(null, 'next')}>{t("Next")}</a> :
+                  <span>{t("Next")} ↓</span>
               }
               </th>
             }
@@ -201,7 +202,7 @@ function BracketTable(props: BracketTableProps) {
               <>
                 <th className="has-text-right">
                 {
-                  props.showEndRating ? 'Start Rating' : 'Rating'
+                  props.showEndRating ? t('Start Rating') : t('Rating')
                 }
                 </th>
               </>
@@ -209,11 +210,11 @@ function BracketTable(props: BracketTableProps) {
             <th></th>
             {
               (props.showRatings && props.showEndRating) &&
-              <th className="has-text-right">End Rating</th>
+              <th className="has-text-right">{t('End Rating')}</th>
             }
             {
               (props.showRatings && props.showRank) &&
-              <th className="has-text-right">Rank</th>
+              <th className="has-text-right">{t('Rank')}</th>
             }
           </tr>
         </thead>
@@ -294,7 +295,7 @@ function BracketTable(props: BracketTableProps) {
           className="button is-info mt-2"
           onClick={calculateMatchResult}
           disabled={calculateDisabled()}>
-          Calculate Expected Match Result
+          {t("Calculate Expected Match Result")}
         </button>
       }
       <Tooltip id="competitor-tooltip" className="tooltip-multiline" />

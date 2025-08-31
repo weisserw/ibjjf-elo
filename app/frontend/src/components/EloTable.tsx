@@ -8,8 +8,10 @@ import EloFilters from './EloFilters';
 import Autosuggest from 'react-autosuggest';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
+import 'dayjs/locale/pt';
 import { Tooltip } from 'react-tooltip';
 import { axiosErrorToast, immatureClass } from '../utils';
+import { t, translateMulti } from '../translate';
 
 import "./EloTable.css"
 
@@ -38,7 +40,7 @@ interface Results {
   totalPages: number
 }
 
-function formatEventDates(startDate: string, endDate: string): string {
+function formatEventDates(startDate: string, endDate: string, language: string): string {
     if (!startDate || !endDate) {
         return "";
     }
@@ -51,18 +53,19 @@ function formatEventDates(startDate: string, endDate: string): string {
 
     if (start.isSame(end, 'day')) {
         // Example: Oct 15
-        return `${start.format('MMM')} ${start.date()}`;
+        return `${start.locale(language === 'pr' ? 'pt' : 'en').format('MMM')} ${start.date()}`;
     }
     if (start.month() === end.month() && start.year() === end.year()) {
         // Example: Oct 15 - 17
-        return `${start.format('MMM')} ${start.date()} - ${end.date()}`;
+        return `${start.locale(language === 'pr' ? 'pt' : 'en').format('MMM')} ${start.date()} - ${end.date()}`;
     }
     // Example: Oct 28 - Nov 2
-    return `${start.format('MMM')} ${start.date()} - ${end.format('MMM')} ${end.date()}`;
+    return `${start.locale(language === 'pr' ? 'pt' : 'en').format('MMM')} ${start.date()} - ${end.locale(language === 'pr' ? 'pt' : 'en').format('MMM')} ${end.date()}`;
 }
 
 function EloTable() {
   const {
+    language,
     activeTab,
     rankingGender: gender,
     rankingAge: age,
@@ -273,7 +276,7 @@ function EloTable() {
                           inputProps={{
                             className: "input",
                             value: nameFilterSearch,
-                            placeholder: "Search Within Division",
+                            placeholder: t("Search Within Division"),
                             onChange: (_: any, { newValue }) => {
                             onNameFilterChange(newValue)
                             }
@@ -307,8 +310,8 @@ function EloTable() {
                 <tr>
                   <th className="has-text-right">#</th>
                   <th className="has-text-right">↑↓</th>
-                  <th>Name</th>
-                  <th className="has-text-right">Rating</th>
+                  <th>{t("Name")}</th>
+                  <th className="has-text-right">{t("Rating")}</th>
                   <th className="has-text-right">+/-</th>
                   <th className="cell-no-padding"></th>
                   <th className="cell-no-padding"></th>
@@ -319,9 +322,9 @@ function EloTable() {
                   data.length === 0 && (
                     <tr>
                       <td colSpan={6} className="empty-row">
-                        No matching competitors in selected division. Try changing the category filters or use the{' '}
-                        <Link to="/database">Database</Link>
-                        {' '}page to perform a global search.
+                        {t("No matching competitors in selected division. Try changing the category filters or use the")} {' '}
+                        <Link to="/database">{t("Database")}</Link>
+                        {' '} {t("page to perform a global search.")}.
                       </td>
                     </tr>
                   )
@@ -363,14 +366,14 @@ function EloTable() {
                         {row.registrations && row.registrations.length > 0 && (
                           <Tooltip id={`elo-registration-tooltip-${index}`} className="tooltip-wide" clickable place="left">
                             <div className="elo-registration-tooltip">
-                              This athlete is registered for the following upcoming events:
+                              {t("This athlete is registered for the following upcoming events")}:
                               <ul>
                                 {row.registrations.map((r, index) => (
                                   <li key={index}>
                                     <a href="#" onClick={e => onRegistrationClicked(e, r)}>
-                                      {r.event_name} ({formatEventDates(r.event_start_date, r.event_end_date)})
+                                      {r.event_name} ({formatEventDates(r.event_start_date, r.event_end_date, language)})
                                       <br />
-                                      {r.division}
+                                      {translateMulti(r.division)}
                                     </a>
                                   </li>
                                 ))}

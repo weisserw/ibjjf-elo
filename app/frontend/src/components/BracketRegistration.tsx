@@ -4,6 +4,7 @@ import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable from './BracketTable'
 import { isGi, handleError, type CompetitorsResponse, type Competitor } from './BracketUtils'
+import { translateMulti, t } from '../translate'
 
 interface RegistrationCategoriesResponse {
   event_name?: string
@@ -208,12 +209,11 @@ function BracketRegistration() {
       <div>
         <div className="registrations">
           <p className="mb-2">
-            This tool imports registrations from the IBJJF registration system and displays the current ratings of the competitors. To view registrations, {' '} 
-            select an upcoming event from the list below:
+            {t("This tool imports registrations from the IBJJF registration system and displays the current ratings of the competitors. To view registrations, select an upcoming event from the list below")}:
           </p>
           <div className="field is-horizontal upcoming-label">
             <div className="field-label is-normal">
-              <label className="label upcoming-label">Upcoming events:</label>
+              <label className="label upcoming-label">{t("Upcoming tournaments")}:</label>
             </div>
             <div className="field-body upcoming-field-body">
               <div className="field upcoming-field">
@@ -226,7 +226,7 @@ function BracketRegistration() {
                       }
                       setSelectedUpcomingLink(e.target.value)
                     }}>
-                      <option value="">Choose an event</option>
+                      <option value="">{t("Choose a tournament")}</option>
                       {
                         upcomingLinks.map(link => (
                           <option key={link.link} value={link.link}>{link.name}</option>
@@ -249,7 +249,7 @@ function BracketRegistration() {
               <strong>{registrationEventName}</strong>
               {
                 registrationEventTotal !== null && (
-                  <span> - {registrationEventTotal.toLocaleString()} competitors</span>
+                  <span> - {registrationEventTotal.toLocaleString()} {t("competitors")}</span>
                 )
               }
             </div>
@@ -262,7 +262,7 @@ function BracketRegistration() {
                         <select className="select" value={selectedRegistrationCategory ?? ''} onChange={e => {setSelectedRegistrationCategory(e.target.value); }}>
                           {
                             registrationCategories.map(category => (
-                              <option key={category} value={category}>{category}</option>
+                              <option key={category} value={category}>{translateMulti(category)}</option>
                             ))
                           }
                         </select>
@@ -272,7 +272,7 @@ function BracketRegistration() {
                   <div className="column is-vcentered">
                   {
                     (showRatings && averageRating !== undefined) && (
-                      <span>{`Average rating: ${averageRating}`}</span>
+                      <span>{`${t("Average rating")}: ${averageRating}`}</span>
                     )
                   }
                   </div>
@@ -281,14 +281,14 @@ function BracketRegistration() {
             }
             {
               registrationCategories.length === 0 && (
-                <div className="notification is-warning">No valid brackets found. Note: we do not load age divisions younger than Teen 1.</div>
+                <div className="notification is-warning">{t("No valid brackets found. Note: we do not load age divisions younger than Teen 1.")}</div>
               )
             }
           </div>)
         }
         {
           registrationCategories?.some(c => /Teen/.test(c)) && (
-            <div className="notification is-warning mt-4">Note: we do not load age divisions younger than Teen 1.</div>
+            <div className="notification is-warning mt-4">{t("Note: we do not load age divisions younger than Teen 1.")}</div>
           )
         }
         {

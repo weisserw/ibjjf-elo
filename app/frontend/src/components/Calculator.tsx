@@ -7,6 +7,7 @@ import { debounce } from 'lodash'
 import { axiosErrorToast, ages, isHistorical, type DBRow as Row, type DBResults as Results } from '../utils'
 import { useAppContext } from '../AppContext'
 import DBTableRows from './DBTableRows'
+import { t, type translationKeys } from '../translate'
 
 import "./Calculator.css"
 
@@ -282,11 +283,11 @@ function Calculator() {
 
     let firstRating = <span>{firstRatingToPredict}</span>;
     if (firstHandicap) {
-      firstRating = <span><strong className="fw-600">{Number(firstRatingToPredict) + Math.round(firstHandicap)}</strong> (+{Math.round(firstHandicap)} weight adjustment)</span>;
+      firstRating = <span><strong className="fw-600">{Number(firstRatingToPredict) + Math.round(firstHandicap)}</strong> (+{Math.round(firstHandicap)} {t("weight adjustment")})</span>;
     }
     let secondRating = <span>{secondRatingToPredict}</span>;
     if (secondHandicap) {
-      secondRating = <span><strong className="fw-600">{Number(secondRatingToPredict) + Math.round(secondHandicap)}</strong> (+{Math.round(secondHandicap)} weight adjustment)</span>;
+      secondRating = <span><strong className="fw-600">{Number(secondRatingToPredict) + Math.round(secondHandicap)}</strong> (+{Math.round(secondHandicap)} {t("weight adjustment")})</span>;
     }
 
     if (!firstAthleteToFetch || !secondAthleteToFetch) {
@@ -323,14 +324,14 @@ function Calculator() {
     <div className="container calculator-container">
       <GiTabs />
       <p>
-        Select two athletes (or manually enter ratings) to see the predicted outcome of a match, potential Elo gain / loss, and match history.
+        {t("Select two athletes (or manually enter ratings) to see the predicted outcome of a match, potential Elo gain / loss, and match history.")}
       </p>
       <div className="calculator-header mt-4 mb-4">
         <div className="field">
           <div className="select">
             <select value={calcGender} onChange={e => setCalcGender(e.target.value)}>
-              <option>Male</option>
-              <option>Female</option>
+              <option>{t("Male")}</option>
+              <option>{t("Female")}</option>
             </select>
           </div>
         </div>
@@ -352,7 +353,7 @@ function Calculator() {
                            inputProps={{
                              className: "input",
                              value: calcFirstAthlete,
-                             placeholder: "Enter Athlete Name...",
+                             placeholder: t("Enter Athlete Name..."),
                              onChange: (_: any, { newValue }) => {
                                setCalcFirstAthlete(newValue)
                                setCalcCustomInfo(false)
@@ -370,7 +371,7 @@ function Calculator() {
               }
             </div>
             <div className="field position-relative">
-              <label className="label">Search for Opponent</label>
+              <label className="label">{t("Search for Opponent")}</label>
               <Autosuggest suggestions={athleteSuggestions2}
                            onSuggestionsFetchRequested={debouncedGetAthleteSuggestions2}
                            onSuggestionsClearRequested={() => setAthleteSuggestions2([])}
@@ -383,7 +384,7 @@ function Calculator() {
                            inputProps={{
                              className: "input",
                              value: calcSecondAthlete,
-                             placeholder: "Enter Athlete Name...",
+                             placeholder: t("Enter Athlete Name..."),
                              onChange: (_: any, { newValue }) => {
                                setCalcSecondAthlete(newValue)
                                setCalcCustomInfo(false)
@@ -405,7 +406,7 @@ function Calculator() {
           <div className="column">
             <div className="calculator-header">
               <div className="field">
-                <label className="label">Athlete Rating</label>
+                <label className="label">{t("Athlete Rating")}</label>
                 <div className="control">
                   <input
                     className="input"
@@ -421,7 +422,7 @@ function Calculator() {
                 </div>
               </div>
               <div className="field">
-                <label className="label">Opponent Rating</label>
+                <label className="label">{t("Opponent Rating")}</label>
                 <div className="control">
                   <input
                     className="input"
@@ -442,22 +443,22 @@ function Calculator() {
         <div className="columns">
           <div className="column is-2">
             <div className="field">
-              <label className="label">Age</label>
+              <label className="label">{t("Age")}</label>
               <div className="control">
                 <div className="select">
                   <select value={calcAge} onChange={e => {
                     setCalcAge(e.target.value)
                     setCalcCustomInfo(true)
                   }}>
-                    <option>Juvenile</option>
-                    <option>Adult</option>
-                    <option>Master 1</option>
-                    <option>Master 2</option>
-                    <option>Master 3</option>
-                    <option>Master 4</option>
-                    <option>Master 5</option>
-                    <option>Master 6</option>
-                    <option>Master 7</option>
+                    <option value="Juvenile">{t("Juvenile")}</option>
+                    <option value="Adult">{t("Adult")}</option>
+                    <option value="Master 1">{t("Master 1")}</option>
+                    <option value="Master 2">{t("Master 2")}</option>
+                    <option value="Master 3">{t("Master 3")}</option>
+                    <option value="Master 4">{t("Master 4")}</option>
+                    <option value="Master 5">{t("Master 5")}</option>
+                    <option value="Master 6">{t("Master 6")}</option>
+                    <option value="Master 7">{t("Master 7")}</option>
                   </select>
                 </div>
               </div>
@@ -465,24 +466,24 @@ function Calculator() {
           </div>
           <div className="column is-2">
             <div className="field">
-              <label className="label">Belt</label>
+              <label className="label">{t("Belt")}</label>
               <div className="select">
                 <select value={calcBelt} onChange={e => {
                   setCalcBelt(e.target.value)
                   setCalcCustomInfo(true)
                 }}>
-                  <option value="WHITE">White</option>
-                  <option value="BLUE">Blue</option>
-                  <option value="PURPLE">Purple</option>
-                  <option value="BROWN">Brown</option>
-                  <option value="BLACK">Black</option>
+                  <option value="WHITE">{t("White")}</option>
+                  <option value="BLUE">{t("Blue")}</option>
+                  <option value="PURPLE">{t("Purple")}</option>
+                  <option value="BROWN">{t("Brown")}</option>
+                  <option value="BLACK">{t("Black")}</option>
                 </select>
               </div>
             </div>
           </div>
           <div className="column is-3">
             <div className="field">
-              <label className="label">Athlete Weight</label>
+              <label className="label">{t("Athlete Weight")}</label>
               <div className="select">
                 <select value={calcFirstWeight} onChange={e => {
                   setCalcFirstWeight(e.target.value)
@@ -490,7 +491,7 @@ function Calculator() {
                 }}>
                 {
                   weights.map((value) => (
-                    <option key={value} value={value}>{value}</option>
+                    <option key={value} value={value}>{t(value as translationKeys)}</option>
                   ))
                 }
                 </select>
@@ -499,7 +500,7 @@ function Calculator() {
           </div>
           <div className="column is-3">
             <div className="field">
-              <label className="label">Opponent Weight</label>
+              <label className="label">{t("Opponent Weight")}</label>
               <div className="select">
                 <select value={calcSecondWeight} onChange={e => {
                   setCalcSecondWeight(e.target.value)
@@ -507,7 +508,7 @@ function Calculator() {
                 }}>
                 {
                   weights.map((value) => (
-                    <option key={value} value={value}>{value}</option>
+                    <option key={value} value={value}>{t(value as translationKeys)}</option>
                   ))
                 }
                 </select>
@@ -524,19 +525,19 @@ function Calculator() {
               <thead></thead>
               <tbody>
                 <tr>
-                  <td>{firstAthleteToFetch ? firstAthleteToFetch : 'Athlete'} expected victory:</td>
+                  <td>{firstAthleteToFetch ? firstAthleteToFetch : t('Athlete')} {t('expected victory')}:</td>
                   <td className="has-text-right">{Math.round(firstExpected * 100)}%</td>
                 </tr>
                 <tr>
-                  <td>{secondAthleteToFetch ? secondAthleteToFetch : 'Opponent'} expected victory:</td>
+                  <td>{secondAthleteToFetch ? secondAthleteToFetch : t('Opponent')} {t('expected victory')}:</td>
                   <td className="has-text-right">{Math.round(secondExpected * 100)}%</td>
                 </tr>
                 <tr>
-                  <td>Rating change if {firstAthleteToFetch ? firstAthleteToFetch : 'athlete'} wins:</td>
+                  <td>{t('Rating change if')} {firstAthleteToFetch ? firstAthleteToFetch : t('athlete')} {t('wins')}:</td>
                   <td className="has-text-right">{addPlus(Math.round(firstWin))}</td>
                 </tr>
                 <tr>
-                  <td>Rating change if {secondAthleteToFetch ? secondAthleteToFetch : 'opponent'} wins:</td>
+                  <td>{t('Rating change if')} {secondAthleteToFetch ? secondAthleteToFetch : t('opponent')} {t('wins')}:</td>
                   <td className="has-text-right">{addPlus(Math.round(firstLoss))}</td>
                 </tr>
               </tbody>
@@ -546,9 +547,9 @@ function Calculator() {
                 <ul>
                   {
                     (firstFetchedAthlete?.belt && secondFetchedAthlete?.belt && firstFetchedAthlete.belt !== secondFetchedAthlete.belt) &&
-                    <li >This matchup is across belts. Athletes will receive additional promotion points as they get promoted which could change the projected outcome.</li>
+                    <li>{t("This matchup is across belts. Athletes will receive additional promotion points as they get promoted which could change the projected outcome.")}</li>
                   }
-                  <li>Athletes with provisional ratings (six or fewer matches) will gain / lose more Elo than shown above.</li>
+                  <li>{t("Athletes with provisional ratings (six or fewer matches) will gain / lose more Elo than shown above.")}</li>
                 </ul>
               </div>
             </div>
@@ -556,7 +557,7 @@ function Calculator() {
               data && data.length > 0 && (
                 <div>
                   <p className="has-text-weight-bold mb-3">
-                    Match history:
+                    {t("Match history")}:
                   </p>
                   <DBTableRows data={data}
                                loading={false}
@@ -565,7 +566,7 @@ function Calculator() {
                   {
                     hasHistorical && (
                       <div className="notification is-historical">
-                        Match data before December 2024 may be incomplete or inaccurate
+                        {t("Match data before December 2024 may be incomplete or inaccurate")}
                       </div>
                     )
                   }
@@ -575,7 +576,7 @@ function Calculator() {
             {
               data && data.length === 0 && (
                 <div className="notification is-info">
-                  No match history found for the selected athletes.
+                  {t("No match history found for the selected athletes.")}
                 </div>
               )
             }

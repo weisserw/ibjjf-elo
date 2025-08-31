@@ -2,8 +2,11 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { noMatchStrings, createTreeFromTop, createTreeFromMatchNums, type Match } from "./BracketUtils"
 import classNames from 'classnames';
 import dayjs from 'dayjs';
+import 'dayjs/locale/pt';
+import { useAppContext } from '../AppContext';
 import { immatureClass } from '../utils';
 import { Tooltip } from 'react-tooltip';
+import { t, translateMultiSpace } from '../translate';
 
 import "./BracketTree.css";
 
@@ -20,6 +23,7 @@ interface BracketTreeMatchProps {
 
 function BracketTreeMatch(props: BracketTreeMatchProps) {
   const { match, levelIndex, matchIndex } = props;
+  const { language } = useAppContext();
 
   const tooltip = (numMatches: number | null) => {
     const immature = immatureClass(numMatches);
@@ -27,9 +31,9 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
       return undefined;
     }
     if (immature === 'very-immature') {
-      return `Athlete's rating is provisional due to insufficient matches within three years (${numMatches})`;
+      return `${t("Athlete's rating is provisional due to insufficient matches within three years")} (${numMatches})`;
     }
-    return `Athlete's rating is semi-provisional due to insufficient matches within three years (${numMatches})`;
+    return `${t("Athlete's rating is semi-provisional due to insufficient matches within three years")} (${numMatches})`;
   }
 
   return (
@@ -50,18 +54,18 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
         }
         <div className="bracket-tree-match-description">
           <div className="bracket-tree-match-description-when">
-            {match.when && dayjs(match.when).format('ddd h:mma')}
+            {match.when && dayjs(match.when).locale(language === 'pr' ? 'pt' : 'en').format('ddd h:mma')}
             {
               match.when && (match.where || match.fight_num) && <span> - </span>
             }
             {
-              match.fight_num && <span>Fight {match.fight_num}</span>
+              match.fight_num && <span>{t("Fight")} {match.fight_num}</span>
             }
             {
               match.fight_num && match.when && <span>, </span>
             }
             {
-              match.where && <span>{match.where}</span>
+              match.where && <span>{translateMultiSpace(match.where)}</span>
             }
           </div>
         </div>

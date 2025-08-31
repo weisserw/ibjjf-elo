@@ -1,5 +1,7 @@
 import {ReactNode} from "react";
 import classNames from "classnames";
+import {t} from "../translate";
+
 import "./DBPagination.css";
 
 interface PaginationProps {
@@ -73,10 +75,10 @@ function DBPagination({page, totalPages, showPages, onPageClick, onFirstPage, on
   return (
     <nav className="pagination pagination-margin" role="navigation">
       {
-        !showPages && <a href="#" className={classNames("pagination-previous", {"is-disabled": page === 1})} onClick={onFirstPage}>First</a>
+        !showPages && <a href="#" className={classNames("pagination-previous", {"is-disabled": page === 1})} onClick={onFirstPage}>{t("First")}</a>
       }
-      <a href="#" className={classNames("pagination-previous", {"is-disabled": page === 1})} onClick={onPreviousPage}>Previous</a>
-      <a href="#" className={classNames("pagination-next", {"is-disabled": page === totalPages})} onClick={onNextPage}>Next</a>
+      <a href="#" className={classNames("pagination-previous", {"is-disabled": page === 1})} onClick={onPreviousPage}>{t("Previous")}</a>
+      <a href="#" className={classNames("pagination-next", {"is-disabled": page === totalPages})} onClick={onNextPage}>{t("Next")}</a>
       <ul className="pagination-list">
         {elements}
       </ul>

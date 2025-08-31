@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree from './BracketTree'
 import { isGi, handleError, categoryString } from './BracketUtils'
+import { translateMulti, t } from '../translate'
 import type { CategoriesResponse, LiveCompetitorsResponse, Match as BracketMatch, Competitor } from './BracketUtils'
 
 export interface Event {
@@ -392,7 +393,7 @@ function BracketLive() {
               }
               {
                 events.length === 0 && (
-                  <div className="notification is-warning">No events found</div>
+                  <div className="notification is-warning">{t("No tournaments found")}</div>
                 )
               }
             </div>
@@ -410,7 +411,7 @@ function BracketLive() {
                           <select disabled={loading} className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
                             {
                               categories.map(category => (
-                                <option key={category.link} value={categoryString(category)}>{categoryString(category)}</option>
+                                <option key={category.link} value={categoryString(category)}>{translateMulti(categoryString(category))}</option>
                               ))
                             }
                           </select>
@@ -419,7 +420,7 @@ function BracketLive() {
                       <div className="average">
                       {
                         (showRatings && averageRating !== undefined) && (
-                          <span>{`Average rating: ${averageRating}`}</span>
+                          <span>{`${t("Average rating")}: ${averageRating}`}</span>
                         )
                       }
                       </div>
@@ -429,7 +430,7 @@ function BracketLive() {
               }
               {
                 categories.length === 0 && (
-                  <div className="notification is-warning">No valid brackets found. Note: we do not load age divisions younger than Teen 1.</div>
+                  <div className="notification is-warning">{t("No valid brackets found. Note: we do not load age divisions younger than Teen 1.")}</div>
                 )
               }
             </div>
@@ -440,7 +441,7 @@ function BracketLive() {
         }
         {
           categories?.some(c => /Teen/.test(c.age)) && (
-            <div className="notification is-warning mt-4">Note: we do not load age divisions younger than Teen 1.</div>
+            <div className="notification is-warning mt-4">{t("Note: we do not load age divisions younger than Teen 1.")}</div>
           )
         }
         {
@@ -471,7 +472,7 @@ function BracketLive() {
               rel="noreferrer"
               className="button is-link is-outlined mt-5"
             >
-              View Bracket (external)
+              {t("View Bracket (external)")}
             </a>
           }
           <button disabled={loading} className={classNames("button is-small", {"is-loading": loading})} onClick={viewBracket}>

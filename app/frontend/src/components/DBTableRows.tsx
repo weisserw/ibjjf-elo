@@ -1,8 +1,11 @@
 import React from 'react';
 import classNames from "classnames";
 import dayjs from "dayjs";
+import 'dayjs/locale/pt';
 import { Tooltip } from 'react-tooltip';
 import { isHistorical, type DBRow as Row } from "../utils";
+import { useAppContext } from '../AppContext';
+import { t, translateMulti, translateMultiSpace, translationKeys } from '../translate';
 
 const BLACK_WEIGHT_HANDICAPS = [
   0,
@@ -53,21 +56,23 @@ interface DBTableRowsProps {
 function DBTableRows(props: DBTableRowsProps) {
   const { data, loading, athleteClicked, eventClicked, divisionClicked, divisionBracketClicked, noLinks } = props;
 
+  const { language } = useAppContext();
+
   const notesWithWeight = (row: Row) => {
     const weightText = openWeightText(row);
     if (row.notes && weightText) {
-      return <span>{weightText}, {row.notes}</span>
+      return <span>{weightText}, {translateMulti(row.notes)}</span>
     } else if (weightText) {
       return weightText
     } else {
-      return <span>{row.notes}</span>
+      return <span>{translateMulti(row.notes)}</span>
     }
   }
 
   const ratingAsterisk = (note: string | null, bottom: boolean) => {
     if (note) {
       return (
-        <span className="has-cursor-pointer" data-tooltip-id={bottom ? "db-bottom-tooltip" : "db-top-tooltip"} data-tooltip-content={note}>
+        <span className="has-cursor-pointer" data-tooltip-id={bottom ? "db-bottom-tooltip" : "db-top-tooltip"} data-tooltip-content={translateMulti(note)}>
           <strong>*</strong>
         </span>
       )
@@ -87,15 +92,15 @@ function DBTableRows(props: DBTableRowsProps) {
           if (winnerWeightIndex > loserWeightIndex) {
             const diff = winnerWeightIndex - loserWeightIndex;
             const handicap = handicapTable[diff];
-            return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen} ({diff} {diff === 1 ? 'class' : 'classes'} apart), adjustment: <strong className="fw-600">{row.winnerStartRating + handicap}</strong> (+{handicap}) vs {row.loserStartRating}</span>
+            return <span>{t(row.winnerWeightForOpen as translationKeys)} vs {t(row.loserWeightForOpen as translationKeys)} ({diff} {diff === 1 ? 'class' : 'classes'} {t("apart")}, {t("adjustment")}: <strong className="fw-600">{row.winnerStartRating + handicap}</strong> (+{handicap}) vs {row.loserStartRating}</span>
           } else {
             const diff = loserWeightIndex - winnerWeightIndex;
             const handicap = handicapTable[diff];
-            return <span>{row.winnerWeightForOpen} vs {row.loserWeightForOpen} ({diff} {diff === 1 ? 'class' : 'classes'} apart), adjustment: {row.winnerStartRating} vs <strong className="fw-600">{row.loserStartRating + handicap}</strong> (+{handicap})</span>
+            return <span>{t(row.winnerWeightForOpen as translationKeys)} vs {t(row.loserWeightForOpen as translationKeys)} ({diff} {diff === 1 ? 'class' : 'classes'} {t("apart")}, {t("adjustment")}: {row.winnerStartRating} vs <strong className="fw-600">{row.loserStartRating + handicap}</strong> (+{handicap})</span>
           }
         }
       }
-      return <span>{row.winnerWeightForOpen ?? 'Unknown Weight'} vs {row.loserWeightForOpen  ?? 'Unknown Weight'}, no adjustment</span>
+      return <span>{t((row.winnerWeightForOpen ?? "Unknown Weight") as translationKeys)} vs {t((row.loserWeightForOpen  ?? "Unknown Weight") as translationKeys)}, {t("no adjustment")}</span>
     } else {
       return undefined
     }
@@ -128,14 +133,14 @@ function DBTableRows(props: DBTableRowsProps) {
         <table className={classNames("table db-table is-striped", {"is-narrow": !loading && !!data.length})}>
           <thead>
             <tr>
-              <th>Winner</th>
-              <th>Rating</th>
-              <th>Loser</th>
-              <th>Rating</th>
-              <th>Event</th>
-              <th>Division</th>
-              <th>Date / Location</th>
-              <th>Notes</th>
+              <th>{t("Winner")}</th>
+              <th>{t("Rating")}</th>
+              <th>{t("Loser")}</th>
+              <th>{t("Rating")}</th>
+              <th>{t("Tournament")}</th>
+              <th>{t("Division")}</th>
+              <th>{t("Date / Location")}</th>
+              <th>{t("Notes")}</th>
             </tr>
           </thead>
           <tbody>
@@ -144,7 +149,7 @@ function DBTableRows(props: DBTableRowsProps) {
                 <tr>
                   <td colSpan={8} className="empty-row">
                     <div className="columns is-centered">
-                      No matches found for the selected filters
+                      {t("No matches found for the selected filters")}
                     </div>
                   </td>
                 </tr>
@@ -190,8 +195,8 @@ function DBTableRows(props: DBTableRowsProps) {
                   <td>
                     <div className="division-box">
                       {
-                        noLinks ? <span>{row.age} / {row.gender} / {row.belt} / {row.weight}</span> :
-                        <a href="#" onClick={e => divisionClicked?.(e, row)}>{row.age} / {row.gender} / {row.belt} / {row.weight}</a>
+                        noLinks ? <span>{t(row.age as translationKeys)} / {t(row.gender as translationKeys)} / {t(row.belt as translationKeys)} / {t(row.weight as translationKeys)}</span> :
+                        <a href="#" onClick={e => divisionClicked?.(e, row)}>{t(row.age as translationKeys)} / {t(row.gender as translationKeys)} / {t(row.belt as translationKeys)} / {t(row.weight as translationKeys)}</a>
                       }
                       {
                         !isHistorical(row.event) && row.age !== "Juvenile" &&
@@ -203,7 +208,7 @@ function DBTableRows(props: DBTableRowsProps) {
                       }
                     </div>
                   </td>
-                  <td>{dayjs(row.date).format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${row.matchLocation}`}</td>
+                  <td>{dayjs(row.date).locale(language === 'pr' ? 'pt' : 'en').format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${translateMultiSpace(row.matchLocation)}`}</td>
                   <td>{notesWithWeight(row)}</td>
                 </tr>
               ))
@@ -218,7 +223,7 @@ function DBTableRows(props: DBTableRowsProps) {
               <div className="card-content">
                 <div className="columns is-centered">
                   <div className="column is-narrow">
-                    No matches found for the selected filters
+                    {t("No matches found for the selected filters")}
                   </div>
                 </div>
               </div>
@@ -231,7 +236,7 @@ function DBTableRows(props: DBTableRowsProps) {
             return (
               <div key={row.id} data-id={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row.event)})}>
                 <div className="date-box">
-                  {dayjs(row.date).format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${row.matchLocation}`}
+                  {dayjs(row.date).locale(language === 'pr' ? 'pt' : 'en').format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${row.matchLocation}`}
                 </div>
                 <div className="card-content">
                   <div className="columns">

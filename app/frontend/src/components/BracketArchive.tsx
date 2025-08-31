@@ -8,6 +8,7 @@ import Autosuggest from 'react-autosuggest'
 import { axiosErrorToast, isHistorical } from '../utils';
 import debounce from 'lodash/debounce';
 import { isGi, handleError, nearestPowerOfTwo } from './BracketUtils'
+import { translateMulti, t } from '../translate'
 import type { LiveCompetitorsResponse, Match as BracketMatch } from './BracketUtils'
 
 export interface Category {
@@ -330,7 +331,7 @@ function BracketArchive() {
                               inputProps={{
                               className: "input",
                               value: eventName,
-                              placeholder: "Event Name",
+                              placeholder: t("Tournament Name"),
                               onChange: (_: any, { newValue }) => {
                                   setEventName(newValue);
                                   debouncedSetEventNameFetch(newValue);
@@ -367,7 +368,7 @@ function BracketArchive() {
                           <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
                             {
                               categories.map(category => (
-                                <option key={categoryString(category)} value={categoryString(category)}>{categoryString(category)}</option>
+                                <option key={categoryString(category)} value={categoryString(category)}>{translateMulti(categoryString(category))}</option>
                               ))
                             }
                           </select>
@@ -377,7 +378,7 @@ function BracketArchive() {
                     <div className="column is-vcentered">
                     {
                       (showRatings && averageRating !== undefined) && (
-                        <span>{`Average rating: ${averageRating}`}</span>
+                        <span>{`${t("Average rating")}: ${averageRating}`}</span>
                       )
                     }
                     </div>
@@ -389,7 +390,7 @@ function BracketArchive() {
         }
         {
           categories?.some(c => /Teen/.test(c.age)) && (
-            <div className="notification is-warning mt-4">Note: we do not load age divisions younger than Teen 1.</div>
+            <div className="notification is-warning mt-4">{t("Note: we do not load age divisions younger than Teen 1.")}</div>
           )
         }
         {
@@ -429,7 +430,7 @@ function BracketArchive() {
       {
         !showSeed && (
           <div className="notification is-historical mt-4">
-            Match data before December 2024 may be incomplete or inaccurate
+            {t("Match data before December 2024 may be incomplete or inaccurate")}
           </div>
         )
       }

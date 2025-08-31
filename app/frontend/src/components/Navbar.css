@@ -1,3 +1,75 @@
+.lang-switch {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+}
+
+.lang-flag {
+  width: 32px;
+  height: auto;
+  aspect-ratio: 16/10;
+  object-fit: contain;
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+/* Hide desktop button on mobile, show mobile button */
+.desktop-lang-switch {
+  display: none;
+}
+.mobile-lang-switch {
+  display: inline-flex;
+  margin-right: 0;
+}
+
+.flex-spacer {
+  /* No display by default, only flex on mobile */
+}
+
+@media screen and (max-width: 1023px) {
+  .custom-navbar-brand {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+  .flex-spacer {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .flex-spacer {
+    display: none;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .flex-spacer {
+    display: none;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .desktop-lang-switch {
+    display: inline-flex;
+    margin-left: 0;
+    margin-right: 16px;
+  }
+  .mobile-lang-switch {
+    display: none;
+  }
+  .navbar-end {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+  }
+}
+
 h1.navbar-item {
   font-size: 1.5em;
   font-weight: bold;
