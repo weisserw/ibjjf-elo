@@ -30,7 +30,7 @@ function Navbar() {
         <Link className="navbar-item logo" to="/">
           <img src={logoImage} alt="Logo" />
         </Link>
-        <h1 className="navbar-item">
+        <h1 className={classNames("navbar-item", {pr: language === 'pr'})}>
           {t("IBJJF Elo Rankings")}
         </h1>
         <span className="mobile-lang-switch flex-spacer"></span>
