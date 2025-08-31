@@ -151,6 +151,17 @@ def get_bracket_page(link, newer_than):
     return response.content
 
 
+def competitor_sort_key(competitor, rating_prop):
+    if competitor["match_count"] <= 4:
+        provisional_index = 0
+    elif competitor["match_count"] <= 6:
+        provisional_index = 1
+    else:
+        provisional_index = 2
+
+    return (provisional_index, competitor[rating_prop] or -1)
+
+
 def get_ratings(
     results, event_id, age, belt, weight, gender, gi, rating_date, get_rank
 ):
@@ -418,7 +429,7 @@ def get_ratings(
                 if result["id"] in last_weight_by_id:
                     result["last_weight"] = last_weight_by_id[result["id"]]
 
-    results.sort(key=lambda x: x["rating"] or -1, reverse=True)
+    results.sort(key=lambda x: competitor_sort_key(x, "rating"), reverse=True)
 
     compute_ordinals(results, weight, belt)
 
@@ -455,9 +466,7 @@ def compute_ordinals(results, weight, belt):
     if OPEN_CLASS in weight:
         # sort results by adjusted ratings
         results.sort(
-            key=lambda x: (
-                x["adjusted_rating"] if x["adjusted_rating"] is not None else -1
-            ),
+            key=lambda x: competitor_sort_key(x, "adjusted_rating"),
             reverse=True,
         )
 
@@ -1658,7 +1667,7 @@ def archive_competitors():
             existing["end_match_count"] = match["blue_match_count"]
             existing["medal"] = match["blue_medal"]
 
-    competitors.sort(key=lambda x: x["rating"], reverse=True)
+    competitors.sort(key=lambda x: competitor_sort_key(x, "rating"), reverse=True)
 
     compute_ordinals(competitors, weight, belt)
 
