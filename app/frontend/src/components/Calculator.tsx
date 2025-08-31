@@ -340,7 +340,7 @@ function Calculator() {
         <div className="column">
           <div className="calculator-header">
             <div className="field position-relative">
-              <label className="label">Search for Athlete</label>
+              <label className="label">{t("Search for Athlete")}</label>
               <Autosuggest suggestions={athleteSuggestions1}
                            onSuggestionsFetchRequested={debouncedGetAthleteSuggestions1}
                            onSuggestionsClearRequested={() => setAthleteSuggestions1([])}
