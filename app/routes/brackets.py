@@ -26,6 +26,7 @@ from models import (
     Medal,
     RegistrationLink,
     RegistrationLinkCompetitor,
+    LiveRating,
 )
 import logging
 from normalize import normalize
@@ -200,13 +201,12 @@ def get_ratings(
             if result["ibjjf_id"] is None or athlete.ibjjf_id is None:
                 result["id"] = athlete.id
 
+    # get ranks from athlete_ratings if available
     if get_rank:
         ratings_results = (
             db.session.query(
                 AthleteRating.athlete_id,
-                AthleteRating.rating,
                 AthleteRating.rank,
-                AthleteRating.match_count,
             )
             .filter(
                 AthleteRating.athlete_id.in_([result["id"] for result in results]),
@@ -218,143 +218,159 @@ def get_ratings(
             )
             .all()
         )
-
-        ratings_by_id = {}
-        for rating in ratings_results:
-            ratings_by_id[rating.athlete_id] = rating
-
-        no_ratings_found = []
+        ranks_by_id = {r.athlete_id: r.rank for r in ratings_results}
         for result in results:
-            rating = ratings_by_id.get(result["id"])
-            if rating:
-                result["rating"] = rating.rating
-                result["rank"] = rating.rank
-                result["match_count"] = rating.match_count
-            else:
-                no_ratings_found.append(result)
+            result["rank"] = ranks_by_id.get(result["id"])
     else:
-        no_ratings_found = results
         for result in results:
-            result["rating"] = None
             result["rank"] = None
-            result["match_count"] = None
 
-    # If we can't find a rating for an athlete on the leader board,
-    # they may still be rated but have been removed from the leader board
-    # for inactivity. We can still find their rating by looking at their
-    # most recent match.
-    if len(no_ratings_found) > 0:
-        recent_matches_cte = (
-            db.session.query(
-                MatchParticipant.id,
-                MatchParticipant.athlete_id,
-                MatchParticipant.end_rating,
-                MatchParticipant.end_match_count,
-                Division.belt,
-                Division.age,
-                func.row_number()
-                .over(
-                    partition_by=MatchParticipant.athlete_id,
-                    order_by=Match.happened_at.desc(),
-                )
-                .label("row_num"),
+    # get rating and match_count from their most recent match
+
+    recent_matches_cte = (
+        db.session.query(
+            MatchParticipant.id,
+            MatchParticipant.athlete_id,
+            MatchParticipant.end_rating,
+            MatchParticipant.end_match_count,
+            Division.belt,
+            Division.age,
+            Match.happened_at.label("happened_at"),
+            func.row_number()
+            .over(
+                partition_by=MatchParticipant.athlete_id,
+                order_by=Match.happened_at.desc(),
             )
-            .select_from(MatchParticipant)
-            .join(Match)
-            .join(Division)
-            .filter(
-                MatchParticipant.athlete_id.in_(
-                    [result["id"] for result in no_ratings_found]
-                ),
-                Division.gi == gi,
-                Division.gender == gender,
-                Match.happened_at < rating_date,
-            )
-            .cte("recent_matches_cte")
+            .label("row_num"),
         )
-        recent_matches = aliased(recent_matches_cte)
-        match_results = (
-            db.session.query(
-                recent_matches.c.id,
-                recent_matches.c.athlete_id,
-                recent_matches.c.end_rating,
-                recent_matches.c.end_match_count,
-                recent_matches.c.belt,
-                recent_matches.c.age,
-            )
-            .select_from(recent_matches)
-            .filter(recent_matches.c.row_num == 1)
-            .all()
+        .select_from(MatchParticipant)
+        .join(Match)
+        .join(Division)
+        .filter(
+            MatchParticipant.athlete_id.in_([result["id"] for result in results]),
+            Division.gi == gi,
+            Division.gender == gender,
+            Match.happened_at < rating_date,
         )
+        .cte("recent_matches_cte")
+    )
+    recent_matches = aliased(recent_matches_cte)
+    match_results = (
+        db.session.query(
+            recent_matches.c.id,
+            recent_matches.c.athlete_id,
+            recent_matches.c.end_rating,
+            recent_matches.c.end_match_count,
+            recent_matches.c.belt,
+            recent_matches.c.age,
+            recent_matches.c.happened_at,
+        )
+        .select_from(recent_matches)
+        .filter(recent_matches.c.row_num == 1)
+        .all()
+    )
 
-        same_or_higher_ages = age_order[age_order.index(age) :]
-        division = Division(age=age, belt=belt, gi=gi, gender=gender, weight=weight)
+    same_or_higher_ages = age_order[age_order.index(age) :]
+    division = Division(age=age, belt=belt, gi=gi, gender=gender, weight=weight)
 
-        ratings_by_id = {}
-        notes_by_id = {}
-        for rating in match_results:
-            # if last match was a different belt or age, see if we need to adjust it to the current division
-            if rating.belt != belt or rating.age != age:
-                last_match = (
-                    db.session.query(MatchParticipant)
-                    .join(Match)
-                    .filter(
-                        MatchParticipant.id == rating.id,
-                        Match.happened_at < rating_date,
-                    )
-                    .first()
+    ratings_by_id = {}
+    notes_by_id = {}
+    match_happened_at_by_id = {}
+    for rating in match_results:
+        # f last match was a different belt or age, see if we need to adjust it to the current division
+        if rating.belt != belt or rating.age != age:
+            last_match = (
+                db.session.query(MatchParticipant)
+                .join(Match)
+                .filter(
+                    MatchParticipant.id == rating.id,
+                    Match.happened_at < rating_date,
                 )
-                same_or_higher_age_match = (
-                    db.session.query(MatchParticipant)
-                    .join(Match)
-                    .join(Division)
-                    .filter(
-                        Division.gi == gi,
-                        Division.gender == gender,
-                        Division.age.in_(same_or_higher_ages),
-                        MatchParticipant.athlete_id == rating.athlete_id,
-                        (Match.happened_at < last_match.match.happened_at)
-                        | (
-                            (Match.happened_at == last_match.match.happened_at)
-                            & (Match.id < last_match.match.id)
-                        ),
-                    )
-                    .limit(1)
-                    .first()
+                .first()
+            )
+            same_or_higher_age_match = (
+                db.session.query(MatchParticipant)
+                .join(Match)
+                .join(Division)
+                .filter(
+                    Division.gi == gi,
+                    Division.gender == gender,
+                    Division.age.in_(same_or_higher_ages),
+                    MatchParticipant.athlete_id == rating.athlete_id,
+                    (Match.happened_at < last_match.match.happened_at)
+                    | (
+                        (Match.happened_at == last_match.match.happened_at)
+                        & (Match.id < last_match.match.id)
+                    ),
                 )
+                .limit(1)
+                .first()
+            )
 
-                adjusted_start_rating, note = compute_start_rating(
-                    division,
-                    last_match,
-                    same_or_higher_age_match is not None,
-                    rating.end_match_count,
-                )
+            adjusted_start_rating, note = compute_start_rating(
+                division,
+                last_match,
+                same_or_higher_age_match is not None,
+                rating.end_match_count,
+            )
 
-                ratings_by_id[rating.athlete_id] = (
-                    adjusted_start_rating,
-                    rating.end_match_count,
-                )
-                notes_by_id[rating.athlete_id] = note
-            else:
-                ratings_by_id[rating.athlete_id] = (
-                    rating.end_rating,
-                    rating.end_match_count,
-                )
+            ratings_by_id[rating.athlete_id] = (
+                adjusted_start_rating,
+                rating.end_match_count,
+            )
+            notes_by_id[rating.athlete_id] = note
+            match_happened_at_by_id[rating.athlete_id] = rating.happened_at
+        else:
+            ratings_by_id[rating.athlete_id] = (
+                rating.end_rating,
+                rating.end_match_count,
+            )
+            match_happened_at_by_id[rating.athlete_id] = rating.happened_at
 
-        for result in no_ratings_found:
-            if result["id"] in ratings_by_id:
-                result["rating"] = ratings_by_id[result["id"]][0]
-                result["match_count"] = ratings_by_id[result["id"]][1]
-            if result["id"] in notes_by_id:
-                result["note"] = notes_by_id[result["id"]]
+    # query all live_ratings for these athlete ids and gi which are before the rating date
+    # this should only be relevant when an athlete has competed in one division but has another
+    # on the same day (e.g. weight class but not open)
+    # and we haven't recorded match results for that division yet.
+    athlete_ids = list(match_happened_at_by_id.keys())
+    live_ratings = (
+        db.session.query(LiveRating)
+        .filter(
+            LiveRating.athlete_id.in_(athlete_ids),
+            LiveRating.gi == gi,
+            LiveRating.happened_at < rating_date,
+        )
+        .all()
+    )
+
+    # for each athlete, find the newest live_rating with happened_at > match_happened_at
+    live_ratings_by_id = {}
+    for lr in live_ratings:
+        athlete_id = lr.athlete_id
+        match_happened_at = match_happened_at_by_id.get(athlete_id, None)
+        if match_happened_at is None or lr.happened_at > match_happened_at:
+            if (
+                athlete_id not in live_ratings_by_id
+                or lr.happened_at > live_ratings_by_id[athlete_id].happened_at
+            ):
+                live_ratings_by_id[athlete_id] = lr
 
     for result in results:
+        athlete_id = result["id"]
+        if athlete_id in live_ratings_by_id:
+            lr = live_ratings_by_id[athlete_id]
+            result["rating"] = lr.rating
+            result["match_count"] = lr.match_count
+        elif athlete_id in ratings_by_id:
+            result["rating"] = ratings_by_id[athlete_id][0]
+            result["match_count"] = ratings_by_id[athlete_id][1]
+        if athlete_id in notes_by_id:
+            result["note"] = notes_by_id[athlete_id]
         if result["match_count"] is None:
             result["match_count"] = 0
         if result["rating"] is None:
             result["rating"] = DEFAULT_RATINGS[belt][age]
 
-    # Get the last weight for competitors in open class
+    # get the last weight for competitors in open class
     if OPEN_CLASS in weight:
         if event_id is not None:
             # look at registration_link_competitors for the event name / athlete name first
@@ -1167,6 +1183,65 @@ def dq_earlier_matches(matches):
                     earlier_match["blue_note"] = match["blue_note"]
 
 
+def update_live_ratings_thread(gi, results, last_match_when):
+    from app import app
+
+    log = logging.getLogger("ibjjf")
+    with app.app_context():
+        try:
+            update_live_ratings(gi, results, last_match_when)
+        except Exception as e:
+            log.error(f"Error updating live ratings: {e}")
+
+
+def update_live_ratings(gi, results, happened_at):
+    athlete_ids = [
+        r["id"]
+        for r in results
+        if r["id"] is not None
+        and r["end_rating"] is not None
+        and r["end_match_count"] is not None
+    ]
+
+    happened_at_dt = datetime.fromisoformat(happened_at)
+
+    existing = (
+        db.session.query(LiveRating)
+        .filter(LiveRating.gi == gi, LiveRating.athlete_id.in_(athlete_ids))
+        .all()
+    )
+    existing_by_id = {}
+    for rating in existing:
+        if rating.athlete_id not in existing_by_id:
+            existing_by_id[rating.athlete_id] = []
+        existing_by_id[rating.athlete_id].append(rating)
+
+    for result in results:
+        if result["id"] is None:
+            continue
+
+        existing_ratings = existing_by_id.get(result["id"])
+        if existing_ratings is not None and (
+            len(existing_ratings) > 1
+            or existing_ratings[0].happened_at < happened_at_dt
+        ):
+            # delete existing
+            for rating in existing_ratings:
+                db.session.delete(rating)
+
+        if existing_ratings is None or existing_ratings[0].happened_at < happened_at_dt:
+            new_rating = LiveRating(
+                gi=gi,
+                athlete_id=result["id"],
+                happened_at=happened_at_dt,
+                rating=result["end_rating"],
+                match_count=result["end_match_count"],
+            )
+            db.session.add(new_rating)
+
+    db.session.commit()
+
+
 @brackets_route.route("/api/brackets/competitors")
 def competitors():
     link = request.args.get("link")
@@ -1337,6 +1412,15 @@ def competitors():
                 if first_match["red_id"] == result["ibjjf_id"]
                 else first_match["blue_note"]
             )
+
+    last_match_when = max(
+        (m["when"] for m in parsed_matches if m["when"]), default=None
+    )
+    if last_match_when:
+        thread = threading.Thread(
+            target=update_live_ratings_thread, args=(gi, results, last_match_when)
+        )
+        thread.start()
 
     return jsonify(
         {

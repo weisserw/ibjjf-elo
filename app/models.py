@@ -301,3 +301,16 @@ class Suspension(db.Model):
     athlete_name = Column(String, nullable=False)
     start_date = Column(DateTime, nullable=False)
     end_date = Column(DateTime, nullable=False)
+
+
+class LiveRating(db.Model):
+    __tablename__ = "live_ratings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    athlete_id = Column(UUID(as_uuid=True), ForeignKey("athletes.id"), nullable=False)
+    rating = Column(Float, nullable=False)
+    match_count = Column(Integer, nullable=False)
+    gi = Column(Boolean, nullable=False)
+    happened_at = Column(DateTime, nullable=False)
+
+    __table_args__ = (Index("ix_live_ratings_athlete_id", "athlete_id"),)

@@ -103,8 +103,6 @@ def top():
         .limit(RATINGS_PAGE_SIZE)
         .offset((page - 1) * RATINGS_PAGE_SIZE)
     )
-
-    print(query)
     results = query.all()
 
     athlete_names = [result.name for result in results]
