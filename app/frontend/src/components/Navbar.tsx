@@ -33,9 +33,7 @@ function Navbar() {
         <h1 className="navbar-item">
           {t("IBJJF Elo Rankings")}
         </h1>
-        {/* Flex spacer for mobile to push button to right */}
-  <span className="mobile-lang-switch flex-spacer"></span>
-        {/* Mobile language button: left of burger, only on mobile */}
+        <span className="mobile-lang-switch flex-spacer"></span>
         <button
           className="navbar-item lang-switch mobile-lang-switch"
           onClick={handleLanguageSwitch}
