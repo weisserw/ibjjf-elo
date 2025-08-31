@@ -154,10 +154,8 @@ def get_bracket_page(link, newer_than):
 def competitor_sort_key(competitor, rating_prop):
     if competitor["match_count"] <= 4:
         provisional_index = 0
-    elif competitor["match_count"] <= 6:
-        provisional_index = 1
     else:
-        provisional_index = 2
+        provisional_index = 1
 
     return (provisional_index, competitor[rating_prop] or -1)
 
