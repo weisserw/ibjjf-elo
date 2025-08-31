@@ -98,7 +98,10 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                     }
                   </span>
                   {
-                    (props.showRatings && match.red_expected !== null) && <span className="bracket-tree-match-expected"> - {Math.round(match.red_expected * 100)}%</span>
+                    (props.showRatings && match.red_expected !== null) &&
+                    <span className="bracket-tree-match-expected"> - {Math.round(match.red_expected * 100)}%
+                    {(immatureClass(match.red_match_count) === 'very-immature' || immatureClass(match.blue_match_count) === 'very-immature') && ' (?)'}
+                    </span>
                   }
                   {match.red_bye && <span className="bracket-tree-match-bye">BYE</span>}
                   {match.red_next_description && <span className="bracket-tree-match-next">{match.red_next_description}</span>}
@@ -142,7 +145,10 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                     }
                   </span>
                   {
-                    (props.showRatings && match.blue_expected !== null) && <span className="bracket-tree-match-expected"> - {Math.round(match.blue_expected * 100)}%</span>
+                    (props.showRatings && match.blue_expected !== null) &&
+                    <span className="bracket-tree-match-expected"> - {Math.round(match.blue_expected * 100)}%
+                    {(immatureClass(match.red_match_count) === 'very-immature' || immatureClass(match.blue_match_count) === 'very-immature') && ' (?)'}
+                    </span>
                   }
                   {match.blue_bye && <span className="bracket-tree-match-bye">BYE</span>}
                   {match.blue_next_description && <span className="bracket-tree-match-next">{match.blue_next_description}</span>}
