@@ -326,7 +326,7 @@ function EloTable() {
                       <td colSpan={6} className="empty-row">
                         {t("No matching competitors in selected division. Try changing the category filters or use the")} {' '}
                         <Link to="/database">{t("Database")}</Link>
-                        {' '} {t("page to perform a global search.")}.
+                        {' '} {t("page to perform a global search.")}
                       </td>
                     </tr>
                   )
