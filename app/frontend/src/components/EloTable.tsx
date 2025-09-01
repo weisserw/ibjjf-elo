@@ -12,6 +12,7 @@ import 'dayjs/locale/pt';
 import { Tooltip } from 'react-tooltip';
 import { axiosErrorToast, immatureClass } from '../utils';
 import { t, translateMulti } from '../translate';
+import igLogo from '/src/assets/instagram.png';
 
 import "./EloTable.css"
 
@@ -28,6 +29,7 @@ interface Row {
   rank: number
   previous_rank: number | null
   name: string
+  instagram_profile: string | null
   rating: number
   match_count: number
   previous_rating: number | null
@@ -340,6 +342,13 @@ function EloTable() {
                         <a href="#" onClick={e => onNameClick(e, row.name)}>
                           {row.name}
                         </a>
+                        {row.instagram_profile && (
+                          <span className="instagram-profile">
+                            <a href={`https://www.instagram.com/${row.instagram_profile}`} target="_blank" rel="noopener noreferrer">
+                              <img src={igLogo} alt="Instagram" title={`@${row.instagram_profile}`} />
+                            </a>
+                          </span>
+                        )}
                       </td>
                       <td className={"has-text-right " + immatureClass(row.match_count)}>
                         {row.rating}

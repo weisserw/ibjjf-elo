@@ -110,3 +110,10 @@ nav.pagination.pagination-margin {
 .elo-registration-tooltip li {
   margin-top: 10px;
 }
+
+.instagram-profile img {
+  width: 16px;
+  height: 16px;
+  margin-left: 8px;
+  vertical-align: middle;
+}

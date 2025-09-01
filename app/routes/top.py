@@ -46,6 +46,7 @@ def top():
     query = (
         db.session.query(
             Athlete.name,
+            Athlete.instagram_profile,
             AthleteRating.rating,
             AthleteRating.rank,
             AthleteRating.match_count,
@@ -153,6 +154,7 @@ def top():
         {
             "rank": result.rank,
             "name": result.name,
+            "instagram_profile": result.instagram_profile,
             "rating": round(result.rating),
             "match_count": result.match_count,
             "previous_rating": (

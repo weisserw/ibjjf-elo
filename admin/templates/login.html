@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Admin Login{% endblock %}
+{% block content %}
+<div class="container mt-6">
+    <div class="columns is-centered">
+        <div class="column is-half">
+            <div class="box">
+                <h2 class="title is-4 has-text-centered">Admin Login</h2>
+                {% if error %}<p class="has-text-danger has-text-centered">{{ error }}</p>{% endif %}
+                <form method="post">
+                    <div class="field">
+                        <label class="label">Password</label>
+                        <div class="control">
+                            <input class="input" type="password" name="password" placeholder="Password" required>
+                        </div>
+                    </div>
+                    <div class="field is-grouped is-grouped-centered">
+                        <div class="control">
+                            <button class="button is-primary" type="submit">Login</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

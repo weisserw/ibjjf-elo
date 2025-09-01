@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<div class="container mt-6">
+    <div class="columns is-centered">
+        <div class="column is-half">
+            <div class="box">
+                <h1 class="title is-3 has-text-centered">Admin Dashboard</h1>
+                <div class="menu">
+                    <ul class="menu-list">
+                        <li><a class="has-text-link" href="{{ url_for('athletes') }}">Athletes</a></li>
+                    </ul>
+                </div>
+                <div class="has-text-right mt-4">
+                    <a class="button is-light" href="{{ url_for('logout') }}">Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
