@@ -98,5 +98,7 @@ def athlete_edit():
     return render_template("athlete_edit.html", athlete=athlete, message=message)
 
 
+application = app
+
 if __name__ == "__main__":
     app.run()
