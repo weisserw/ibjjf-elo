@@ -170,3 +170,11 @@
   flex-grow: 1;
   cursor: pointer;
 }
+
+.instagram-profile-tree img {
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  margin-right: 2px;
+  vertical-align: middle;
+}

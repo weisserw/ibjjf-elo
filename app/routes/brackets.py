@@ -166,7 +166,11 @@ def get_ratings(
 ):
     athlete_results = (
         db.session.query(
-            Athlete.id, Athlete.ibjjf_id, Athlete.normalized_name, Athlete.name
+            Athlete.id,
+            Athlete.ibjjf_id,
+            Athlete.normalized_name,
+            Athlete.name,
+            Athlete.instagram_profile,
         )
         .filter(
             or_(
@@ -196,10 +200,14 @@ def get_ratings(
         if result["ibjjf_id"] is not None and result["ibjjf_id"] in athletes_by_id:
             result["id"] = athletes_by_id[result["ibjjf_id"]].id
             result["name"] = athletes_by_id[result["ibjjf_id"]].name
+            result["instagram_profile"] = athletes_by_id[
+                result["ibjjf_id"]
+            ].instagram_profile
         elif normalize(result["name"]) in athletes_by_name:
             athlete = athletes_by_name[normalize(result["name"])]
             if result["ibjjf_id"] is None or athlete.ibjjf_id is None:
                 result["id"] = athlete.id
+            result["instagram_profile"] = athlete.instagram_profile
 
     # get ranks from athlete_ratings if available
     if get_rank:
@@ -870,6 +878,7 @@ def registration_competitors():
                         "rank": None,
                         "note": None,
                         "last_weight": None,
+                        "instagram_profile": None,
                     }
                 )
 
@@ -908,6 +917,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         red_rating = None
         red_end_rating = None
         red_match_count = None
+        red_instagram_profile = None
         red_name = match["red_name"]
         if red_id in athlete_results:
             if (
@@ -920,6 +930,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
             red_end_rating = athlete_ratings[red_id]
             red_match_count = athlete_match_counts[red_id]
             red_name = athlete_results[red_id]["name"]
+            red_instagram_profile = athlete_results[red_id]["instagram_profile"]
         red_expected = None
         red_handicap = 0
         blue_id = match["blue_id"]
@@ -928,6 +939,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         blue_rating = None
         blue_end_rating = None
         blue_match_count = None
+        blue_instagram_profile = None
         blue_name = match["blue_name"]
         if blue_id in athlete_results:
             if (
@@ -940,6 +952,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
             blue_end_rating = athlete_ratings[blue_id]
             blue_match_count = athlete_match_counts[blue_id]
             blue_name = athlete_results[blue_id]["name"]
+            blue_instagram_profile = athlete_results[blue_id]["instagram_profile"]
         blue_expected = None
         blue_handicap = 0
 
@@ -1006,6 +1019,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["red_handicap"] = red_handicap
         match["red_weight"] = red_weight
         match["red_end_rating"] = red_end_rating
+        match["red_instagram_profile"] = red_instagram_profile
         match["red_match_count"] = red_match_count
         match["red_name"] = red_name
 
@@ -1016,6 +1030,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["blue_weight"] = blue_weight
         match["blue_end_rating"] = blue_end_rating
         match["blue_match_count"] = blue_match_count
+        match["blue_instagram_profile"] = blue_instagram_profile
         match["blue_name"] = blue_name
 
 
@@ -1144,6 +1159,7 @@ def parse_match(match, weight):
         "red_weight": "Unknown" if OPEN_CLASS in weight else weight,
         "red_medal": None,
         "red_match_count": None,
+        "red_instagram_profile": None,
         "blue_bye": blue_bye,
         "blue_id": blue_id,
         "blue_seed": blue_seed,
@@ -1160,6 +1176,7 @@ def parse_match(match, weight):
         "blue_weight": "Unknown" if OPEN_CLASS in weight else weight,
         "blue_medal": None,
         "blue_match_count": None,
+        "blue_instagram_profile": None,
     }
 
 
@@ -1327,6 +1344,7 @@ def competitors():
                         "last_weight": None,
                         "next_where": None,
                         "next_when": None,
+                        "instagram_profile": None,
                     }
                 )
 
@@ -1663,6 +1681,7 @@ def archive_competitors():
                 "red_weight": red_weight,
                 "red_medal": None,
                 "red_match_count": red.start_match_count,
+                "red_instagram_profile": red.athlete.instagram_profile,
                 "blue_bye": False,
                 "blue_id": str(blue.athlete_id),
                 "blue_seed": blue.seed if use_seeds else None,
@@ -1679,6 +1698,7 @@ def archive_competitors():
                 "blue_weight": blue_weight,
                 "blue_medal": None,
                 "blue_match_count": blue.start_match_count,
+                "blue_instagram_profile": blue.athlete.instagram_profile,
             }
         )
 
@@ -1704,6 +1724,7 @@ def archive_competitors():
                     "seed": match["red_seed"],
                     "name": match["red_name"],
                     "team": match["red_team"],
+                    "instagram_profile": match["red_instagram_profile"],
                     "rating": match["red_rating"],
                     "end_rating": match["red_end_rating"],
                     "match_count": match["red_match_count"],
@@ -1730,6 +1751,7 @@ def archive_competitors():
                     "seed": match["blue_seed"],
                     "name": match["blue_name"],
                     "team": match["blue_team"],
+                    "instagram_profile": match["blue_instagram_profile"],
                     "rating": match["blue_rating"],
                     "end_rating": match["blue_end_rating"],
                     "match_count": match["blue_match_count"],

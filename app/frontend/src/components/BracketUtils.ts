@@ -7,6 +7,7 @@ export interface Competitor {
   seed: number
   name: string
   team: string
+  instagram_profile: string | null
   rating: number | null
   end_rating: number | null
   match_count: number | null
@@ -40,6 +41,7 @@ export interface Match {
   red_weight: string | null
   red_medal: string | null
   red_match_count: number | null
+  red_instagram_profile: string | null
   blue_bye: boolean
   blue_id: string | null
   blue_seed: number | null
@@ -55,6 +57,7 @@ export interface Match {
   blue_weight: string | null
   blue_medal: string | null
   blue_match_count: number | null
+  blue_instagram_profile: string | null
 }
 
 export interface CompetitorsResponse {
@@ -170,8 +173,8 @@ export const nearestPowerOfTwo = (n: number) => {
 }  
 
 export const createBye = (id: string | null, name: string | null, team: string | null,
-  seed: number | null, ordinal: number | null, weight: string | null, rating: number | null,
-  match_count: number | null, note: string | null): Match => {
+  instagram_profile: string | null, seed: number | null, ordinal: number | null, weight: string | null,
+  rating: number | null, match_count: number | null, note: string | null): Match => {
   return {
     match_num: null,
     final: false,
@@ -193,6 +196,7 @@ export const createBye = (id: string | null, name: string | null, team: string |
     red_expected: null,
     red_rating: rating,
     red_match_count: match_count,
+    red_instagram_profile: instagram_profile,
     blue_id: null,
     blue_name: null,
     blue_team: null,
@@ -208,6 +212,7 @@ export const createBye = (id: string | null, name: string | null, team: string |
     blue_expected: null,
     blue_rating: null,
     blue_match_count: null,
+    blue_instagram_profile: null
   }
 }
 
@@ -233,6 +238,7 @@ const createEmptyMatch = (match_num: number): Match => {
     red_expected: null,
     red_rating: null,
     red_match_count: null,
+    red_instagram_profile: null,
     blue_bye: false,
     blue_id: null,
     blue_seed: null,
@@ -247,7 +253,8 @@ const createEmptyMatch = (match_num: number): Match => {
     blue_handicap: 0,
     blue_expected: null,
     blue_rating: null,
-    blue_match_count: null
+    blue_match_count: null,
+    blue_instagram_profile: null
   }
 }
 
@@ -294,12 +301,12 @@ export const createTreeFromMatchNums = (matches: Match[], matchCount: number): M
         if (match.red_id !== null && !levels[0].some(m => m.red_id === match.red_id || m.blue_id === match.red_id)) {
           let possibleEmpty = levels[0][k * 2];
           if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
-            levels[0][k * 2] = createBye(match.red_id, match.red_name, match.red_team,
+            levels[0][k * 2] = createBye(match.red_id, match.red_name, match.red_team, match.red_instagram_profile,
               match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note);
           } else {
             possibleEmpty = levels[0][k * 2 + 1];
             if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
-              levels[0][k * 2 + 1] = createBye(match.red_id, match.red_name, match.red_team,
+              levels[0][k * 2 + 1] = createBye(match.red_id, match.red_name, match.red_team, match.red_instagram_profile,
                 match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note);
             }
           }
@@ -307,12 +314,12 @@ export const createTreeFromMatchNums = (matches: Match[], matchCount: number): M
         if (match.blue_id !== null && !levels[0].some(m => m.red_id === match.blue_id || m.blue_id === match.blue_id)) {
           let possibleEmpty = levels[0][k * 2];
           if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
-            levels[0][k * 2] = createBye(match.blue_id, match.blue_name, match.blue_team,
+            levels[0][k * 2] = createBye(match.blue_id, match.blue_name, match.blue_team, match.blue_instagram_profile,
               match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note);
           } else {
             possibleEmpty = levels[0][k * 2 + 1];
             if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
-              levels[0][k * 2 + 1] = createBye(match.blue_id, match.blue_name, match.blue_team,
+              levels[0][k * 2 + 1] = createBye(match.blue_id, match.blue_name, match.blue_team, match.blue_instagram_profile,
                 match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note);
             }
           }
@@ -354,7 +361,7 @@ export const createTreeFromTop = (matches: Match[]): Match[][] => {
         allMatches.splice(firstReferencedMatchIndex, 1);
         removed++;
       } else if (matches.length > 4 && levels.length + 1 === numLevels(matches.length)) {
-        nextLevelMatches.push(createBye(match.red_id, match.red_name, match.red_team,
+        nextLevelMatches.push(createBye(match.red_id, match.red_name, match.red_team, match.red_instagram_profile,
           match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note));
       }
       const secondReferencedMatchIndex = allMatches.findIndex(m => referencesMatchBlue(match, m));
@@ -363,7 +370,7 @@ export const createTreeFromTop = (matches: Match[]): Match[][] => {
         allMatches.splice(secondReferencedMatchIndex, 1);
         removed++;
       } else if (matches.length > 4 && levels.length + 1 === numLevels(matches.length)) {
-          nextLevelMatches.push(createBye(match.blue_id, match.blue_name, match.blue_team,
+          nextLevelMatches.push(createBye(match.blue_id, match.blue_name, match.blue_team, match.blue_instagram_profile,
             match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note));
       }
     }

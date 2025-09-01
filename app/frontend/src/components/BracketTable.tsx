@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { noMatchStrings, type Competitor } from "./BracketUtils"
 import { Tooltip } from 'react-tooltip';
 import { t } from '../translate'
+import igLogo from '/src/assets/instagram.png';
 
 interface BracketTableProps {
   competitors: Competitor[] | null;
@@ -243,7 +244,17 @@ function BracketTable(props: BracketTableProps) {
                 }
                 {
                   competitor.id !== null ?
-                    <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}><a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}{competitorMedal(competitor.medal)}</a></td> :
+                    <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
+                      <a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}</a>
+                      {competitor.instagram_profile && (
+                        <span className="instagram-profile">
+                          <a href={`https://www.instagram.com/${competitor.instagram_profile}`} target="_blank" rel="noopener noreferrer">
+                            <img src={igLogo} alt="Instagram" title={`@${competitor.instagram_profile}`} />
+                          </a>
+                        </span>
+                      )}
+                      {competitorMedal(competitor.medal)}
+                    </td> :
                     <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>{competitor.name}{competitorMedal(competitor.medal)}</td>
                 }
                 <td>{competitor.team}</td>

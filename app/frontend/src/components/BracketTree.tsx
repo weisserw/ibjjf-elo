@@ -7,6 +7,7 @@ import { useAppContext } from '../AppContext';
 import { immatureClass } from '../utils';
 import { Tooltip } from 'react-tooltip';
 import { t, translateMultiSpace } from '../translate';
+import igLogo from '/src/assets/instagram.png';
 
 import "./BracketTree.css";
 
@@ -82,6 +83,13 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 <div className="bracket-tree-match-competitor-name-name">
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.red_note?.toLowerCase() === s)})}>
                     {match.red_name}
+                    {match.red_instagram_profile && (
+                      <span className="instagram-profile-tree">
+                        <a href={`https://www.instagram.com/${match.red_instagram_profile}`} target="_blank" rel="noopener noreferrer">
+                          <img src={igLogo} alt="Instagram" title={`@${match.red_instagram_profile}`} />
+                        </a>
+                      </span>
+                    )}
                     {
                       (props.showRatings && match.red_rating !== null) &&
                         <span className="bracket-tree-match-rating"> ({Math.round(match.red_rating)}{
@@ -129,6 +137,13 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
               <div className="bracket-tree-match-competitor-name-name">
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)})}>
                     {match.blue_name}
+                    {match.blue_instagram_profile && (
+                      <span className="instagram-profile-tree">
+                        <a href={`https://www.instagram.com/${match.blue_instagram_profile}`} target="_blank" rel="noopener noreferrer">
+                          <img src={igLogo} alt="Instagram" title={`@${match.blue_instagram_profile}`} />
+                        </a>
+                      </span>
+                    )}
                     {
                       (props.showRatings && match.blue_rating !== null) &&
                       <span className="bracket-tree-match-rating"> ({Math.round(match.blue_rating)}{
