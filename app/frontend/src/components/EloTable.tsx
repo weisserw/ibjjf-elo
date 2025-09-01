@@ -339,16 +339,16 @@ function EloTable() {
                       }</td>
                       <td className={changeClass(row.previous_rank, row.rank, true)}>{rankChange(row)}</td>
                       <td>
-                        <a href="#" onClick={e => onNameClick(e, row.name)}>
-                          {row.name}
-                        </a>
-                        {row.instagram_profile && (
-                          <span className="instagram-profile">
-                            <a href={`https://www.instagram.com/${row.instagram_profile}`} target="_blank" rel="noopener noreferrer">
+                        <div className="elo-name-container">
+                          <a href="#" onClick={e => onNameClick(e, row.name)}>
+                            {row.name}
+                          </a>
+                          {row.instagram_profile && (
+                            <a className="instagram-profile" href={`https://www.instagram.com/${row.instagram_profile}`} target="_blank" rel="noopener noreferrer">
                               <img src={igLogo} alt="Instagram" title={`@${row.instagram_profile}`} />
                             </a>
-                          </span>
-                        )}
+                          )}
+                        </div>
                       </td>
                       <td className={"has-text-right " + immatureClass(row.match_count)}>
                         {row.rating}

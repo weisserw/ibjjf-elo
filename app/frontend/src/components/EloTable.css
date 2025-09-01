@@ -111,9 +111,16 @@ nav.pagination.pagination-margin {
   margin-top: 10px;
 }
 
+.elo-name-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .instagram-profile img {
   width: 16px;
   height: 16px;
-  margin-left: 8px;
+  max-width: 16px;
+  min-width: 16px;
   vertical-align: middle;
 }

@@ -245,17 +245,28 @@ function BracketTable(props: BracketTableProps) {
                 {
                   competitor.id !== null ?
                     <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
-                      <a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}</a>
-                      {competitor.instagram_profile && (
-                        <span className="instagram-profile">
-                          <a href={`https://www.instagram.com/${competitor.instagram_profile}`} target="_blank" rel="noopener noreferrer">
+                      <div className="elo-name-container">
+                        <a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}</a>
+                        {competitor.instagram_profile && (
+                          <a className="instagram-profile" href={`https://www.instagram.com/${competitor.instagram_profile}`} target="_blank" rel="noopener noreferrer">
                             <img src={igLogo} alt="Instagram" title={`@${competitor.instagram_profile}`} />
                           </a>
+                        )}
+                        <span>
+                          {competitorMedal(competitor.medal)}
                         </span>
-                      )}
-                      {competitorMedal(competitor.medal)}
+                      </div>
                     </td> :
-                    <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>{competitor.name}{competitorMedal(competitor.medal)}</td>
+                    <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
+                      <div className="elo-name-container">
+                        <span>
+                          {competitor.name}
+                        </span>
+                        <span>
+                          {competitorMedal(competitor.medal)}
+                        </span>
+                      </div>
+                    </td>
                 }
                 <td>{competitor.team}</td>
                 {
