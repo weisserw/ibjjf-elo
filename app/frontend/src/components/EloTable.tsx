@@ -314,8 +314,8 @@ function EloTable() {
                   <th className="has-text-right">↑↓</th>
                   <th>{t("Name")}</th>
                   <th className="has-text-right">{t("Rating")}</th>
-                  <th className="has-text-right">+/-</th>
                   <th className="cell-no-padding"></th>
+                  <th className="has-text-right">+/-</th>
                   <th className="cell-no-padding"></th>
                 </tr>
               </thead>
@@ -353,7 +353,6 @@ function EloTable() {
                       <td className={"has-text-right " + immatureClass(row.match_count)}>
                         {row.rating}
                       </td>
-                      <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
                       <td className={classNames("has-text-centered cell-no-padding", {"has-cursor-pointer": rowTooltip(row)})} data-tooltip-id="elo-tooltip" data-tooltip-content={rowTooltip(row)}>
                         {
                           immatureClass(row.match_count) === 'very-immature' ? 
@@ -363,6 +362,7 @@ function EloTable() {
                             )
                         }
                       </td>
+                      <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
                       <td className={classNames("cell-no-padding", {"has-cursor-pointer": row.registrations && row.registrations.length > 0})} data-tooltip-id={row.registrations && row.registrations.length > 0 ? `elo-registration-tooltip-${index}` : undefined}>
                         {row.registrations && row.registrations.length > 0 && (
                           <span className={classNames("icon is-small elo-registration-icon", {

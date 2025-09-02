@@ -2,7 +2,7 @@ import { useState, useContext } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import classNames from 'classnames';
 import logoImage from '/src/assets/logo.jpg'
-import usFlag from '/src/assets/us_flag.png';
+import usFlag from '/src/assets/us_flag.svg';
 import brFlag from '/src/assets/br_flag.png';
 import './Navbar.css';
 import { AppContext } from '../AppContext';
