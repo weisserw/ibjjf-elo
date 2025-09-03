@@ -17,13 +17,9 @@
 .desktop-lang-switch {
   display: none;
 }
-.mobile-lang-switch {
-  display: inline-flex;
-  margin-right: 0;
-}
 
-.flex-spacer {
-  /* No display by default, only flex on mobile */
+.mobile-lang-switch {
+  padding: .5rem .75rem;
 }
 
 @media screen and (max-width: 1023px) {
@@ -32,23 +28,6 @@
     align-items: center;
     width: 100%;
   }
-  .flex-spacer {
-    display: block;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-}
-
-@media screen and (min-width: 1024px) {
-  .flex-spacer {
-    display: none;
-  }
-}
-
-@media screen and (min-width: 1024px) {
-  .flex-spacer {
-    display: none;
-  }
 }
 
 @media screen and (min-width: 1024px) {
@@ -56,9 +35,6 @@
     display: inline-flex;
     margin-left: 0;
     margin-right: 16px;
-  }
-  .mobile-lang-switch {
-    display: none;
   }
   .navbar-end {
     display: flex;
@@ -81,10 +57,10 @@ h1.navbar-item {
 
 @media screen and (max-width: 768px) {
   h1.navbar-item {
-    font-size: 1em;
+    font-size: 1.3em;
   }
-  h1.navbar-item.pr {
-    font-size: .85em;
+  h1.navbar-item.pt {
+    font-size: 1em;
   }
 }
 
@@ -106,5 +82,15 @@ a.navbar-item.is-active {
 @media screen and (min-width: 1024px) {
   .navbar-link.is-active:not(:focus):not(:hover), a.navbar-item.is-active:not(:focus):not(:hover) {
     background-color: #2196f3;
+  }
+}
+
+.mobile-only {
+  display: none;
+}
+
+@media screen and (max-width: 1024px) {
+  .mobile-only {
+    display: block;
   }
 }

@@ -20,7 +20,8 @@ function Navbar() {
     "is-active": activeLink === path,
   });
 
-  const handleLanguageSwitch = () => {
+  const handleLanguageSwitch = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (setLanguage) setLanguage(language === 'en' ? 'pt' : 'en');
   };
 
@@ -30,21 +31,9 @@ function Navbar() {
         <Link className="navbar-item logo" to="/">
           <img src={logoImage} alt="Logo" />
         </Link>
-        <h1 className={classNames("navbar-item", {pr: language === 'pt'})}>
+        <h1 className={classNames("navbar-item", {pt: language === 'pt'})}>
           {t("IBJJF Elo Rankings")}
         </h1>
-        <span className="mobile-lang-switch flex-spacer"></span>
-        <button
-          className="navbar-item lang-switch mobile-lang-switch"
-          onClick={handleLanguageSwitch}
-          aria-label="Switch language"
-        >
-          <img
-            src={language === 'en' ? enIcon : ptIcon}
-            alt={language === 'en' ? 'English' : 'Português'}
-            className="lang-icon"
-          />
-        </button>
         <a className={classNames("navbar-burger", {"is-active": isMenuActive})}
            onClick={() => setIsMenuActive(!isMenuActive)}>
           <span aria-hidden="true"></span>
@@ -70,9 +59,19 @@ function Navbar() {
           <Link className={getNavItemClass("/about")} to="/about">
             {t("About")}
           </Link>
+          <button
+            className="navbar-item lang-switch mobile-lang-switch mobile-only"
+            onClick={handleLanguageSwitch}
+            aria-label="Switch language"
+          >
+            <img
+              src={language === 'en' ? enIcon : ptIcon}
+              alt={language === 'en' ? 'English' : 'Português'}
+              className="lang-icon"
+            />
+          </button>
         </div>
         <div className="navbar-end">
-          {/* Desktop language button: far right, only on desktop */}
           <button
             className="navbar-item lang-switch desktop-lang-switch"
             onClick={handleLanguageSwitch}
