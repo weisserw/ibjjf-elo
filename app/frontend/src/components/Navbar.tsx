@@ -26,7 +26,7 @@ function Navbar() {
 
   return (
     <nav className="navbar">
-  <div className="navbar-brand custom-navbar-brand">
+      <div className="navbar-brand custom-navbar-brand">
         <Link className="navbar-item logo" to="/">
           <img src={logoImage} alt="Logo" />
         </Link>
