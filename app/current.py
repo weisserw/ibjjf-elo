@@ -37,49 +37,26 @@ def create_ratings_tables(
                 WITH
                 athlete_max_belts AS (
                     SELECT
-                        MAX(belt_num) AS belt_num,
-                        athlete_id
-                    FROM (
-                        SELECT
-                            MAX(CASE WHEN d.belt = 'WHITE' THEN 1
-                                    WHEN d.belt = 'BLUE' THEN 2
-                                    WHEN d.belt = 'PURPLE' THEN 3
-                                    WHEN d.belt = 'BROWN' THEN 4
-                                    ELSE 5 END) AS belt_num,
-                            mp.athlete_id
-                        FROM matches m
-                        JOIN match_participants mp ON m.id = mp.match_id
-                        JOIN athletes a ON a.id = mp.athlete_id
-                        JOIN divisions d ON d.id = m.division_id
-                        WHERE {date_where}
-                        AND d.age IN ({rated_ages_in})
-                        AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
-                        GROUP BY mp.athlete_id
-
-                        UNION ALL
-
-                        SELECT
-                            MAX(CASE WHEN d.belt = 'WHITE' THEN 1
-                                    WHEN d.belt = 'BLUE' THEN 2
-                                    WHEN d.belt = 'PURPLE' THEN 3
-                                    WHEN d.belt = 'BROWN' THEN 4
-                                    ELSE 5 END) AS belt_num,
-                            a.id AS athlete_id
-                        FROM registration_link_competitors rlc
-                        JOIN athletes a ON a.name = rlc.athlete_name
-                        JOIN divisions d ON d.id = rlc.division_id
-                        WHERE d.age IN ({rated_ages_in})
-                        AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
-                        GROUP BY a.id
-                    ) all_belts
-                    GROUP BY athlete_id
+                        MAX(CASE WHEN d.belt = 'WHITE' THEN 1
+                                WHEN d.belt = 'BLUE' THEN 2
+                                WHEN d.belt = 'PURPLE' THEN 3
+                                WHEN d.belt = 'BROWN' THEN 4
+                                ELSE 5 END) AS belt_num, mp.athlete_id
+                    FROM matches m
+                    JOIN match_participants mp ON m.id = mp.match_id
+                    JOIN athletes a ON a.id = mp.athlete_id
+                    JOIN divisions d ON d.id = m.division_id
+                    WHERE {date_where}
+                    AND d.age IN ({rated_ages_in})
+                    AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
+                    GROUP BY mp.athlete_id
                 )
-                SELECT CASE WHEN belt_num = 1 THEN 'WHITE'
-                            WHEN belt_num = 2 THEN 'BLUE'
-                            WHEN belt_num = 3 THEN 'PURPLE'
-                            WHEN belt_num = 4 THEN 'BROWN'
-                            ELSE 'BLACK' END AS belt, athlete_id
-                FROM athlete_max_belts
+                SELECT CASE WHEN mb.belt_num = 1 THEN 'WHITE'
+                            WHEN mb.belt_num = 2 THEN 'BLUE'
+                            WHEN mb.belt_num = 3 THEN 'PURPLE'
+                            WHEN mb.belt_num = 4 THEN 'BROWN'
+                            ELSE 'BLACK' END AS belt, mb.athlete_id
+                FROM athlete_max_belts mb
             """
         ),
         {
@@ -281,6 +258,7 @@ def create_ratings_tables(
                 FROM matches m
                 JOIN match_participants mp ON m.id = mp.match_id
                 JOIN divisions d ON d.id = m.division_id
+                JOIN {name}_athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
                 WHERE d.gi in ({gi_in}) AND {date_where}
                 AND d.age in ({rated_ages_in})
             ), ratings AS (
@@ -290,7 +268,7 @@ def create_ratings_tables(
                     rm.end_match_count,
                     rm.gender,
                     aw.age,
-                    ab.belt,
+                    aw.belt,
                     rm.gi,
                     aw.weight,
                     rm.happened_at
@@ -298,7 +276,6 @@ def create_ratings_tables(
                 JOIN athlete_weights aw ON aw.athlete_id = rm.athlete_id
                     AND aw.gi = rm.gi
                     AND aw.gender = rm.gender
-                JOIN {name}_athlete_belts ab ON ab.athlete_id = rm.athlete_id
                 WHERE rm.rn = 1
             )
             SELECT
