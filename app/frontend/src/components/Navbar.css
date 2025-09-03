@@ -7,13 +7,11 @@
   align-items: center;
 }
 
-.lang-flag {
+.lang-icon {
   width: 32px;
   height: auto;
   aspect-ratio: 16/10;
   object-fit: contain;
-  border-radius: 3px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
 
 .desktop-lang-switch {

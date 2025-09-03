@@ -55,14 +55,14 @@ function formatEventDates(startDate: string, endDate: string, language: string):
 
     if (start.isSame(end, 'day')) {
         // Example: Oct 15
-        return `${start.locale(language === 'pr' ? 'pt' : 'en').format('MMM')} ${start.date()}`;
+        return `${start.locale(language).format('MMM')} ${start.date()}`;
     }
     if (start.month() === end.month() && start.year() === end.year()) {
         // Example: Oct 15 - 17
-        return `${start.locale(language === 'pr' ? 'pt' : 'en').format('MMM')} ${start.date()} - ${end.date()}`;
+        return `${start.locale(language).format('MMM')} ${start.date()} - ${end.date()}`;
     }
     // Example: Oct 28 - Nov 2
-    return `${start.locale(language === 'pr' ? 'pt' : 'en').format('MMM')} ${start.date()} - ${end.locale(language === 'pr' ? 'pt' : 'en').format('MMM')} ${end.date()}`;
+    return `${start.locale(language).format('MMM')} ${start.date()} - ${end.locale(language).format('MMM')} ${end.date()}`;
 }
 
 function EloTable() {

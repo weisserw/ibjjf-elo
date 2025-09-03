@@ -208,7 +208,7 @@ function DBTableRows(props: DBTableRowsProps) {
                       }
                     </div>
                   </td>
-                  <td>{dayjs(row.date).locale(language === 'pr' ? 'pt' : 'en').format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${translateMultiSpace(row.matchLocation)}`}</td>
+                  <td>{dayjs(row.date).locale(language).format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${translateMultiSpace(row.matchLocation)}`}</td>
                   <td>{notesWithWeight(row)}</td>
                 </tr>
               ))
@@ -236,7 +236,7 @@ function DBTableRows(props: DBTableRowsProps) {
             return (
               <div key={row.id} data-id={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row.event)})}>
                 <div className="date-box">
-                  {dayjs(row.date).locale(language === 'pr' ? 'pt' : 'en').format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${row.matchLocation}`}
+                  {dayjs(row.date).locale(language).format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${row.matchLocation}`}
                 </div>
                 <div className="card-content">
                   <div className="columns">

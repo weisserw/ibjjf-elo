@@ -104,8 +104,8 @@ interface AppContextProps {
   setCalcSecondWeight: (weight: string) => void;
   calcCustomInfo: boolean;
   setCalcCustomInfo: (info: boolean) => void;
-  language: 'en' | 'pr';
-  setLanguage: (lang: 'en' | 'pr') => void;
+  language: 'en' | 'pt';
+  setLanguage: (lang: 'en' | 'pt') => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -165,16 +165,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const getInitialLanguage = () => {
     try {
       const stored = localStorage.getItem('language');
-      if (stored === 'pr' || stored === 'en') {
-        return stored as 'en' | 'pr';
+      if (stored === 'pt' || stored === 'en') {
+        return stored as 'en' | 'pt';
       }
     } catch (e) {}
     return 'en';
   };
-  const [language, setLanguageState] = useState<'en' | 'pr'>(getInitialLanguage());
+  const [language, setLanguageState] = useState<'en' | 'pt'>(getInitialLanguage());
 
   // Save language to localStorage and update state
-  const setLanguage = (lang: 'en' | 'pr') => {
+  const setLanguage = (lang: 'en' | 'pt') => {
     setLanguageState(lang);
     try {
       localStorage.setItem('language', lang);

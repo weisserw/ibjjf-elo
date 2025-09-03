@@ -55,7 +55,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
         }
         <div className="bracket-tree-match-description">
           <div className="bracket-tree-match-description-when">
-            {match.when && dayjs(match.when).locale(language === 'pr' ? 'pt' : 'en').format('ddd h:mma')}
+            {match.when && dayjs(match.when).locale(language).format('ddd h:mma')}
             {
               match.when && (match.where || match.fight_num) && <span> - </span>
             }

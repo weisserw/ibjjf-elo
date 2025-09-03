@@ -2,8 +2,8 @@ import { useState, useContext } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import classNames from 'classnames';
 import logoImage from '/src/assets/logo.jpg'
-import usFlag from '/src/assets/us_flag.svg';
-import brFlag from '/src/assets/br_flag.png';
+import enIcon from '/src/assets/icon-en.svg';
+import ptIcon from '/src/assets/icon-pt.svg';
 import './Navbar.css';
 import { AppContext } from '../AppContext';
 import { t } from '../translate';
@@ -21,7 +21,7 @@ function Navbar() {
   });
 
   const handleLanguageSwitch = () => {
-    if (setLanguage) setLanguage(language === 'en' ? 'pr' : 'en');
+    if (setLanguage) setLanguage(language === 'en' ? 'pt' : 'en');
   };
 
   return (
@@ -30,7 +30,7 @@ function Navbar() {
         <Link className="navbar-item logo" to="/">
           <img src={logoImage} alt="Logo" />
         </Link>
-        <h1 className={classNames("navbar-item", {pr: language === 'pr'})}>
+        <h1 className={classNames("navbar-item", {pr: language === 'pt'})}>
           {t("IBJJF Elo Rankings")}
         </h1>
         <span className="mobile-lang-switch flex-spacer"></span>
@@ -40,9 +40,9 @@ function Navbar() {
           aria-label="Switch language"
         >
           <img
-            src={language === 'en' ? usFlag : brFlag}
+            src={language === 'en' ? enIcon : ptIcon}
             alt={language === 'en' ? 'English' : 'Português'}
-            className="lang-flag"
+            className="lang-icon"
           />
         </button>
         <a className={classNames("navbar-burger", {"is-active": isMenuActive})}
@@ -79,9 +79,9 @@ function Navbar() {
             aria-label="Switch language"
           >
             <img
-              src={language === 'en' ? usFlag : brFlag}
+              src={language === 'en' ? enIcon : ptIcon}
               alt={language === 'en' ? 'English' : 'Português'}
-              className="lang-flag"
+              className="lang-icon"
             />
           </button>
         </div>

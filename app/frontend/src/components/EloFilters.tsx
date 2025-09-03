@@ -147,7 +147,7 @@ function EloFilters() {
         </div>
       </div>
       <div className="column is-third-mobile">
-        <div className={classNames("field", {"small-mobile-margin": language === 'pr'})}>
+        <div className={classNames("field", {"small-mobile-margin": language === 'pt'})}>
           <label className="label">{t("Belt")}</label>
           <div className="select">
             <select value={belt} onChange={onBeltChange}>
@@ -175,7 +175,7 @@ function EloFilters() {
         </div>
       </div>
       <div className="column is-half-mobile">
-        <div className={classNames("field", "checkbox-margin", {"small-mobile-margin": language === 'pr'})}>
+        <div className={classNames("field", "checkbox-margin", {"small-mobile-margin": language === 'pt'})}>
           <div className="control">
             <label className="checkbox">
               <input type="checkbox" checked={upcoming} onChange={() => setUpcoming(!upcoming)} />

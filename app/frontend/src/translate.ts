@@ -201,11 +201,11 @@ const translations = {
 
 export type translationKeys = keyof typeof translations;
 
-export const language = (): 'en' | 'pr' => {
-    let language: 'en' | 'pr' = 'en';
+export const language = (): 'en' | 'pt' => {
+    let language: 'en' | 'pt' = 'en';
     try {
         const stored = localStorage.getItem('language');
-        if (stored === 'pr' || stored === 'en') {
+        if (stored === 'pt' || stored === 'en') {
             language = stored;
         }
     } catch (e) {
