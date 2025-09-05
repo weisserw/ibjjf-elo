@@ -241,7 +241,7 @@ function DBTableRows(props: DBTableRowsProps) {
                 <div className="card-content">
                   <div className="columns">
                     <div className="column" data-id={row.winnerId}>
-                      <strong>Winner:</strong>{' '}
+                      <strong>{t("Winner")}:</strong>{' '}
                       {
                         noLinks ? row.winner :
                         <a href="#" onClick={e => athleteClicked?.(e, row.winner)}>{row.winner}</a>
@@ -255,7 +255,7 @@ function DBTableRows(props: DBTableRowsProps) {
                       }
                     </div>
                     <div className="column has-text-right-tablet" data-id={row.loserId}>
-                      <strong>Loser:</strong>{' '}
+                      <strong>{t("Loser")}:</strong>{' '}
                       {
                         noLinks ? row.loser :
                         <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>{row.loser}</a>
