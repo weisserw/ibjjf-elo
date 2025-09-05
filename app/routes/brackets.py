@@ -1434,9 +1434,12 @@ def competitors():
 
     final = next((m for m in parsed_matches if m["final"]), None)
     if final:
+        print(final["red_team"], final["blue_team"])
         if (
-            (final["blue_medal"] == "1" and final["red_medal"] == "2")
-            or (final["red_medal"] == "1" and final["blue_medal"] == "2")
+            (
+                (final["blue_medal"] == "1" and final["red_medal"] == "2")
+                or (final["red_medal"] == "1" and final["blue_medal"] == "2")
+            )
             and final["red_team"] == final["blue_team"]
             and final["red_team"] is not None
         ):
