@@ -226,6 +226,7 @@ no_match_strings = [
 ]
 
 WINNER_NOT_RECORDED = "Winner not recorded by the IBJJF"
+CLOSEOUT_NOTE = "Competitors on same team; possible closeout"
 
 COLOR_PROMOTION_RATING_BUMP = 140
 BLACK_PROMOTION_RATING_BUMP = 95
@@ -757,12 +758,12 @@ def compute_ratings(
             if red_winner and not blue_winner and not blue_rating_note:
                 blue_rating_note = append_rating_note(
                     blue_rating_note,
-                    "Competitors on same team; possible closeout",
+                    CLOSEOUT_NOTE,
                 )
             elif blue_winner and not red_winner and not red_rating_note:
                 red_rating_note = append_rating_note(
                     red_rating_note,
-                    "Competitors on same team; possible closeout",
+                    CLOSEOUT_NOTE,
                 )
 
     return (

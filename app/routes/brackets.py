@@ -54,6 +54,7 @@ from elo import (
     match_didnt_happen,
     DEFAULT_RATINGS,
     compute_k_factor,
+    CLOSEOUT_NOTE,
 )
 
 log = logging.getLogger("ibjjf")
@@ -1431,6 +1432,20 @@ def competitors():
                 else first_match["blue_note"]
             )
 
+    final = next((m for m in parsed_matches if m["final"]), None)
+    if final:
+        if (
+            (final["blue_medal"] == "1" and final["red_medal"] == "2")
+            or (final["red_medal"] == "1" and final["blue_medal"] == "2")
+            and final["red_team"] == final["blue_team"]
+            and final["red_team"] is not None
+            and (not final["red_note"] and not final["blue_note"])
+        ):
+            if final["red_medal"] == "1":
+                final["blue_note"] = CLOSEOUT_NOTE
+            else:
+                final["red_note"] = CLOSEOUT_NOTE
+
     last_match_when = max(
         (m["when"] for m in parsed_matches if m["when"]), default=None
     )
@@ -1658,6 +1673,13 @@ def archive_competitors():
         blue_elo = EloCompetitor(blue.start_rating + blue_handicap, 32)
         red_elo = EloCompetitor(red.start_rating + red_handicap, 32)
 
+        blue_note = blue.note
+        if not blue_note and blue.rating_note == CLOSEOUT_NOTE:
+            blue_note = CLOSEOUT_NOTE
+        red_note = red.note
+        if not red_note and red.rating_note == CLOSEOUT_NOTE:
+            red_note = CLOSEOUT_NOTE
+
         parsed_matches.append(
             {
                 "match_num": match.match_number,
@@ -1671,7 +1693,7 @@ def archive_competitors():
                 "red_loser": not red.winner,
                 "red_name": red.athlete.name,
                 "red_team": red.team.name,
-                "red_note": red.note,
+                "red_note": red_note,
                 "red_next_description": None,
                 "red_ordinal": None,
                 "red_rating": red.start_rating,
@@ -1688,7 +1710,7 @@ def archive_competitors():
                 "blue_loser": not blue.winner,
                 "blue_name": blue.athlete.name,
                 "blue_team": blue.team.name,
-                "blue_note": blue.note,
+                "blue_note": blue_note,
                 "blue_next_description": None,
                 "blue_ordinal": None,
                 "blue_rating": blue.start_rating,
