@@ -1439,12 +1439,17 @@ def competitors():
             or (final["red_medal"] == "1" and final["blue_medal"] == "2")
             and final["red_team"] == final["blue_team"]
             and final["red_team"] is not None
-            and (not final["red_note"] and not final["blue_note"])
         ):
             if final["red_medal"] == "1":
-                final["blue_note"] = CLOSEOUT_NOTE
+                if not final["blue_note"]:
+                    final["blue_note"] = CLOSEOUT_NOTE
+                else:
+                    final["blue_note"] = f'{final["blue_note"]}, {CLOSEOUT_NOTE}'
             else:
-                final["red_note"] = CLOSEOUT_NOTE
+                if not final["red_note"]:
+                    final["red_note"] = CLOSEOUT_NOTE
+                else:
+                    final["red_note"] = f'{final["red_note"]}, {CLOSEOUT_NOTE}'
 
     last_match_when = max(
         (m["when"] for m in parsed_matches if m["when"]), default=None
@@ -1674,11 +1679,17 @@ def archive_competitors():
         red_elo = EloCompetitor(red.start_rating + red_handicap, 32)
 
         blue_note = blue.note
-        if not blue_note and blue.rating_note == CLOSEOUT_NOTE:
-            blue_note = CLOSEOUT_NOTE
+        if blue.rating_note == CLOSEOUT_NOTE:
+            if not blue_note:
+                blue_note = CLOSEOUT_NOTE
+            else:
+                blue_note = f"{blue_note}, {CLOSEOUT_NOTE}"
         red_note = red.note
-        if not red_note and red.rating_note == CLOSEOUT_NOTE:
-            red_note = CLOSEOUT_NOTE
+        if red.rating_note == CLOSEOUT_NOTE:
+            if not red_note:
+                red_note = CLOSEOUT_NOTE
+            else:
+                red_note = f"{red_note}, {CLOSEOUT_NOTE}"
 
         parsed_matches.append(
             {
