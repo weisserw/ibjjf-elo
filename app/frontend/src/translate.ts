@@ -196,7 +196,7 @@ const translations = {
     "No matching competitors in selected division. Try changing the category filters or use the": "Nenhum competidor correspondente na divisão selecionada. Tente alterar os filtros de categoria ou use o",
     "page to perform a global search.": "página para realizar uma busca global.",
     "This athlete is registered for the following upcoming events": "Este atleta está registrado para os seguintes eventos futuros",
-    
+    "Competitors on same team; possible closeout": "Competidores na mesma equipe; possível closeout",
 };
 
 export type translationKeys = keyof typeof translations;

@@ -5,7 +5,7 @@ from datetime import datetime
 import uuid
 
 from progress_bar import Bar
-from models import Match, Division, Suspension, Athlete, MatchParticipant
+from models import Match, Division, Suspension, Athlete, MatchParticipant, Medal
 from elo import compute_ratings
 from current import generate_current_ratings
 from normalize import normalize
@@ -75,6 +75,36 @@ def recompute_all_ratings(
                     continue
 
                 red, blue = match.participants
+
+                red_medal = (
+                    db.session.query(Medal)
+                    .filter(
+                        Medal.athlete_id == red.athlete_id,
+                        Medal.event_id == match.event_id,
+                        Medal.division_id == match.division_id,
+                    )
+                    .first()
+                )
+
+                blue_medal = (
+                    db.session.query(Medal)
+                    .filter(
+                        Medal.athlete_id == blue.athlete_id,
+                        Medal.event_id == match.event_id,
+                        Medal.division_id == match.division_id,
+                    )
+                    .first()
+                )
+
+                is_final = False
+                if red_medal is not None and blue_medal is not None:
+                    is_final = (
+                        red_medal.place == 1
+                        and blue_medal.place == 2
+                        or blue_medal.place == 1
+                        and red_medal.place == 2
+                    )
+
                 (
                     rated,
                     red_start_rating,
@@ -99,10 +129,13 @@ def recompute_all_ratings(
                     red.athlete_id,
                     red.winner,
                     red.note,
+                    red.team_id,
                     blue.athlete_id,
                     blue.winner,
                     blue.note,
+                    blue.team_id,
                     suspensions_by_id,
+                    is_final,
                 )
 
                 changed = False

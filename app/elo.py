@@ -515,15 +515,18 @@ def compute_ratings(
     red_athlete_id: str,
     red_winner: bool,
     red_note: str,
+    red_team_id: str,
     blue_athlete_id: str,
     blue_winner: bool,
     blue_note: str,
+    blue_team_id: str,
     suspensions: Dict[str, Suspension],
+    is_final: bool,
 ) -> Tuple[
     bool, Optional[str], float, float, float, float, Optional[str], Optional[str]
 ]:
     log.debug(
-        "Computing ratings for match %s, division %s, happened at %s, rate_winner_only: %s, red winner: %s, blue winner: %s, red note: %s, blue note: %s",
+        "Computing ratings for match %s, division %s, happened at %s, rate_winner_only: %s, red winner: %s, blue winner: %s, red note: %s, blue note: %s, red team: %s, blue team: %s, is final: %s",
         match_id,
         division.to_json(),
         happened_at,
@@ -748,6 +751,19 @@ def compute_ratings(
         else:
             red_end_match_count += 1
             blue_end_match_count += 1
+
+        # if the match is a final and teams are the same, add closeout note for loser
+        if is_final and red_team_id is not None and red_team_id == blue_team_id:
+            if red_winner and not blue_winner and not blue_rating_note:
+                blue_rating_note = append_rating_note(
+                    blue_rating_note,
+                    "Competitors on same team; possible closeout",
+                )
+            elif blue_winner and not red_winner and not red_rating_note:
+                red_rating_note = append_rating_note(
+                    red_rating_note,
+                    "Competitors on same team; possible closeout",
+                )
 
     return (
         rated,
