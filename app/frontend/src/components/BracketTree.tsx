@@ -4,10 +4,11 @@ import classNames from 'classnames';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { useAppContext } from '../AppContext';
-import { immatureClass, getFlagEmoji, getCountryName } from '../utils';
+import { immatureClass, getCountryName } from '../utils';
 import { Tooltip } from 'react-tooltip';
 import { t, translateMultiSpace } from '../translate';
 import igLogo from '/src/assets/instagram.png';
+import "/node_modules/flag-icons/css/flag-icons.min.css";
 
 import "./BracketTree.css";
 
@@ -90,11 +91,9 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                         </a>
                       </span>
                     )}
-                    {match.red_country && (
-                      <span className="country-flag country-flag-tree" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={getCountryName(match.red_country, match.red_country_note, match.red_country_note_pt, language)}>
-                        {getFlagEmoji(match.red_country)}
-                      </span>
-                    )}
+                    {match.red_country && 
+                      <span className={`fi fi-${match.red_country.trim().toLowerCase().substring(0, 2)} country-flag country-flag-tree`} data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={getCountryName(match.red_country, match.red_country_note, match.red_country_note_pt, language)}/>
+                    }
                     {
                       (props.showRatings && match.red_rating !== null) &&
                         <span className="bracket-tree-match-rating"> ({Math.round(match.red_rating)}{
@@ -150,9 +149,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                       </span>
                     )}
                     {match.blue_country && (
-                      <span className="country-flag country-flag-tree" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={getCountryName(match.blue_country, match.blue_country_note, match.blue_country_note_pt, language)}>
-                        {getFlagEmoji(match.blue_country)}
-                      </span>
+                      <span className={`fi fi-${match.blue_country.trim().toLowerCase().substring(0, 2)} country-flag country-flag-tree`} data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={getCountryName(match.blue_country, match.blue_country_note, match.blue_country_note_pt, language)}/>
                     )}
                     {
                       (props.showRatings && match.blue_rating !== null) &&

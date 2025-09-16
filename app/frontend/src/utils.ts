@@ -94,48 +94,6 @@ export const isHistorical = (eventName: string) => {
   return !/idade 04 a 15 anos/.test(eventName) && /\([^\)]+\)/.test(eventName);
 }
 
-
-const countryFlagEmoji: Record<string, string> = {
-  'ae': '🇦🇪',
-  'ao': '🇦🇴',
-  'ar': '🇦🇷',
-  'au': '🇦🇺',
-  'be': '🇧🇪',
-  'br': '🇧🇷',
-  'ca': '🇨🇦',
-  'cn': '🇨🇳',
-  'cr': '🇨🇷',
-  'de': '🇩🇪',
-  'ee': '🇪🇪',
-  'es': '🇪🇸',
-  'fl': '🇫🇮',
-  'fr': '🇫🇷',
-  'gb': '🇬🇧',
-  'hu': '🇭🇺',
-  'ie': '🇮🇪',
-  'is': '🇮🇸',
-  'it': '🇮🇹',
-  'jp': '🇯🇵',
-  'kg': '🇰🇬',
-  'kr': '🇰🇷',
-  'kz': '🇰🇿',
-  'ma': '🇲🇦',
-  'md': '🇲🇩',
-  'mx': '🇲🇽',
-  'no': '🇳🇴',
-  'pe': '🇵🇪',
-  'pl': '🇵🇱',
-  'pt': '🇵🇹',
-  'ro': '🇷🇴',
-  'ru': '🇷🇺',
-  'sa': '🇸🇦',
-  'se': '🇸🇪',
-  'tt': '🇹🇹',
-  'ua': '🇺🇦',
-  'uk': '🇬🇧',
-  'us': '🇺🇸',
-};
-
 const countryNames: Record<string, string> = {
   'ae': 'United Arab Emirates',
   'ao': 'Angola',
@@ -217,12 +175,6 @@ const countryNamesPt: Record<string, string> = {
   'uk': 'Reino Unido',
   'us': 'Estados Unidos',
 };
-
-export function getFlagEmoji(country: string | null): string | null {
-  if (!country) return null;
-  const key = country.trim().toLowerCase().substring(0, 2);
-  return countryFlagEmoji[key] || key;
-}
 
 export function getCountryName(country: string | null, note: string | null, note_pt: string | null, locale: string): string | undefined {
   if (!country) return undefined;
