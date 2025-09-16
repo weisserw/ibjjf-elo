@@ -91,7 +91,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                       </span>
                     )}
                     {match.red_country && (
-                      <span className="country-flag country-flag-tree" title={getCountryName(match.red_country, match.red_country_note, match.red_country_note_pt, language)}>
+                      <span className="country-flag country-flag-tree" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={getCountryName(match.red_country, match.red_country_note, match.red_country_note_pt, language)}>
                         {getFlagEmoji(match.red_country)}
                       </span>
                     )}
@@ -150,7 +150,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                       </span>
                     )}
                     {match.blue_country && (
-                      <span className="country-flag country-flag-tree" title={getCountryName(match.blue_country, match.blue_country_note, match.blue_country_note_pt, language)}>
+                      <span className="country-flag country-flag-tree" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={getCountryName(match.blue_country, match.blue_country_note, match.blue_country_note_pt, language)}>
                         {getFlagEmoji(match.blue_country)}
                       </span>
                     )}

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import igLogo from '/src/assets/instagram.png';
 import { getFlagEmoji, getCountryName } from '../utils';
 import { useAppContext } from '../AppContext';
+import { Tooltip } from 'react-tooltip';
 
 import "./NameInfo.css";
 
@@ -29,17 +31,20 @@ const competitorMedal = (medal: string | null | undefined) => {
 }
 
 function NameInfo({ instagram_profile, country, country_note, country_note_pt, medal, tree }: NameInfoProps) {
-    const {
-      language,
-    } = useAppContext();
+  const [uniqueId] = useState(() => Math.random().toString(36).substring(2, 9));
+
+  const {
+    language,
+  } = useAppContext();
   
   if (!instagram_profile && !country) {
     return null;
   }
   return (
     <div className="name-subinfo">
+      <Tooltip id={uniqueId} className="tooltip-normal" />
       {country && getFlagEmoji(country) && (
-        <span className="country-flag" title={getCountryName(country, country_note, country_note_pt, language)}>
+        <span className="country-flag" data-tooltip-place="top" data-tooltip-id={uniqueId} data-tooltip-content={getCountryName(country, country_note, country_note_pt, language)}>
           {getFlagEmoji(country)}
         </span>
       )}
@@ -48,11 +53,7 @@ function NameInfo({ instagram_profile, country, country_note, country_note_pt, m
           <img src={igLogo} alt="Instagram" title={`@${instagram_profile}`} />
         </a>
       )}
-      {medal && (
-        <span>
-          {competitorMedal(medal)}
-        </span>
-      )}
+      {medal && competitorMedal(medal)}
     </div>
   );
 }
