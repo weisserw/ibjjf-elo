@@ -91,11 +91,15 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                         </a>
                       </span>
                     )}
-                    {match.red_country && 
-                      <span className={`fi fi-${match.red_country.trim().toLowerCase().substring(0, 2)} country-flag country-flag-tree`} data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={getCountryName(match.red_country, match.red_country_note, match.red_country_note_pt, language)}/>
-                    }
-                    {
-                      (props.showRatings && match.red_rating !== null) &&
+                    {match.red_country && (
+                      <span className={
+                          classNames('fi', `fi-${match.red_country.trim().toLowerCase().substring(0, 2)}`, 'country-flag', 'country-flag-tree', { 'country-flag-border': match.red_country === 'jp' })
+                        }
+                        data-tooltip-id="bracket-normal-tooltip"
+                        data-tooltip-content={getCountryName(match.red_country, match.red_country_note, match.red_country_note_pt, language)}
+                      />
+                    )}
+                    {props.showRatings && match.red_rating !== null &&
                         <span className="bracket-tree-match-rating"> ({Math.round(match.red_rating)}{
                           match.red_handicap > 0 && <span className="bracket-tree-handicapped-rating has-cursor-pointer" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={`${match.red_weight} vs ${match.blue_weight}`}> +{Math.round(match.red_handicap)}</span>
                         })
@@ -149,7 +153,11 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                       </span>
                     )}
                     {match.blue_country && (
-                      <span className={`fi fi-${match.blue_country.trim().toLowerCase().substring(0, 2)} country-flag country-flag-tree`} data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={getCountryName(match.blue_country, match.blue_country_note, match.blue_country_note_pt, language)}/>
+                      <span className={
+                          classNames('fi', `fi-${match.blue_country.trim().toLowerCase().substring(0, 2)}`, 'country-flag', 'country-flag-tree', {'country-flag-border': match.blue_country === 'jp'})
+                        }
+                        data-tooltip-id="bracket-normal-tooltip"
+                        data-tooltip-content={getCountryName(match.blue_country, match.blue_country_note, match.blue_country_note_pt, language)} />
                     )}
                     {
                       (props.showRatings && match.blue_rating !== null) &&

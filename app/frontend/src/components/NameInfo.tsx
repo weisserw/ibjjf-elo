@@ -3,6 +3,7 @@ import igLogo from '/src/assets/instagram.png';
 import { getCountryName } from '../utils';
 import { useAppContext } from '../AppContext';
 import { Tooltip } from 'react-tooltip';
+import classNames from 'classnames';
 import "/node_modules/flag-icons/css/flag-icons.min.css";
 
 import "./NameInfo.css";
@@ -45,7 +46,7 @@ function NameInfo({ instagram_profile, country, country_note, country_note_pt, m
     <div className="name-subinfo">
       <Tooltip id={uniqueId} className="tooltip-normal" />
       {country && (
-        <span className={`fi fi-${country.trim().toLowerCase().substring(0, 2)} country-flag`} data-tooltip-place="top" data-tooltip-id={uniqueId} data-tooltip-content={getCountryName(country, country_note, country_note_pt, language)} />
+        <span className={classNames(`fi fi-${country.trim().toLowerCase().substring(0, 2)} country-flag`, {'country-flag-border': country === 'jp'})} data-tooltip-place="top" data-tooltip-id={uniqueId} data-tooltip-content={getCountryName(country, country_note, country_note_pt, language)} />
       )}
       {instagram_profile && (
         <a className={tree ? "instagram-profile-tree" : "instagram-profile"} href={`https://www.instagram.com/${instagram_profile}`} target="_blank" rel="noopener noreferrer">
