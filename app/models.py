@@ -75,6 +75,9 @@ class Athlete(db.Model):
     name = Column(String, nullable=False)
     normalized_name = Column(String, nullable=False)
     instagram_profile = Column(String, nullable=True)
+    country = Column(String, nullable=True)
+    country_note = Column(String, nullable=True)
+    country_note_pt = Column(String, nullable=True)
 
     __table_args__ = (
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),

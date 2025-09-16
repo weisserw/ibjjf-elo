@@ -14,6 +14,24 @@
                 <input class="input" type="text" name="instagram_profile" placeholder="Instagram username" value="{{ athlete.instagram_profile or '' }}">
               </div>
             </div>
+            <div class="field">
+              <label class="label">Country Code</label>
+              <div class="control">
+                <input class="input" type="text" name="country" placeholder="br" value="{{ athlete.country or '' }}">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label">Country Note</label>
+              <div class="control">
+                <input class="input" type="text" name="country_note" placeholder="e.g., holds dual citizenship" value="{{ athlete.country_note or '' }}">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label">Country Note (Portuguese Translation)</label>
+              <div class="control">
+                <input class="input" type="text" name="country_note_pt" placeholder="e.g., possui dupla cidadania" value="{{ athlete.country_note_pt or '' }}">
+              </div>
+            </div>
             <div class="field is-grouped is-grouped-centered">
               <div class="control">
                 <button class="button is-primary" type="submit">Save</button>

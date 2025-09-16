@@ -4,7 +4,7 @@ import classNames from 'classnames';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { useAppContext } from '../AppContext';
-import { immatureClass } from '../utils';
+import { immatureClass, getFlagEmoji, getCountryName } from '../utils';
 import { Tooltip } from 'react-tooltip';
 import { t, translateMultiSpace } from '../translate';
 import igLogo from '/src/assets/instagram.png';
@@ -90,6 +90,11 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                         </a>
                       </span>
                     )}
+                    {match.red_country && (
+                      <span className="country-flag country-flag-tree" title={getCountryName(match.red_country, match.red_country_note, match.red_country_note_pt, language)}>
+                        {getFlagEmoji(match.red_country)}
+                      </span>
+                    )}
                     {
                       (props.showRatings && match.red_rating !== null) &&
                         <span className="bracket-tree-match-rating"> ({Math.round(match.red_rating)}{
@@ -120,9 +125,9 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 </div>
               </td>
               <td className="bracket-tree-match-info">
-                {match.red_medal === "1" && <span>🥇</span>}
-                {match.red_medal === "2" && <span>🥈</span>}
-                {match.red_medal === "3" && <span>🥉</span>}
+                {match.red_medal === "1" && <span title="First place">🥇</span>}
+                {match.red_medal === "2" && <span title="Second place">🥈</span>}
+                {match.red_medal === "3" && <span title="Third place">🥉</span>}
                 {match.red_note && <span className="bracket-tree-match-note has-cursor-pointer" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={match.red_note}> ℹ️</span>}
               </td>
             </tr>
@@ -142,6 +147,11 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                         <a href={`https://www.instagram.com/${match.blue_instagram_profile}`} target="_blank" rel="noopener noreferrer">
                           <img src={igLogo} alt="Instagram" title={`@${match.blue_instagram_profile}`} />
                         </a>
+                      </span>
+                    )}
+                    {match.blue_country && (
+                      <span className="country-flag country-flag-tree" title={getCountryName(match.blue_country, match.blue_country_note, match.blue_country_note_pt, language)}>
+                        {getFlagEmoji(match.blue_country)}
                       </span>
                     )}
                     {
@@ -174,9 +184,9 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 </div>
               </td>
               <td className="bracket-tree-match-info">
-                {match.blue_medal === "1" && <span>🥇</span>}
-                {match.blue_medal === "2" && <span>🥈</span>}
-                {match.blue_medal === "3" && <span>🥉</span>}
+                {match.blue_medal === "1" && <span title="First place">🥇</span>}
+                {match.blue_medal === "2" && <span title="Second place">🥈</span>}
+                {match.blue_medal === "3" && <span title="Third place">🥉</span>}
                 {match.blue_note && <span className="bracket-tree-match-note has-cursor-pointer" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={match.blue_note}> ℹ️</span>}
               </td>
             </tr>

@@ -1,0 +1,28 @@
+
+.instagram-profile img {
+  width: 16px;
+  height: 16px;
+  max-width: 16px;
+  min-width: 16px;
+  vertical-align: middle;
+}
+
+.name-subinfo {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+.country-flag {
+  font-size: 1.2em;
+  height: 14px;
+  line-height: 14px;
+  margin-top: 2px;
+  vertical-align: middle;
+}
+
+.country-flag-tree {
+  margin-top: unset;
+  margin-left: 2px;
+}

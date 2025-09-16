@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { noMatchStrings, type Competitor } from "./BracketUtils"
 import { Tooltip } from 'react-tooltip';
 import { t } from '../translate'
-import igLogo from '/src/assets/instagram.png';
+import NameInfo from "./NameInfo";
 
 interface BracketTableProps {
   competitors: Competitor[] | null;
@@ -134,21 +134,6 @@ function BracketTable(props: BracketTableProps) {
     }
   }
 
-  const competitorMedal = (medal: string | undefined) => {
-    if (medal === undefined) {
-      return null;
-    }
-    if (medal === '1') {
-      return <span> 🥇</span>;
-    } else if (medal === '2') {
-      return <span> 🥈</span>;
-    } else if (medal === '3') {
-      return <span> 🥉</span> 
-    } else {
-      return null;
-    }
-  }
-
   const calculateDisabled = () => {
     return selectedAthletes.length !== 2 || selectedAthletes.filter(a => props.calculateEnabled(a)).length !== 2
   };
@@ -245,26 +230,19 @@ function BracketTable(props: BracketTableProps) {
                 {
                   competitor.id !== null ?
                     <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
-                      <div className="elo-name-container">
+                      <div className="name-container">
                         <a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}</a>
-                        {competitor.instagram_profile && (
-                          <a className="instagram-profile" href={`https://www.instagram.com/${competitor.instagram_profile}`} target="_blank" rel="noopener noreferrer">
-                            <img src={igLogo} alt="Instagram" title={`@${competitor.instagram_profile}`} />
-                          </a>
-                        )}
-                        <span>
-                          {competitorMedal(competitor.medal)}
-                        </span>
+                        <NameInfo instagram_profile={competitor.instagram_profile}
+                                  country={competitor.country} country_note={competitor.country_note} country_note_pt={competitor.country_note_pt}
+                                  medal={competitor.medal} />
                       </div>
                     </td> :
                     <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
-                      <div className="elo-name-container">
+                      <div className="name-container">
                         <span>
                           {competitor.name}
                         </span>
-                        <span>
-                          {competitorMedal(competitor.medal)}
-                        </span>
+                        <NameInfo instagram_profile={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} />
                       </div>
                     </td>
                 }

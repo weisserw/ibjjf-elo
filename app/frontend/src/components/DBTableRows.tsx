@@ -6,6 +6,7 @@ import { Tooltip } from 'react-tooltip';
 import { isHistorical, type DBRow as Row } from "../utils";
 import { useAppContext } from '../AppContext';
 import { t, translateMulti, translateMultiSpace, translationKeys } from '../translate';
+import NameInfo from './NameInfo';
 
 const BLACK_WEIGHT_HANDICAPS = [
   0,
@@ -161,7 +162,15 @@ function DBTableRows(props: DBTableRowsProps) {
                   <td data-id={row.winnerId}>
                     {
                       noLinks ? row.winner :
-                      <a href="#" onClick={e => athleteClicked?.(e, row.winner)}>{row.winner}</a>
+                      <div className="name-container">
+                        <a href="#" onClick={e => athleteClicked?.(e, row.winner)}>
+                          {row.winner}
+                        </a>
+                        <NameInfo instagram_profile={row.winnerInstagramProfile}
+                                  country={row.winnerCountry}
+                                  country_note={row.winnerCountryNote}
+                                  country_note_pt={row.winnerCountryNotePt} />
+                      </div>
                     }
                   </td>
                   <td>
@@ -175,7 +184,15 @@ function DBTableRows(props: DBTableRowsProps) {
                   <td data-id={row.loserId}>
                     {
                       noLinks ? row.loser :
-                      <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>{row.loser}</a>
+                      <div className="name-container">
+                        <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>
+                          {row.loser}
+                        </a>
+                        <NameInfo instagram_profile={row.loserInstagramProfile}
+                                  country={row.loserCountry}
+                                  country_note={row.loserCountryNote}
+                                  country_note_pt={row.loserCountryNotePt} />
+                      </div>
                     }
                   </td>
                   <td>
@@ -244,7 +261,13 @@ function DBTableRows(props: DBTableRowsProps) {
                       <strong>{t("Winner")}:</strong>{' '}
                       {
                         noLinks ? row.winner :
-                        <a href="#" onClick={e => athleteClicked?.(e, row.winner)}>{row.winner}</a>
+                        <div className="name-container">
+                          <a href="#" onClick={e => athleteClicked?.(e, row.winner)}>{row.winner}</a>
+                          <NameInfo instagram_profile={row.winnerInstagramProfile}
+                                    country={row.winnerCountry}
+                                    country_note={row.winnerCountryNote}
+                                    country_note_pt={row.winnerCountryNotePt} />
+                        </div>
                       }
                       {' '}
                       {
@@ -258,7 +281,13 @@ function DBTableRows(props: DBTableRowsProps) {
                       <strong>{t("Loser")}:</strong>{' '}
                       {
                         noLinks ? row.loser :
-                        <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>{row.loser}</a>
+                        <div className="name-container">
+                          <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>{row.loser}</a>
+                          <NameInfo instagram_profile={row.loserInstagramProfile}
+                                    country={row.loserCountry}
+                                    country_note={row.loserCountryNote}
+                                    country_note_pt={row.loserCountryNotePt} />
+                        </div>
                       }
                       {
                       showRating(row) &&

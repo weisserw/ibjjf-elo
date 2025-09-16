@@ -58,6 +58,10 @@ export interface DBRow {
   winnerRatingNote: string | null
   winnerStartMatchCount: number
   winnerEndMatchCount: number
+  winnerInstagramProfile: string | null
+  winnerCountry: string | null
+  winnerCountryNote: string | null
+  winnerCountryNotePt: string | null
   loser: string
   loserId: string
   loserStartRating: number
@@ -66,6 +70,10 @@ export interface DBRow {
   loserRatingNote: string | null
   loserStartMatchCount: number
   loserEndMatchCount: number
+  loserInstagramProfile: string | null
+  loserCountry: string | null
+  loserCountryNote: string | null
+  loserCountryNotePt: string | null
   event: string
   age: string
   gender: string
@@ -84,4 +92,154 @@ export interface DBResults {
 
 export const isHistorical = (eventName: string) => {
   return !/idade 04 a 15 anos/.test(eventName) && /\([^\)]+\)/.test(eventName);
+}
+
+
+const countryFlagEmoji: Record<string, string> = {
+  'ae': '🇦🇪',
+  'ao': '🇦🇴',
+  'ar': '🇦🇷',
+  'au': '🇦🇺',
+  'be': '🇧🇪',
+  'br': '🇧🇷',
+  'ca': '🇨🇦',
+  'cn': '🇨🇳',
+  'cr': '🇨🇷',
+  'de': '🇩🇪',
+  'ee': '🇪🇪',
+  'es': '🇪🇸',
+  'fl': '🇱🇮',
+  'fr': '🇫🇷',
+  'gb': '🇬🇧',
+  'hu': '🇭🇺',
+  'ie': '🇮🇪',
+  'is': '🇮🇸',
+  'it': '🇮🇹',
+  'jp': '🇯🇵',
+  'kg': '🇰🇬',
+  'kr': '🇰🇷',
+  'kz': '🇰🇿',
+  'ma': '🇲🇦',
+  'md': '🇲🇩',
+  'mx': '🇲🇽',
+  'no': '🇳🇴',
+  'pe': '🇵🇪',
+  'pl': '🇵🇱',
+  'pt': '🇵🇹',
+  'ro': '🇷🇴',
+  'ru': '🇷🇺',
+  'sa': '🇸🇦',
+  'se': '🇸🇪',
+  'tt': '🇹🇹',
+  'ua': '🇺🇦',
+  'uk': '🇬🇧',
+  'us': '🇺🇸',
+};
+
+const countryNames: Record<string, string> = {
+  'ae': 'United Arab Emirates',
+  'ao': 'Angola',
+  'ar': 'Argentina',
+  'au': 'Australia',
+  'be': 'Belgium',
+  'br': 'Brazil',
+  'ca': 'Canada',
+  'cn': 'China',
+  'cr': 'Costa Rica',
+  'de': 'Germany',
+  'ee': 'Estonia',
+  'es': 'Spain',
+  'fl': 'Liechtenstein',
+  'fr': 'France',
+  'gb': 'United Kingdom',
+  'hu': 'Hungary',
+  'ie': 'Ireland',
+  'is': 'Iceland',
+  'it': 'Italy',
+  'jp': 'Japan',
+  'kg': 'Kyrgyzstan',
+  'kr': 'South Korea',
+  'kz': 'Kazakhstan',
+  'ma': 'Morocco',
+  'md': 'Moldova',
+  'mx': 'Mexico',
+  'no': 'Norway',
+  'pe': 'Peru',
+  'pl': 'Poland',
+  'pt': 'Portugal',
+  'ro': 'Romania',
+  'ru': 'Russia',
+  'sa': 'Saudi Arabia',
+  'se': 'Sweden',
+  'tt': 'Trinidad and Tobago',
+  'ua': 'Ukraine',
+  'uk': 'United Kingdom',
+  'us': 'United States',
+};
+
+const countryNamesPt: Record<string, string> = {
+  'ae': 'Emirados Árabes Unidos',
+  'ao': 'Angola',
+  'ar': 'Argentina',
+  'au': 'Austrália',
+  'be': 'Bélgica',
+  'br': 'Brasil',
+  'ca': 'Canadá',
+  'cn': 'China',
+  'cr': 'Costa Rica',
+  'de': 'Alemanha',
+  'ee': 'Estônia',
+  'es': 'Espanha',
+  'fl': 'Liechtenstein',
+  'fr': 'França',
+  'gb': 'Reino Unido',
+  'hu': 'Hungria',
+  'ie': 'Irlanda',
+  'is': 'Islândia',
+  'it': 'Itália',
+  'jp': 'Japão',
+  'kg': 'Quirguistão',
+  'kr': 'Coreia do Sul',
+  'kz': 'Cazaquistão',
+  'ma': 'Marrocos',
+  'md': 'Moldávia',
+  'mx': 'México',
+  'no': 'Noruega',
+  'pe': 'Peru',
+  'pl': 'Polônia',
+  'pt': 'Portugal',
+  'ro': 'Romênia',
+  'ru': 'Rússia',
+  'sa': 'Arábia Saudita',
+  'se': 'Suécia',
+  'tt': 'Trinidad e Tobago',
+  'ua': 'Ucrânia',
+  'uk': 'Reino Unido',
+  'us': 'Estados Unidos',
+};
+
+export function getFlagEmoji(country: string | null): string | null {
+  if (!country) return null;
+  const key = country.trim().toLowerCase().substring(0, 2);
+  return countryFlagEmoji[key] || key;
+}
+
+export function getCountryName(country: string | null, note: string | null, note_pt: string | null, locale: string): string | undefined {
+  if (!country) return undefined;
+  const key = country.trim().toLowerCase().substring(0, 2);
+  if (locale === 'pt') {
+    const name = countryNamesPt[key] || country;
+    if (note_pt) {
+      return `${name} (${note_pt})`;
+    } else {
+      return name;
+    }
+  } else {
+    const name = countryNames[key] || country;
+    if (note) {
+      return `${name} (${note})`;
+    } else {
+      return name;
+    }
+  }
 }

@@ -7,12 +7,12 @@ import DBPagination from './DBPagination';
 import EloFilters from './EloFilters';
 import Autosuggest from 'react-autosuggest';
 import classNames from 'classnames';
+import NameInfo from './NameInfo';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { Tooltip } from 'react-tooltip';
 import { axiosErrorToast, immatureClass } from '../utils';
 import { t, translateMulti } from '../translate';
-import igLogo from '/src/assets/instagram.png';
 
 import "./EloTable.css"
 
@@ -30,6 +30,9 @@ interface Row {
   previous_rank: number | null
   name: string
   instagram_profile: string | null
+  country: string | null
+  country_note: string | null
+  country_note_pt: string | null
   rating: number
   match_count: number
   previous_rating: number | null
@@ -339,15 +342,14 @@ function EloTable() {
                       }</td>
                       <td className={changeClass(row.previous_rank, row.rank, true)}>{rankChange(row)}</td>
                       <td>
-                        <div className="elo-name-container">
+                        <div className="name-container">
                           <a href="#" onClick={e => onNameClick(e, row.name)}>
                             {row.name}
                           </a>
-                          {row.instagram_profile && (
-                            <a className="instagram-profile" href={`https://www.instagram.com/${row.instagram_profile}`} target="_blank" rel="noopener noreferrer">
-                              <img src={igLogo} alt="Instagram" title={`@${row.instagram_profile}`} />
-                            </a>
-                          )}
+                          <NameInfo instagram_profile={row.instagram_profile}
+                                    country={row.country}
+                                    country_note={row.country_note}
+                                    country_note_pt={row.country_note_pt} />
                         </div>
                       </td>
                       <td className={"has-text-right " + immatureClass(row.match_count)}>

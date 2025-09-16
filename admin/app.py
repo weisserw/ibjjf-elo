@@ -104,8 +104,18 @@ def athlete_edit():
         if instagram_profile.startswith("@"):
             instagram_profile = instagram_profile[1:]
         athlete.instagram_profile = instagram_profile
+
+        country = request.form.get("country", "").strip().lower()
+        athlete.country = country[:2]
+
+        country_note = request.form.get("country_note", "").strip()
+        athlete.country_note = country_note if country_note else None
+
+        country_note_pt = request.form.get("country_note_pt", "").strip()
+        athlete.country_note_pt = country_note_pt if country_note_pt else None
+
         db.session.commit()
-        message = "Instagram profile updated."
+        message = "Athlete info updated."
     return render_template("athlete_edit.html", athlete=athlete, message=message)
 
 

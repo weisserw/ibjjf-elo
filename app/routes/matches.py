@@ -364,7 +364,8 @@ def matches():
 
     sql = f"""
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
-            mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating, a.id as athlete_id, a.name, mp.note, m.rated,
+            mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating,
+            a.id as athlete_id, a.name, a.country, a.country_note, a.country_note_pt, a.instagram_profile, mp.note, m.rated,
             mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
@@ -429,7 +430,14 @@ def matches():
                 winner=row["winner"],
                 start_rating=row["start_rating"],
                 end_rating=row["end_rating"],
-                athlete=Athlete(id=row["athlete_id"], name=row["name"]),
+                athlete=Athlete(
+                    id=row["athlete_id"],
+                    name=row["name"],
+                    country=row["country"],
+                    country_note=row["country_note"],
+                    country_note_pt=row["country_note_pt"],
+                    instagram_profile=row["instagram_profile"],
+                ),
                 note=row["note"],
                 weight_for_open=row["weight_for_open"],
                 rating_note=row["rating_note"],
@@ -461,6 +469,10 @@ def matches():
                     "winnerWeightForOpen": winner.weight_for_open,
                     "winnerStartMatchCount": winner.start_match_count,
                     "winnerEndMatchCount": winner.end_match_count,
+                    "winnerCountry": winner.athlete.country,
+                    "winnerCountryNote": winner.athlete.country_note,
+                    "winnerCountryNotePt": winner.athlete.country_note_pt,
+                    "winnerInstagramProfile": winner.athlete.instagram_profile,
                     "loser": loser.athlete.name,
                     "loserId": loser.athlete.id,
                     "loserStartRating": round(loser.start_rating),
@@ -468,6 +480,10 @@ def matches():
                     "loserWeightForOpen": loser.weight_for_open,
                     "loserStartMatchCount": loser.start_match_count,
                     "loserEndMatchCount": loser.end_match_count,
+                    "loserCountry": loser.athlete.country,
+                    "loserCountryNote": loser.athlete.country_note,
+                    "loserCountryNotePt": loser.athlete.country_note_pt,
+                    "loserInstagramProfile": loser.athlete.instagram_profile,
                     "event": current_match.event.name,
                     "age": current_match.division.age,
                     "gender": current_match.division.gender,
