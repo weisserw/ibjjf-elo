@@ -3,7 +3,6 @@ import igLogo from '/src/assets/instagram.png';
 import { getCountryName } from '../utils';
 import { useAppContext } from '../AppContext';
 import { Tooltip } from 'react-tooltip';
-import classNames from 'classnames';
 import "/node_modules/flag-icons/css/flag-icons.min.css";
 
 import "./NameInfo.css";
