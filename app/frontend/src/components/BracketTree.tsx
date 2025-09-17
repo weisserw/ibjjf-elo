@@ -93,7 +93,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                     )}
                     {match.red_country && (
                       <span className={
-                          classNames('fi', `fi-${match.red_country.trim().toLowerCase().substring(0, 2)}`, 'country-flag', 'country-flag-tree', { 'country-flag-border': match.red_country === 'jp' })
+                          `fi fi-${match.red_country.trim().toLowerCase().substring(0, 2)} country-flag country-flag-tree`
                         }
                         data-tooltip-id="bracket-normal-tooltip"
                         data-tooltip-content={getCountryName(match.red_country, match.red_country_note, match.red_country_note_pt, language)}
@@ -154,7 +154,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                     )}
                     {match.blue_country && (
                       <span className={
-                          classNames('fi', `fi-${match.blue_country.trim().toLowerCase().substring(0, 2)}`, 'country-flag', 'country-flag-tree', {'country-flag-border': match.blue_country === 'jp'})
+                          `fi fi-${match.blue_country.trim().toLowerCase().substring(0, 2)} country-flag country-flag-tree`
                         }
                         data-tooltip-id="bracket-normal-tooltip"
                         data-tooltip-content={getCountryName(match.blue_country, match.blue_country_note, match.blue_country_note_pt, language)} />
