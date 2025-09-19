@@ -543,17 +543,26 @@ def find_first_index(lst, predicate):
     return -1
 
 
-def bring_to_front(lst, name):
-    index = find_first_index(
-        lst,
-        lambda x: x.normalized_name.startswith(name)
-        and "15 anos" not in x.normalized_name
-        and "kids" not in x.normalized_name
-        and "criancas" not in x.normalized_name,
-    )
-    if index != -1:
-        item = lst.pop(index)
-        lst.insert(0, item)
+def matches_names(item, *names):
+    item_name = item.normalized_name.lower()
+    for name in names:
+        if item_name.startswith(name):
+            return True
+    return False
+
+
+def bring_to_front(lst, *names):
+    items_to_bring = [
+        item
+        for item in lst
+        if matches_names(item, *names)
+        and "15 anos" not in item.normalized_name
+        and "kids" not in item.normalized_name
+        and "criancas" not in item.normalized_name
+    ]
+    for item in items_to_bring:
+        lst.remove(item)
+    lst[0:0] = items_to_bring
 
 
 def format_event_dates(start_date, end_date):
@@ -580,10 +589,9 @@ def registration_links():
         .all()
     )
 
-    bring_to_front(links, "european ibjjf ")
-    bring_to_front(links, "pan ibjjf ")
-    bring_to_front(links, "campeonato brasileiro ")
-    bring_to_front(links, "world ibjjf ")
+    bring_to_front(
+        links, "european ibjjf ", "pan ibjjf ", "world ibjjf ", "campeonato brasileiro "
+    )
 
     rows = []
     for link in links:
@@ -1475,7 +1483,6 @@ def competitors():
 
     final = next((m for m in parsed_matches if m["final"]), None)
     if final:
-        print(final["red_team"], final["blue_team"])
         if (
             (
                 (final["blue_medal"] == "1" and final["red_medal"] == "2")
@@ -1582,10 +1589,16 @@ def events():
 
     def sort_key(name):
         name = name.lower()
-        if "world" in name:
-            return (0, name)
-        elif "kids" in name or "crianças" in name or "15 anos" in name:
+
+        if "kids" in name or "crianças" in name or "15 anos" in name:
             return (2, name)
+        elif (
+            "world ibjjf" in name
+            or "european ibjjf" in name
+            or "pan ibjjf" in name
+            or "campeonato brasileiro" in name
+        ):
+            return (0, name)
         else:
             return (1, name)
 
