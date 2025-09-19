@@ -38,7 +38,7 @@ function NameInfo({ instagram_profile, country, country_note, country_note_pt, m
     language,
   } = useAppContext();
   
-  if (!instagram_profile && !country) {
+  if (!instagram_profile && !country && !medal) {
     return null;
   }
   return (
