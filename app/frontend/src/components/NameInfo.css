@@ -21,6 +21,7 @@
   border: 1px solid #ccc;
   width: 19px;
   height: 15px;
+  background-size: 100% 100%;
 }
 
 .country-flag-tree {
