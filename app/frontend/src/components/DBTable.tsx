@@ -113,7 +113,13 @@ function DBTable() {
     for (const key of keys.filter(key => key.startsWith('age_') || key.startsWith('gender_') || key.startsWith('belt_') || key.startsWith('weight_'))) {
       delete newFilters[key];
     }
-    newFilters[ageToFilter(row.age)] = true;
+    if (row.age.startsWith('Teen ')) {
+      newFilters[ageToFilter('Teen')] = true;
+    } else if (row.age.startsWith('Juvenile ')) {
+      newFilters[ageToFilter('Juvenile')] = true;
+    } else {
+      newFilters[ageToFilter(row.age)] = true;
+    }
     newFilters[genderToFilter(row.gender)] = true;
     newFilters[beltToFilter(row.belt)] = true;
     newFilters[weightToFilter(row.weight)] = true;
