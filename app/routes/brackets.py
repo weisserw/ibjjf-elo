@@ -1479,7 +1479,7 @@ def competitors():
                 first_match["red_note"]
                 if first_match["red_id"] == result["ibjjf_id"]
                 else first_match["blue_note"]
-            )
+            ) or result["note"]
 
     final = next((m for m in parsed_matches if m["final"]), None)
     if final:
