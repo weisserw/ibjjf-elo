@@ -140,6 +140,12 @@ function BracketTable(props: BracketTableProps) {
 
   return (
     <div className="table-container">
+      {
+        props.showWeight &&
+        <div className="notification mt-5">
+          {t("Our open class seeding is based on a combination of weight and rating")}
+        </div>
+      }
       <table className="table is-fullwidth bracket-table">
         <thead>
           <tr>
