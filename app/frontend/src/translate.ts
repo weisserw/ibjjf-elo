@@ -200,7 +200,7 @@ const translations = {
     "page to perform a global search.": "página para realizar uma busca global.",
     "This athlete is registered for the following upcoming events": "Este atleta está registrado para os seguintes eventos futuros",
     "Competitors on same team; possible closeout": "Competidores na mesma equipe; possível closeout",
-    "Our open class seeding is based on a combination of weight and rating": "Nossa seed de absoluto é baseada em uma combinação de peso e rating",
+    "Our open class seeding is based on a combination of weight and skill": "Nossa seed do absoluto é baseada em uma combinação de peso e nível técnico",
 };
 
 export type translationKeys = keyof typeof translations;
