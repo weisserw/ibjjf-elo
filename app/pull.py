@@ -224,6 +224,9 @@ def pull_tournament(
 
     unfinished = []
 
+    match_times = set()
+    last_match_time = None
+
     for url, gender in urls:
         print(f"Fetching data for {gender} categories from {url}", flush=True)
         response = rate_limit_get(s, url, limit, retries)
@@ -281,6 +284,27 @@ def pull_tournament(
             for match in matches:
                 match_datetime_iso = parse_match_when(match, year)
                 match_location, fight_num = parse_match_where(match)
+
+                # we require all matches to have a valid timestamp. in certain circumstances the IBJJF publishes
+                # matches without a timestamp, so we just reuse the last seen timestamp in that case
+                if match_datetime_iso:
+                    match_times.add(match_datetime_iso)
+                    last_match_time = match_datetime_iso
+                elif last_match_time:
+                    # starting with the last match time, increment by one second until we find a time that hasn't been used yet
+                    match_datetime_parsed = datetime.fromisoformat(last_match_time)
+                    while True:
+                        match_datetime_parsed = match_datetime_parsed.replace(
+                            second=match_datetime_parsed.second + 1
+                        )
+                        match_datetime_iso = match_datetime_parsed.isoformat()
+                        if match_datetime_iso not in match_times:
+                            match_times.add(match_datetime_iso)
+                            last_match_time = match_datetime_iso
+                            break
+                else:
+                    # no valid timestamp, just use the current time as a last resort
+                    match_datetime_iso = datetime.now().isoformat()
 
                 matchnum = ""
                 card = match.find("div", class_="tournament-category__match-card")
