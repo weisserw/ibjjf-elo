@@ -398,16 +398,18 @@ def pull_tournament(
                         match_datetime_parsed = match_datetime_parsed.replace(
                             second=match_datetime_parsed.second + 1
                         )
-                        match_datetime_iso = match_datetime_parsed.isoformat()
+                        match_datetime_iso = match_datetime_parsed.strftime(
+                            "%Y-%m-%dT%H:%M:%S"
+                        )
                         if match_datetime_iso not in match_times:
                             match_times.add(match_datetime_iso)
                             last_match_time = match_datetime_iso
                             break
                 else:
                     # no valid timestamp, just use the current time as a last resort
-                    match_datetime_iso = datetime.now().isoformat()[
-                        : len("YYYY-MM-DDTHH:MM:SS")
-                    ]
+                    match_datetime_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+                    match_times.add(match_datetime_iso)
+                    last_match_time = match_datetime_iso
 
                 writer.writerow(
                     [
