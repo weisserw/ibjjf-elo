@@ -163,7 +163,16 @@ def competitor_sort_key(competitor, rating_prop):
 
 
 def get_ratings(
-    results, event_id, age, belt, weight, gender, gi, rating_date, get_rank
+    results,
+    event_id,
+    age,
+    belt,
+    weight,
+    gender,
+    gi,
+    rating_date,
+    get_rank,
+    use_live_ratings,
 ):
     athlete_results = (
         db.session.query(
@@ -347,35 +356,36 @@ def get_ratings(
             )
             match_happened_at_by_id[rating.athlete_id] = rating.happened_at
 
-    # query all live_ratings for these athlete ids and gi which are before the rating date
-    # this should only be relevant when an athlete has competed in one division but has another
-    # on the same day (e.g. weight class but not open)
-    # and we haven't recorded match results for that division yet.
-    athlete_ids = list(match_happened_at_by_id.keys())
-    live_ratings = (
-        db.session.query(LiveRating)
-        .filter(
-            LiveRating.athlete_id.in_(athlete_ids),
-            LiveRating.gi == gi,
-            LiveRating.happened_at < rating_date,
-            LiveRating.happened_at
-            > datetime.now()
-            - timedelta(days=7),  # only consider live ratings from the last week
-        )
-        .all()
-    )
-
-    # for each athlete, find the newest live_rating with happened_at > match_happened_at
     live_ratings_by_id = {}
-    for lr in live_ratings:
-        athlete_id = lr.athlete_id
-        match_happened_at = match_happened_at_by_id.get(athlete_id, None)
-        if match_happened_at is None or lr.happened_at > match_happened_at:
-            if (
-                athlete_id not in live_ratings_by_id
-                or lr.happened_at > live_ratings_by_id[athlete_id].happened_at
-            ):
-                live_ratings_by_id[athlete_id] = lr
+    if use_live_ratings:
+        # query all live_ratings for these athlete ids and gi which are before the rating date
+        # this should only be relevant when an athlete has competed in one division but has another
+        # on the same day (e.g. weight class but not open)
+        # and we haven't recorded match results for that division yet.
+        athlete_ids = list(match_happened_at_by_id.keys())
+        live_ratings = (
+            db.session.query(LiveRating)
+            .filter(
+                LiveRating.athlete_id.in_(athlete_ids),
+                LiveRating.gi == gi,
+                LiveRating.happened_at < rating_date,
+                LiveRating.happened_at
+                > datetime.now()
+                - timedelta(days=3),  # only consider live ratings from the last 3 days
+            )
+            .all()
+        )
+
+        # for each athlete, find the newest live_rating with happened_at > match_happened_at
+        for lr in live_ratings:
+            athlete_id = lr.athlete_id
+            match_happened_at = match_happened_at_by_id.get(athlete_id, None)
+            if match_happened_at is None or lr.happened_at > match_happened_at:
+                if (
+                    athlete_id not in live_ratings_by_id
+                    or lr.happened_at > live_ratings_by_id[athlete_id].happened_at
+                ):
+                    live_ratings_by_id[athlete_id] = lr
 
     for result in results:
         athlete_id = result["id"]
@@ -918,6 +928,7 @@ def registration_competitors():
         gi,
         datetime.now() + timedelta(days=1),
         True,
+        False,
     )
 
     return jsonify({"competitors": rows})
@@ -1428,7 +1439,16 @@ def competitors():
     )
 
     get_ratings(
-        results, event_id, age, belt, weight, gender, gi, earliest_match_date, False
+        results,
+        event_id,
+        age,
+        belt,
+        weight,
+        gender,
+        gi,
+        earliest_match_date,
+        False,
+        True,
     )
 
     compute_match_ratings(parsed_matches, results, belt, weight, age)
