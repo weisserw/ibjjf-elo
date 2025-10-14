@@ -297,7 +297,7 @@ def get_ratings(
     notes_by_id = {}
     match_happened_at_by_id = {}
     for rating in match_results:
-        # f last match was a different belt or age, see if we need to adjust it to the current division
+        # if last match was a different belt or age, see if we need to adjust it to the current division
         if rating.belt != belt or rating.age != age:
             last_match = (
                 db.session.query(MatchParticipant)
@@ -358,6 +358,9 @@ def get_ratings(
             LiveRating.athlete_id.in_(athlete_ids),
             LiveRating.gi == gi,
             LiveRating.happened_at < rating_date,
+            LiveRating.happened_at
+            > datetime.now()
+            - timedelta(days=7),  # only consider live ratings from the last week
         )
         .all()
     )
@@ -1284,6 +1287,8 @@ def update_live_ratings(gi, results, happened_at):
         if result["id"] is None:
             continue
 
+        deleted_existing = False
+
         existing_ratings = existing_by_id.get(result["id"])
         if existing_ratings is not None and (
             len(existing_ratings) > 1
@@ -1292,8 +1297,9 @@ def update_live_ratings(gi, results, happened_at):
             # delete existing
             for rating in existing_ratings:
                 db.session.delete(rating)
+            deleted_existing = True
 
-        if existing_ratings is None or existing_ratings[0].happened_at < happened_at_dt:
+        if existing_ratings is None or deleted_existing:
             new_rating = LiveRating(
                 gi=gi,
                 athlete_id=result["id"],
