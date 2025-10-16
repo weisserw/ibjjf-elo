@@ -1,10 +1,10 @@
-import { immatureClass } from "../utils"
+import { noMatchStrings, immatureClass } from "../utils"
 import classNames from 'classnames';
 import dayjs from 'dayjs'
 import { useAppContext } from '../AppContext'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { noMatchStrings, type Competitor } from "./BracketUtils"
+import type { Competitor } from "./BracketUtils"
 import { Tooltip } from 'react-tooltip';
 import { t } from '../translate'
 import NameInfo from "./NameInfo";

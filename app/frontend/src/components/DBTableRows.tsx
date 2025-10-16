@@ -3,7 +3,7 @@ import classNames from "classnames";
 import dayjs from "dayjs";
 import 'dayjs/locale/pt';
 import { Tooltip } from 'react-tooltip';
-import { isHistorical, type DBRow as Row } from "../utils";
+import { isHistorical, noMatchStrings, type DBRow as Row } from "../utils";
 import { useAppContext } from '../AppContext';
 import { t, translateMulti, translateMultiSpace, translationKeys } from '../translate';
 import NameInfo from './NameInfo';
@@ -185,7 +185,7 @@ function DBTableRows(props: DBTableRowsProps) {
                     {
                       noLinks ? row.loser :
                       <div className="name-container">
-                        <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>
+                        <a href="#" onClick={e => athleteClicked?.(e, row.loser)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
                           {row.loser}
                         </a>
                         <NameInfo instagram_profile={row.loserInstagramProfile}
@@ -282,7 +282,7 @@ function DBTableRows(props: DBTableRowsProps) {
                       {
                         noLinks ? row.loser :
                         <div className="name-container">
-                          <a href="#" onClick={e => athleteClicked?.(e, row.loser)}>{row.loser}</a>
+                          <a href="#" onClick={e => athleteClicked?.(e, row.loser)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>{row.loser}</a>
                           <NameInfo instagram_profile={row.loserInstagramProfile}
                                     country={row.loserCountry}
                                     country_note={row.loserCountryNote}

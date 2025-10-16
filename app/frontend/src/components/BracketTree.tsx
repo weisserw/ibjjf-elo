@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { noMatchStrings, createTreeFromTop, createTreeFromMatchNums, type Match } from "./BracketUtils"
+import { createTreeFromTop, createTreeFromMatchNums, type Match } from "./BracketUtils"
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { useAppContext } from '../AppContext';
-import { immatureClass, getCountryName } from '../utils';
+import { noMatchStrings, immatureClass, getCountryName } from '../utils';
 import { Tooltip } from 'react-tooltip';
 import { t, translateMultiSpace } from '../translate';
 import igLogo from '/src/assets/instagram.png';

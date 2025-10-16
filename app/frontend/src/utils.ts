@@ -95,6 +95,14 @@ export const isHistorical = (eventName: string) => {
   return !/idade 04 a 15 anos/.test(eventName) && /\([^\)]+\)/.test(eventName);
 }
 
+export const noMatchStrings = [
+  "disqualified by no show",
+  "desqualificado por no show",
+  "disqualified by overweight",
+  "disqualified by acima do peso",
+  "disqualified by withdraw",
+  "desqualificado por retirada",
+];
 
 export function getCountryName(country: string | null, note: string | null, note_pt: string | null, locale: string): string | undefined {
   if (!country) return undefined;
