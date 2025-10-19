@@ -101,7 +101,6 @@ def athlete_edit():
     photo_url = None
     photo_error = None
     s3_client = get_s3_client()
-    driver = init_chrome_driver()
     if athlete_id:
         athlete = Athlete.query.get(uuid.UUID(athlete_id))
         if athlete and athlete.instagram_profile:
@@ -113,7 +112,7 @@ def athlete_edit():
             else:
                 photo_error = "Profile photo not saved yet."
 
-    def update_photo():
+    def update_photo(s3_client, driver, athlete):
         try:
             save_instagram_profile_photo_to_s3(s3_client, driver, athlete)
             return get_public_photo_url(s3_client, athlete.id), None
@@ -121,9 +120,10 @@ def athlete_edit():
             return None, f"Error updating photo: {e}"
 
     if request.method == "POST" and athlete:
+        driver = init_chrome_driver()
         instagram_profile = request.form.get("instagram_profile", "")
         if "update_photo" in request.form:
-            photo_url, photo_error = update_photo()
+            photo_url, photo_error = update_photo(s3_client, driver, athlete)
         else:
             # Sanitize input: remove URL and @
             instagram_profile = instagram_profile.strip()
@@ -140,7 +140,7 @@ def athlete_edit():
                 athlete.instagram_profile != old_instagram_profile
                 or not athlete.profile_image_saved_at
             ):
-                photo_url, photo_error = update_photo()
+                photo_url, photo_error = update_photo(s3_client, driver, athlete)
 
             country = request.form.get("country", "").strip().lower()
             athlete.country = country[:2]
