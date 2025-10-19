@@ -10,6 +10,7 @@ from models import Athlete
 from normalize import normalize
 from photos import (
     get_s3_client,
+    init_chrome_driver,
     get_public_photo_url,
     save_instagram_profile_photo_to_s3,
 )
@@ -100,6 +101,7 @@ def athlete_edit():
     photo_url = None
     photo_error = None
     s3_client = get_s3_client()
+    driver = init_chrome_driver()
     if athlete_id:
         athlete = Athlete.query.get(uuid.UUID(athlete_id))
         if athlete and athlete.instagram_profile:
@@ -113,7 +115,7 @@ def athlete_edit():
 
     def update_photo():
         try:
-            save_instagram_profile_photo_to_s3(s3_client, athlete)
+            save_instagram_profile_photo_to_s3(s3_client, driver, athlete)
             return get_public_photo_url(s3_client, athlete.id), None
         except Exception as e:
             return None, f"Error updating photo: {e}"

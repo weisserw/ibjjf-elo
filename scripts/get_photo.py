@@ -7,7 +7,7 @@ from uuid import UUID
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 
 import argparse
-from photos import save_instagram_profile_photo_to_s3, get_s3_client
+from photos import save_instagram_profile_photo_to_s3, get_s3_client, init_chrome_driver
 from app import db, app
 from models import Athlete
 
@@ -37,7 +37,8 @@ if __name__ == "__main__":
 
         try:
             s3_client = get_s3_client()
-            save_instagram_profile_photo_to_s3(s3_client, athlete)
+            driver = init_chrome_driver()
+            save_instagram_profile_photo_to_s3(s3_client, driver, athlete)
 
             db.session.commit()
         except Exception as e:

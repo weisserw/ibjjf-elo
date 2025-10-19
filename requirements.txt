@@ -63,3 +63,4 @@ uritemplate==4.1.1
 urllib3==2.2.3
 Werkzeug==3.1.3
 wheel==0.45.1
+selenium
