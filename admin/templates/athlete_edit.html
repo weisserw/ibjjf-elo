@@ -11,9 +11,11 @@
             {% if photo_url or photo_error %}
             <div class="field has-text-centered">
               <label class="label">Profile Photo</label>
+              {% if photo_url %}
               <figure class="image is-128x128 is-inline-block">
                 <img src="{{ photo_url }}" alt="Profile Photo" style="border-radius: 50%; border: 1px solid #ccc;">
               </figure>
+              {% endif %}
               {% if photo_error %}
               <p class="has-text-danger mt-2">{{ photo_error }}</p>
               {% endif %}
