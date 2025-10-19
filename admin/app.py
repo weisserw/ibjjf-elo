@@ -113,7 +113,7 @@ def athlete_edit():
 
     def update_photo():
         try:
-            save_instagram_profile_photo_to_s3(s3_client, athlete, overwrite=True)
+            save_instagram_profile_photo_to_s3(s3_client, athlete)
             return get_public_photo_url(s3_client, athlete.id), None
         except Exception as e:
             return None, f"Error updating photo: {e}"
