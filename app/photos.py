@@ -6,9 +6,6 @@ from bs4 import BeautifulSoup
 import logging
 from datetime import datetime, timezone
 from models import Athlete
-import undetected_chromedriver as uc
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 
 log = logging.getLogger("ibjjf")
 
@@ -29,43 +26,23 @@ if os.getenv("DATABASE_URL") is None:
     photo_key = "photos-dev"
 
 
-def init_chrome_driver():
-    chrome_options = uc.ChromeOptions()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument(
-        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-    )
-
-    driver = uc.Chrome(options=chrome_options)
-
-    return driver
-
-
-def get_instagram_profile_photo_url(instagram_username, driver):
+def get_instagram_profile_photo_url(instagram_username):
     url = f"https://www.instagram.com/{instagram_username}/"
-    driver.get(url)
-    try:
-        # Wait up to 10 seconds for the meta tag to appear
-        WebDriverWait(driver, 10).until(
-            lambda d: d.find_element(By.XPATH, '//meta[@property="og:image"]')
-        )
-    except Exception:
-        raise Exception(f"Profile photo not found at {url}")
-    soup = BeautifulSoup(driver.page_source, "html.parser")
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise Exception("Failed to fetch Instagram profile page")
+    soup = BeautifulSoup(response.text, "html.parser")
     meta_tag = soup.find("meta", property="og:image")
     if meta_tag:
         return meta_tag["content"]
     raise Exception(f"Profile photo not found at {url}")
 
 
-def save_instagram_profile_photo_to_s3(s3_client, driver, athlete: Athlete):
+def save_instagram_profile_photo_to_s3(s3_client, athlete: Athlete):
     photo_path = f"{photo_key}/{athlete.id}.jpg"
 
-    photo_url = get_instagram_profile_photo_url(athlete.instagram_profile, driver)
+    photo_url = get_instagram_profile_photo_url(athlete.instagram_profile)
 
     response = requests.get(photo_url)
     if response.status_code != 200:

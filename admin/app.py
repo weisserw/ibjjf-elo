@@ -10,7 +10,6 @@ from models import Athlete
 from normalize import normalize
 from photos import (
     get_s3_client,
-    init_chrome_driver,
     get_public_photo_url,
     save_instagram_profile_photo_to_s3,
 )
@@ -112,18 +111,17 @@ def athlete_edit():
             else:
                 photo_error = "Profile photo not saved yet."
 
-    def update_photo(s3_client, driver, athlete):
+    def update_photo():
         try:
-            save_instagram_profile_photo_to_s3(s3_client, driver, athlete)
+            save_instagram_profile_photo_to_s3(s3_client, athlete, overwrite=True)
             return get_public_photo_url(s3_client, athlete.id), None
         except Exception as e:
             return None, f"Error updating photo: {e}"
 
     if request.method == "POST" and athlete:
-        driver = init_chrome_driver()
         instagram_profile = request.form.get("instagram_profile", "")
         if "update_photo" in request.form:
-            photo_url, photo_error = update_photo(s3_client, driver, athlete)
+            photo_url, photo_error = update_photo()
         else:
             # Sanitize input: remove URL and @
             instagram_profile = instagram_profile.strip()
@@ -140,7 +138,7 @@ def athlete_edit():
                 athlete.instagram_profile != old_instagram_profile
                 or not athlete.profile_image_saved_at
             ):
-                photo_url, photo_error = update_photo(s3_client, driver, athlete)
+                photo_url, photo_error = update_photo()
 
             country = request.form.get("country", "").strip().lower()
             athlete.country = country[:2]
