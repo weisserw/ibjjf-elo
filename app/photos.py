@@ -32,6 +32,7 @@ def get_instagram_profile_photo_url(instagram_username):
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
         raise Exception("Failed to fetch Instagram profile page")
+    print(response.text)
     soup = BeautifulSoup(response.text, "html.parser")
     meta_tag = soup.find("meta", property="og:image")
     if meta_tag:
