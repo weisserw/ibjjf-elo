@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 
 import argparse
 import csv
 import traceback
-import sys
-import os
 import gspread
 import json
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
-import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+from photos import get_s3_client, bucket_name
 
 # Google API setup
 SCOPES = [
@@ -33,17 +35,7 @@ def get_folder_id(drive_service, folder_name):
     return items[0]["id"]
 
 
-def get_s3_client():
-    aws_creds = json.loads(os.getenv("AWS_CREDS"))
-    return boto3.client(
-        "s3",
-        aws_access_key_id=aws_creds["aws_access_key_id"],
-        aws_secret_access_key=aws_creds["aws_secret_access_key"],
-        region_name=aws_creds.get("region"),
-    )
-
-
-def upload_to_s3(s3_client, file_path, bucket_name, prefix):
+def upload_to_s3(s3_client, file_path, prefix):
     try:
         s3_client.upload_file(
             file_path, bucket_name, f"{prefix}/{os.path.basename(file_path)}"
@@ -111,15 +103,12 @@ def main():
         args = parser.parse_args()
 
         s3_client = get_s3_client()
-        bucket_name = os.getenv("S3_BUCKET")
-        if not bucket_name:
-            raise ValueError("S3_BUCKET environment variable not set")
 
         prefix = "ibjjf_historical_data" if args.historical else "ibjjf_csv_files"
 
         for csv_file_path in args.csv_files:
             try:
-                upload_to_s3(s3_client, csv_file_path, bucket_name, prefix)
+                upload_to_s3(s3_client, csv_file_path, prefix)
             except Exception as e:
                 print(f"Failed to upload {csv_file_path}: {e}")
 

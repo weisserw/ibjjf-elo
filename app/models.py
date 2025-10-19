@@ -13,7 +13,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from extensions import db
 
 
@@ -78,6 +78,7 @@ class Athlete(db.Model):
     country = Column(String, nullable=True)
     country_note = Column(String, nullable=True)
     country_note_pt = Column(String, nullable=True)
+    profile_image_saved_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
     __table_args__ = (
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),

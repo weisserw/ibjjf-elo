@@ -8,6 +8,22 @@
         {% if athlete %}
           <h1 class="title is-4 has-text-centered">{{ athlete.name }}</h1>
           <form method="post" class="mt-4">
+            {% if photo_url or photo_error %}
+            <div class="field has-text-centered">
+              <label class="label">Profile Photo</label>
+              <figure class="image is-128x128 is-inline-block">
+                <img src="{{ photo_url }}" alt="Profile Photo" style="border-radius: 50%; border: 1px solid #ccc;">
+              </figure>
+              {% if photo_error %}
+              <p class="has-text-danger mt-2">{{ photo_error }}</p>
+              {% endif %}
+            </div>
+            <div class="field is-grouped is-grouped-centered mb-4">
+              <div class="control">
+                <button class="button is-info" type="submit" name="update_photo" value="1">Get Current IG Photo</button>
+              </div>
+            </div>
+            {% endif %}
             <div class="field">
               <label class="label">Instagram Profile</label>
               <div class="control">

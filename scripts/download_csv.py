@@ -6,25 +6,14 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 
 import argparse
 import re
-import json
 import gzip
-import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 from progress_bar import Bar
+from photos import get_s3_client, bucket_name
 import app  # initialize logging  # noqa
 
 
-def get_s3_client():
-    aws_creds = json.loads(os.getenv("AWS_CREDS"))
-    return boto3.client(
-        "s3",
-        aws_access_key_id=aws_creds["aws_access_key_id"],
-        aws_secret_access_key=aws_creds["aws_secret_access_key"],
-        region_name=aws_creds.get("region"),
-    )
-
-
-def get_latest_files(s3_client, bucket_name, prefix):
+def get_latest_files(s3_client, prefix):
     response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
     if "Contents" not in response:
         raise FileNotFoundError(
@@ -52,7 +41,7 @@ def get_latest_files(s3_client, bucket_name, prefix):
     return sorted(file_dict.values(), key=lambda x: x["timestamp"], reverse=True)
 
 
-def download_file(s3_client, bucket_name, key, file_name):
+def download_file(s3_client, key, file_name):
     file_path = os.path.join(os.getcwd(), file_name)
     try:
         s3_client.download_file(bucket_name, key, file_path)
@@ -88,12 +77,9 @@ def main():
         parser.error("Cannot use --recent with --historical")
 
     s3_client = get_s3_client()
-    bucket_name = os.getenv("S3_BUCKET")
-    if not bucket_name:
-        raise ValueError("S3_BUCKET environment variable not set")
 
     prefix = "ibjjf_historical_data/" if args.historical else "ibjjf_csv_files/"
-    files_to_download = get_latest_files(s3_client, bucket_name, prefix)
+    files_to_download = get_latest_files(s3_client, prefix)
 
     if args.recent:
         files_to_download = files_to_download[: args.recent]
@@ -107,7 +93,6 @@ def main():
         for file_info in files_to_download:
             download_file(
                 s3_client,
-                bucket_name,
                 file_info["key"],
                 os.path.basename(file_info["key"]),
             )

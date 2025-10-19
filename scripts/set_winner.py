@@ -4,8 +4,6 @@ import sys
 import os
 import uuid
 import csv
-import json
-import boto3
 import re
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
 
@@ -16,19 +14,10 @@ from app import db, app
 from models import Match, MatchParticipant, Athlete
 from ratings import recompute_all_ratings
 from elo import WINNER_NOT_RECORDED
+from photos import get_s3_client, bucket_name
 
 
-def get_s3_client():
-    aws_creds = json.loads(os.getenv("AWS_CREDS"))
-    return boto3.client(
-        "s3",
-        aws_access_key_id=aws_creds["aws_access_key_id"],
-        aws_secret_access_key=aws_creds["aws_secret_access_key"],
-        region_name=aws_creds.get("region"),
-    )
-
-
-def download_updated_matches_file(s3_client, bucket_name, file_name):
+def download_updated_matches_file(s3_client, file_name):
     file_path = os.path.join(os.getcwd(), file_name)
     try:
         s3_client.download_file(bucket_name, file_name, file_path)
@@ -47,7 +36,7 @@ def download_updated_matches_file(s3_client, bucket_name, file_name):
     return file_path
 
 
-def upload_updated_matches_file(s3_client, file_path, bucket_name, file_name):
+def upload_updated_matches_file(s3_client, file_path, file_name):
     try:
         s3_client.upload_file(file_path, bucket_name, file_name)
         print(f"{file_path}: File uploaded to S3.")
@@ -84,14 +73,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     s3_client = get_s3_client()
-    bucket_name = os.getenv("S3_BUCKET")
-    if not bucket_name:
-        raise ValueError("S3_BUCKET environment variable not set")
 
     updated_matches_file = "updated_matches.csv"
-    file_path = download_updated_matches_file(
-        s3_client, bucket_name, updated_matches_file
-    )
+    file_path = download_updated_matches_file(s3_client, updated_matches_file)
 
     with app.app_context():
         match = db.session.query(Match).filter_by(id=match_uuid).first()
@@ -184,9 +168,7 @@ if __name__ == "__main__":
                 ]
             )
 
-        upload_updated_matches_file(
-            s3_client, file_path, bucket_name, updated_matches_file
-        )
+        upload_updated_matches_file(s3_client, file_path, updated_matches_file)
 
         db.session.commit()
 

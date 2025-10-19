@@ -4,8 +4,6 @@ import sys
 import os
 import uuid
 import csv
-import json
-import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 from datetime import datetime
 
@@ -15,19 +13,10 @@ import argparse
 from app import db, app
 from models import Match, MatchParticipant, Medal
 from ratings import recompute_all_ratings
+from photos import get_s3_client, bucket_name
 
 
-def get_s3_client():
-    aws_creds = json.loads(os.getenv("AWS_CREDS"))
-    return boto3.client(
-        "s3",
-        aws_access_key_id=aws_creds["aws_access_key_id"],
-        aws_secret_access_key=aws_creds["aws_secret_access_key"],
-        region_name=aws_creds.get("region"),
-    )
-
-
-def upload_created_matches_file(s3_client, file_path, bucket_name, file_name):
+def upload_created_matches_file(s3_client, file_path, file_name):
     try:
         s3_client.upload_file(file_path, bucket_name, file_name)
         print(f"{file_path}: File uploaded to S3.")
@@ -162,9 +151,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     s3_client = get_s3_client()
-    bucket_name = os.getenv("S3_BUCKET")
-    if not bucket_name:
-        raise ValueError("S3_BUCKET environment variable not set")
 
     created_matches_file = "created_matches.csv"
     file_path = os.path.join(os.getcwd(), created_matches_file)
@@ -281,9 +267,7 @@ if __name__ == "__main__":
             )
 
         if not args.no_upload:
-            upload_created_matches_file(
-                s3_client, file_path, bucket_name, created_matches_file
-            )
+            upload_created_matches_file(s3_client, file_path, created_matches_file)
 
         db.session.commit()
 

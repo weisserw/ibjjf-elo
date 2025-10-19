@@ -8,6 +8,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../a
 from extensions import db
 from models import Athlete
 from normalize import normalize
+from photos import (
+    get_s3_client,
+    get_public_photo_url,
+    save_instagram_profile_photo_to_s3,
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "default_secret")
@@ -92,31 +97,67 @@ def athlete_edit():
     athlete_id = request.args.get("id")
     athlete = None
     message = None
+    photo_url = None
+    photo_error = None
+    s3_client = get_s3_client()
     if athlete_id:
         athlete = Athlete.query.get(uuid.UUID(athlete_id))
+        if athlete and athlete.instagram_profile:
+            if athlete.profile_image_saved_at:
+                try:
+                    photo_url = get_public_photo_url(s3_client, athlete.id)
+                except Exception as e:
+                    photo_error = f"Could not fetch profile photo: {e}"
+            else:
+                photo_error = "Profile photo not saved yet."
+
+    def update_photo():
+        try:
+            save_instagram_profile_photo_to_s3(s3_client, athlete, overwrite=True)
+            return get_public_photo_url(s3_client, athlete.id), None
+        except Exception as e:
+            return None, f"Error updating photo: {e}"
+
     if request.method == "POST" and athlete:
         instagram_profile = request.form.get("instagram_profile", "")
-        # Sanitize input: remove URL and @
-        instagram_profile = instagram_profile.strip()
-        if instagram_profile.startswith("https://www.instagram.com/"):
-            instagram_profile = instagram_profile[len("https://www.instagram.com/") :]
-            instagram_profile = instagram_profile.rstrip("/")
-        if instagram_profile.startswith("@"):
-            instagram_profile = instagram_profile[1:]
-        athlete.instagram_profile = instagram_profile
+        if "update_photo" in request.form:
+            photo_url, photo_error = update_photo()
+        else:
+            # Sanitize input: remove URL and @
+            instagram_profile = instagram_profile.strip()
+            if instagram_profile.startswith("https://www.instagram.com/"):
+                instagram_profile = instagram_profile[
+                    len("https://www.instagram.com/") :
+                ]
+                instagram_profile = instagram_profile.rstrip("/")
+            if instagram_profile.startswith("@"):
+                instagram_profile = instagram_profile[1:]
+            old_instagram_profile = athlete.instagram_profile
+            athlete.instagram_profile = instagram_profile
+            if athlete.instagram_profile and (
+                athlete.instagram_profile != old_instagram_profile
+                or not athlete.profile_image_saved_at
+            ):
+                photo_url, photo_error = update_photo()
 
-        country = request.form.get("country", "").strip().lower()
-        athlete.country = country[:2]
+            country = request.form.get("country", "").strip().lower()
+            athlete.country = country[:2]
 
-        country_note = request.form.get("country_note", "").strip()
-        athlete.country_note = country_note if country_note else None
+            country_note = request.form.get("country_note", "").strip()
+            athlete.country_note = country_note if country_note else None
 
-        country_note_pt = request.form.get("country_note_pt", "").strip()
-        athlete.country_note_pt = country_note_pt if country_note_pt else None
+            country_note_pt = request.form.get("country_note_pt", "").strip()
+            athlete.country_note_pt = country_note_pt if country_note_pt else None
 
-        db.session.commit()
-        message = "Athlete info updated."
-    return render_template("athlete_edit.html", athlete=athlete, message=message)
+            db.session.commit()
+            message = "Athlete info updated."
+    return render_template(
+        "athlete_edit.html",
+        athlete=athlete,
+        message=message,
+        photo_url=photo_url,
+        photo_error=photo_error,
+    )
 
 
 application = app
