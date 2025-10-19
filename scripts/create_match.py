@@ -11,7 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 
 import argparse
 from app import db, app
-from models import Match, MatchParticipant, Medal
+from models import Match, MatchParticipant, Medal, Division
 from ratings import recompute_all_ratings
 from photos import get_s3_client, bucket_name
 
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         # Find division by gi, gender, belt, age, weight
         with app.app_context():
             division = (
-                db.session.query(type("Division", (db.Model,), {}))
+                db.session.query(Division)
                 .filter_by(
                     gi=gi_bool,
                     gender=args.gender,
