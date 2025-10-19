@@ -6,9 +6,11 @@ from bs4 import BeautifulSoup
 import logging
 from datetime import datetime, timezone
 from models import Athlete
+import chromedriver_autoinstaller
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -32,6 +34,10 @@ if os.getenv("DATABASE_URL") is None:
 
 
 def init_chrome_driver():
+    driver_dir = os.path.join(os.path.dirname(__file__), ".chromedriver")
+    os.makedirs(driver_dir, exist_ok=True)
+    driver_path = chromedriver_autoinstaller.install(path=driver_dir)
+
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-gpu")
@@ -42,14 +48,9 @@ def init_chrome_driver():
         "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     )
 
-    driver_path = os.getenv("CHROMEDRIVER_PATH")
-    if driver_path:
-        service = Service(driver_path)
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-    else:
-        driver = webdriver.Chrome(options=chrome_options)
-
+    service = Service(driver_path)
     driver = webdriver.Chrome(service=service, options=chrome_options)
+
     return driver
 
 
