@@ -8,7 +8,6 @@ import { noMatchStrings, immatureClass, getCountryName } from '../utils';
 import { Tooltip } from 'react-tooltip';
 import { t, translateMultiSpace } from '../translate';
 import igLogo from '/src/assets/instagram.png';
-import igLogoColor from '/src/assets/instagram-color.png';
 import "/node_modules/flag-icons/css/flag-icons.min.css";
 
 import "./BracketTree.css";
@@ -26,8 +25,6 @@ interface BracketTreeMatchProps {
 function BracketTreeMatch(props: BracketTreeMatchProps) {
   const { match, levelIndex, matchIndex } = props;
   const { language } = useAppContext();
-
-  const [uniqueId] = useState(() => Math.random().toString(36).substring(2, 9));
 
   const tooltip = (numMatches: number | null) => {
     const immature = immatureClass(numMatches);
