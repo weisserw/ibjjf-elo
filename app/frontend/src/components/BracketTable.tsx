@@ -239,6 +239,8 @@ function BracketTable(props: BracketTableProps) {
                       <div className="name-container">
                         <a href="#" onClick={e => athleteClicked(e, competitor.name)}>{competitor.name}</a>
                         <NameInfo instagram_profile={competitor.instagram_profile}
+                                  instagram_profile_personal_name={competitor.instagram_profile_personal_name}
+                                  profile_image_url={competitor.profile_image_url}
                                   country={competitor.country} country_note={competitor.country_note} country_note_pt={competitor.country_note_pt}
                                   medal={competitor.medal} />
                       </div>
@@ -248,7 +250,7 @@ function BracketTable(props: BracketTableProps) {
                         <span>
                           {competitor.name}
                         </span>
-                        <NameInfo instagram_profile={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} />
+                        <NameInfo instagram_profile={null} instagram_profile_personal_name={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} />
                       </div>
                     </td>
                 }

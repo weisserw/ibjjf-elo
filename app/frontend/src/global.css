@@ -91,6 +91,40 @@ body {
   overflow-x: hidden !important;
 }
 
+.tooltip-ig {
+  height: 142px !important;
+  z-index: 1000 !important;
+  background-color: white !important;
+  opacity: 1 !important;
+  padding: 8px !important;
+  border: solid 1px #ccc !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
 .tooltip-wide a:hover {
   color: #fff;
+}
+
+.ig-tooltip-content a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ig-tooltip-photo {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+}
+
+.ig-tooltip-instagram-logo {
+  width: 12px;
+  height: 12px;
+}
+
+.ig-tooltip-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }

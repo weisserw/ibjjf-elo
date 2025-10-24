@@ -79,6 +79,7 @@ class Athlete(db.Model):
     country_note = Column(String, nullable=True)
     country_note_pt = Column(String, nullable=True)
     profile_image_saved_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    instagram_profile_personal_name = Column(String, nullable=True)
 
     __table_args__ = (
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),

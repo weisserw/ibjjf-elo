@@ -30,6 +30,8 @@ interface Row {
   previous_rank: number | null
   name: string
   instagram_profile: string | null
+  instagram_profile_personal_name: string | null
+  profile_image_url: string | null
   country: string | null
   country_note: string | null
   country_note_pt: string | null
@@ -347,6 +349,8 @@ function EloTable() {
                             {row.name}
                           </a>
                           <NameInfo instagram_profile={row.instagram_profile}
+                                    instagram_profile_personal_name={row.instagram_profile_personal_name}
+                                    profile_image_url={row.profile_image_url}
                                     country={row.country}
                                     country_note={row.country_note}
                                     country_note_pt={row.country_note_pt} />

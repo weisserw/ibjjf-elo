@@ -56,6 +56,7 @@ from elo import (
     compute_k_factor,
     CLOSEOUT_NOTE,
 )
+from photos import get_s3_client, get_public_photo_url
 
 log = logging.getLogger("ibjjf")
 
@@ -173,6 +174,7 @@ def get_ratings(
     rating_date,
     get_rank,
     use_live_ratings,
+    s3_client,
 ):
     athlete_results = (
         db.session.query(
@@ -181,6 +183,8 @@ def get_ratings(
             Athlete.normalized_name,
             Athlete.name,
             Athlete.instagram_profile,
+            Athlete.instagram_profile_personal_name,
+            Athlete.profile_image_saved_at,
             Athlete.country,
             Athlete.country_note,
             Athlete.country_note_pt,
@@ -211,21 +215,34 @@ def get_ratings(
 
     for result in results:
         if result["ibjjf_id"] is not None and result["ibjjf_id"] in athletes_by_id:
-            result["id"] = athletes_by_id[result["ibjjf_id"]].id
-            result["name"] = athletes_by_id[result["ibjjf_id"]].name
-            result["instagram_profile"] = athletes_by_id[
-                result["ibjjf_id"]
-            ].instagram_profile
-            result["country"] = athletes_by_id[result["ibjjf_id"]].country
-            result["country_note"] = athletes_by_id[result["ibjjf_id"]].country_note
-            result["country_note_pt"] = athletes_by_id[
-                result["ibjjf_id"]
-            ].country_note_pt
+            athlete = athletes_by_id[result["ibjjf_id"]]
+            result["id"] = athlete.id
+            result["name"] = athlete.name
+            result["instagram_profile"] = athlete.instagram_profile
+            result["instagram_profile_personal_name"] = (
+                athlete.instagram_profile_personal_name
+            )
+            result["profile_image_url"] = (
+                get_public_photo_url(s3_client, athlete)
+                if athlete.profile_image_saved_at
+                else None
+            )
+            result["country"] = athlete.country
+            result["country_note"] = athlete.country_note
+            result["country_note_pt"] = athlete.country_note_pt
         elif normalize(result["name"]) in athletes_by_name:
             athlete = athletes_by_name[normalize(result["name"])]
             if result["ibjjf_id"] is None or athlete.ibjjf_id is None:
                 result["id"] = athlete.id
             result["instagram_profile"] = athlete.instagram_profile
+            result["instagram_profile_personal_name"] = (
+                athlete.instagram_profile_personal_name
+            )
+            result["profile_image_url"] = (
+                get_public_photo_url(s3_client, athlete)
+                if athlete.profile_image_saved_at
+                else None
+            )
             result["country"] = athlete.country
             result["country_note"] = athlete.country_note
             result["country_note_pt"] = athlete.country_note_pt
@@ -850,6 +867,8 @@ def registration_competitors():
 
     gi = gi.lower() == "true"
 
+    s3_client = get_s3_client()
+
     m = validibjjfdblink.search(link)
     if not m:
         return (
@@ -912,6 +931,8 @@ def registration_competitors():
                         "note": None,
                         "last_weight": None,
                         "instagram_profile": None,
+                        "instagram_profile_personal_name": None,
+                        "profile_image_url": None,
                         "country": None,
                         "country_note": None,
                         "country_note_pt": None,
@@ -929,6 +950,7 @@ def registration_competitors():
         datetime.now() + timedelta(days=1),
         True,
         False,
+        s3_client,
     )
 
     return jsonify({"competitors": rows})
@@ -955,6 +977,8 @@ def compute_match_ratings(matches, results, belt, weight, age):
         red_end_rating = None
         red_match_count = None
         red_instagram_profile = None
+        red_instagram_profile_personal_name = None
+        red_profile_image_url = None
         red_country = None
         red_country_note = None
         red_country_note_pt = None
@@ -971,6 +995,10 @@ def compute_match_ratings(matches, results, belt, weight, age):
             red_match_count = athlete_match_counts[red_id]
             red_name = athlete_results[red_id]["name"]
             red_instagram_profile = athlete_results[red_id]["instagram_profile"]
+            red_instagram_profile_personal_name = athlete_results[red_id][
+                "instagram_profile_personal_name"
+            ]
+            red_profile_image_url = athlete_results[red_id]["profile_image_url"]
             red_country = athlete_results[red_id]["country"]
             red_country_note = athlete_results[red_id]["country_note"]
             red_country_note_pt = athlete_results[red_id]["country_note_pt"]
@@ -983,6 +1011,8 @@ def compute_match_ratings(matches, results, belt, weight, age):
         blue_end_rating = None
         blue_match_count = None
         blue_instagram_profile = None
+        blue_instagram_profile_personal_name = None
+        blue_profile_image_url = None
         blue_country = None
         blue_country_note = None
         blue_country_note_pt = None
@@ -999,6 +1029,10 @@ def compute_match_ratings(matches, results, belt, weight, age):
             blue_match_count = athlete_match_counts[blue_id]
             blue_name = athlete_results[blue_id]["name"]
             blue_instagram_profile = athlete_results[blue_id]["instagram_profile"]
+            blue_instagram_profile_personal_name = athlete_results[blue_id][
+                "instagram_profile_personal_name"
+            ]
+            blue_profile_image_url = athlete_results[blue_id]["profile_image_url"]
             blue_country = athlete_results[blue_id]["country"]
             blue_country_note = athlete_results[blue_id]["country_note"]
             blue_country_note_pt = athlete_results[blue_id]["country_note_pt"]
@@ -1069,6 +1103,10 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["red_weight"] = red_weight
         match["red_end_rating"] = red_end_rating
         match["red_instagram_profile"] = red_instagram_profile
+        match["red_instagram_profile_personal_name"] = (
+            red_instagram_profile_personal_name
+        )
+        match["red_profile_image_url"] = red_profile_image_url
         match["red_country"] = red_country
         match["red_country_note"] = red_country_note
         match["red_country_note_pt"] = red_country_note_pt
@@ -1083,6 +1121,10 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["blue_end_rating"] = blue_end_rating
         match["blue_match_count"] = blue_match_count
         match["blue_instagram_profile"] = blue_instagram_profile
+        match["blue_instagram_profile_personal_name"] = (
+            blue_instagram_profile_personal_name
+        )
+        match["blue_profile_image_url"] = blue_profile_image_url
         match["blue_country"] = blue_country
         match["blue_country_note"] = blue_country_note
         match["blue_country_note_pt"] = blue_country_note_pt
@@ -1215,6 +1257,8 @@ def parse_match(match, weight):
         "red_medal": None,
         "red_match_count": None,
         "red_instagram_profile": None,
+        "red_instagram_profile_personal_name": None,
+        "red_profile_image_url": None,
         "red_country": None,
         "red_country_note": None,
         "red_country_note_pt": None,
@@ -1235,6 +1279,8 @@ def parse_match(match, weight):
         "blue_medal": None,
         "blue_match_count": None,
         "blue_instagram_profile": None,
+        "blue_instagram_profile_personal_name": None,
+        "blue_profile_image_url": None,
         "blue_country": None,
         "blue_country_note": None,
         "blue_country_note_pt": None,
@@ -1346,6 +1392,8 @@ def competitors():
         return jsonify({"error": "Invalid link"}), 400
     event_id = validlinkmatch.group(1)
 
+    s3_client = get_s3_client()
+
     try:
         soup = BeautifulSoup(
             get_bracket_page(
@@ -1409,6 +1457,8 @@ def competitors():
                         "next_where": None,
                         "next_when": None,
                         "instagram_profile": None,
+                        "instagram_profile_personal_name": None,
+                        "profile_image_url": None,
                         "country": None,
                         "country_note": None,
                         "country_note_pt": None,
@@ -1449,6 +1499,7 @@ def competitors():
         earliest_match_date,
         False,
         True,
+        s3_client,
     )
 
     compute_match_ratings(parsed_matches, results, belt, weight, age)
@@ -1747,6 +1798,8 @@ def archive_competitors():
 
     use_seeds = "idade 04 a 15 anos" in event_name or "(" not in event_name
 
+    s3_client = get_s3_client()
+
     competitors = []
     parsed_matches = []
     for match in matches:
@@ -1798,6 +1851,12 @@ def archive_competitors():
                 "red_medal": None,
                 "red_match_count": red.start_match_count,
                 "red_instagram_profile": red.athlete.instagram_profile,
+                "red_instagram_profile_personal_name": red.athlete.instagram_profile_personal_name,
+                "red_profile_image_url": (
+                    get_public_photo_url(s3_client, red.athlete)
+                    if red.athlete.profile_image_saved_at
+                    else None
+                ),
                 "red_country": red.athlete.country,
                 "red_country_note": red.athlete.country_note,
                 "red_country_note_pt": red.athlete.country_note_pt,
@@ -1818,6 +1877,12 @@ def archive_competitors():
                 "blue_medal": None,
                 "blue_match_count": blue.start_match_count,
                 "blue_instagram_profile": blue.athlete.instagram_profile,
+                "blue_instagram_profile_personal_name": blue.athlete.instagram_profile_personal_name,
+                "blue_profile_image_url": (
+                    get_public_photo_url(s3_client, blue.athlete)
+                    if blue.athlete.profile_image_saved_at
+                    else None
+                ),
                 "blue_country": blue.athlete.country,
                 "blue_country_note": blue.athlete.country_note,
                 "blue_country_note_pt": blue.athlete.country_note_pt,
@@ -1847,6 +1912,10 @@ def archive_competitors():
                     "name": match["red_name"],
                     "team": match["red_team"],
                     "instagram_profile": match["red_instagram_profile"],
+                    "instagram_profile_personal_name": match[
+                        "red_instagram_profile_personal_name"
+                    ],
+                    "profile_image_url": match["red_profile_image_url"],
                     "country": match["red_country"],
                     "country_note": match["red_country_note"],
                     "country_note_pt": match["red_country_note_pt"],
@@ -1877,6 +1946,10 @@ def archive_competitors():
                     "name": match["blue_name"],
                     "team": match["blue_team"],
                     "instagram_profile": match["blue_instagram_profile"],
+                    "instagram_profile_personal_name": match[
+                        "blue_instagram_profile_personal_name"
+                    ],
+                    "profile_image_url": match["blue_profile_image_url"],
                     "country": match["blue_country"],
                     "country_note": match["blue_country_note"],
                     "country_note_pt": match["blue_country_note_pt"],

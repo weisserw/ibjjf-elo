@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import igLogo from '/src/assets/instagram.png';
+import igLogoColor from '/src/assets/instagram-color.png';
 import { getCountryName } from '../utils';
 import { useAppContext } from '../AppContext';
 import { Tooltip } from 'react-tooltip';
@@ -9,6 +10,8 @@ import "./NameInfo.css";
 
 interface NameInfoProps {
   instagram_profile: string | null;
+  instagram_profile_personal_name: string | null;
+  profile_image_url: string | null;
   country: string | null;
   country_note: string | null;
   country_note_pt: string | null;
@@ -31,7 +34,7 @@ const competitorMedal = (medal: string | null | undefined) => {
   }
 }
 
-function NameInfo({ instagram_profile, country, country_note, country_note_pt, medal, tree }: NameInfoProps) {
+function NameInfo({ instagram_profile, instagram_profile_personal_name, profile_image_url, country, country_note, country_note_pt, medal, tree }: NameInfoProps) {
   const [uniqueId] = useState(() => Math.random().toString(36).substring(2, 9));
 
   const {
@@ -44,11 +47,21 @@ function NameInfo({ instagram_profile, country, country_note, country_note_pt, m
   return (
     <div className="name-subinfo">
       <Tooltip id={uniqueId} className="tooltip-normal" />
+      <Tooltip id={`${uniqueId}-ig`} className="tooltip-ig" clickable place="top">
+        <div className="ig-tooltip-content">
+          <a href={`https://www.instagram.com/${instagram_profile}`} target="_blank" rel="noopener noreferrer" className="ig-tooltip-username">
+            <img src={profile_image_url ?? ''} alt={`@${instagram_profile}`} className="ig-tooltip-photo" />
+            <div className="ig-tooltip-name">
+              {instagram_profile_personal_name ?? `@${instagram_profile}`} <img src={igLogoColor} alt="Instagram" className="ig-tooltip-instagram-logo" />
+            </div>
+          </a>
+        </div>
+      </Tooltip>
       {country && (
         <span className={`fi fi-${country.trim().toLowerCase().substring(0, 2)} country-flag`} data-tooltip-place="top" data-tooltip-id={uniqueId} data-tooltip-content={getCountryName(country, country_note, country_note_pt, language)} />
       )}
       {instagram_profile && (
-        <a className={tree ? "instagram-profile-tree" : "instagram-profile"} href={`https://www.instagram.com/${instagram_profile}`} target="_blank" rel="noopener noreferrer">
+        <a className={tree ? "instagram-profile-tree" : "instagram-profile"} href={`https://www.instagram.com/${instagram_profile}`} target="_blank" rel="noopener noreferrer" data-tooltip-id={profile_image_url ? `${uniqueId}-ig` : undefined}>
           <img src={igLogo} alt="Instagram" title={`@${instagram_profile}`} />
         </a>
       )}

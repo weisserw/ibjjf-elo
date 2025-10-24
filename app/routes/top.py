@@ -10,6 +10,7 @@ from models import (
     RegistrationLink,
     Division,
 )
+from photos import get_public_photo_url, get_s3_client
 from normalize import normalize
 
 top_route = Blueprint("top_route", __name__)
@@ -43,10 +44,15 @@ def top():
     changed = changed and changed.lower() == "true"
     upcoming = upcoming and upcoming.lower() == "true"
 
+    s3_client = get_s3_client()
+
     query = (
         db.session.query(
+            Athlete.id,
             Athlete.name,
             Athlete.instagram_profile,
+            Athlete.instagram_profile_personal_name,
+            Athlete.profile_image_saved_at,
             Athlete.country,
             Athlete.country_note,
             Athlete.country_note_pt,
@@ -158,6 +164,12 @@ def top():
             "rank": result.rank,
             "name": result.name,
             "instagram_profile": result.instagram_profile,
+            "instagram_profile_personal_name": result.instagram_profile_personal_name,
+            "profile_image_url": (
+                get_public_photo_url(s3_client, result)
+                if result.profile_image_saved_at
+                else None
+            ),
             "country": result.country,
             "country_note": result.country_note,
             "country_note_pt": result.country_note_pt,

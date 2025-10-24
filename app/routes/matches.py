@@ -42,6 +42,7 @@ from constants import (
     OPEN_CLASS_HEAVY,
 )
 from models import Athlete, MatchParticipant, Division, Match, Event
+from photos import get_public_photo_url, get_s3_client
 from normalize import normalize
 from collections import defaultdict
 from time import time
@@ -365,8 +366,8 @@ def matches():
     sql = f"""
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
             mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating,
-            a.id as athlete_id, a.name, a.country, a.country_note, a.country_note_pt, a.instagram_profile, mp.note, m.rated,
-            mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location
+            a.id as athlete_id, a.name, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.instagram_profile_personal_name, a.profile_image_saved_at,
+            mp.note, m.rated, mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
         JOIN events e ON m.event_id = e.id
@@ -393,6 +394,8 @@ def matches():
         ),
         params,
     )
+
+    s3_client = get_s3_client()
 
     response = []
     current_match = None
@@ -437,6 +440,10 @@ def matches():
                     country_note=row["country_note"],
                     country_note_pt=row["country_note_pt"],
                     instagram_profile=row["instagram_profile"],
+                    instagram_profile_personal_name=row[
+                        "instagram_profile_personal_name"
+                    ],
+                    profile_image_saved_at=row["profile_image_saved_at"],
                 ),
                 note=row["note"],
                 weight_for_open=row["weight_for_open"],
@@ -473,6 +480,12 @@ def matches():
                     "winnerCountryNote": winner.athlete.country_note,
                     "winnerCountryNotePt": winner.athlete.country_note_pt,
                     "winnerInstagramProfile": winner.athlete.instagram_profile,
+                    "winnerInstagramProfilePersonalName": winner.athlete.instagram_profile_personal_name,
+                    "winnerProfileImageUrl": (
+                        get_public_photo_url(s3_client, winner.athlete)
+                        if winner.athlete.profile_image_saved_at
+                        else None
+                    ),
                     "loser": loser.athlete.name,
                     "loserId": loser.athlete.id,
                     "loserStartRating": round(loser.start_rating),
@@ -484,6 +497,12 @@ def matches():
                     "loserCountryNote": loser.athlete.country_note,
                     "loserCountryNotePt": loser.athlete.country_note_pt,
                     "loserInstagramProfile": loser.athlete.instagram_profile,
+                    "loserInstagramProfilePersonalName": loser.athlete.instagram_profile_personal_name,
+                    "loserProfileImageUrl": (
+                        get_public_photo_url(s3_client, loser.athlete)
+                        if loser.athlete.profile_image_saved_at
+                        else None
+                    ),
                     "event": current_match.event.name,
                     "age": current_match.division.age,
                     "gender": current_match.division.gender,
