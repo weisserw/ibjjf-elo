@@ -86,20 +86,9 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 <div className="bracket-tree-match-competitor-name-name">
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.red_note?.toLowerCase() === s)})}>
                     {match.red_name}
-                    <Tooltip id={`${uniqueId}-ig`} className="tooltip-ig" clickable place="top">
-                      <div className="ig-tooltip-content">
-                        <a href={`https://www.instagram.com/${match.red_instagram_profile}`} target="_blank" rel="noopener noreferrer" className="ig-tooltip-username">
-                          <img src={match.red_profile_image_url ?? ''} alt={`@${match.red_instagram_profile}`} className="ig-tooltip-photo" />
-                          <div className="ig-tooltip-name">
-                            {match.red_instagram_profile_personal_name ?? `@${match.red_instagram_profile}`}
-                            <img src={igLogoColor} alt="Instagram" className="ig-tooltip-instagram-logo" />
-                          </div>
-                        </a>
-                      </div>
-                    </Tooltip>
                     {match.red_instagram_profile && (
                       <span className="instagram-profile-tree">
-                        <a href={`https://www.instagram.com/${match.red_instagram_profile}`} target="_blank" rel="noopener noreferrer" data-tooltip-id={match.red_profile_image_url ? `${uniqueId}-ig` : undefined}>
+                        <a href={`https://www.instagram.com/${match.red_instagram_profile}`} target="_blank" rel="noopener noreferrer">
                           <img src={igLogo} alt="Instagram" title={`@${match.red_instagram_profile}`} />
                         </a>
                       </span>
@@ -158,20 +147,9 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
               <div className="bracket-tree-match-competitor-name-name">
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)})}>
                     {match.blue_name}
-                    <Tooltip id={`${uniqueId}-ig-2`} className="tooltip-ig" clickable place="top">
-                      <div className="ig-tooltip-content">
-                        <a href={`https://www.instagram.com/${match.blue_instagram_profile}`} target="_blank" rel="noopener noreferrer" className="ig-tooltip-username">
-                          <img src={match.blue_profile_image_url ?? ''} alt={`@${match.blue_instagram_profile}`} className="ig-tooltip-photo" />
-                          <div className="ig-tooltip-name">
-                            {match.blue_instagram_profile_personal_name ?? `@${match.blue_instagram_profile}`}
-                            <img src={igLogoColor} alt="Instagram" className="ig-tooltip-instagram-logo" />
-                          </div>
-                        </a>
-                      </div>
-                    </Tooltip>
                     {match.blue_instagram_profile && (
                       <span className="instagram-profile-tree">
-                        <a href={`https://www.instagram.com/${match.blue_instagram_profile}`} target="_blank" rel="noopener noreferrer" data-tooltip-id={match.blue_profile_image_url ? `${uniqueId}-ig-2` : undefined}>
+                        <a href={`https://www.instagram.com/${match.blue_instagram_profile}`} target="_blank" rel="noopener noreferrer">
                           <img src={igLogo} alt="Instagram" title={`@${match.blue_instagram_profile}`} />
                         </a>
                       </span>

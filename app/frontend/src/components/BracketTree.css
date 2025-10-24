@@ -30,7 +30,7 @@
   left: 0;
   right: 0;
   display: flex;
-  direction: row;
+  flex-direction: row;
   justify-content: right;
   align-items: center;
 }
