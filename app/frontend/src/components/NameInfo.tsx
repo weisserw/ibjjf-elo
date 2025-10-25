@@ -44,11 +44,6 @@ function NameInfo({ instagram_profile, instagram_profile_personal_name, profile_
   const {
     language,
   } = useAppContext();
-  
-  if (!instagram_profile && !country && !medal) {
-    return null;
-  }
-
 
   useEffect(() => {
     // clicking anywhere other than the tooltip should close it
@@ -75,6 +70,10 @@ function NameInfo({ instagram_profile, instagram_profile_personal_name, profile_
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+  
+  if (!instagram_profile && !country && !medal) {
+    return null;
+  }
 
   return (
     <div className="name-subinfo">
