@@ -357,11 +357,11 @@ def create_ratings_tables(
                     r.happened_at
                 FROM ratings r
                 JOIN {name}_promotion_belts pm ON pm.athlete_id = r.athlete_id
-                WHERE pm.belt_num > CASE WHEN r.belt = 'WHITE' THEN 1
+                WHERE pm.belt_num - CASE WHEN r.belt = 'WHITE' THEN 1
                                         WHEN r.belt = 'BLUE' THEN 2
                                         WHEN r.belt = 'PURPLE' THEN 3
                                         WHEN r.belt = 'BROWN' THEN 4
-                                        ELSE 5 END
+                                        ELSE 5 END = 1
             ),
             combined_ratings AS (
                 -- use promoted ratings where available, otherwise use regular ratings
