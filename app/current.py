@@ -15,7 +15,11 @@ from constants import (
     JUVENILE_2,
     rated_ages_in,
 )
-from elo import RATING_VERY_IMMATURE_COUNT
+from elo import (
+    RATING_VERY_IMMATURE_COUNT,
+    COLOR_PROMOTION_RATING_BUMP,
+    BLACK_PROMOTION_RATING_BUMP,
+)
 import logging
 
 log = logging.getLogger("ibjjf")
@@ -35,7 +39,7 @@ def create_ratings_tables(
             f"""
                 CREATE TEMPORARY TABLE {name}_athlete_belts AS
                 WITH
-                athlete_max_belts AS (
+                match_belts AS (
                     SELECT
                         MAX(CASE WHEN d.belt = 'WHITE' THEN 1
                                 WHEN d.belt = 'BLUE' THEN 2
@@ -56,7 +60,7 @@ def create_ratings_tables(
                             WHEN mb.belt_num = 3 THEN 'PURPLE'
                             WHEN mb.belt_num = 4 THEN 'BROWN'
                             ELSE 'BLACK' END AS belt, mb.athlete_id
-                FROM athlete_max_belts mb
+                FROM match_belts mb
             """
         ),
         {
@@ -69,6 +73,67 @@ def create_ratings_tables(
         )
     )
     session.execute(text(f"ANALYZE {name}_athlete_belts"))
+
+    session.execute(
+        text(
+            f"""
+            CREATE TEMPORARY TABLE {name}_promotion_belts AS
+            WITH manual_belt_promotions AS (
+                SELECT CASE WHEN belt = 'WHITE' THEN 1
+                            WHEN belt = 'BLUE' THEN 2
+                            WHEN belt = 'PURPLE' THEN 3
+                            WHEN belt = 'BROWN' THEN 4
+                            ELSE 5 END AS belt_num, athlete_id
+                FROM manual_promotions
+                WHERE {date_where.replace("m.happened_at", "promoted_at")}
+            ),
+            registration_belts AS (
+                SELECT CASE WHEN d.belt = 'WHITE' THEN 1
+                            WHEN d.belt = 'BLUE' THEN 2
+                            WHEN d.belt = 'PURPLE' THEN 3
+                            WHEN d.belt = 'BROWN' THEN 4
+                            ELSE 5 END AS belt_num, a.id AS athlete_id
+                FROM registration_link_competitors r
+                JOIN divisions d ON d.id = r.division_id
+                JOIN athletes a ON a.name = r.athlete_name
+                WHERE d.age IN ({rated_ages_in})
+                AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2)
+                AND {
+                    "false" if date_where != "true" else "true"
+                }
+            ),
+            combined_belts AS (
+                SELECT * FROM manual_belt_promotions
+                UNION ALL
+                SELECT * FROM registration_belts
+            ),
+            max_belts AS (
+                SELECT athlete_id, MAX(belt_num) AS belt_num
+                FROM combined_belts
+                GROUP BY athlete_id
+            )
+            SELECT CASE WHEN mb.belt_num = 1 THEN 'WHITE'
+                        WHEN mb.belt_num = 2 THEN 'BLUE'
+                        WHEN mb.belt_num = 3 THEN 'PURPLE'
+                        WHEN mb.belt_num = 4 THEN 'BROWN'
+                        ELSE 'BLACK' END AS belt, mb.belt_num, mb.athlete_id
+            FROM max_belts mb
+            """
+        ),
+        {
+            "JUVENILE": JUVENILE,
+            "JUVENILE_1": JUVENILE_1,
+            "JUVENILE_2": JUVENILE_2,
+            "previous_date": previous_date,
+        },
+    )
+
+    session.execute(
+        text(
+            f"CREATE INDEX {name}_promotion_belts_ix ON {name}_promotion_belts (athlete_id, belt)"
+        )
+    )
+    session.execute(text(f"ANALYZE {name}_promotion_belts"))
 
     session.execute(
         text(
@@ -277,6 +342,37 @@ def create_ratings_tables(
                     AND aw.gi = rm.gi
                     AND aw.gender = rm.gender
                 WHERE rm.rn = 1
+            ),
+            promoted_ratings AS (
+                SELECT
+                    r.athlete_id,
+                    r.end_rating + CASE WHEN pm.belt = 'BLACK' THEN :BLACK_PROMOTION_RATING_BUMP
+                                        ELSE :COLOR_PROMOTION_RATING_BUMP END AS end_rating,
+                    r.end_match_count,
+                    r.gender,
+                    r.age,
+                    pm.belt,
+                    r.gi,
+                    r.weight,
+                    r.happened_at
+                FROM ratings r
+                JOIN {name}_promotion_belts pm ON pm.athlete_id = r.athlete_id
+                WHERE pm.belt_num > CASE WHEN r.belt = 'WHITE' THEN 1
+                                        WHEN r.belt = 'BLUE' THEN 2
+                                        WHEN r.belt = 'PURPLE' THEN 3
+                                        WHEN r.belt = 'BROWN' THEN 4
+                                        ELSE 5 END
+            ),
+            combined_ratings AS (
+                -- use promoted ratings where available, otherwise use regular ratings
+                SELECT * FROM promoted_ratings
+                UNION ALL
+                SELECT * FROM ratings r
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM promoted_ratings pr
+                    WHERE pr.athlete_id = r.athlete_id
+                )
             )
             SELECT
                 athlete_id,
@@ -294,7 +390,7 @@ def create_ratings_tables(
                         CASE WHEN end_match_count <= :RATING_VERY_IMMATURE_COUNT THEN 1 ELSE 0 END ASC,
                         ROUND(end_rating) DESC
                 ) AS rank
-            FROM ratings
+            FROM combined_ratings
             WHERE weight IS NOT NULL
             """
         ),
@@ -306,6 +402,8 @@ def create_ratings_tables(
             "JUVENILE_1": JUVENILE_1,
             "JUVENILE_2": JUVENILE_2,
             "RATING_VERY_IMMATURE_COUNT": RATING_VERY_IMMATURE_COUNT,
+            "COLOR_PROMOTION_RATING_BUMP": COLOR_PROMOTION_RATING_BUMP,
+            "BLACK_PROMOTION_RATING_BUMP": BLACK_PROMOTION_RATING_BUMP,
             "previous_date": previous_date,
         },
     )

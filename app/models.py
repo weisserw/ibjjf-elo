@@ -320,3 +320,14 @@ class LiveRating(db.Model):
     happened_at = Column(DateTime, nullable=False)
 
     __table_args__ = (Index("ix_live_ratings_athlete_id", "athlete_id"),)
+
+
+class ManualPromotions(db.Model):
+    __tablename__ = "manual_promotions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    athlete_id = Column(UUID(as_uuid=True), ForeignKey("athletes.id"), nullable=False)
+    belt = Column(String, nullable=False)
+    promoted_at = Column(DateTime, nullable=False)
+
+    __table_args__ = (Index("ix_manual_promotions_athlete_id", "athlete_id"),)
