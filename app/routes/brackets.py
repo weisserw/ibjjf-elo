@@ -1809,7 +1809,13 @@ def archive_competitors():
         red_weight = red.weight_for_open or weight
         blue_weight = blue.weight_for_open or weight
 
-        red_handicap, blue_handicap = weight_handicaps(belt, red_weight, blue_weight)
+        # If weight is open class it means we don't know the actual weight
+        if red_weight.startswith(OPEN_CLASS) or blue_weight.startswith(OPEN_CLASS):
+            red_handicap, blue_handicap = 0, 0
+        else:
+            red_handicap, blue_handicap = weight_handicaps(
+                belt, red_weight, blue_weight
+            )
 
         blue_elo = EloCompetitor(blue.start_rating + blue_handicap, 32)
         red_elo = EloCompetitor(red.start_rating + red_handicap, 32)
