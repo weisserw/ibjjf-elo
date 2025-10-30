@@ -1812,8 +1812,10 @@ def archive_competitors():
         # If weight is open class it means we don't know the actual weight
         if red_weight.startswith(OPEN_CLASS) or blue_weight.startswith(OPEN_CLASS):
             red_handicap, blue_handicap = 0, 0
-            red_weight = None
-            blue_weight = None
+            if red_weight.startswith(OPEN_CLASS):
+                red_weight = None
+            if blue_weight.startswith(OPEN_CLASS):
+                blue_weight = None
         else:
             red_handicap, blue_handicap = weight_handicaps(
                 belt, red_weight, blue_weight
