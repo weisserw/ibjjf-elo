@@ -318,6 +318,7 @@ class LiveRating(db.Model):
     match_count = Column(Integer, nullable=False)
     gi = Column(Boolean, nullable=False)
     happened_at = Column(DateTime, nullable=False)
+    division_id = Column(UUID(as_uuid=True), nullable=True)
 
     __table_args__ = (Index("ix_live_ratings_athlete_id", "athlete_id"),)
 

@@ -1307,18 +1307,18 @@ def dq_earlier_matches(matches):
                     earlier_match["blue_note"] = match["blue_note"]
 
 
-def update_live_ratings_thread(gi, results, last_match_when):
+def update_live_ratings_thread(gi, results, division_id, last_match_whens):
     from app import app
 
     log = logging.getLogger("ibjjf")
     with app.app_context():
         try:
-            update_live_ratings(gi, results, last_match_when)
+            update_live_ratings(gi, results, division_id, last_match_whens)
         except Exception as e:
             log.error(f"Error updating live ratings: {e}")
 
 
-def update_live_ratings(gi, results, happened_at):
+def update_live_ratings(gi, results, division_id, happened_at_by_id):
     athlete_ids = [
         r["id"]
         for r in results
@@ -1327,11 +1327,19 @@ def update_live_ratings(gi, results, happened_at):
         and r["end_match_count"] is not None
     ]
 
-    happened_at_dt = datetime.fromisoformat(happened_at)
+    # delete existing ratings for these athletes which are more than 3 days old
+    three_days_ago = datetime.now() - timedelta(days=3)
+    db.session.query(LiveRating).filter(
+        LiveRating.athlete_id.in_(athlete_ids), LiveRating.happened_at < three_days_ago
+    ).delete()
 
     existing = (
         db.session.query(LiveRating)
-        .filter(LiveRating.gi == gi, LiveRating.athlete_id.in_(athlete_ids))
+        .filter(
+            LiveRating.gi == gi,
+            LiveRating.athlete_id.in_(athlete_ids),
+            LiveRating.division_id == division_id,
+        )
         .all()
     )
     existing_by_id = {}
@@ -1344,13 +1352,16 @@ def update_live_ratings(gi, results, happened_at):
         if result["id"] is None:
             continue
 
+        happened_at = happened_at_by_id.get(result["ibjjf_id"])
+        if happened_at is None:
+            continue
+
+        happened_at_dt = datetime.fromisoformat(happened_at)
+
         deleted_existing = False
 
         existing_ratings = existing_by_id.get(result["id"])
-        if existing_ratings is not None and (
-            len(existing_ratings) > 1
-            or existing_ratings[0].happened_at < happened_at_dt
-        ):
+        if existing_ratings is not None:
             # delete existing
             for rating in existing_ratings:
                 db.session.delete(rating)
@@ -1361,6 +1372,7 @@ def update_live_ratings(gi, results, happened_at):
                 gi=gi,
                 athlete_id=result["id"],
                 happened_at=happened_at_dt,
+                division_id=division_id,
                 rating=result["end_rating"],
                 match_count=result["end_match_count"],
             )
@@ -1579,12 +1591,35 @@ def competitors():
                 else:
                     final["red_note"] = f'{final["red_note"]}, {CLOSEOUT_NOTE}'
 
-    last_match_when = max(
-        (m["when"] for m in parsed_matches if m["when"]), default=None
+    last_match_whens = {}
+    for m in parsed_matches:
+        if m["red_id"] is not None:
+            if m["red_id"] not in last_match_whens or (
+                m["when"] and m["when"] > last_match_whens[m["red_id"]]
+            ):
+                last_match_whens[m["red_id"]] = m["when"]
+        if m["blue_id"] is not None:
+            if m["blue_id"] not in last_match_whens or (
+                m["when"] and m["when"] > last_match_whens[m["blue_id"]]
+            ):
+                last_match_whens[m["blue_id"]] = m["when"]
+
+    division = (
+        db.session.query(Division)
+        .filter(
+            Division.gi == gi,
+            Division.age == age,
+            Division.belt == belt,
+            Division.weight == weight,
+            Division.gender == gender,
+        )
+        .first()
     )
-    if last_match_when:
+
+    if len(last_match_whens) and division is not None:
         thread = threading.Thread(
-            target=update_live_ratings_thread, args=(gi, results, last_match_when)
+            target=update_live_ratings_thread,
+            args=(gi, results, division.id, last_match_whens),
         )
         thread.start()
 
