@@ -24,6 +24,7 @@ import {
 } from './DBFilters';
 
 import './Athlete.css';
+import { has } from 'lodash';
 
 interface ResponseData {
   athlete: {
@@ -291,8 +292,10 @@ function Athlete() {
       return [null, ''];
     }
 
+    const hasAdultBadge = responseData.ranks.some(rank => rank.age === 'Adult' && (1 - rank.percentile) >= 0.90);
+
     const highestPercentile = responseData.ranks.reduce((max, rank) => Math.max(max, 1 - rank.percentile), 0);
-    if (highestPercentile >= 0.98) {
+    if (highestPercentile >= 0.98 && hasAdultBadge) {
       return [eliteDiamondBadge, 'Elite (Diamond)'];
     } else if (highestPercentile >= 0.95) {
       return [eliteSapphireBadge, 'Elite (Sapphire)'];
