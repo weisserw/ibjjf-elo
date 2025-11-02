@@ -65,3 +65,29 @@
     gap: 4px;
   }
 }
+
+.athlete-rating-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.athlete-rating-subbox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.athlete-rating-box h1 {
+  line-height: 48px;
+}
+
+@media (max-width: 768px) {
+  .athlete-rating-box {
+    flex-direction: row;
+  }
+}

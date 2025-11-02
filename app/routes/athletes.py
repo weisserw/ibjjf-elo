@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from uuid import UUID
+from sqlalchemy import and_
 from sqlalchemy.sql import exists
 from extensions import db
 from models import (
@@ -9,6 +10,7 @@ from models import (
     Division,
     Team,
     AthleteRating,
+    AthleteRatingAverage,
     ManualPromotions,
     RegistrationLinkCompetitor,
 )
@@ -100,17 +102,31 @@ def get_athlete(id):
         {
             "rank": r.rank,
             "rating": round(r.rating),
+            "percentile": r.percentile,
             "age": r.age,
             "belt": r.belt,
             "weight": r.weight,
+            "avg_rating": round(r.avg_rating),
         }
         for r in (
             db.session.query(
                 AthleteRating.rank,
                 AthleteRating.rating,
+                AthleteRating.percentile,
                 AthleteRating.age,
                 AthleteRating.belt,
                 AthleteRating.weight,
+                AthleteRatingAverage.avg_rating,
+            )
+            .join(
+                AthleteRatingAverage,
+                and_(
+                    AthleteRatingAverage.gender == AthleteRating.gender,
+                    AthleteRatingAverage.gi == AthleteRating.gi,
+                    AthleteRatingAverage.age == AthleteRating.age,
+                    AthleteRatingAverage.belt == AthleteRating.belt,
+                    AthleteRatingAverage.weight == AthleteRating.weight,
+                ),
             )
             .filter(AthleteRating.athlete_id == id_uuid)
             .filter(AthleteRating.gi == gi)
@@ -121,7 +137,9 @@ def get_athlete(id):
 
     # load registrations and manual promotions
     registrations = (
-        db.session.query(RegistrationLinkCompetitor)
+        db.session.query(Division.belt)
+        .select_from(RegistrationLinkCompetitor)
+        .join(Division)
         .filter(RegistrationLinkCompetitor.athlete_name == athlete.name)
         .all()
     )
@@ -141,12 +159,13 @@ def get_athlete(id):
         if len(elo_history):
             highest_belt = elo_history[-1]["belt"]
         for reg in registrations:
-            if highest_belt is None or belt_order[reg.belt] > belt_order[highest_belt]:
+            if highest_belt is None or belt_order.index(reg.belt) > belt_order.index(
+                highest_belt
+            ):
                 highest_belt = reg.belt
         for promo in promotions:
-            if (
-                highest_belt is None
-                or belt_order[promo.belt] > belt_order[highest_belt]
+            if highest_belt is None or belt_order.index(promo.belt) > belt_order.index(
+                highest_belt
             ):
                 highest_belt = promo.belt
 

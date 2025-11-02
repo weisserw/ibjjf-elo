@@ -203,7 +203,8 @@ const translations = {
     "Our open class seeding uses a combination of weight and skill": "Nossa seed do absoluto usa uma combinação de peso e nível técnico",
     "Rating over time": "Rating ao longo do tempo",
     "No matches found": "Nenhum resultado encontrado",
-    "Current Rankings": "Rankings Atuais",
+    "Percentile": "Percentil",
+    "Division Average": "Média da Divisão",
 };
 
 export type translationKeys = keyof typeof translations;

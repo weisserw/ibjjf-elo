@@ -6,11 +6,15 @@ import { axiosErrorToast, getCountryName, type DBRow as Row, type DBResults as R
 import GiTabs from './GiTabs';
 import { useAppContext } from '../AppContext';
 import igLogoColor from '/src/assets/instagram-color.png';
+import eliteDiamondBadge from '/src/assets/elite-diamond.png';
+import eliteSapphireBadge from '/src/assets/elite-sapphire.png';
+import eliteEmeraldBadge from '/src/assets/elite-emerald.png';
 import { Tooltip } from 'react-tooltip';
 import DBTableRows from './DBTableRows';
 import { useNavigate } from 'react-router-dom'
 import { t } from '../translate'
 import DBPagination from './DBPagination';
+import classNames from 'classnames';
 import {
   ageToFilter,
   genderToFilter,
@@ -40,9 +44,11 @@ interface ResponseData {
   }[];
   ranks: {
     rank: number;
+    percentile: number;
     age: string;
     belt: string;
     weight: string;
+    avg_rating: number;
   }[];
 }
 
@@ -188,6 +194,11 @@ function Athlete() {
 
   const hasHistorical = useMemo(() => matchData.map(row => row.event).some(isHistorical), [matchData]);
 
+  const hasRating = useMemo(() => {
+    if (!responseData) return false;
+    return responseData.eloHistory.some(entry => entry.Rating !== null && entry.Rating > 0);
+  }, [responseData]);
+
   const sortedRanks = useMemo(() => {
     if (!responseData) return [];
     
@@ -273,6 +284,21 @@ function Athlete() {
     navigate('/database');
   }
 
+  const [badge, badgeDescription] = useMemo(() => {
+    if (!responseData || responseData.athlete.rating === null) return [null, ''];
+
+    const highestPercentile = responseData.ranks.reduce((max, rank) => Math.max(max, 1 - rank.percentile), 1);
+    if (highestPercentile >= 0.98) {
+      return [eliteDiamondBadge, 'Elite (Diamond)'];
+    } else if (highestPercentile >= 0.95) {
+      return [eliteSapphireBadge, 'Elite (Sapphire)'];
+    } else if (highestPercentile >= 0.90) {
+      return [eliteEmeraldBadge, 'Elite (Emerald)'];
+    } else {
+      return [null, ''];
+    }
+  }, [responseData]);
+
   if (!responseData) {
     return <div className="loader"></div>;
   }
@@ -311,31 +337,51 @@ function Athlete() {
             </h2>
           )}
         </div>
-        <div className='has-text-centered'>
-          {responseData.athlete.rating !== null &&
-            <h1 className="title mt-0 athlete-rating">{responseData.athlete.rating}</h1>
-          }
-          <h2 className="subtitle mt-2 athlete-belt" style={{color: beltColors[responseData.athlete.belt] || 'black', ...(beltHasOutline[responseData.athlete.belt] ? outlineStyle : {})}}>
-            {beltNames[responseData.athlete.belt]} Belt
-          </h2>
-        </div>
+        <div className='athlete-rating-box'>
+          <div className='athlete-rating-subbox'>
+            {(hasRating && responseData.athlete.rating !== null) &&
+              <h1 className="title mt-0 mb-0 athlete-rating">{responseData.athlete.rating}</h1>
+            }
+            <h2 className="subtitle mt-0 mb-0 athlete-belt" style={{color: beltColors[responseData.athlete.belt] || 'black', ...(beltHasOutline[responseData.athlete.belt] ? outlineStyle : {})}}>
+              {beltNames[responseData.athlete.belt]} Belt
+            </h2>
+          </div>
+          {badge && (
+            <div>
+              <Tooltip id='athlete-badge-tooltip' className="tooltip-normal" />
+              <figure className="image is-48x48 athlete-elite-badge" style={{ margin: 0 }} data-tooltip-id='athlete-badge-tooltip' data-tooltip-place="top" data-tooltip-content={badgeDescription}>
+                <img
+                  src={badge}
+                  alt={badgeDescription}
+                />
+              </figure>
+            </div>
+          )}
+          </div>
       </div>
       <GiTabs />
       {
-        sortedRanks.length > 0 && (
+        (hasRating && sortedRanks.length > 0) && (
           <div className="athlete-ranks-box">
             <table className="table is-striped athlete-ranks-table">
               <thead>
                 <tr>
-                  <th>{t("Current Rankings")}:</th>
                   <th></th>
+                  <th>{t("Rank")}</th>
+                  <th>{t("Percentile")}</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedRanks.map((rankEntry, index) => (
                   <tr key={index}>
                     <td>{`${rankEntry.age} / ${rankEntry.weight || 'P4P'}`}</td>
-                    <td className='has-text-right'>#{rankEntry.rank.toLocaleString()}</td>
+                    <td className={classNames('has-text-right', {'has-text-weight-bold': Math.round((1 - rankEntry.percentile) * 100) >= 90})}>#{rankEntry.rank.toLocaleString()}</td>
+                    <td className={classNames('has-text-right', {'has-text-weight-bold': Math.round((1 - rankEntry.percentile) * 100) >= 90})}>
+                      <Tooltip id={`avg-rating-tooltip-${index}`} className="tooltip-normal" />
+                      <span data-tooltip-id={`avg-rating-tooltip-${index}`} data-tooltip-place="top" data-tooltip-content={t("Division Average") + ": " + rankEntry.avg_rating.toString()}>
+                        {Math.round((1 - rankEntry.percentile) * 100)}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -350,7 +396,7 @@ function Athlete() {
           </div>
         )
       }
-      {parsedEloHistory.length > 0 && (
+      {(hasRating && parsedEloHistory.length > 0) && (
       <div className="box mt-5 athlete-elo-box">
         <h2 className="has-text-weight-bold is-5 mb-2">{t("Rating over time")}</h2>
         <ResponsiveContainer width="100%" height={320}>
