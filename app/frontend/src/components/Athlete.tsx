@@ -325,7 +325,7 @@ function Athlete() {
             />
           </figure>
         )}
-        <div>
+        <div className='athlete-info-box'>
           <Tooltip id='athlete-tooltip' className="tooltip-normal" />
           <h1 className="title is-3 mb-1 athlete-title">
             {responseData.athlete.name}

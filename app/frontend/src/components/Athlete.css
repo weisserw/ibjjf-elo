@@ -65,13 +65,6 @@
   white-space: nowrap;
 }
 
-@media (max-width: 768px) {
-  .athlete-profile-box {
-    flex-direction: column;
-    gap: 4px;
-  }
-}
-
 .athlete-rating-box {
   display: flex;
   flex-direction: column;
@@ -92,12 +85,6 @@
   line-height: 48px;
 }
 
-@media (max-width: 768px) {
-  .athlete-rating-box {
-    flex-direction: row;
-  }
-}
-
 .athlete-badge-box {
   display: flex;
   flex-direction: row;
@@ -108,8 +95,22 @@
 .is-visible-mobile {
   display: none;
 }
+
 @media (max-width: 768px) {
   .is-visible-mobile {
     display: inline-block;
+  }
+  .athlete-info-box {
+    text-align: center;
+  }
+  .athlete-profile-box {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .athlete-nickname {
+    justify-content: center;
+  }
+  .athlete-rating-box {
+    flex-direction: row;
   }
 }
