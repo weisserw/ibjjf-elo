@@ -130,7 +130,7 @@ const pctInt = (percentile: number): number => {
     return parseFloat(inverted.toFixed(1));
   }
 
-  return Math.floor(inverted);
+  return Math.round(inverted);
 }
 
 function Athlete() {
