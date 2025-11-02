@@ -88,7 +88,7 @@ function DBTable() {
     setPage(pageNumber)
   }
 
-  const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string, id: string) => {
+  const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, _name: string, id: string) => {
     event.preventDefault()
 
     navigate(`/athlete/${encodeURIComponent(id)}`)
