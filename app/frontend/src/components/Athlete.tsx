@@ -356,15 +356,22 @@ function Athlete() {
               {beltNames[responseData.athlete.belt]} Belt
             </h2>
           </div>
-          {badge && (
-            <div>
+          {(badge || activeTab === 'No Gi') && (
+            <div className='athlete-badge-box'>
               <Tooltip id='athlete-badge-tooltip' className="tooltip-normal" />
-              <figure className="image is-48x48 athlete-elite-badge" style={{ margin: 0 }} data-tooltip-id='athlete-badge-tooltip' data-tooltip-place="top" data-tooltip-content={badgeDescription}>
-                <img
-                  src={badge}
-                  alt={badgeDescription}
-                />
-              </figure>
+              {badge &&
+                <figure className="image is-48x48 athlete-elite-badge" style={{ margin: 0 }} data-tooltip-id='athlete-badge-tooltip' data-tooltip-place="top" data-tooltip-content={badgeDescription}>
+                  <img
+                    src={badge}
+                    alt={badgeDescription}
+                  />
+                </figure>
+              }
+              {activeTab === 'No Gi' &&
+                <div className='athlete-no-gi-badge'>
+                  No Gi
+                </div>
+              }
             </div>
           )}
           </div>
