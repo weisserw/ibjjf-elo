@@ -305,9 +305,9 @@ function Athlete() {
       return [null, ''];
     }
 
-    const hasAdultBadge = ranks.some(rank => rank.age === 'Adult' && pctInt(rank.percentile) >= 90);
-
+    const hasAdultBadge = ranks.some(rank => rank.age === 'Adult' && pctInt(rank.percentile) >= 98);
     const highestPercentile = ranks.reduce((max, rank) => Math.max(max, pctInt(rank.percentile)), 0);
+
     if (highestPercentile >= 98 && hasAdultBadge) {
       return [eliteDiamondBadge, 'Elite (Diamond)'];
     } else if (highestPercentile >= 95) {
@@ -420,7 +420,7 @@ function Athlete() {
                   </th>
                   <th className="has-text-right">
                     <span className="is-hidden-mobile">{t("Percentile")}</span>
-                    <span className="is-visible-mobile">{t("Pct")}</span>
+                    <span className="is-visible-mobile">{t("Pctl")}</span>
                   </th>
                   <th></th>
                 </tr>

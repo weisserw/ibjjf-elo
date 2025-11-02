@@ -222,7 +222,7 @@ const translations = {
     "Rating over time": "Rating ao longo do tempo",
     "No matches found": "Nenhum resultado encontrado",
     "Percentile": "Percentil",
-    "Pct": "Pct",
+    "Pctl": "Pctl",
     "Average": "Média",
     "Avg": "Méd",
     "Difference": "Diferença",
