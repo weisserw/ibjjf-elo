@@ -88,12 +88,10 @@ function DBTable() {
     setPage(pageNumber)
   }
 
-  const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {
+  const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string, id: string) => {
     event.preventDefault()
-    setFilters({
-      athlete_name: '"' + name + '"',
-    });
-    setOpenFilters({athlete: true, event: false, division: false});
+
+    navigate(`/athlete/${encodeURIComponent(id)}`)
   }
 
   const eventClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {
