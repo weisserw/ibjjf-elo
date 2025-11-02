@@ -36,7 +36,33 @@ interface ResponseData {
     date: string;
     Rating: number;
   }[];
+  ranks: {
+    rank: number;
+    age: string;
+    belt: string;
+    weight: string;
+  }[];
 }
+
+const ageOrder = (age: string): number => {
+  if (age.startsWith('Teen ')) return 0;
+  if (age.startsWith('Juvenile ')) return 1;
+  if (age === 'Adult') return 2;
+  return 3;
+}
+
+const weightOrder: Record<string, number> = {
+  '': -1, // P4P
+  'Rooster': 0,
+  'Light Feather': 1,
+  'Feather': 2,
+  'Light': 3,
+  'Middle': 4,
+  'Medium Heavy': 5,
+  'Heavy': 6,
+  'Super Heavy': 7,
+  'Ultra Heavy': 8,
+};
 
 function Athlete() {
 	const { id } = useParams();
@@ -115,7 +141,21 @@ function Athlete() {
 
   const hasHistorical = useMemo(() => matchData.map(row => row.event).some(isHistorical), [matchData]);
 
-const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
+  const sortedRanks = useMemo(() => {
+    if (!responseData) return [];
+    
+    return [...responseData.ranks].sort((a, b) => {
+      if (a.age !== b.age) {
+        return ageOrder(a.age) - ageOrder(b.age);
+      }
+      if (a.weight !== b.weight) {
+        return (weightOrder[a.weight] ?? 0) - (weightOrder[b.weight] ?? 0);
+      }
+      return 0;
+    });
+  }, [responseData]);
+
+  const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
     setPage(1)
   }
@@ -223,6 +263,28 @@ const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
         </div>
       </div>
       <GiTabs />
+      {
+        sortedRanks.length > 0 && (
+          <div className="athlete-ranks-box">
+            <table className="table is-striped athlete-ranks-table">
+              <thead>
+                <tr>
+                  <th>{t("Current Rankings")}:</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRanks.map((rankEntry, index) => (
+                  <tr key={index}>
+                    <td>{`${rankEntry.belt} / ${rankEntry.age} / ${rankEntry.weight || 'P4P'}`}</td>
+                    <td className='has-text-right'>#{rankEntry.rank.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
       {
         parsedEloHistory.length === 0 && (
           <div className="notification">

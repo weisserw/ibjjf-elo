@@ -2,9 +2,14 @@ from flask import Blueprint, request, jsonify
 from uuid import UUID
 from sqlalchemy.sql import exists
 from extensions import db
-from models import Athlete, MatchParticipant, Match, Division, Team
+from models import Athlete, MatchParticipant, Match, Division, Team, AthleteRating
 from normalize import normalize
-from elo import EloCompetitor, AGE_K_FACTOR_MODIFIERS, weight_handicaps
+from elo import (
+    EloCompetitor,
+    AGE_K_FACTOR_MODIFIERS,
+    weight_handicaps,
+    RATING_VERY_IMMATURE_COUNT,
+)
 from constants import (
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
@@ -76,6 +81,28 @@ def get_athlete(id):
             filtered_elo_history.append(entry)
             last_rating = entry["Rating"]
 
+    # load all ranks
+    ranks = [
+        {
+            "rank": r.rank,
+            "age": r.age,
+            "belt": r.belt,
+            "weight": r.weight,
+        }
+        for r in (
+            db.session.query(
+                AthleteRating.rank,
+                AthleteRating.age,
+                AthleteRating.belt,
+                AthleteRating.weight,
+            )
+            .filter(AthleteRating.athlete_id == id_uuid)
+            .filter(AthleteRating.gi == gi)
+            .filter(AthleteRating.match_count > RATING_VERY_IMMATURE_COUNT)
+            .filter(AthleteRating.rank is not None)
+        )
+    ]
+
     athlete_json = {
         "name": athlete.name,
         "instagram_profile": athlete.instagram_profile,
@@ -97,6 +124,7 @@ def get_athlete(id):
             {
                 "athlete": athlete_json,
                 "eloHistory": filtered_elo_history,
+                "ranks": ranks,
             }
         ),
         200,
