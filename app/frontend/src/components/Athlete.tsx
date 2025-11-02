@@ -24,7 +24,6 @@ import {
 } from './DBFilters';
 
 import './Athlete.css';
-import { has } from 'lodash';
 
 interface ResponseData {
   athlete: {
