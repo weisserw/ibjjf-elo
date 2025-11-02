@@ -389,7 +389,13 @@ def create_ratings_tables(
                     ORDER BY
                         CASE WHEN end_match_count <= :RATING_VERY_IMMATURE_COUNT THEN 1 ELSE 0 END ASC,
                         ROUND(end_rating) DESC
-                ) AS rank
+                ) AS rank,
+                PERCENT_RANK() OVER (
+                    PARTITION BY gender, age, belt, gi, weight
+                    ORDER BY
+                        CASE WHEN end_match_count <= :RATING_VERY_IMMATURE_COUNT THEN 1 ELSE 0 END ASC,
+                        ROUND(end_rating) DESC
+                ) AS percentile
             FROM combined_ratings
             WHERE weight IS NOT NULL
             """
@@ -474,10 +480,22 @@ def generate_current_ratings(
         )
     )
 
+    db.session.execute(
+        text(
+            f"""
+            DELETE FROM athlete_rating_averages where gi in ({gi_in})
+            """
+        )
+    )
+
     if os.getenv("DATABASE_URL"):
         id_generate = "gen_random_uuid()"
+        id_generate_avg = "gen_random_uuid()"
     else:
         id_generate = "c.athlete_id || '-' || c.gender || '-' || c.age || '-' || c.gi || '-' || c.weight"
+        id_generate_avg = (
+            "gender || '-' || age || '-' || belt || '-' || gi || '-' || weight"
+        )
 
     banned = (
         db.session.query(Suspension.athlete_name)
@@ -509,8 +527,8 @@ def generate_current_ratings(
         text(
             f"""
         INSERT INTO athlete_ratings (id, athlete_id, gender, age, belt, gi, weight,
-                                     rating, match_count, match_happened_at, rank, previous_rating, previous_rank, previous_match_count)
-        SELECT {id_generate}, c.*, p.end_rating, p.rank, p.end_match_count
+                                     rating, match_count, match_happened_at, rank, percentile, previous_rating, previous_rank, previous_match_count, previous_percentile)
+        SELECT {id_generate}, c.*, p.end_rating, p.rank, p.end_match_count, p.percentile
         FROM temp_current_ratings c
         LEFT JOIN temp_previous_ratings p ON c.athlete_id = p.athlete_id AND c.gender = p.gender AND c.age = p.age AND
                                              c.belt = p.belt AND c.gi = p.gi AND c.weight = p.weight;
@@ -520,3 +538,15 @@ def generate_current_ratings(
 
     drop_ratings_tables(db.session, "temp_current_ratings")
     drop_ratings_tables(db.session, "temp_previous_ratings")
+
+    db.session.execute(
+        text(
+            f"""
+        INSERT INTO athlete_rating_averages (id, gender, age, belt, gi, weight, avg_rating)
+        SELECT {id_generate_avg}, gender, age, belt, gi, weight, AVG(rating)
+        FROM athlete_ratings
+        WHERE gi IN ({gi_in})
+        GROUP BY gender, age, belt, gi, weight
+            """
+        )
+    )

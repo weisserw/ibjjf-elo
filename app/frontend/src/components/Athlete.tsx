@@ -192,6 +192,9 @@ function Athlete() {
     if (!responseData) return [];
     
     return [...responseData.ranks].sort((a, b) => {
+      if (a.rank !== b.rank) {
+        return a.rank - b.rank;
+      }
       if (a.age !== b.age) {
         return ageOrder(a.age) - ageOrder(b.age);
       }

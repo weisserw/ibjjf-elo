@@ -210,6 +210,28 @@ Index(
 )
 
 
+class AthleteRatingAverage(db.Model):
+    __tablename__ = "athlete_rating_averages"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    gender = Column(String, nullable=False)
+    age = Column(String, nullable=False)
+    belt = Column(String, nullable=False)
+    gi = Column(Boolean, nullable=False)
+    weight = Column(String, nullable=True)
+    avg_rating = Column(Float, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "gender",
+            "age",
+            "belt",
+            "gi",
+            "weight",
+            name="uq_athlete_rating_averages_all",
+        ),
+    )
+
+
 class AthleteRating(db.Model):
     __tablename__ = "athlete_ratings"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -222,10 +244,12 @@ class AthleteRating(db.Model):
     rating = Column(Float, nullable=False)
     match_happened_at = Column(DateTime, nullable=False)
     rank = Column(Integer, nullable=True)
+    percentile = Column(Float, nullable=True)
     match_count = Column(Integer, nullable=False)
     previous_rating = Column(Float, nullable=True)
     previous_rank = Column(Integer, nullable=True)
     previous_match_count = Column(Integer, nullable=True)
+    previous_percentile = Column(Float, nullable=True)
 
     athlete = relationship("Athlete", lazy="select", viewonly=True)
 
