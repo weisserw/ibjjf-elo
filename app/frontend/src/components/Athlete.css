@@ -47,7 +47,7 @@
   background-size: 100% 100%;
 }
 
-@media (max-width: 768px) {
+@media (pointer: coarse) and (max-width: 768px) {
   .athlete-title .country-flag {
     height: 16px;
   }
