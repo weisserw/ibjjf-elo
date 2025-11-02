@@ -390,7 +390,7 @@ def create_ratings_tables(
                         CASE WHEN end_match_count <= :RATING_VERY_IMMATURE_COUNT THEN 1 ELSE 0 END ASC,
                         ROUND(end_rating) DESC
                 ) AS rank,
-                PERCENT_RANK() OVER (
+                CUME_DIST() OVER (
                     PARTITION BY gender, age, belt, gi, weight
                     ORDER BY
                         CASE WHEN end_match_count <= :RATING_VERY_IMMATURE_COUNT THEN 1 ELSE 0 END ASC,
