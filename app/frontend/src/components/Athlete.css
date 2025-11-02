@@ -96,6 +96,10 @@
   display: none;
 }
 
+.athlete-no-gi-badge {
+  white-space: nowrap;
+}
+
 @media (max-width: 768px) {
   .is-visible-mobile {
     display: inline-block;
@@ -110,7 +114,18 @@
   .athlete-nickname {
     justify-content: center;
   }
-  .athlete-rating-box {
+ .athlete-rating-box {
     flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+  .athlete-rating-subbox {
+    position: relative;
+  }
+  .athlete-badge-box {
+    position: absolute;
+    left: calc(100% + 12px);
+    top: calc(50% - 24px);
   }
 }

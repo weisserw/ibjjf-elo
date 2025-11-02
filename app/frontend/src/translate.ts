@@ -222,7 +222,11 @@ const translations = {
     "Rating over time": "Rating ao longo do tempo",
     "No matches found": "Nenhum resultado encontrado",
     "Percentile": "Percentil",
-    "Division Average": "Média da Divisão",
+    "Pct": "Pct",
+    "Average": "Média",
+    "Avg": "Méd",
+    "Difference": "Diferença",
+    "Diff": "Diff",
 };
 
 export type translationKeys = keyof typeof translations;

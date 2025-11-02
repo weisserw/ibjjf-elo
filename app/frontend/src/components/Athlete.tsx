@@ -1,4 +1,4 @@
-import {useEffect, useState, useMemo} from 'react';
+import {useEffect, useState, useMemo, useCallback} from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
 import { useParams } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
@@ -25,31 +25,37 @@ import {
 
 import './Athlete.css';
 
+interface Athlete {
+  name: string;
+  instagram_profile: string | null;
+  country: string | null;
+  country_note: string | null;
+  country_note_pt: string | null;
+  instagram_profile_personal_name: string | null;
+  instagram_profile_photo_url: string | null;
+  team_name: string | null;
+  rating: number | null;
+  belt: string | null;
+}
+
+interface Elo {
+  date: string;
+  Rating: number | null;
+}
+
+interface Rank {
+  rank: number;
+  percentile: number;
+  age: string;
+  belt: string;
+  weight: string;
+  avg_rating: number;
+}
+
 interface ResponseData {
-  athlete: {
-    name: string;
-    instagram_profile: string | null;
-    country: string | null;
-    country_note: string | null;
-    country_note_pt: string | null;
-    instagram_profile_personal_name: string | null;
-    instagram_profile_photo_url: string | null;
-    team_name: string | null;
-    rating: number | null;
-    belt: string | null;
-  };
-  eloHistory: {
-    date: string;
-    Rating: number | null;
-  }[];
-  ranks: {
-    rank: number;
-    percentile: number;
-    age: string;
-    belt: string;
-    weight: string;
-    avg_rating: number;
-  }[];
+  athlete: Athlete;
+  eloHistory: Elo[];
+  ranks: Rank[];
 }
 
 const ageOrder = (age: string): number => {
@@ -125,6 +131,7 @@ function Athlete() {
 	const { id } = useParams();
   const [responseData, setResponseData] = useState<ResponseData | null>(null);
   const [matchData, setMatchData] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(false);
   const [reloading, setReloading] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
 
@@ -147,12 +154,15 @@ function Athlete() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
         const response = await axios.get(`/api/athlete/${id}?gi=${activeTab === 'Gi' ? 'true' : 'false'}`);
         setResponseData(response.data);
         setPage(1);
       } catch (error) {
         axiosErrorToast(error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -288,16 +298,16 @@ function Athlete() {
     navigate('/database');
   }
 
-  const [badge, badgeDescription] = useMemo(() => {
+  const badgeForRank: (ranks: Rank[]) => [string | null, string] = useCallback((ranks: Rank[]) => {
     if (!responseData || responseData.athlete.rating === null) return [null, ''];
 
     if (!responseData.athlete.belt || ['WHITE', 'GREY', 'YELLOW', 'YELLOW_GREY', 'ORANGE', 'GREEN', 'GREEN_ORANGE'].includes(responseData.athlete.belt)) {
       return [null, ''];
     }
 
-    const hasAdultBadge = responseData.ranks.some(rank => rank.age === 'Adult' && pctInt(rank.percentile) >= 90);
+    const hasAdultBadge = ranks.some(rank => rank.age === 'Adult' && pctInt(rank.percentile) >= 90);
 
-    const highestPercentile = responseData.ranks.reduce((max, rank) => Math.max(max, pctInt(rank.percentile)), 0);
+    const highestPercentile = ranks.reduce((max, rank) => Math.max(max, pctInt(rank.percentile)), 0);
     if (highestPercentile >= 98 && hasAdultBadge) {
       return [eliteDiamondBadge, 'Elite (Diamond)'];
     } else if (highestPercentile >= 95) {
@@ -308,6 +318,10 @@ function Athlete() {
       return [null, ''];
     }
   }, [responseData]);
+
+  const [badge, badgeDescription] = useMemo(() => {
+    return badgeForRank(sortedRanks);
+  }, [badgeForRank, sortedRanks]);
 
   if (!responseData) {
     return <div className="loader"></div>;
@@ -350,6 +364,7 @@ function Athlete() {
             </h2>
           )}
         </div>
+        {!loading &&
         <div className='athlete-rating-box'>
           <div className='athlete-rating-subbox'>
             {(hasRating && responseData.athlete.rating !== null) &&
@@ -360,8 +375,7 @@ function Athlete() {
                 {t(`${beltNames[responseData.athlete.belt]} Belt` as translationKeys)}
               </h2>
             }
-          </div>
-          {(badge || activeTab === 'No Gi') && (hasRating && responseData.athlete.rating !== null) && (
+            {(badge || activeTab === 'No Gi') && (hasRating && responseData.athlete.rating !== null) && (
             <div className='athlete-badge-box'>
               <Tooltip id='athlete-badge-tooltip' className="tooltip-normal" />
               {badge &&
@@ -378,8 +392,10 @@ function Athlete() {
                 </div>
               }
             </div>
-          )}
+            )}
           </div>
+        </div>
+        }
       </div>
       <GiTabs />
       {
@@ -388,24 +404,66 @@ function Athlete() {
             <table className="table is-striped athlete-ranks-table">
               <thead>
                 <tr>
+                  <th>
+                    {t("Division")}
+                  </th>
+                  <th className="has-text-right">
+                    <span className="is-hidden-mobile">{t("Average")}</span>
+                    <span className="is-visible-mobile">{t("Avg")}</span>
+                  </th>
+                  <th className="has-text-right">
+                    <span className="is-hidden-mobile">{t("Difference")}</span>
+                    <span className="is-visible-mobile">{t("Diff")}</span>
+                  </th>
+                  <th className="has-text-right">
+                    {t("Rank")}
+                  </th>
+                  <th className="has-text-right">
+                    <span className="is-hidden-mobile">{t("Percentile")}</span>
+                    <span className="is-visible-mobile">{t("Pct")}</span>
+                  </th>
                   <th></th>
-                  <th>{t("Rank")}</th>
-                  <th>{t("Percentile")}</th>
                 </tr>
               </thead>
               <tbody>
-                {sortedRanks.map((rankEntry, index) => (
+                {sortedRanks.map((rankEntry, index) => {
+                  const [badge, badgeDescription] = badgeForRank([rankEntry]);
+                  return (
                   <tr key={index}>
-                    <td>{`${t(rankEntry.age as translationKeys)} / ${t((rankEntry.weight || 'P4P') as translationKeys)}`}</td>
-                    <td className={classNames('has-text-right', {'has-text-weight-bold': pctInt(rankEntry.percentile) >= 90})}>#{rankEntry.rank.toLocaleString()}</td>
-                    <td className={classNames('has-text-right', {'has-text-weight-bold': pctInt(rankEntry.percentile) >= 90})}>
-                      <Tooltip id={`avg-rating-tooltip-${index}`} className="tooltip-normal" />
-                      <span data-tooltip-id={`avg-rating-tooltip-${index}`} data-tooltip-place="top" data-tooltip-content={t("Division Average") + ": " + rankEntry.avg_rating.toString()}>
-                        {pctInt(rankEntry.percentile)}%
-                      </span>
+                    <td>
+                      {`${t(rankEntry.age as translationKeys)} / ${t((rankEntry.weight || 'P4P') as translationKeys)}`}
                     </td>
-                  </tr>
-                ))}
+                    <td className="has-text-right">
+                      {rankEntry.avg_rating !== null ? rankEntry.avg_rating : 'N/A'}
+                    </td>
+                    <td className="has-text-right">
+                      {rankEntry.avg_rating !== null && responseData.athlete.rating !== null
+                        ? (responseData.athlete.rating - rankEntry.avg_rating >= 0 ? '+' : '') + (responseData.athlete.rating - rankEntry.avg_rating)
+                        : 'N/A'
+                      }
+                    </td>
+                    <td className={classNames('has-text-right', {'has-text-weight-bold': pctInt(rankEntry.percentile) >= 90})}>
+                      #{rankEntry.rank.toLocaleString()}
+                    </td>
+                    <td className={classNames('has-text-right', {'has-text-weight-bold': pctInt(rankEntry.percentile) >= 90})}>
+                        {pctInt(rankEntry.percentile)}%
+                    </td>
+                    <td>
+                      {badge &&
+                        <Tooltip id={`athlete-rank-badge-tooltip-${index}`} className="tooltip-normal" />
+                      }
+                      {badge &&
+                        <figure className="image is-24x24 athlete-elite-badge" style={{ margin: 0 }} data-tooltip-id={`athlete-rank-badge-tooltip-${index}`} data-tooltip-place="right" data-tooltip-content={badgeDescription}>
+                          <img
+                            src={badge}
+                            alt={badgeDescription}
+                          />
+                        </figure>
+                      }
+                    </td>
+                  </tr>);
+                })
+              }
               </tbody>
             </table>
           </div>
