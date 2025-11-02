@@ -1,0 +1,48 @@
+.athlete-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.athlete-profile-box {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  background: var(--bulma-background, #fff);
+}
+
+.athlete-profile-photo {
+  border: 4px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
+.athlete-nickname a {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.athlete-nickname a img {
+    width: 20px;
+    height: 20px;
+}
+
+.athlete-elo-box {
+  background: var(--bulma-background, #fff);
+}
+
+.athlete-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.athlete-title .country-flag {
+  line-height: 25px;
+  margin-top: 2px;
+  vertical-align: middle;
+  border: 1px solid #ccc;
+  width: 32px;
+  height: 25px;
+  background-size: 100% 100%;
+}

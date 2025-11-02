@@ -20,7 +20,8 @@
     "react-autosuggest": "^10.1.0",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.1.0",
-    "react-tooltip": "^5.29.1"
+    "react-tooltip": "^5.29.1",
+    "recharts": "^3.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

@@ -201,6 +201,7 @@ const translations = {
     "This athlete is registered for the following upcoming events": "Este atleta está registrado para os seguintes eventos futuros",
     "Competitors on same team; possible closeout": "Competidores na mesma equipe; possível closeout",
     "Our open class seeding uses a combination of weight and skill": "Nossa seed do absoluto usa uma combinação de peso e nível técnico",
+    "Rating over time": "Rating ao longo do tempo",
 };
 
 export type translationKeys = keyof typeof translations;

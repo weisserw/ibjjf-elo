@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
+from uuid import UUID
 from sqlalchemy.sql import exists
 from extensions import db
-from models import Athlete, MatchParticipant, Match, Division
+from models import Athlete, MatchParticipant, Match, Division, Team
 from normalize import normalize
 from elo import EloCompetitor, AGE_K_FACTOR_MODIFIERS, weight_handicaps
 from constants import (
@@ -12,10 +13,88 @@ from constants import (
     TEEN_2,
     TEEN_3,
 )
+from photos import get_s3_client, get_public_photo_url
 
 athletes_route = Blueprint("athletes_route", __name__)
 
 MAX_RESULTS = 50
+
+@athletes_route.route("/api/athlete/<id>")
+def get_athlete(id):
+    try:
+        id_uuid = UUID(id)
+    except ValueError:
+        return jsonify({"error": "Invalid athlete ID"}), 400
+    
+    gi = request.args.get("gi")
+
+    gi = gi.lower() == "true" if gi else True
+
+    athlete = Athlete.query.get(id_uuid)
+    if not athlete:
+        return jsonify({"error": "Athlete not found"}), 404
+
+    # load elo over time data
+    elo_history = [
+        {
+            "date": mp.match.happened_at.strftime("%Y-%m-%d"),
+            "team": mp.team.name,
+            "Rating": round(mp.end_rating),
+        }
+        for mp in (
+            db.session.query(MatchParticipant)
+            .join(Match)
+            .join(Division)
+            .join(Team)
+            .filter(Division.gi == gi)
+            .filter(MatchParticipant.athlete_id == athlete.id)
+            .order_by(Match.happened_at)
+            .all()
+        )
+    ]
+
+    team_name = None
+    if len(elo_history):
+        team_name = elo_history[-1]["team"]
+
+    # remove duplicates keeping the latest rating for each date
+    unique_elo_history = []
+    last_date = None
+    for entry in elo_history:
+        if entry["date"] != last_date:
+            unique_elo_history.append(entry)
+            last_date = entry["date"]
+        else:
+            unique_elo_history[-1]["Rating"] = entry["Rating"]
+
+    # remove any dates where elo didn't change
+    filtered_elo_history = []
+    last_rating = None
+    for entry in unique_elo_history:
+        if entry["Rating"] != last_rating:
+            filtered_elo_history.append(entry)
+            last_rating = entry["Rating"]
+
+    athlete_json = {
+        "name": athlete.name,
+        "instagram_profile": athlete.instagram_profile,
+        "instagram_profile_personal_name": athlete.instagram_profile_personal_name,
+        "instagram_profile_photo_url": None,
+        "country": athlete.country,
+        "country_note": athlete.country_note,
+        "country_note_pt": athlete.country_note_pt,
+        "team_name": team_name,
+    }
+
+    if athlete.profile_image_saved_at is not None:
+        s3_client = get_s3_client()
+        photo_url = get_public_photo_url(s3_client, athlete)
+        athlete_json["instagram_profile_photo_url"] = photo_url
+
+    return jsonify({
+        "athlete": athlete_json,
+        "eloHistory": filtered_elo_history,
+    }), 200
 
 
 @athletes_route.route("/api/athletes/predict")

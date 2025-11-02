@@ -4,6 +4,7 @@ import Ratings from './components/Ratings';
 import Database from './components/Database';
 import Brackets from './components/Brackets';
 import Calculator from './components/Calculator';
+import Athlete from './components/Athlete';
 import About from './components/About';
 import NotFound from './components/NotFound';
 import { AppProvider } from './AppContext';
@@ -25,6 +26,7 @@ function App() {
               <Route path="/tournaments" element={<Brackets />} />
               <Route path="/calculator" element={<Calculator />} />
               <Route path="/about" element={<About />} />
+              <Route path="/athlete/:id" element={<Athlete />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
