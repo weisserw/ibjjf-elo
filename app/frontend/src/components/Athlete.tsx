@@ -124,7 +124,13 @@ const outlineStyle = {
 };
 
 const pctInt = (percentile: number): number => {
-  return Math.round((1 - percentile) * 100);
+  const inverted = (1 - percentile) * 99.9;
+
+  if (inverted >= 99) {
+    return parseFloat(inverted.toFixed(1));
+  }
+
+  return Math.floor(inverted);
 }
 
 function Athlete() {
