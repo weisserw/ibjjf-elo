@@ -68,6 +68,15 @@ function About() {
         <p className="content">{t("A: Your rating and your rank are two different things. Your rating is a reflection of your ability to win competition matches. Your rank is a reflection of your progress in jiu-jitsu as determined by your instructor. The two are not necessarily related.")}</p>
         <p className="content"><strong>{t("Q: Are you going to track kids divisions?")}</strong></p>
         <p className="content">{t("A: We have decided to store a searchable list of teen matches as some of these athletes are beginning their serious competitive journey in the sport. However, we do not compute ratings for teens and we do not track younger divisions in order to promote a healthy competitive environment for children.")}</p>
+        <p className="content"><strong>{t("Q: What are the \"Elite\" badges on some athlete profiles?")}</strong></p>
+        <p className="content">{t("A: We assign an \"Elite\" badge to athletes whose ratings are among the top competitors in the same belt, weight and  age divisions (or across all weights in the same age, a.k.a. Pound-for-Pound / P4P). These badges are a mark of achievement and allow fans to easily recognize when an elite athlete is competing and follow their progress.")}</p>
+        <p className="content">{t("There are three levels of Elite badges:")}
+          <ul>
+            <li>{t("Tier 3: Awarded to athletes in the 90th percentile or above in their division.")}</li>
+            <li>{t("Tier 2: Awarded to athletes in the 95th percentile or above.")}</li>
+            <li>{t("Tier 1: Awarded to athletes in the 98th percentile or above, in the Adult age division only.")}</li>
+          </ul>
+        </p>
       </div>
     </section>
   );

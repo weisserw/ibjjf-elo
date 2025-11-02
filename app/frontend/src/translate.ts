@@ -227,6 +227,12 @@ const translations = {
     "Avg": "Méd",
     "Difference": "Diferença",
     "Diff": "Diff",
+    "Q: What are the \"Elite\" badges on some athlete profiles?": "Q: O que são os emblemas \"Elite\" em alguns perfis de atletas?",
+    "A: We assign an \"Elite\" badge to athletes whose ratings are among the top competitors in the same belt, weight and  age divisions (or across all weights in the same age, a.k.a. Pound-for-Pound / P4P). These badges are a mark of achievement and allow fans to easily recognize when an elite athlete is competing and follow their progress.": "A: Atribuímos um emblema \"Elite\" a atletas cujas ratings estão entre os principais competidores na mesma faixa, peso e divisões de idade (ou em todos os pesos na mesma idade, também conhecido como Pound-for-Pound / P4P). Esses emblemas são uma marca de conquista e permitem que os fãs reconheçam facilmente quando um atleta de elite está competindo e acompanhem seu progresso.",
+    "There are three levels of Elite badges:": "Existem três níveis de emblemas Elite:",
+    "Tier 3: Awarded to athletes in the 90th percentile or above in their division.": "Nível 3: Concedido a atletas no percentil 90 ou acima em sua divisão.",
+    "Tier 2: Awarded to athletes in the 95th percentile or above.": "Nível 2: Concedido a atletas no percentil 95 ou acima.",
+    "Tier 1: Awarded to athletes in the 98th percentile or above, in the Adult age division only.": "Nível 1: Concedido a atletas no percentil 98 ou acima, apenas na divisão de idade Adulto."
 };
 
 export type translationKeys = keyof typeof translations;

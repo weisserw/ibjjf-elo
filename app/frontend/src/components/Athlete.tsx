@@ -6,9 +6,9 @@ import { axiosErrorToast, getCountryName, type DBRow as Row, type DBResults as R
 import GiTabs from './GiTabs';
 import { useAppContext } from '../AppContext';
 import igLogoColor from '/src/assets/instagram-color.png';
-import eliteDiamondBadge from '/src/assets/elite-diamond.png';
-import eliteSapphireBadge from '/src/assets/elite-sapphire.png';
-import eliteEmeraldBadge from '/src/assets/elite-emerald.png';
+import eliteTier1Badge from '/src/assets/elite-tier1.png';
+import eliteTier2Badge from '/src/assets/elite-tier2.png';
+import eliteTier3Badge from '/src/assets/elite-tier3.png';
 import { Tooltip } from 'react-tooltip';
 import DBTableRows from './DBTableRows';
 import { useNavigate } from 'react-router-dom'
@@ -315,11 +315,11 @@ function Athlete() {
     const highestPercentile = ranks.reduce((max, rank) => Math.max(max, pctInt(rank.percentile)), 0);
 
     if (highestPercentile >= 98 && hasAdultBadge) {
-      return [eliteDiamondBadge, 'Elite (Diamond)'];
+      return [eliteTier1Badge, 'Elite (Tier 1)'];
     } else if (highestPercentile >= 95) {
-      return [eliteSapphireBadge, 'Elite (Sapphire)'];
+      return [eliteTier2Badge, 'Elite (Tier 2)'];
     } else if (highestPercentile >= 90) {
-      return [eliteEmeraldBadge, 'Elite (Emerald)'];
+      return [eliteTier3Badge, 'Elite (Tier 3)'];
     } else {
       return [null, ''];
     }
@@ -407,7 +407,7 @@ function Athlete() {
       {
         (hasRating && sortedRanks.length > 0) && (
           <div className="athlete-ranks-box">
-            <table className="table is-striped athlete-ranks-table">
+            <table className="table athlete-ranks-table">
               <thead>
                 <tr>
                   <th>
