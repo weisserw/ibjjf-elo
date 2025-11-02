@@ -117,6 +117,10 @@ const outlineStyle = {
   ].join(', ')
 };
 
+const pctInt = (percentile: number): number => {
+  return Math.round((1 - percentile) * 100);
+}
+
 function Athlete() {
 	const { id } = useParams();
   const [responseData, setResponseData] = useState<ResponseData | null>(null);
@@ -291,14 +295,14 @@ function Athlete() {
       return [null, ''];
     }
 
-    const hasAdultBadge = responseData.ranks.some(rank => rank.age === 'Adult' && (1 - rank.percentile) >= 0.90);
+    const hasAdultBadge = responseData.ranks.some(rank => rank.age === 'Adult' && pctInt(rank.percentile) >= 90);
 
-    const highestPercentile = responseData.ranks.reduce((max, rank) => Math.max(max, 1 - rank.percentile), 0);
-    if (highestPercentile >= 0.98 && hasAdultBadge) {
+    const highestPercentile = responseData.ranks.reduce((max, rank) => Math.max(max, pctInt(rank.percentile)), 0);
+    if (highestPercentile >= 98 && hasAdultBadge) {
       return [eliteDiamondBadge, 'Elite (Diamond)'];
-    } else if (highestPercentile >= 0.95) {
+    } else if (highestPercentile >= 95) {
       return [eliteSapphireBadge, 'Elite (Sapphire)'];
-    } else if (highestPercentile >= 0.90) {
+    } else if (highestPercentile >= 90) {
       return [eliteEmeraldBadge, 'Elite (Emerald)'];
     } else {
       return [null, ''];
@@ -381,11 +385,11 @@ function Athlete() {
                 {sortedRanks.map((rankEntry, index) => (
                   <tr key={index}>
                     <td>{`${rankEntry.age} / ${rankEntry.weight || 'P4P'}`}</td>
-                    <td className={classNames('has-text-right', {'has-text-weight-bold': Math.round((1 - rankEntry.percentile) * 100) >= 90})}>#{rankEntry.rank.toLocaleString()}</td>
-                    <td className={classNames('has-text-right', {'has-text-weight-bold': Math.round((1 - rankEntry.percentile) * 100) >= 90})}>
+                    <td className={classNames('has-text-right', {'has-text-weight-bold': pctInt(rankEntry.percentile) >= 90})}>#{rankEntry.rank.toLocaleString()}</td>
+                    <td className={classNames('has-text-right', {'has-text-weight-bold': pctInt(rankEntry.percentile) >= 90})}>
                       <Tooltip id={`avg-rating-tooltip-${index}`} className="tooltip-normal" />
                       <span data-tooltip-id={`avg-rating-tooltip-${index}`} data-tooltip-place="top" data-tooltip-content={t("Division Average") + ": " + rankEntry.avg_rating.toString()}>
-                        {Math.round((1 - rankEntry.percentile) * 100)}%
+                        {pctInt(rankEntry.percentile)}%
                       </span>
                     </td>
                   </tr>
