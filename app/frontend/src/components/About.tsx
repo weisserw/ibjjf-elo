@@ -74,7 +74,7 @@ function About() {
           <ul>
             <li>{t("Tier 3: Awarded to athletes in the 90th percentile or above in their division.")}</li>
             <li>{t("Tier 2: Awarded to athletes in the 95th percentile or above.")}</li>
-            <li>{t("Tier 1: Awarded to athletes in the 98th percentile or above, in the Adult age division only.")}</li>
+            <li>{t("Tier 1: Awarded to athletes in the 98th percentile or above.")}</li>
           </ul>
         </p>
       </div>

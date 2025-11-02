@@ -124,7 +124,7 @@ const outlineStyle = {
 };
 
 const pctInt = (percentile: number): number => {
-  const inverted = (1 - percentile) * 99.9;
+  const inverted = (1 - percentile) * 100;
 
   if (inverted >= 99) {
     return parseFloat(inverted.toFixed(1));
@@ -311,10 +311,9 @@ function Athlete() {
       return [null, ''];
     }
 
-    const hasAdultBadge = ranks.some(rank => rank.age === 'Adult' && pctInt(rank.percentile) >= 98);
     const highestPercentile = ranks.reduce((max, rank) => Math.max(max, pctInt(rank.percentile)), 0);
 
-    if (highestPercentile >= 98 && hasAdultBadge) {
+    if (highestPercentile >= 98) {
       return [eliteTier1Badge, 'Elite (Tier 1)'];
     } else if (highestPercentile >= 95) {
       return [eliteTier2Badge, 'Elite (Tier 2)'];
