@@ -169,14 +169,10 @@ def get_athlete(id):
             ):
                 highest_belt = promo.belt
 
-        # if there's still no belt, default to white
-        if highest_belt is None:
-            highest_belt = "WHITE"
-
         # if there are no matches, rating is null
         if len(elo_history) == 0:
             rating = None
-        else:
+        elif highest_belt:
             rating = elo_history[-1]["Rating"]
 
             if rating is not None and elo_history[-1]["belt"] != highest_belt:

@@ -17,6 +17,12 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
 }
 
+.athlete-nickname {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .athlete-nickname a {
   display: flex;
   gap: 0.5rem;
@@ -97,4 +103,13 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
+}
+
+.is-visible-mobile {
+  display: none;
+}
+@media (max-width: 768px) {
+  .is-visible-mobile {
+    display: inline-block;
+  }
 }

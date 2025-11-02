@@ -36,7 +36,7 @@ interface ResponseData {
     instagram_profile_photo_url: string | null;
     team_name: string | null;
     rating: number | null;
-    belt: string;
+    belt: string | null;
   };
   eloHistory: {
     date: string;
@@ -291,7 +291,7 @@ function Athlete() {
   const [badge, badgeDescription] = useMemo(() => {
     if (!responseData || responseData.athlete.rating === null) return [null, ''];
 
-    if (['WHITE', 'GREY', 'YELLOW', 'YELLOW_GREY', 'ORANGE', 'GREEN', 'GREEN_ORANGE'].includes(responseData.athlete.belt)) {
+    if (!responseData.athlete.belt || ['WHITE', 'GREY', 'YELLOW', 'YELLOW_GREY', 'ORANGE', 'GREEN', 'GREEN_ORANGE'].includes(responseData.athlete.belt)) {
       return [null, ''];
     }
 
@@ -330,7 +330,7 @@ function Athlete() {
           <h1 className="title is-3 mb-1 athlete-title">
             {responseData.athlete.name}
             {responseData.athlete.country && (
-              <span className={`fi fi-${responseData.athlete.country.trim().toLowerCase().substring(0, 2)} country-flag`} data-tooltip-place="top" data-tooltip-id='athlete-tooltip' data-tooltip-content={getCountryName(responseData.athlete.country, responseData.athlete.country_note, responseData.athlete.country_note_pt, language)} />
+              <span className={`fi fi-${responseData.athlete.country.trim().toLowerCase().substring(0, 2)} country-flag is-hidden-mobile`} data-tooltip-place="top" data-tooltip-id='athlete-tooltip' data-tooltip-content={getCountryName(responseData.athlete.country, responseData.athlete.country_note, responseData.athlete.country_note_pt, language)} />
             )}
           </h1>
           {responseData.athlete.instagram_profile && (
@@ -339,6 +339,9 @@ function Athlete() {
               <img src={igLogoColor} alt="Instagram" className="ig-tooltip-instagram-logo" />
               {responseData.athlete.instagram_profile_personal_name || `@${responseData.athlete.instagram_profile}`}
             </a>
+            {responseData.athlete.country && (
+              <span className={`fi fi-${responseData.athlete.country.trim().toLowerCase().substring(0, 2)} country-flag is-visible-mobile`} data-tooltip-place="top" data-tooltip-id='athlete-tooltip' data-tooltip-content={getCountryName(responseData.athlete.country, responseData.athlete.country_note, responseData.athlete.country_note_pt, language)} />
+            )}
           </h2>
           )}
           {responseData.athlete.team_name && (
@@ -352,11 +355,13 @@ function Athlete() {
             {(hasRating && responseData.athlete.rating !== null) &&
               <h1 className="title mt-0 mb-0 athlete-rating">{responseData.athlete.rating}</h1>
             }
-            <h2 className="subtitle mt-0 mb-0 athlete-belt" style={{color: beltColors[responseData.athlete.belt] || 'black', ...(beltHasOutline[responseData.athlete.belt] ? outlineStyle : {})}}>
-              {beltNames[responseData.athlete.belt]} Belt
-            </h2>
+            {responseData.athlete.belt &&
+              <h2 className="subtitle mt-0 mb-0 athlete-belt" style={{color: beltColors[responseData.athlete.belt] || 'black', ...(beltHasOutline[responseData.athlete.belt] ? outlineStyle : {})}}>
+                {beltNames[responseData.athlete.belt]} Belt
+              </h2>
+            }
           </div>
-          {(badge || activeTab === 'No Gi') && (
+          {(badge || activeTab === 'No Gi') && (hasRating && responseData.athlete.rating !== null) && (
             <div className='athlete-badge-box'>
               <Tooltip id='athlete-badge-tooltip' className="tooltip-normal" />
               {badge &&
