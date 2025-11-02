@@ -12,7 +12,7 @@ import eliteEmeraldBadge from '/src/assets/elite-emerald.png';
 import { Tooltip } from 'react-tooltip';
 import DBTableRows from './DBTableRows';
 import { useNavigate } from 'react-router-dom'
-import { t } from '../translate'
+import { t, type translationKeys } from '../translate'
 import DBPagination from './DBPagination';
 import classNames from 'classnames';
 import {
@@ -357,7 +357,7 @@ function Athlete() {
             }
             {responseData.athlete.belt &&
               <h2 className="subtitle mt-0 mb-0 athlete-belt" style={{color: beltColors[responseData.athlete.belt] || 'black', ...(beltHasOutline[responseData.athlete.belt] ? outlineStyle : {})}}>
-                {beltNames[responseData.athlete.belt]} Belt
+                {t(`${beltNames[responseData.athlete.belt]} Belt` as translationKeys)}
               </h2>
             }
           </div>
@@ -396,7 +396,7 @@ function Athlete() {
               <tbody>
                 {sortedRanks.map((rankEntry, index) => (
                   <tr key={index}>
-                    <td>{`${rankEntry.age} / ${rankEntry.weight || 'P4P'}`}</td>
+                    <td>{`${t(rankEntry.age as translationKeys)} / ${t((rankEntry.weight || 'P4P') as translationKeys)}`}</td>
                     <td className={classNames('has-text-right', {'has-text-weight-bold': pctInt(rankEntry.percentile) >= 90})}>#{rankEntry.rank.toLocaleString()}</td>
                     <td className={classNames('has-text-right', {'has-text-weight-bold': pctInt(rankEntry.percentile) >= 90})}>
                       <Tooltip id={`avg-rating-tooltip-${index}`} className="tooltip-normal" />
