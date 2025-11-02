@@ -287,6 +287,10 @@ function Athlete() {
   const [badge, badgeDescription] = useMemo(() => {
     if (!responseData || responseData.athlete.rating === null) return [null, ''];
 
+    if (['WHITE', 'GREY', 'YELLOW', 'YELLOW_GREY', 'ORANGE', 'GREEN', 'GREEN_ORANGE'].includes(responseData.athlete.belt)) {
+      return [null, ''];
+    }
+
     const highestPercentile = responseData.ranks.reduce((max, rank) => Math.max(max, 1 - rank.percentile), 0);
     if (highestPercentile >= 0.98) {
       return [eliteDiamondBadge, 'Elite (Diamond)'];
