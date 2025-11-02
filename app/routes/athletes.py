@@ -178,8 +178,8 @@ def get_athlete(id):
             if rating is not None and elo_history[-1]["belt"] != highest_belt:
                 # adjust rating based on belt difference, can't do more than one belt here
                 # since we don't know their age, so just leave it alone in that case
-                belt_diff = (
-                    belt_order[highest_belt] - belt_order[elo_history[-1]["belt"]]
+                belt_diff = belt_order.index(highest_belt) - belt_order.index(
+                    elo_history[-1]["belt"]
                 )
                 if belt_diff == 1:
                     if highest_belt == BLACK:
