@@ -91,14 +91,11 @@ function BracketRegistration() {
     getUpcomingLinks()
   }, [])
 
-  const registrationAthleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => {
+  const registrationAthleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     ev.preventDefault()
-    setFilters({
-      athlete_name: '"' + name + '"',
-    });
-    setOpenFilters({athlete: true, event: false, division: false});
+    
     setActiveTab(isGi(registrationEventName) ? 'Gi' : 'No Gi');
-    navigate('/database');
+    navigate('/athlete/' + encodeURIComponent(id));
   }
 
   const sortedRegistrationCompetitors = useMemo(() => {

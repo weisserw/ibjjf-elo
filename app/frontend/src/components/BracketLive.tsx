@@ -58,18 +58,15 @@ function BracketLive() {
     setSortColumn(column)
   }
 
-  const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => {
+  const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     ev.preventDefault()
     const event = events?.find(e => e.id === selectedEvent);
     if (!event) {
       return;
     }
-    setFilters({
-      athlete_name: '"' + name + '"',
-    });
-    setOpenFilters({athlete: true, event: false, division: false});
+    
     setActiveTab(isGi(event.name) ? 'Gi' : 'No Gi');
-    navigate('/database');
+    navigate('/athlete/' + encodeURIComponent(id));
   }
 
   const getEvents = async () => {

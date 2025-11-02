@@ -162,6 +162,7 @@ def top():
     response = [
         {
             "rank": result.rank,
+            "athlete_id": result.id,
             "name": result.name,
             "instagram_profile": result.instagram_profile,
             "instagram_profile_personal_name": result.instagram_profile_personal_name,

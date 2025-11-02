@@ -11,6 +11,13 @@ import DBTableRows from './DBTableRows';
 import { useNavigate } from 'react-router-dom'
 import { t } from '../translate'
 import DBPagination from './DBPagination';
+import {
+  ageToFilter,
+  genderToFilter,
+  beltToFilter,
+  weightToFilter,
+  type FilterKeys
+} from './DBFilters';
 
 import './Athlete.css';
 
@@ -47,6 +54,10 @@ function Athlete() {
     setBracketArchiveSelectedCategory,
     athletePage: page,
     setAthletePage: setPage,
+    filters,
+    setFilters,
+    openFilters,
+    setOpenFilters,
   } = useAppContext();
 
   const navigate = useNavigate();
@@ -128,6 +139,50 @@ const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     setPage(pageNumber)
   }
 
+  const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, _name: string, id: string) => {
+    event.preventDefault()
+
+    navigate('/athlete/' + encodeURIComponent(id))
+  }
+
+  const eventClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {
+    event.preventDefault()
+
+    const newFilters = {...filters};
+    delete newFilters.athlete_name;
+    newFilters.event_name = '"' + name + '"';
+    setFilters(newFilters);
+    setOpenFilters({...openFilters, event: true});
+
+    navigate('/database');
+  }
+
+  const divisionClicked = (event: React.MouseEvent<HTMLAnchorElement>, row: Row) => {
+    event.preventDefault()
+
+    const newFilters = {...filters};
+    delete newFilters.athlete_name;
+    const keys: FilterKeys[] = Object.keys(newFilters) as FilterKeys[];
+    for (const key of keys.filter(key => key.startsWith('age_') || key.startsWith('gender_') || key.startsWith('belt_') || key.startsWith('weight_'))) {
+      delete newFilters[key];
+    }
+    if (row.age.startsWith('Teen ')) {
+      newFilters[ageToFilter('Teen')] = true;
+    } else if (row.age.startsWith('Juvenile ')) {
+      newFilters[ageToFilter('Juvenile')] = true;
+    } else {
+      newFilters[ageToFilter(row.age)] = true;
+    }
+    newFilters[genderToFilter(row.gender)] = true;
+    newFilters[beltToFilter(row.belt)] = true;
+    newFilters[weightToFilter(row.weight)] = true;
+
+    setFilters(newFilters);
+    setOpenFilters({...openFilters, division: true});
+
+    navigate('/database');
+  }
+
   if (!responseData) {
     return <div className="loader"></div>;
   }
@@ -168,16 +223,18 @@ const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
         </div>
       </div>
       <GiTabs />
+      {
+        parsedEloHistory.length === 0 && (
+          <div className="notification">
+            {t("No matches found")}
+          </div>
+        )
+      }
+      {parsedEloHistory.length > 0 && (
       <div className="box mt-5 athlete-elo-box">
         <h2 className="has-text-weight-bold is-5 mb-2">{t("Rating over time")}</h2>
         <ResponsiveContainer width="100%" height={320}>
           <LineChart data={parsedEloHistory} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
-            <defs>
-              <linearGradient id="eloColor" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#4285f4" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#34a853" stopOpacity={0.8} />
-              </linearGradient>
-            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
             <XAxis
               dataKey="date"
@@ -203,7 +260,7 @@ const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
             <Line
               type="monotone"
               dataKey="Rating"
-              stroke="url(#eloColor)"
+              stroke="#4285f4"
               strokeWidth={3}
               dot={{ r: 5, fill: '#fff', stroke: '#4285f4', strokeWidth: 2 }}
               activeDot={{ r: 7 }}
@@ -212,6 +269,7 @@ const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      )}
       {
         matchData && matchData.length > 0 && (
           <div>
@@ -219,9 +277,12 @@ const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
               {t("Match history")}:
             </p>
             <DBTableRows data={matchData}
-                          loading={false}
-                          noLinks={true}
-                          divisionBracketClicked={divisionBracketClicked}/>
+                         loading={false}
+                         linkAthlete={name => name !== responseData.athlete.name }
+                         athleteClicked={athleteClicked}
+                         eventClicked={eventClicked}
+                         divisionClicked={divisionClicked}
+                         divisionBracketClicked={divisionBracketClicked}/>
             {
               hasHistorical && (
                 <div className="notification is-historical">

@@ -81,17 +81,15 @@ function BracketArchive() {
     setSortColumn(column)
   }
 
-  const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, name: string) => {
+  const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     ev.preventDefault()
+
     if (!eventNameFetch) {
-      return;
+      return
     }
-    setFilters({
-      athlete_name: '"' + name + '"',
-    });
-    setOpenFilters({athlete: true, event: false, division: false});
-    setActiveTab(isGi(eventNameFetch) ? 'Gi' : 'No Gi');
-    navigate('/database');
+
+    setActiveTab(isGi(eventNameFetch) ? 'Gi' : 'No Gi')
+    navigate('/athlete/' + encodeURIComponent(id))
   }
 
   const getCategories = async () => {

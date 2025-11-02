@@ -202,6 +202,7 @@ const translations = {
     "Competitors on same team; possible closeout": "Competidores na mesma equipe; possível closeout",
     "Our open class seeding uses a combination of weight and skill": "Nossa seed do absoluto usa uma combinação de peso e nível técnico",
     "Rating over time": "Rating ao longo do tempo",
+    "No matches found": "Nenhum resultado encontrado",
 };
 
 export type translationKeys = keyof typeof translations;

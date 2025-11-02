@@ -19,13 +19,14 @@ athletes_route = Blueprint("athletes_route", __name__)
 
 MAX_RESULTS = 50
 
+
 @athletes_route.route("/api/athlete/<id>")
 def get_athlete(id):
     try:
         id_uuid = UUID(id)
     except ValueError:
         return jsonify({"error": "Invalid athlete ID"}), 400
-    
+
     gi = request.args.get("gi")
 
     gi = gi.lower() == "true" if gi else True
@@ -91,10 +92,15 @@ def get_athlete(id):
         photo_url = get_public_photo_url(s3_client, athlete)
         athlete_json["instagram_profile_photo_url"] = photo_url
 
-    return jsonify({
-        "athlete": athlete_json,
-        "eloHistory": filtered_elo_history,
-    }), 200
+    return (
+        jsonify(
+            {
+                "athlete": athlete_json,
+                "eloHistory": filtered_elo_history,
+            }
+        ),
+        200,
+    )
 
 
 @athletes_route.route("/api/athletes/predict")
@@ -170,6 +176,7 @@ def ratings():
 
     query = (
         db.session.query(
+            MatchParticipant.athlete_id,
             MatchParticipant.end_rating,
             Division.age,
             Division.belt,
@@ -204,6 +211,7 @@ def ratings():
     )
 
     info = {
+        "id": None,
         "rating": None,
         "age": None,
         "weight": None,
@@ -216,6 +224,7 @@ def ratings():
         info["rating"] = rating.end_rating
         info["age"] = rating.age
         info["belt"] = rating.belt
+        info["id"] = rating.athlete_id
 
     return jsonify(info)
 

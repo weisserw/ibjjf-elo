@@ -154,6 +154,7 @@ function DBTable() {
       <DBFilters />
       <DBTableRows data={data}
                    loading={loading}
+                   linkAthlete={() => true}
                    athleteClicked={athleteClicked}
                    eventClicked={eventClicked}
                    divisionClicked={divisionClicked}
