@@ -386,7 +386,7 @@ function Athlete() {
                     <td className={classNames('has-text-right', {'has-text-weight-bold': Math.round((1 - rankEntry.percentile) * 100) >= 90})}>
                       <Tooltip id={`avg-rating-tooltip-${index}`} className="tooltip-normal" />
                       <span data-tooltip-id={`avg-rating-tooltip-${index}`} data-tooltip-place="top" data-tooltip-content={t("Division Average") + ": " + rankEntry.avg_rating.toString()}>
-                        {Math.round((1 - rankEntry.percentile) * 100)}
+                        {Math.round((1 - rankEntry.percentile) * 100)}%
                       </span>
                     </td>
                   </tr>
