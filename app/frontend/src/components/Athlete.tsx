@@ -446,7 +446,7 @@ function Athlete() {
               animationDuration={0}
             />
             <Line
-              type="monotone"
+              type="linear"
               dataKey="Rating"
               stroke="#4285f4"
               strokeWidth={3}
