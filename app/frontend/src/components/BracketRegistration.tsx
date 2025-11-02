@@ -43,8 +43,6 @@ function BracketRegistration() {
     setBracketRegistrationUpcomingLinks: setUpcomingLinks,
     bracketRegistrationSelectedUpcomingLink: selectedUpcomingLink,
     setBracketRegistrationSelectedUpcomingLink: setSelectedUpcomingLink,
-    setFilters,
-    setOpenFilters,
     setActiveTab,
   } = useAppContext()
 

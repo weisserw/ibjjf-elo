@@ -85,8 +85,6 @@ function EloTable() {
     rankingPage: page,
     setRankingNameFilter: setNameFilter,
     setRankingPage: setPage,
-    setFilters,
-    setOpenFilters,
     setBracketSelectedEvent,
     setBracketSelectedCategory,
     setBracketRegistrationSelectedUpcomingLink,

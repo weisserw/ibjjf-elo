@@ -44,8 +44,6 @@ function BracketArchive() {
     setBracketArchiveMatches: setMatches,
     bracketSortColumn: sortColumn,
     setBracketSortColumn: setSortColumn,
-    setFilters,
-    setOpenFilters,
     setActiveTab,
     setCalcFirstAthlete,
     setCalcSecondAthlete,

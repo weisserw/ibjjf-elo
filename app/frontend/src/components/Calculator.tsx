@@ -78,8 +78,6 @@ function Calculator() {
 
   const {
     activeTab,
-    setFilters,
-    setOpenFilters,
     calcGender,
     setCalcGender,
     calcFirstAthlete,
