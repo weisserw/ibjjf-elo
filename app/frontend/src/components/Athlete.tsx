@@ -31,10 +31,12 @@ interface ResponseData {
     instagram_profile_personal_name: string | null;
     instagram_profile_photo_url: string | null;
     team_name: string | null;
+    rating: number | null;
+    belt: string;
   };
   eloHistory: {
     date: string;
-    Rating: number;
+    Rating: number | null;
   }[];
   ranks: {
     rank: number;
@@ -62,6 +64,51 @@ const weightOrder: Record<string, number> = {
   'Heavy': 6,
   'Super Heavy': 7,
   'Ultra Heavy': 8,
+};
+
+const beltNames: Record<string, string> = {
+  BLACK: "Black",
+  BROWN: "Brown",
+  PURPLE: "Purple",
+  BLUE: "Blue",
+  GREEN: "Green",
+  GREEN_ORANGE: "Green-Orange",
+  ORANGE: "Orange",
+  YELLOW: "Yellow",
+  YELLOW_GREY: "Yellow-Grey",
+  GREY: "Grey",
+  WHITE: "White",
+};
+
+const beltColors: Record<string, string> = {
+  BLACK: "#000000",
+  BROWN: "#8B4513",
+  PURPLE: "#800080",
+  BLUE: "#0000FF",
+  GREEN: "#008000",
+  GREEN_ORANGE: "#008000",
+  ORANGE: "#FFA500",
+  YELLOW: "#FFFF00",
+  YELLOW_GREY: "#FFFF00",
+  GREY: "#808080",
+  WHITE: "#FFFFFF",
+};
+
+const beltHasOutline: Record<string, boolean> = {
+  WHITE: true,
+  YELLOW: true,
+  YELLOW_GREY: true,
+  GREY: true,
+  ORANGE: true,
+};
+
+const outlineStyle = {
+  textShadow: [
+    '-1px -1px 0 black',
+     '1px -1px 0 black',
+    '-1px  1px 0 black',
+     '1px  1px 0 black'
+  ].join(', ')
 };
 
 function Athlete() {
@@ -261,6 +308,14 @@ function Athlete() {
             </h2>
           )}
         </div>
+        <div className='has-text-centered'>
+          {responseData.athlete.rating !== null &&
+            <h1 className="title mt-0 athlete-rating">{responseData.athlete.rating}</h1>
+          }
+          <h2 className="subtitle mt-2 athlete-belt" style={{color: beltColors[responseData.athlete.belt] || 'black', ...(beltHasOutline[responseData.athlete.belt] ? outlineStyle : {})}}>
+            {beltNames[responseData.athlete.belt]} Belt
+          </h2>
+        </div>
       </div>
       <GiTabs />
       {
@@ -276,7 +331,7 @@ function Athlete() {
               <tbody>
                 {sortedRanks.map((rankEntry, index) => (
                   <tr key={index}>
-                    <td>{`${rankEntry.belt} / ${rankEntry.age} / ${rankEntry.weight || 'P4P'}`}</td>
+                    <td>{`${rankEntry.age} / ${rankEntry.weight || 'P4P'}`}</td>
                     <td className='has-text-right'>#{rankEntry.rank.toLocaleString()}</td>
                   </tr>
                 ))}

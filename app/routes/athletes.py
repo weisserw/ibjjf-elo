@@ -2,13 +2,25 @@ from flask import Blueprint, request, jsonify
 from uuid import UUID
 from sqlalchemy.sql import exists
 from extensions import db
-from models import Athlete, MatchParticipant, Match, Division, Team, AthleteRating
+from models import (
+    Athlete,
+    MatchParticipant,
+    Match,
+    Division,
+    Team,
+    AthleteRating,
+    ManualPromotions,
+    RegistrationLinkCompetitor,
+)
 from normalize import normalize
 from elo import (
     EloCompetitor,
     AGE_K_FACTOR_MODIFIERS,
     weight_handicaps,
     RATING_VERY_IMMATURE_COUNT,
+    belt_order,
+    BLACK_PROMOTION_RATING_BUMP,
+    COLOR_PROMOTION_RATING_BUMP,
 )
 from constants import (
     OPEN_CLASS,
@@ -17,6 +29,7 @@ from constants import (
     TEEN_1,
     TEEN_2,
     TEEN_3,
+    BLACK,
 )
 from photos import get_s3_client, get_public_photo_url
 
@@ -45,7 +58,8 @@ def get_athlete(id):
         {
             "date": mp.match.happened_at.strftime("%Y-%m-%d"),
             "team": mp.team.name,
-            "Rating": round(mp.end_rating),
+            "belt": mp.match.division.belt,
+            "Rating": round(mp.end_rating) if mp.end_rating is not None else None,
         }
         for mp in (
             db.session.query(MatchParticipant)
@@ -85,6 +99,7 @@ def get_athlete(id):
     ranks = [
         {
             "rank": r.rank,
+            "rating": round(r.rating),
             "age": r.age,
             "belt": r.belt,
             "weight": r.weight,
@@ -92,6 +107,7 @@ def get_athlete(id):
         for r in (
             db.session.query(
                 AthleteRating.rank,
+                AthleteRating.rating,
                 AthleteRating.age,
                 AthleteRating.belt,
                 AthleteRating.weight,
@@ -103,6 +119,59 @@ def get_athlete(id):
         )
     ]
 
+    # load registrations and manual promotions
+    registrations = (
+        db.session.query(RegistrationLinkCompetitor)
+        .filter(RegistrationLinkCompetitor.athlete_name == athlete.name)
+        .all()
+    )
+    promotions = (
+        db.session.query(ManualPromotions)
+        .filter(ManualPromotions.athlete_id == id_uuid)
+        .all()
+    )
+
+    # if they have ranks, use the belt and rating from there
+    if len(ranks):
+        rating = ranks[0]["rating"]
+        highest_belt = ranks[0]["belt"]
+    else:
+        # determine highest belt from mathes, registrations, and promotions
+        highest_belt = None
+        if len(elo_history):
+            highest_belt = elo_history[-1]["belt"]
+        for reg in registrations:
+            if highest_belt is None or belt_order[reg.belt] > belt_order[highest_belt]:
+                highest_belt = reg.belt
+        for promo in promotions:
+            if (
+                highest_belt is None
+                or belt_order[promo.belt] > belt_order[highest_belt]
+            ):
+                highest_belt = promo.belt
+
+        # if there's still no belt, default to white
+        if highest_belt is None:
+            highest_belt = "WHITE"
+
+        # if there are no matches, rating is null
+        if len(elo_history) == 0:
+            rating = None
+        else:
+            rating = elo_history[-1]["Rating"]
+
+            if rating is not None and elo_history[-1]["belt"] != highest_belt:
+                # adjust rating based on belt difference, can't do more than one belt here
+                # since we don't know their age, so just leave it alone in that case
+                belt_diff = (
+                    belt_order[highest_belt] - belt_order[elo_history[-1]["belt"]]
+                )
+                if belt_diff == 1:
+                    if highest_belt == BLACK:
+                        rating += BLACK_PROMOTION_RATING_BUMP
+                    else:
+                        rating += COLOR_PROMOTION_RATING_BUMP
+
     athlete_json = {
         "name": athlete.name,
         "instagram_profile": athlete.instagram_profile,
@@ -112,6 +181,8 @@ def get_athlete(id):
         "country_note": athlete.country_note,
         "country_note_pt": athlete.country_note_pt,
         "team_name": team_name,
+        "belt": highest_belt,
+        "rating": rating,
     }
 
     if athlete.profile_image_saved_at is not None:

@@ -9,6 +9,7 @@
   align-items: center;
   gap: 2rem;
   background: var(--bulma-background, #fff);
+  justify-content: center;
 }
 
 .athlete-profile-photo {
@@ -50,5 +51,17 @@
 @media (pointer: coarse) and (max-width: 768px) {
   .athlete-title .country-flag {
     height: 16px;
+  }
+}
+
+.athlete-rating {
+  font-size: 48px;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .athlete-profile-box {
+    flex-direction: column;
+    gap: 4px;
   }
 }
