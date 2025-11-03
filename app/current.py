@@ -390,12 +390,14 @@ def create_ratings_tables(
                         CASE WHEN end_match_count <= :RATING_VERY_IMMATURE_COUNT THEN 1 ELSE 0 END ASC,
                         ROUND(end_rating) DESC
                 ) AS rank,
-                CUME_DIST() OVER (
-                    PARTITION BY gender, age, belt, gi, weight
-                    ORDER BY
-                        CASE WHEN end_match_count <= :RATING_VERY_IMMATURE_COUNT THEN 1 ELSE 0 END ASC,
-                        ROUND(end_rating) DESC
-                ) AS percentile
+                CASE
+                    WHEN end_match_count > :RATING_VERY_IMMATURE_COUNT THEN
+                        CUME_DIST() OVER (
+                        PARTITION BY gender, age, belt, gi, weight
+                        ORDER BY ROUND(end_rating) DESC
+                        )
+                    ELSE 1
+                END AS percentile
             FROM combined_ratings
             WHERE weight IS NOT NULL
             """
