@@ -225,6 +225,10 @@ function EloTable() {
       return null;
     }
 
+    if (row.previous_percentile !== null && row.percentile > row.previous_percentile) {
+      return null;
+    }
+
     const [badge, badgeDesc] = badgeForPercentile(row.percentile, belt);
     const [previousBadge] = badgeForPercentile(row.previous_percentile, belt);
     if (!badge || badge === previousBadge) {
