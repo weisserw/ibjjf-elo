@@ -115,3 +115,15 @@ nav.pagination.pagination-margin {
   display: flex;
   gap: 8px;
 }
+
+.rating-change-container {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.badge-container {
+  display: flex;
+  align-items: center;
+  margin-left: 4px;
+}

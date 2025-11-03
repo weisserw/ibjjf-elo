@@ -295,7 +295,7 @@ function Athlete() {
   const badgeForRank: (ranks: Rank[]) => [string | null, string] = useCallback((ranks: Rank[]) => {
     if (!responseData || responseData.athlete.rating === null || !responseData.athlete.belt) return [null, ''];
 
-    const lowestPercentile = ranks.reduce((min, rank) => Math.min(min, rank.percentile), 0);
+    const lowestPercentile = ranks.reduce((min, rank) => Math.min(min, rank.percentile), 1);
 
     return badgeForPercentile(lowestPercentile, responseData.athlete.belt);
   }, [responseData]);

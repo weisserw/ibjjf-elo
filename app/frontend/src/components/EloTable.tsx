@@ -11,7 +11,7 @@ import NameInfo from './NameInfo';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { Tooltip } from 'react-tooltip';
-import { axiosErrorToast, immatureClass } from '../utils';
+import { axiosErrorToast, immatureClass, badgeForPercentile } from '../utils';
 import { t, translateMulti } from '../translate';
 
 import "./EloTable.css"
@@ -27,6 +27,7 @@ interface Registration {
 
 interface Row {
   rank: number
+  percentile: number
   previous_rank: number | null
   athlete_id: string
   name: string
@@ -40,6 +41,7 @@ interface Row {
   match_count: number
   previous_rating: number | null
   previous_match_count: number | null
+  previous_percentile: number | null
   registrations: Registration[]
 }
 
@@ -218,6 +220,27 @@ function EloTable() {
     }
   }
 
+  const badgeChange = (row: Row) => {
+    if (row.previous_rating === null || (row.rating <= row.previous_rating)) {
+      return null;
+    }
+
+    const [badge, badgeDesc] = badgeForPercentile(row.percentile, belt);
+    const [previousBadge] = badgeForPercentile(row.previous_percentile, belt);
+    if (!badge || badge === previousBadge) {
+      return null;
+    }
+
+    return (
+      <span className="badge-container">
+        +
+        <figure className="image is-24x24" data-tooltip-id="badge-tooltip" data-tooltip-content={badgeDesc} data-tooltip-place="top">
+          <img src={badge} alt={badgeDesc} />
+        </figure>
+      </span>
+    );
+  }
+
   const changeClass = (start: number | null, end: number, reverse: boolean) => {
     if (start === null && reverse) {
       return 'has-text-right new-marker-td';
@@ -365,7 +388,12 @@ function EloTable() {
                             )
                         }
                       </td>
-                      <td className={changeClass(row.previous_rating, row.rating, false)}>{ratingChange(row)}</td>
+                      <td className={changeClass(row.previous_rating, row.rating, false)}>
+                        <div className="rating-change-container">
+                          {ratingChange(row)}
+                          {badgeChange(row)}
+                        </div>
+                      </td>
                       <td className={classNames("cell-no-padding", {"has-cursor-pointer": row.registrations && row.registrations.length > 0})} data-tooltip-id={row.registrations && row.registrations.length > 0 ? `elo-registration-tooltip-${index}` : undefined}>
                         {row.registrations && row.registrations.length > 0 && (
                           <span className={classNames("icon is-small elo-registration-icon", {
@@ -415,6 +443,7 @@ function EloTable() {
         }
       </div>
       <Tooltip id="elo-tooltip" className="tooltip-multiline" place="left" />
+      <Tooltip id="badge-tooltip" className="tooltip-normal" />
     </div>
   )
 }
