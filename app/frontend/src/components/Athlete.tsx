@@ -40,6 +40,7 @@ interface Athlete {
 
 interface Elo {
   date: string;
+  belt: string;
   Rating: number | null;
 }
 
@@ -94,9 +95,9 @@ const beltNames: Record<string, string> = {
 
 const beltColors: Record<string, string> = {
   BLACK: "#000000",
-  BROWN: "#8B4513",
-  PURPLE: "#800080",
-  BLUE: "#0000FF",
+  BROWN: "#a1551eff",
+  PURPLE: "#af20afff",
+  BLUE: "#1461deff",
   GREEN: "#008000",
   GREEN_ORANGE: "#008000",
   ORANGE: "#FFA500",
@@ -511,9 +512,24 @@ function Athlete() {
             <Line
               type="linear"
               dataKey="Rating"
-              stroke="#4285f4"
+              stroke="#797c82"
               strokeWidth={3}
-              dot={{ r: 5, fill: '#fff', stroke: '#4285f4', strokeWidth: 2 }}
+              dot={(props) => {
+                const { cx, cy, index } = props;
+                const entry = parsedEloHistory[index];
+                const belt = entry?.belt;
+                const color = beltColors[belt] || '#4285f4';
+                return (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={5}
+                    fill={color}
+                    stroke={color}
+                    strokeWidth={2}
+                  />
+                );
+              }}
               activeDot={{ r: 7 }}
               animationDuration={200}
             />
