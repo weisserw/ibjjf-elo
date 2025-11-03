@@ -149,3 +149,8 @@
   flex-grow: 1;
   max-width: calc(100vw - 20px);
 }
+
+.badge-table-cell {
+  width: 40px;
+  padding-right: 0 !important;
+}

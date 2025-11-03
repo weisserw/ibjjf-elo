@@ -172,7 +172,6 @@ def get_ratings(
     gender,
     gi,
     rating_date,
-    get_rank,
     use_live_ratings,
     s3_client,
 ):
@@ -248,31 +247,29 @@ def get_ratings(
             result["country_note_pt"] = athlete.country_note_pt
 
     # get ranks from athlete_ratings if available
-    if get_rank:
-        ratings_results = (
-            db.session.query(
-                AthleteRating.athlete_id,
-                AthleteRating.rank,
-            )
-            .filter(
-                AthleteRating.athlete_id.in_([result["id"] for result in results]),
-                AthleteRating.age == age,
-                AthleteRating.belt == belt,
-                AthleteRating.weight == weight,
-                AthleteRating.gender == gender,
-                AthleteRating.gi == gi,
-            )
-            .all()
+    ratings_results = (
+        db.session.query(
+            AthleteRating.athlete_id,
+            AthleteRating.rank,
+            AthleteRating.percentile,
         )
-        ranks_by_id = {r.athlete_id: r.rank for r in ratings_results}
-        for result in results:
-            result["rank"] = ranks_by_id.get(result["id"])
-    else:
-        for result in results:
-            result["rank"] = None
+        .filter(
+            AthleteRating.athlete_id.in_([result["id"] for result in results]),
+            AthleteRating.age == age,
+            AthleteRating.belt == belt,
+            AthleteRating.weight == weight,
+            AthleteRating.gender == gender,
+            AthleteRating.gi == gi,
+        )
+        .all()
+    )
+    ranks_by_id = {r.athlete_id: r.rank for r in ratings_results}
+    percentiles_by_id = {r.athlete_id: r.percentile for r in ratings_results}
+    for result in results:
+        result["rank"] = ranks_by_id.get(result["id"])
+        result["percentile"] = percentiles_by_id.get(result["id"])
 
     # get rating and match_count from their most recent match
-
     recent_matches_cte = (
         db.session.query(
             MatchParticipant.id,
@@ -928,6 +925,7 @@ def registration_competitors():
                         "rating": None,
                         "match_count": None,
                         "rank": None,
+                        "percentile": None,
                         "note": None,
                         "last_weight": None,
                         "instagram_profile": None,
@@ -948,7 +946,6 @@ def registration_competitors():
         divdata["gender"],
         gi,
         datetime.now() + timedelta(days=1),
-        True,
         False,
         s3_client,
     )
@@ -958,14 +955,15 @@ def registration_competitors():
 
 def compute_match_ratings(matches, results, belt, weight, age):
     athlete_results = {}
-    for result in results:
-        athlete_results[result["ibjjf_id"]] = result
     athlete_ratings = {}
-    for result in results:
-        athlete_ratings[result["ibjjf_id"]] = result["rating"]
     athlete_match_counts = {}
+    athlete_percentiles = {}
     for result in results:
-        athlete_match_counts[result["ibjjf_id"]] = result["match_count"]
+        ibjjf_id = result["ibjjf_id"]
+        athlete_results[ibjjf_id] = result
+        athlete_ratings[ibjjf_id] = result["rating"]
+        athlete_match_counts[ibjjf_id] = result["match_count"]
+        athlete_percentiles[ibjjf_id] = result["percentile"]
 
     for i in range(len(matches)):
         match = matches[i]
@@ -982,6 +980,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         red_country = None
         red_country_note = None
         red_country_note_pt = None
+        red_percentile = None
         red_name = match["red_name"]
         if red_id in athlete_results:
             if (
@@ -1002,6 +1001,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
             red_country = athlete_results[red_id]["country"]
             red_country_note = athlete_results[red_id]["country_note"]
             red_country_note_pt = athlete_results[red_id]["country_note_pt"]
+            red_percentile = athlete_percentiles[red_id]
         red_expected = None
         red_handicap = 0
         blue_id = match["blue_id"]
@@ -1016,6 +1016,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         blue_country = None
         blue_country_note = None
         blue_country_note_pt = None
+        blue_percentile = None
         blue_name = match["blue_name"]
         if blue_id in athlete_results:
             if (
@@ -1036,6 +1037,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
             blue_country = athlete_results[blue_id]["country"]
             blue_country_note = athlete_results[blue_id]["country_note"]
             blue_country_note_pt = athlete_results[blue_id]["country_note_pt"]
+            blue_percentile = athlete_percentiles[blue_id]
         blue_expected = None
         blue_handicap = 0
 
@@ -1110,6 +1112,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["red_country"] = red_country
         match["red_country_note"] = red_country_note
         match["red_country_note_pt"] = red_country_note_pt
+        match["red_percentile"] = red_percentile
         match["red_match_count"] = red_match_count
         match["red_name"] = red_name
 
@@ -1128,6 +1131,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["blue_country"] = blue_country
         match["blue_country_note"] = blue_country_note
         match["blue_country_note_pt"] = blue_country_note_pt
+        match["blue_percentile"] = blue_percentile
         match["blue_name"] = blue_name
 
 
@@ -1262,6 +1266,7 @@ def parse_match(match, weight):
         "red_country": None,
         "red_country_note": None,
         "red_country_note_pt": None,
+        "red_percentile": None,
         "blue_bye": blue_bye,
         "blue_id": blue_id,
         "blue_seed": blue_seed,
@@ -1284,6 +1289,7 @@ def parse_match(match, weight):
         "blue_country": None,
         "blue_country_note": None,
         "blue_country_note_pt": None,
+        "blue_percentile": None,
     }
 
 
@@ -1464,6 +1470,7 @@ def competitors():
                         "rating": None,
                         "match_count": None,
                         "rank": None,
+                        "percentile": None,
                         "note": None,
                         "last_weight": None,
                         "next_where": None,
@@ -1509,7 +1516,6 @@ def competitors():
         gender,
         gi,
         earliest_match_date,
-        False,
         True,
         s3_client,
     )
@@ -1969,6 +1975,7 @@ def archive_competitors():
                     "match_count": match["red_match_count"],
                     "end_match_count": match["red_match_count"],
                     "rank": None,
+                    "percentile": None,
                     "note": match["red_note"],
                     "last_weight": match["red_weight"],
                     "medal": match["red_medal"],
@@ -2003,6 +2010,7 @@ def archive_competitors():
                     "match_count": match["blue_match_count"],
                     "end_match_count": match["blue_match_count"],
                     "rank": None,
+                    "percentile": None,
                     "note": match["blue_note"],
                     "last_weight": match["blue_weight"],
                     "medal": match["blue_medal"],

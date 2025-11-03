@@ -1,5 +1,8 @@
 import { toast } from 'bulma-toast';
 import { countryNames, countryNamesPt } from './countries';
+import eliteTier1Badge from '/src/assets/elite-tier1.png';
+import eliteTier2Badge from '/src/assets/elite-tier2.png';
+import eliteTier3Badge from '/src/assets/elite-tier3.png';
 
 const showToast = (message: string) => {
   toast({
@@ -127,3 +130,33 @@ export function getCountryName(country: string | null, note: string | null, note
     }
   }
 }
+
+export const percentileInteger = (percentile: number): number => {
+  const inverted = (1 - percentile) * 100;
+
+  if (inverted >= 99) {
+    return parseFloat(inverted.toFixed(1));
+  }
+
+  return Math.round(inverted);
+};
+
+export const badgeForPercentile = (percentile: number | null, belt: string): [string | null, string] => {
+  if (percentile === null) return [null, ''];
+
+  if (!belt || ['WHITE', 'GREY', 'YELLOW', 'YELLOW-GREY', 'ORANGE', 'GREEN', 'GREEN-ORANGE'].includes(belt)) {
+    return [null, ''];
+  }
+
+  const invertedPct = percentileInteger(percentile);
+
+  if (invertedPct >= 98) {
+    return [eliteTier1Badge, 'Tier 1 Elite (Top 2%)'];
+  } else if (invertedPct >= 95) {
+    return [eliteTier2Badge, 'Tier 2 Elite (Top 5%)'];
+  } else if (invertedPct >= 90) {
+    return [eliteTier3Badge, 'Tier 3 Elite (Top 10%)'];
+  } else {
+    return [null, ''];
+  }
+};

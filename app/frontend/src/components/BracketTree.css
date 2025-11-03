@@ -55,6 +55,10 @@
   font-size: 10px;
 }
 
+.bracket-tree-match-competitor-badge {
+  vertical-align: middle;
+}
+
 .bracket-tree-match-competitors {
   width: 100%;
   border: none;
@@ -71,6 +75,12 @@
 
 .bracket-tree-match-competitors tr:last-child {
   background-color: #ffffff;
+}
+
+.bracket-tree-match-competitor-name-badge-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .bracket-tree-match-competitor-name-name {

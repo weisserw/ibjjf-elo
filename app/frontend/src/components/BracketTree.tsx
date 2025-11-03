@@ -4,7 +4,7 @@ import classNames from 'classnames';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { useAppContext } from '../AppContext';
-import { noMatchStrings, immatureClass, getCountryName } from '../utils';
+import { noMatchStrings, immatureClass, getCountryName, badgeForPercentile } from '../utils';
 import { Tooltip } from 'react-tooltip';
 import { t, translateMultiSpace } from '../translate';
 import igLogo from '/src/assets/instagram.png';
@@ -14,6 +14,7 @@ import "./BracketTree.css";
 
 interface BracketTreeMatchProps {
   match: Match;
+  belt: string;
   showSeed: boolean;
   levelIndex: number;
   matchIndex: number;
@@ -23,7 +24,7 @@ interface BracketTreeMatchProps {
 }
 
 function BracketTreeMatch(props: BracketTreeMatchProps) {
-  const { match, levelIndex, matchIndex } = props;
+  const { match, levelIndex, matchIndex, belt } = props;
   const { language } = useAppContext();
 
   const tooltip = (numMatches: number | null) => {
@@ -36,6 +37,9 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
     }
     return `${t("Athlete's rating is semi-provisional due to insufficient matches within three years")} (${numMatches})`;
   }
+
+  const [redBadge, redBadgeDesc] = badgeForPercentile(match.red_percentile, belt);
+  const [blueBadge, blueBadgeDesc] = badgeForPercentile(match.blue_percentile, belt);
 
   return (
     <div className="bracket-tree-match-container">
@@ -78,6 +82,17 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 {props.showSeed && !match.red_seed && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
                 {!props.showSeed && match.red_ordinal}
                 {!props.showSeed && !match.red_ordinal && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
+              </td>
+              <td className="bracket-tree-match-competitor-badge">
+              {
+                redBadge &&
+                  <figure className="image is-32x32 athlete-elite-badge" style={{ margin: 0 }} data-tooltip-id="bracket-normal-tooltip" data-tooltip-place="top" data-tooltip-content={redBadgeDesc}>
+                    <img
+                      src={redBadge}
+                      alt={redBadgeDesc}
+                    />
+                </figure>
+              }
               </td>
               <td className="bracket-tree-match-competitor-name">
                 <div className="bracket-tree-match-competitor-name-name">
@@ -140,8 +155,19 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 {!props.showSeed && match.blue_ordinal}
                 {!props.showSeed && !match.blue_ordinal && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
               </td>
+              <td className="bracket-tree-match-competitor-badge">
+              {
+                blueBadge &&
+                  <figure className="image is-32x32 athlete-elite-badge" style={{ margin: 0 }} data-tooltip-id="bracket-normal-tooltip" data-tooltip-place="top" data-tooltip-content={blueBadgeDesc}>
+                    <img
+                      src={blueBadge}
+                      alt={blueBadgeDesc}
+                    />
+                  </figure>
+              }
+              </td>
               <td className="bracket-tree-match-competitor-name">
-              <div className="bracket-tree-match-competitor-name-name">
+                <div className="bracket-tree-match-competitor-name-name">
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)})}>
                     {match.blue_name}
                     {match.blue_instagram_profile && (
@@ -208,6 +234,7 @@ interface BracketTreeProps {
   hasMatchNums: boolean;
   showRefresh: boolean;
   showRatings: boolean;
+  belt: string;
   isRefreshing?: boolean;
   calculateClicked: (match: Match) => void;
   refreshClicked?: () => void;
@@ -304,6 +331,7 @@ function BracketTree(props: BracketTreeProps) {
                       showRatings={props.showRatings}
                       calculateClicked={props.calculateClicked}
                       calculateEnabled={props.calculateEnabled}
+                      belt={props.belt}
                       matchIndex={matchIndex}
                     />
                   ))}

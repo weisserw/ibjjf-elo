@@ -312,6 +312,8 @@ function BracketArchive() {
     return match.red_name !== null && match.blue_name !== null;
   }
 
+  const belt = selectedCategory ? selectedCategory.split(' / ')[0] : '';
+
   return (
     <div className="brackets-content">
       <div>
@@ -403,6 +405,7 @@ function BracketArchive() {
                          showSeed={usableSortColumn === 'seed'}
                          showRefresh={false}
                          showRatings={showRatings}
+                         belt={belt}
                          calculateClicked={calculateMatch}
                          calculateEnabled={calculateEnabled}/>
           )
@@ -416,6 +419,7 @@ function BracketArchive() {
                           showRatings={showRatings}
                           showWeight={selectedCategory?.includes(' / Open') ?? false}
                           selectedCategory={selectedCategory}
+                          belt={belt}
                           isGi={isGi(eventNameFetch)}
                           columnClicked={columnClicked}
                           athleteClicked={athleteClicked}

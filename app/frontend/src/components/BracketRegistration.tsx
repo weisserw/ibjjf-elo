@@ -293,6 +293,7 @@ function BracketRegistration() {
                           showRank={true}
                           selectedCategory={selectedRegistrationCategory}
                           showRatings={showRatings}
+                          belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
                           isGi={isGi(registrationEventName ?? '')}
                           athleteClicked={registrationAthleteClicked}
                           calculateEnabled={calculateEnabledAthlete} />

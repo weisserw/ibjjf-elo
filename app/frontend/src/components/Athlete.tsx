@@ -2,13 +2,10 @@ import {useEffect, useState, useMemo, useCallback} from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
 import { useParams } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
-import { axiosErrorToast, getCountryName, type DBRow as Row, type DBResults as Results, isHistorical } from '../utils';
+import { axiosErrorToast, getCountryName, type DBRow as Row, type DBResults as Results, isHistorical, badgeForPercentile, percentileInteger } from '../utils';
 import GiTabs from './GiTabs';
 import { useAppContext } from '../AppContext';
 import igLogoColor from '/src/assets/instagram-color.png';
-import eliteTier1Badge from '/src/assets/elite-tier1.png';
-import eliteTier2Badge from '/src/assets/elite-tier2.png';
-import eliteTier3Badge from '/src/assets/elite-tier3.png';
 import { Tooltip } from 'react-tooltip';
 import DBTableRows from './DBTableRows';
 import { useNavigate } from 'react-router-dom'
@@ -123,16 +120,6 @@ const outlineStyle = {
      '1px  1px 0 black'
   ].join(', ')
 };
-
-const pctInt = (percentile: number): number => {
-  const inverted = (1 - percentile) * 100;
-
-  if (inverted >= 99) {
-    return parseFloat(inverted.toFixed(1));
-  }
-
-  return Math.round(inverted);
-}
 
 function Athlete() {
 	const { id } = useParams();
@@ -306,23 +293,11 @@ function Athlete() {
   }
 
   const badgeForRank: (ranks: Rank[]) => [string | null, string] = useCallback((ranks: Rank[]) => {
-    if (!responseData || responseData.athlete.rating === null) return [null, ''];
+    if (!responseData || responseData.athlete.rating === null || !responseData.athlete.belt) return [null, ''];
 
-    if (!responseData.athlete.belt || ['WHITE', 'GREY', 'YELLOW', 'YELLOW_GREY', 'ORANGE', 'GREEN', 'GREEN_ORANGE'].includes(responseData.athlete.belt)) {
-      return [null, ''];
-    }
+    const lowestPercentile = ranks.reduce((min, rank) => Math.min(min, rank.percentile), 0);
 
-    const highestPercentile = ranks.reduce((max, rank) => Math.max(max, pctInt(rank.percentile)), 0);
-
-    if (highestPercentile >= 98) {
-      return [eliteTier1Badge, 'Tier 1 Elite (Top 2%)'];
-    } else if (highestPercentile >= 95) {
-      return [eliteTier2Badge, 'Tier 2 Elite (Top 5%)'];
-    } else if (highestPercentile >= 90) {
-      return [eliteTier3Badge, 'Tier 3 Elite (Top 10%)'];
-    } else {
-      return [null, ''];
-    }
+    return badgeForPercentile(lowestPercentile, responseData.athlete.belt);
   }, [responseData]);
 
   const [badge, badgeDescription] = useMemo(() => {
@@ -448,11 +423,11 @@ function Athlete() {
                         : 'N/A'
                       }
                     </td>
-                    <td className={classNames('has-text-right', {'has-text-weight-bold': pctInt(rankEntry.percentile) >= 90})}>
+                    <td className={classNames('has-text-right', {'has-text-weight-bold': percentileInteger(rankEntry.percentile) >= 90})}>
                       #{rankEntry.rank.toLocaleString()}
                     </td>
-                    <td className={classNames('has-text-right', {'has-text-weight-bold': pctInt(rankEntry.percentile) >= 90})}>
-                        {pctInt(rankEntry.percentile)}%
+                    <td className={classNames('has-text-right', {'has-text-weight-bold': percentileInteger(rankEntry.percentile) >= 90})}>
+                        {percentileInteger(rankEntry.percentile)}%
                     </td>
                     <td>
                       {badge &&

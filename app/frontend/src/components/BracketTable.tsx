@@ -1,4 +1,4 @@
-import { noMatchStrings, immatureClass } from "../utils"
+import { noMatchStrings, immatureClass, badgeForPercentile } from "../utils"
 import classNames from 'classnames';
 import dayjs from 'dayjs'
 import { useAppContext } from '../AppContext'
@@ -20,6 +20,7 @@ interface BracketTableProps {
   showNext?: boolean;
   showRatings: boolean;
   isGi: boolean;
+  belt: string;
   columnClicked?: (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => void;
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, id: string) => void;
   calculateEnabled: (athlete: Competitor) => boolean;
@@ -35,6 +36,7 @@ function BracketTable(props: BracketTableProps) {
     athleteClicked,
     isGi,
     selectedCategory,
+    belt,
   } = props;
 
   const {
@@ -173,6 +175,7 @@ function BracketTable(props: BracketTableProps) {
                 }
               </th>
             }
+            <th></th>
             <th>{t("Name")}</th>
             <th>{t("Team")}</th>
             {
@@ -212,7 +215,9 @@ function BracketTable(props: BracketTableProps) {
         </thead>
         <tbody>
           {
-            competitors?.map(competitor => (
+            competitors?.map(competitor => {
+              const [badge, badgeDesc] = badgeForPercentile(competitor.percentile, belt);
+              return (
               <tr key={competitor.name}>
                 {
                   props.showRatings &&
@@ -232,6 +237,16 @@ function BracketTable(props: BracketTableProps) {
                 {
                   props.showSeed &&
                   <td className="has-text-right">{competitor.seed}</td>
+                }
+                {
+                  <td className="badge-table-cell">
+                    {
+                      badge &&
+                      <figure className="image is-24x24 athlete-elite-badge" data-tooltip-id="badge-tooltip" data-tooltip-content={badgeDesc} data-tooltip-place="top">
+                        <img src={badge} alt={badgeDesc} />
+                      </figure>
+                    }
+                  </td>
                 }
                 {
                   competitor.id !== null ?
@@ -293,7 +308,7 @@ function BracketTable(props: BracketTableProps) {
                   <td className="has-text-right">{immatureClass(competitor.match_count) !== 'very-immature' && (competitor.rank ?? '')}</td>
                 }
               </tr>
-            ))
+            )})
           }
         </tbody>
       </table>
@@ -306,6 +321,7 @@ function BracketTable(props: BracketTableProps) {
           {t("Calculate Expected Match Result")}
         </button>
       }
+      <Tooltip id="badge-tooltip" className="tooltip-normal" />
       <Tooltip id="competitor-tooltip" className="tooltip-multiline" />
     </div>
   );

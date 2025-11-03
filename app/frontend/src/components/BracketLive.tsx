@@ -361,6 +361,8 @@ function BracketLive() {
     navigate('/calculator');
   }
 
+  const belt = selectedCategory ? selectedCategory.split(' / ')[0] : '';
+
   return (
     <div className="brackets-content">
       <div>
@@ -452,6 +454,7 @@ function BracketLive() {
               showRefresh={true}
               isRefreshing={loading}
               showRatings={showRatings}
+              belt={belt}
               calculateClicked={calculateMatch}
               calculateEnabled={calculateEnabled}
               refreshClicked={viewBracket}
@@ -485,6 +488,7 @@ function BracketLive() {
               showEndRating={true}
               showNext={showNext}
               showRatings={showRatings}
+              belt={belt}
               showWeight={selectedCategory?.includes(' / Open') ?? false}
               selectedCategory={selectedCategory}
               isGi={isGi(selectedEventName ?? '')}
