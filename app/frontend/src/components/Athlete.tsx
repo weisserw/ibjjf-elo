@@ -47,6 +47,7 @@ interface Rank {
   age: string;
   belt: string;
   weight: string;
+  gender: string;
   avg_rating: number;
 }
 
@@ -142,6 +143,10 @@ function Athlete() {
     setFilters,
     openFilters,
     setOpenFilters,
+    setRankingGender,
+    setRankingAge,
+    setRankingBelt,
+    setRankingWeight,
   } = useAppContext();
 
   const navigate = useNavigate();
@@ -304,6 +309,17 @@ function Athlete() {
     return badgeForRank(sortedRanks);
   }, [badgeForRank, sortedRanks]);
 
+  const rankDivisionClicked = (rankEntry: Rank, event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+
+    setRankingGender(rankEntry.gender);
+    setRankingAge(rankEntry.age);
+    setRankingBelt(rankEntry.belt);
+    setRankingWeight(rankEntry.weight);
+
+    navigate('/');
+  };
+
   if (!responseData) {
     return <div className="loader"></div>;
   }
@@ -412,7 +428,9 @@ function Athlete() {
                   return (
                   <tr key={index}>
                     <td>
-                      {`${t(rankEntry.age as translationKeys)} / ${t((rankEntry.weight || 'P4P') as translationKeys)}`}
+                      <a href="#" onClick={rankDivisionClicked.bind(null, rankEntry)}>
+                        {`${t(rankEntry.age as translationKeys)} / ${t((rankEntry.weight || 'P4P') as translationKeys)}`}
+                      </a>
                     </td>
                     <td className="has-text-right">
                       {rankEntry.avg_rating !== null ? rankEntry.avg_rating : 'N/A'}

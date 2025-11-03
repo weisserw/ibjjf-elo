@@ -106,6 +106,7 @@ def get_athlete(id):
             "age": r.age,
             "belt": r.belt,
             "weight": r.weight,
+            "gender": r.gender,
             "avg_rating": round(r.avg_rating),
         }
         for r in (
@@ -116,6 +117,7 @@ def get_athlete(id):
                 AthleteRating.age,
                 AthleteRating.belt,
                 AthleteRating.weight,
+                AthleteRating.gender,
                 AthleteRatingAverage.avg_rating,
             )
             .join(
@@ -126,6 +128,7 @@ def get_athlete(id):
                     AthleteRatingAverage.age == AthleteRating.age,
                     AthleteRatingAverage.belt == AthleteRating.belt,
                     AthleteRatingAverage.weight == AthleteRating.weight,
+                    AthleteRatingAverage.gender == AthleteRating.gender,
                 ),
             )
             .filter(AthleteRating.athlete_id == id_uuid)
