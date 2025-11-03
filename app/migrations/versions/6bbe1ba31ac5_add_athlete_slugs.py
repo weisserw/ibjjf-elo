@@ -67,27 +67,6 @@ def upgrade():
         batch_op.add_column(sa.Column("slug", sa.String(), nullable=True))
         batch_op.create_unique_constraint("uq_event_slug", ["slug"])
 
-    connection = op.get_bind()
-
-    athletes = connection.execute(
-        sa.text("SELECT id, normalized_name FROM athletes")
-    ).fetchall()
-    for athlete in athletes:
-        slug = generate_slug_raw_sql(connection, "athletes", athlete.normalized_name)
-        connection.execute(
-            sa.text("UPDATE athletes SET slug = :slug WHERE id = :id"),
-            {"slug": slug, "id": athlete.id},
-        )
-    events = connection.execute(
-        sa.text("SELECT id, normalized_name FROM events")
-    ).fetchall()
-    for event in events:
-        slug = generate_slug_raw_sql(connection, "events", event.normalized_name)
-        connection.execute(
-            sa.text("UPDATE events SET slug = :slug WHERE id = :id"),
-            {"slug": slug, "id": event.id},
-        )
-
     # ### end Alembic commands ###
 
 
