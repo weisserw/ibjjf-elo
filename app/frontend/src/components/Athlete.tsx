@@ -315,11 +315,11 @@ function Athlete() {
     const highestPercentile = ranks.reduce((max, rank) => Math.max(max, pctInt(rank.percentile)), 0);
 
     if (highestPercentile >= 98) {
-      return [eliteTier1Badge, 'Elite (Tier 1)'];
+      return [eliteTier1Badge, 'Tier 1 Elite (Top 2%)'];
     } else if (highestPercentile >= 95) {
-      return [eliteTier2Badge, 'Elite (Tier 2)'];
+      return [eliteTier2Badge, 'Tier 2 Elite (Top 5%)'];
     } else if (highestPercentile >= 90) {
-      return [eliteTier3Badge, 'Elite (Tier 3)'];
+      return [eliteTier3Badge, 'Tier 3 Elite (Top 10%)'];
     } else {
       return [null, ''];
     }
