@@ -21,6 +21,7 @@ from constants import (
 )
 from normalize import normalize
 from elo import match_didnt_happen
+from slug import generate_slug
 
 
 def get_event(session, ibjjf_id, name):
@@ -86,7 +87,10 @@ def get_or_create_event_or_athlete(session, model, ibjjf_id, name, do_update=Tru
                 return instance
             else:
                 instance = model(
-                    ibjjf_id=ibjjf_id, name=name, normalized_name=normalized_name
+                    ibjjf_id=ibjjf_id,
+                    name=name,
+                    normalized_name=normalized_name,
+                    slug=generate_slug(session, model, normalized_name),
                 )
                 session.add(instance)
                 session.flush()

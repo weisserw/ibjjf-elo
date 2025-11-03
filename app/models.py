@@ -30,10 +30,15 @@ class Event(db.Model):
     ibjjf_id = Column(String, unique=True, nullable=True)
     name = Column(String, nullable=False)
     normalized_name = Column(String, nullable=False)
+    slug = Column(String, nullable=True)
 
     __table_args__ = (
         Index("ix_events_ibjjf_id", "ibjjf_id"),
         Index("ix_events_normalized_name", "normalized_name"),
+        UniqueConstraint(
+            "slug",
+            name="uq_event_slug",
+        ),
     )
 
 
@@ -80,10 +85,15 @@ class Athlete(db.Model):
     country_note_pt = Column(String, nullable=True)
     profile_image_saved_at = Column(TIMESTAMP(timezone=True), nullable=True)
     instagram_profile_personal_name = Column(String, nullable=True)
+    slug = Column(String, nullable=True)
 
     __table_args__ = (
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),
         Index("ix_athletes_normalized_name_covering", "normalized_name", "id"),
+        UniqueConstraint(
+            "slug",
+            name="uq_athlete_slug",
+        ),
     )
 
 
