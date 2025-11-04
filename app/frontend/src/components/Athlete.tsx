@@ -114,15 +114,6 @@ const beltHasOutline: Record<string, boolean> = {
   ORANGE: true,
 };
 
-const outlineStyle = {
-  textShadow: [
-    '-1px -1px 0 black',
-     '1px -1px 0 black',
-    '-1px  1px 0 black',
-     '1px  1px 0 black'
-  ].join(', ')
-};
-
 function Athlete() {
 	const { id } = useParams();
   const [responseData, setResponseData] = useState<ResponseData | null>(null);
@@ -369,7 +360,10 @@ function Athlete() {
               <h1 className="title mt-0 mb-0 athlete-rating">{responseData.athlete.rating}</h1>
             }
             {responseData.athlete.belt &&
-              <h2 className="subtitle mt-0 mb-0 athlete-belt" style={{color: beltColors[responseData.athlete.belt] || 'black', ...(beltHasOutline[responseData.athlete.belt] ? outlineStyle : {})}}>
+              <h2
+                className={classNames('subtitle mt-0 mb-0 athlete-belt', { 'athlete-belt--outlined': beltHasOutline[responseData.athlete.belt] })}
+                style={{ color: beltColors[responseData.athlete.belt] || 'black' }}
+              >
                 {t(`${beltNames[responseData.athlete.belt]} Belt` as translationKeys)}
               </h2>
             }
