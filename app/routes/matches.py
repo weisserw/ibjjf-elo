@@ -366,7 +366,7 @@ def matches():
     sql = f"""
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
             mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating,
-            a.id as athlete_id, a.name, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.instagram_profile_personal_name, a.profile_image_saved_at,
+            a.id as athlete_id, a.name, a.slug, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.instagram_profile_personal_name, a.profile_image_saved_at,
             mp.note, m.rated, mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
@@ -436,6 +436,7 @@ def matches():
                 athlete=Athlete(
                     id=row["athlete_id"],
                     name=row["name"],
+                    slug=row["slug"],
                     country=row["country"],
                     country_note=row["country_note"],
                     country_note_pt=row["country_note_pt"],
@@ -470,6 +471,7 @@ def matches():
                 {
                     "id": current_match.id,
                     "winner": winner.athlete.name,
+                    "winnerSlug": winner.athlete.slug,
                     "winnerId": winner.athlete.id,
                     "winnerStartRating": round(winner.start_rating),
                     "winnerEndRating": round(winner.end_rating),
@@ -487,6 +489,7 @@ def matches():
                         else None
                     ),
                     "loser": loser.athlete.name,
+                    "loserSlug": loser.athlete.slug,
                     "loserId": loser.athlete.id,
                     "loserStartRating": round(loser.start_rating),
                     "loserEndRating": round(loser.end_rating),

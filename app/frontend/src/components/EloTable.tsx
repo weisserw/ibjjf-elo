@@ -30,6 +30,7 @@ interface Row {
   percentile: number
   previous_rank: number | null
   athlete_id: string
+  slug: string
   name: string
   instagram_profile: string | null
   instagram_profile_personal_name: string | null
@@ -156,10 +157,10 @@ function EloTable() {
     debouncedSetNameFilter(value)
   }
 
-  const onNameClick = (e: React.MouseEvent, id: string) => {
+  const onNameClick = (e: React.MouseEvent, slug: string) => {
     e.preventDefault();
 
-    navigate('/athlete/' + encodeURIComponent(id));
+    navigate('/athlete/' + encodeURIComponent(slug));
   };
 
   const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
@@ -369,7 +370,7 @@ function EloTable() {
                       <td className={changeClass(row.previous_rank, row.rank, true)}>{rankChange(row)}</td>
                       <td>
                         <div className="name-container">
-                          <a href="#" onClick={e => onNameClick(e, row.athlete_id)}>
+                          <a href="#" onClick={e => onNameClick(e, row.slug)}>
                             {row.name}
                           </a>
                           <NameInfo instagram_profile={row.instagram_profile}

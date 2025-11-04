@@ -6,6 +6,7 @@ export interface Competitor {
   ibjjf_id: string | null
   seed: number
   name: string
+  slug: string
   team: string
   instagram_profile: string | null
   instagram_profile_personal_name: string | null

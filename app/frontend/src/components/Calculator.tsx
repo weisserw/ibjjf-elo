@@ -51,6 +51,7 @@ interface PredictResponse {
 
 interface AthleteRating {
   id: string | null;
+  slug: string | null;
   rating: number | null;
   age: string | null;
   weight: string | null;
@@ -110,10 +111,10 @@ function Calculator() {
     navigate('/tournaments')
   }
 
-  const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+  const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, slug: string) => {
     ev.preventDefault()
 
-    navigate('/athlete/' + encodeURIComponent(id))
+    navigate('/athlete/' + encodeURIComponent(slug))
   }
 
   // re-fetch athletes if component reloads
@@ -285,12 +286,12 @@ function Calculator() {
       secondRating = <span><strong className="fw-600">{Number(secondRatingToPredict) + Math.round(secondHandicap)}</strong> (+{Math.round(secondHandicap)} {t("weight adjustment")})</span>;
     }
 
-    if (!firstFetchedAthlete?.id || !secondFetchedAthlete?.id) {
+    if (!firstFetchedAthlete?.slug || !secondFetchedAthlete?.slug) {
       return <span>{firstRating} vs {secondRating}</span>
     }
     return (
       <span>
-        <a href="#" onClick={e => athleteClicked(e, firstFetchedAthlete.id ?? '')}>{firstAthleteToFetch}</a>, {firstRating} vs <a href="#" onClick={e => athleteClicked(e, secondFetchedAthlete.id ?? '')}>{secondAthleteToFetch}</a>, {secondRating}
+        <a href="#" onClick={e => athleteClicked(e, firstFetchedAthlete.slug ?? '')}>{firstAthleteToFetch}</a>, {firstRating} vs <a href="#" onClick={e => athleteClicked(e, secondFetchedAthlete.slug ?? '')}>{secondAthleteToFetch}</a>, {secondRating}
       </span>
     )
   }

@@ -44,8 +44,14 @@ MAX_RESULTS = 50
 def get_athlete(id):
     try:
         id_uuid = UUID(id)
+        athlete = Athlete.query.get(id_uuid)
+        if not athlete:
+            return jsonify({"error": "Athlete not found"}), 404
     except ValueError:
-        return jsonify({"error": "Invalid athlete ID"}), 400
+        athlete = Athlete.query.filter_by(slug=id).first()
+        if not athlete:
+            return jsonify({"error": "Athlete not found"}), 404
+        id_uuid = athlete.id
 
     gi = request.args.get("gi")
 
@@ -134,7 +140,7 @@ def get_athlete(id):
             .filter(AthleteRating.athlete_id == id_uuid)
             .filter(AthleteRating.gi == gi)
             .filter(AthleteRating.match_count > RATING_VERY_IMMATURE_COUNT)
-            .filter(AthleteRating.rank is not None)
+            .filter(AthleteRating.rank.isnot(None))
         )
     ]
 
@@ -293,6 +299,7 @@ def ratings():
 
     query = (
         db.session.query(
+            Athlete.slug,
             MatchParticipant.athlete_id,
             MatchParticipant.end_rating,
             Division.age,
@@ -329,6 +336,7 @@ def ratings():
 
     info = {
         "id": None,
+        "slug": None,
         "rating": None,
         "age": None,
         "weight": None,
@@ -342,6 +350,7 @@ def ratings():
         info["age"] = rating.age
         info["belt"] = rating.belt
         info["id"] = rating.athlete_id
+        info["slug"] = rating.slug
 
     return jsonify(info)
 

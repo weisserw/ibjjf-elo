@@ -50,6 +50,7 @@ def top():
         db.session.query(
             Athlete.id,
             Athlete.name,
+            Athlete.slug,
             Athlete.instagram_profile,
             Athlete.instagram_profile_personal_name,
             Athlete.profile_image_saved_at,
@@ -167,6 +168,7 @@ def top():
             "percentile": result.percentile,
             "athlete_id": result.id,
             "name": result.name,
+            "slug": result.slug,
             "instagram_profile": result.instagram_profile,
             "instagram_profile_personal_name": result.instagram_profile_personal_name,
             "profile_image_url": (

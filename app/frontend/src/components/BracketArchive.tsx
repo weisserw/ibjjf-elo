@@ -79,7 +79,7 @@ function BracketArchive() {
     setSortColumn(column)
   }
 
-  const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+  const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, slug: string) => {
     ev.preventDefault()
 
     if (!eventNameFetch) {
@@ -87,7 +87,7 @@ function BracketArchive() {
     }
 
     setActiveTab(isGi(eventNameFetch) ? 'Gi' : 'No Gi')
-    navigate('/athlete/' + encodeURIComponent(id))
+    navigate('/athlete/' + encodeURIComponent(slug))
   }
 
   const getCategories = async () => {

@@ -56,7 +56,7 @@ function BracketLive() {
     setSortColumn(column)
   }
 
-  const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+  const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, slug: string) => {
     ev.preventDefault()
     const event = events?.find(e => e.id === selectedEvent);
     if (!event) {
@@ -64,7 +64,7 @@ function BracketLive() {
     }
     
     setActiveTab(isGi(event.name) ? 'Gi' : 'No Gi');
-    navigate('/athlete/' + encodeURIComponent(id));
+    navigate('/athlete/' + encodeURIComponent(slug));
   }
 
   const getEvents = async () => {

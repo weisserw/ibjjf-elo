@@ -253,10 +253,10 @@ function Athlete() {
     setPage(pageNumber)
   }
 
-  const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, _name: string, id: string) => {
+  const athleteClicked = (event: React.MouseEvent<HTMLAnchorElement>, slug: string) => {
     event.preventDefault()
 
-    navigate('/athlete/' + encodeURIComponent(id))
+    navigate('/athlete/' + encodeURIComponent(slug))
   }
 
   const eventClicked = (event: React.MouseEvent<HTMLAnchorElement>, name: string) => {

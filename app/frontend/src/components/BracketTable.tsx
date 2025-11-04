@@ -22,7 +22,7 @@ interface BracketTableProps {
   isGi: boolean;
   belt: string;
   columnClicked?: (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => void;
-  athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, id: string) => void;
+  athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, slug: string) => void;
   calculateEnabled: (athlete: Competitor) => boolean;
 }
 
@@ -252,7 +252,7 @@ function BracketTable(props: BracketTableProps) {
                   competitor.id !== null ?
                     <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
                       <div className="name-container">
-                        <a href="#" onClick={e => athleteClicked(e, competitor.id ?? '')}>{competitor.name}</a>
+                        <a href="#" onClick={e => athleteClicked(e, competitor.slug)}>{competitor.name}</a>
                         <NameInfo instagram_profile={competitor.instagram_profile}
                                   instagram_profile_personal_name={competitor.instagram_profile_personal_name}
                                   profile_image_url={competitor.profile_image_url}

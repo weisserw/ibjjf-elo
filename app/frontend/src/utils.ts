@@ -55,6 +55,7 @@ export const ages = [
 export interface DBRow {
   id: string
   winner: string
+  winnerSlug: string
   winnerId: string
   winnerStartRating: number
   winnerEndRating: number
@@ -69,6 +70,7 @@ export interface DBRow {
   winnerCountryNote: string | null
   winnerCountryNotePt: string | null
   loser: string
+  loserSlug: string
   loserId: string
   loserStartRating: number
   loserEndRating: number

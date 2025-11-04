@@ -49,7 +49,7 @@ interface DBTableRowsProps {
   loading: boolean
   linkAthlete: (name: string) => boolean
   noLinks?: boolean
-  athleteClicked?: (e: React.MouseEvent<HTMLAnchorElement>, name: string, id: string) => void
+  athleteClicked?: (e: React.MouseEvent<HTMLAnchorElement>, slug: string) => void
   eventClicked?: (e: React.MouseEvent<HTMLAnchorElement>, name: string) => void
   divisionClicked?: (e: React.MouseEvent<HTMLAnchorElement>, row: Row) => void
   divisionBracketClicked: (row: Row) => void
@@ -164,7 +164,7 @@ function DBTableRows(props: DBTableRowsProps) {
                     {
                       !linkAthlete(row.winner) ? row.winner :
                       <div className="name-container">
-                        <a href="#" onClick={e => athleteClicked?.(e, row.winner, row.winnerId)}>
+                        <a href="#" onClick={e => athleteClicked?.(e, row.winnerSlug)}>
                           {row.winner}
                         </a>
                         <NameInfo instagram_profile={row.winnerInstagramProfile}
@@ -188,7 +188,7 @@ function DBTableRows(props: DBTableRowsProps) {
                     {
                       !linkAthlete(row.loser) ? row.loser :
                       <div className="name-container">
-                        <a href="#" onClick={e => athleteClicked?.(e, row.loser, row.loserId)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
+                        <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
                           {row.loser}
                         </a>
                         <NameInfo instagram_profile={row.loserInstagramProfile}
@@ -267,7 +267,7 @@ function DBTableRows(props: DBTableRowsProps) {
                       {
                         !linkAthlete(row.winner) ? row.winner :
                         <div className="name-container">
-                          <a href="#" onClick={e => athleteClicked?.(e, row.winner, row.winnerId)}>{row.winner}</a>
+                          <a href="#" onClick={e => athleteClicked?.(e, row.winnerSlug)}>{row.winner}</a>
                           <NameInfo instagram_profile={row.winnerInstagramProfile}
                                     instagram_profile_personal_name={row.winnerInstagramProfilePersonalName}
                                     profile_image_url={row.winnerProfileImageUrl}
@@ -289,7 +289,7 @@ function DBTableRows(props: DBTableRowsProps) {
                       {
                         !linkAthlete(row.loser) ? row.loser :
                         <div className="name-container">
-                          <a href="#" onClick={e => athleteClicked?.(e, row.loser, row.loserId)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>{row.loser}</a>
+                          <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>{row.loser}</a>
                           <NameInfo instagram_profile={row.loserInstagramProfile}
                                     instagram_profile_personal_name={row.loserInstagramProfilePersonalName}
                                     profile_image_url={row.loserProfileImageUrl}
