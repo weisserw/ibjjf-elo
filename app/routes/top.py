@@ -59,11 +59,9 @@ def top():
             Athlete.country_note_pt,
             AthleteRating.rating,
             AthleteRating.rank,
-            AthleteRating.percentile,
             AthleteRating.match_count,
             AthleteRating.previous_rating,
             AthleteRating.previous_rank,
-            AthleteRating.previous_percentile,
             AthleteRating.previous_match_count,
         )
         .select_from(AthleteRating)
@@ -165,7 +163,6 @@ def top():
     response = [
         {
             "rank": result.rank,
-            "percentile": result.percentile,
             "athlete_id": result.id,
             "name": result.name,
             "slug": result.slug,
@@ -187,7 +184,6 @@ def top():
                 else round(result.previous_rating)
             ),
             "previous_rank": result.previous_rank,
-            "previous_percentile": result.previous_percentile,
             "previous_match_count": result.previous_match_count,
             "registrations": reg_links_by_athlete.get(result.name, []),
         }
