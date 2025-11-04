@@ -67,6 +67,7 @@ def get_athlete(id):
             "date": mp.match.happened_at.strftime("%Y-%m-%d"),
             "team": mp.team.name,
             "belt": mp.match.division.belt,
+            "age": mp.match.division.age,
             "Rating": round(mp.end_rating) if mp.end_rating is not None else None,
         }
         for mp in (

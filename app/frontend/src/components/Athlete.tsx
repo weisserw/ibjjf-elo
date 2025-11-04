@@ -38,6 +38,7 @@ interface Athlete {
 interface Elo {
   date: string;
   belt: string;
+  age: string;
   Rating: number | null;
 }
 
@@ -512,13 +513,35 @@ function Athlete() {
                 const entry = parsedEloHistory[index];
                 const belt = entry?.belt;
                 const color = beltColors[belt] || '#4285f4';
+                const isJuvenile = entry?.age?.startsWith('Juvenile');
+                if (isJuvenile) {
+                  return (
+                    <>
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={8}
+                        fill="#fff"
+                        stroke="black"
+                      />
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={5}
+                        fill={color}
+                        stroke={beltHasOutline[belt] ? 'black' : color}
+                        strokeWidth={2}
+                      />
+                    </>
+                  );
+                }
                 return (
                   <circle
                     cx={cx}
                     cy={cy}
                     r={5}
                     fill={color}
-                    stroke={color}
+                    stroke={beltHasOutline[belt] ? 'black' : color}
                     strokeWidth={2}
                   />
                 );
