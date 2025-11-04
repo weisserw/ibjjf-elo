@@ -131,14 +131,9 @@
   }
 }
 
-/* Text outline for light belt colors (e.g., White Belt). Uses text-stroke with Firefox fallback. */
+/* Text outline for light belt colors (e.g., White Belt).
+   Supported by modern browsers; see: https://caniuse.com/mdn-css_properties_-webkit-text-stroke
+   Using -webkit-text-stroke as the canonical property; no fallback required. */
 .athlete-belt--outlined {
-  -webkit-text-stroke: 1.5px #111;
-  text-stroke: 1.5px #111;
-}
-
-@supports not (-webkit-text-stroke: 1px #111) {
-  .athlete-belt--outlined {
-    text-shadow: -1px 0 #111, 1px 0 #111, 0 -1px #111, 0 1px #111;
-  }
+  -webkit-text-stroke: 1px #222;
 }
