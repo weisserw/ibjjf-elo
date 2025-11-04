@@ -130,3 +130,10 @@
     top: calc(50% - 24px);
   }
 }
+
+/* Text outline for light belt colors (e.g., White Belt).
+   Supported by modern browsers; see: https://caniuse.com/mdn-css_properties_-webkit-text-stroke
+   Using -webkit-text-stroke as the canonical property; no fallback required. */
+.athlete-belt--outlined {
+  -webkit-text-stroke: 1px #222;
+}
