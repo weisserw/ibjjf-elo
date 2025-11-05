@@ -112,7 +112,7 @@ nav.pagination.pagination-margin {
 }
 
 .name-container {
-  display: flex;
+  display: inline-flex;
   gap: 8px;
 }
 
