@@ -45,6 +45,17 @@ from constants import (
     OPEN_CLASS_HEAVY,
     OPEN_CLASS_LIGHT,
     JUVENILE,
+    JUVENILE_1,
+    JUVENILE_2,
+    ADULT,
+    MASTER_PREFIX,
+    MASTER_1,
+    MASTER_2,
+    MASTER_3,
+    MASTER_4,
+    MASTER_5,
+    MASTER_6,
+    MASTER_7,
     rated_ages,
 )
 from elo import (
@@ -254,7 +265,6 @@ def get_ratings(
         db.session.query(
             AthleteRating.athlete_id,
             AthleteRating.rank,
-            AthleteRating.percentile,
         )
         .filter(
             AthleteRating.athlete_id.in_([result["id"] for result in results]),
@@ -267,9 +277,46 @@ def get_ratings(
         .all()
     )
     ranks_by_id = {r.athlete_id: r.rank for r in ratings_results}
-    percentiles_by_id = {r.athlete_id: r.percentile for r in ratings_results}
     for result in results:
         result["rank"] = ranks_by_id.get(result["id"])
+
+    if age.startswith(JUVENILE):
+        percentile_ages = [JUVENILE_1, JUVENILE_2, JUVENILE]
+    elif age == ADULT:
+        percentile_ages = [JUVENILE_1, JUVENILE_2, JUVENILE, ADULT]
+    elif age.startswith(MASTER_PREFIX):
+        percentile_ages = [
+            JUVENILE_1,
+            JUVENILE_2,
+            JUVENILE,
+            ADULT,
+            MASTER_1,
+            MASTER_2,
+            MASTER_3,
+            MASTER_4,
+            MASTER_5,
+            MASTER_6,
+            MASTER_7,
+        ]
+
+    percentile_results = (
+        db.session.query(
+            AthleteRating.athlete_id,
+            func.min(AthleteRating.percentile).label("percentile"),
+        )
+        .filter(
+            AthleteRating.athlete_id.in_([result["id"] for result in results]),
+            AthleteRating.age.in_(percentile_ages),
+            AthleteRating.belt == belt,
+            AthleteRating.gender == gender,
+            AthleteRating.gi == gi,
+            AthleteRating.percentile <= 0.11,
+        )
+        .group_by(AthleteRating.athlete_id)
+        .all()
+    )
+    percentiles_by_id = {r.athlete_id: r.percentile for r in percentile_results}
+    for result in results:
         result["percentile"] = percentiles_by_id.get(result["id"])
 
     # get rating and match_count from their most recent match
