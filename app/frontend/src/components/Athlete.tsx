@@ -449,7 +449,7 @@ function Athlete() {
                     const [badge, badgeDescription] = badgeForRank([rankEntry]);
                     return (
                     <tr key={index}>
-                      <td className="white-space-nowrap">
+                      <td>
                         <a href="#" onClick={rankDivisionClicked.bind(null, rankEntry)}>
                           {`${t(rankEntry.age as translationKeys)} / ${t((rankEntry.weight || 'P4P') as translationKeys)}`}
                         </a>
