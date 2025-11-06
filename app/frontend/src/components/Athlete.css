@@ -97,10 +97,6 @@
   display: none;
 }
 
-.athlete-no-gi-badge {
-  white-space: nowrap;
-}
-
 .athlete-ranks-upcoming {
   display: flex;
   gap: 4rem;
@@ -126,8 +122,6 @@
 }
 
 .athlete-registration {
-  display: flex;
-  justify-content: space-between;
   border-bottom: 1px solid #ddd;
   padding-bottom: 8px;
 }
@@ -137,7 +131,13 @@
   padding-bottom: none;
 }
 
-.athlete-registration-division {
+.athlete-registration a {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.white-space-nowrap {
   white-space: nowrap;
 }
 

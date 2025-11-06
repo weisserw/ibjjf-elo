@@ -405,7 +405,7 @@ function Athlete() {
                 </figure>
               }
               {activeTab === 'No Gi' &&
-                <div className='athlete-no-gi-badge'>
+                <div className='white-space-nowrap'>
                   No Gi
                 </div>
               }
@@ -449,7 +449,7 @@ function Athlete() {
                     const [badge, badgeDescription] = badgeForRank([rankEntry]);
                     return (
                     <tr key={index}>
-                      <td>
+                      <td className="white-space-nowrap">
                         <a href="#" onClick={rankDivisionClicked.bind(null, rankEntry)}>
                           {`${t(rankEntry.age as translationKeys)} / ${t((rankEntry.weight || 'P4P') as translationKeys)}`}
                         </a>
@@ -499,8 +499,7 @@ function Athlete() {
                   <div key={index} className="athlete-registration">
                     <a href="#" onClick={e => onRegistrationClicked(e, r)}>
                       <span>{r.event_name} ({formatEventDates(r.event_start_date, r.event_end_date, language)})</span>
-                      {' '}
-                      <span className="athlete-registration-division">{translateMulti(r.division)}</span>
+                      <span className="white-space-nowrap">{translateMulti(r.division)}</span>
                     </a>
                   </div>))}
               </div>
