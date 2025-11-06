@@ -8,22 +8,12 @@ import EloFilters from './EloFilters';
 import Autosuggest from 'react-autosuggest';
 import classNames from 'classnames';
 import NameInfo from './NameInfo';
-import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { Tooltip } from 'react-tooltip';
-import { axiosErrorToast, immatureClass } from '../utils';
+import { axiosErrorToast, immatureClass, formatEventDates, type Registration } from '../utils';
 import { t, translateMulti } from '../translate';
 
 import "./EloTable.css"
-
-interface Registration {
-  event_name: string
-  event_id: string
-  division: string
-  event_start_date: string
-  event_end_date: string
-  link: string
-}
 
 interface Row {
   rank: number
@@ -47,29 +37,6 @@ interface Row {
 interface Results {
   rows: Row[]
   totalPages: number
-}
-
-function formatEventDates(startDate: string, endDate: string, language: string): string {
-    if (!startDate || !endDate) {
-        return "";
-    }
-    const start = dayjs(startDate);
-    const end = dayjs(endDate);
-
-    if (!start.isValid() || !end.isValid()) {
-        return "";
-    }
-
-    if (start.isSame(end, 'day')) {
-        // Example: Oct 15
-        return `${start.locale(language).format('MMM')} ${start.date()}`;
-    }
-    if (start.month() === end.month() && start.year() === end.year()) {
-        // Example: Oct 15 - 17
-        return `${start.locale(language).format('MMM')} ${start.date()} - ${end.date()}`;
-    }
-    // Example: Oct 28 - Nov 2
-    return `${start.locale(language).format('MMM')} ${start.date()} - ${end.locale(language).format('MMM')} ${end.date()}`;
 }
 
 function EloTable() {

@@ -232,7 +232,8 @@ const translations = {
     "There are three levels of Elite badges:": "Existem três níveis de emblemas Elite:",
     "Tier 3: Awarded to athletes in the 90th percentile or above in their division.": "Nível 3: Concedido a atletas no percentil 90 ou acima em sua divisão.",
     "Tier 2: Awarded to athletes in the 95th percentile or above.": "Nível 2: Concedido a atletas no percentil 95 ou acima.",
-    "Tier 1: Awarded to athletes in the 98th percentile or above.": "Nível 1: Concedido a atletas no percentil 98 ou acima."
+    "Tier 1: Awarded to athletes in the 98th percentile or above.": "Nível 1: Concedido a atletas no percentil 98 ou acima.",
+    "Upcoming Events": "Próximos Eventos"
 };
 
 export type translationKeys = keyof typeof translations;

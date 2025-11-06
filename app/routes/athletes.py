@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Blueprint, request, jsonify
 from uuid import UUID
 from sqlalchemy import and_
@@ -8,6 +9,7 @@ from models import (
     MatchParticipant,
     Match,
     Division,
+    RegistrationLink,
     Team,
     AthleteRating,
     AthleteRatingAverage,
@@ -147,10 +149,31 @@ def get_athlete(id):
 
     # load registrations and manual promotions
     registrations = (
-        db.session.query(Division.belt)
+        db.session.query(
+            RegistrationLink.name,
+            RegistrationLink.event_start_date,
+            RegistrationLink.event_end_date,
+            RegistrationLink.link,
+            RegistrationLink.event_id,
+            Division.belt,
+            Division.age,
+            Division.gender,
+            Division.weight,
+        )
         .select_from(RegistrationLinkCompetitor)
-        .join(Division)
-        .filter(RegistrationLinkCompetitor.athlete_name == athlete.name)
+        .join(
+            RegistrationLink,
+            RegistrationLinkCompetitor.registration_link_id == RegistrationLink.id,
+        )
+        .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
+        .filter(
+            RegistrationLinkCompetitor.athlete_name == athlete.name,
+            RegistrationLink.event_end_date >= datetime.now(),
+        )
+        .order_by(
+            RegistrationLink.event_end_date,
+            RegistrationLink.name,
+        )
         .all()
     )
     promotions = (
@@ -215,12 +238,26 @@ def get_athlete(id):
         photo_url = get_public_photo_url(s3_client, athlete)
         athlete_json["instagram_profile_photo_url"] = photo_url
 
+    registrations_list = []
+    for row in registrations:
+        registrations_list.append(
+            {
+                "event_name": row.name,
+                "division": f"{row.belt} / {row.age} / {row.gender} / {row.weight}",
+                "event_start_date": row.event_start_date.strftime("%Y-%m-%d"),
+                "event_end_date": row.event_end_date.strftime("%Y-%m-%d"),
+                "link": row.link,
+                "event_id": row.event_id,
+            }
+        )
+
     return (
         jsonify(
             {
                 "athlete": athlete_json,
                 "eloHistory": filtered_elo_history,
                 "ranks": ranks,
+                "registrations": registrations_list,
             }
         ),
         200,
