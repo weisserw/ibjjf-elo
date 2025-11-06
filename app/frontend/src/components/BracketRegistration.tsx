@@ -3,6 +3,7 @@ import axios from 'axios'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable from './BracketTable'
+import EliteTable, { type EliteAthlete } from './EliteTable'
 import { isGi, handleError, type CompetitorsResponse, type Competitor } from './BracketUtils'
 import { translateMulti, t } from '../translate'
 
@@ -25,6 +26,9 @@ interface UpcomingLinksResponse {
 function BracketRegistration() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [elitesLoading, setElitesLoading] = useState(false)
+  const [viewMode, setViewMode] = useState<'all' | 'elites'>('all')
+  const [elites, setElites] = useState<EliteAthlete[] | null>(null)
 
   const {
     bracketRegistrationEventName: registrationEventName,
@@ -199,6 +203,34 @@ function BracketRegistration() {
     }
   }, [selectedUpcomingLink])
 
+  const getElites = async () => {
+    if (!registrationEventUrl) return;
+    setElitesLoading(true)
+    try {
+      const { data } = await axios.get<{ elites?: EliteAthlete[]; error?: string }>(
+        '/api/brackets/registrations/elites',
+        { params: { link: registrationEventUrl, min_tier: 3 } }
+      )
+      if (data.error) {
+        setElites(null)
+        setError(data.error)
+      } else if (data.elites) {
+        setElites(data.elites)
+        setError(null)
+      }
+    } catch (err) {
+      handleError(err, setError)
+    } finally {
+      setElitesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (viewMode === 'elites' && registrationEventUrl) {
+      getElites()
+    }
+  }, [viewMode, registrationEventUrl])
+
   return (
     <div className="brackets-content">
       <div>
@@ -271,6 +303,12 @@ function BracketRegistration() {
                     )
                   }
                   </div>
+                  <div className="column is-vcentered has-text-right">
+                    <div className="buttons has-addons">
+                      <button className={`button ${viewMode === 'all' ? 'is-link is-light' : ''}`} onClick={() => setViewMode('all')}>{t('All competitors')}</button>
+                      <button className={`button ${viewMode === 'elites' ? 'is-link is-light' : ''}`} onClick={() => setViewMode('elites')}>{t('Elites')}</button>
+                    </div>
+                  </div>
                 </div>
               )
             }
@@ -287,7 +325,7 @@ function BracketRegistration() {
           )
         }
         {
-          (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
+          viewMode === 'all' && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
             <BracketTable competitors={sortedRegistrationCompetitors}
                           showSeed={false}
                           showRank={true}
@@ -300,7 +338,14 @@ function BracketRegistration() {
           )
         }
         {
-          loading && <div className="bracket-loader loader mt-4"></div>
+          viewMode === 'elites' && registrationEventUrl !== null && elites !== null && (
+            <EliteTable elites={elites}
+                        isGi={isGi(registrationEventName ?? '')}
+                        athleteClicked={registrationAthleteClicked} />
+          )
+        }
+        {
+          (loading || elitesLoading) && <div className="bracket-loader loader mt-4"></div>
         }
       </div>
     </div>
