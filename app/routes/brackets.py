@@ -957,6 +957,244 @@ def registration_competitors():
     return jsonify({"competitors": rows})
 
 
+@brackets_route.route("/api/brackets/registrations/elites")
+def registration_elites():
+    link = request.args.get("link")
+    min_tier = request.args.get("min_tier", default="3")
+
+    # validate params
+    if not link:
+        return jsonify({"error": "Missing parameter"}), 400
+
+    try:
+        min_tier = int(min_tier)
+        if min_tier not in (1, 2, 3):
+            min_tier = 3
+    except Exception:
+        min_tier = 3
+
+    # normalize link and lookup event to determine gi
+    try:
+        url = normalize_registration_link(link)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    db_link = (
+        db.session.query(RegistrationLink).filter(RegistrationLink.link == url).first()
+    )
+    if not db_link:
+        return jsonify({"error": "Link not found"}), 400
+
+    gi = is_gi(db_link.name)
+
+    # pull page (cached) and parse registrations
+    try:
+        soup = BeautifulSoup(
+            get_bracket_page(url, newer_than=datetime.now() - timedelta(minutes=10)),
+            "html.parser",
+        )
+        json_data = parse_registrations(soup)
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+    # Build competitors across all valid divisions and fill ratings per division
+    s3_client = get_s3_client()
+
+    aggregated_rows = []
+    division_specs = []  # keep (age, belt, weight, gender)
+
+    for entry in json_data:
+        division_name = entry["FriendlyName"]
+        division_name = weightre.sub("", division_name)
+
+        try:
+            parsed = parse_division(division_name)
+        except ValueError:
+            log.debug(f"Invalid division name: {division_name}")
+            continue
+
+        age_lower = parsed["age"].lower()
+        if not (
+            "master" in age_lower
+            or "adult" in age_lower
+            or "juven" in age_lower
+            or "teen" in age_lower
+        ):
+            continue
+
+        # competitors for this division
+        rows = []
+        for competitor in entry["RegistrationCategories"]:
+            team = competitor.get("AcademyTeamName")
+            name = competitor.get("AthleteName")
+            rows.append(
+                {
+                    "name": name,
+                    "team": team,
+                    "id": None,
+                    "ibjjf_id": None,
+                    "seed": 0,
+                    "rating": None,
+                    "match_count": None,
+                    "rank": None,
+                    "percentile": None,
+                    "note": None,
+                    "last_weight": None,
+                    "slug": None,
+                    "instagram_profile": None,
+                    "instagram_profile_personal_name": None,
+                    "profile_image_url": None,
+                    "country": None,
+                    "country_note": None,
+                    "country_note_pt": None,
+                    # add current division info for response/use
+                    "age": parsed["age"],
+                    "belt": parsed["belt"],
+                    "weight": parsed["weight"],
+                    "gender": parsed["gender"],
+                    "gi": gi,
+                }
+            )
+
+        # enrich ratings for this division
+        if rows:
+            get_ratings(
+                rows,
+                None,
+                parsed["age"],
+                parsed["belt"],
+                parsed["weight"],
+                parsed["gender"],
+                gi,
+                datetime.now() + timedelta(days=1),
+                False,
+                s3_client,
+            )
+            aggregated_rows.extend(rows)
+            division_specs.append(
+                (parsed["age"], parsed["belt"], parsed["weight"], parsed["gender"])
+            )
+
+    if not aggregated_rows:
+        return jsonify({"elites": []})
+
+    # Build helper: map athlete_id -> list of AthleteRating rows (across any belt/weight)
+    athlete_ids = [r["id"] for r in aggregated_rows if r.get("id") is not None]
+    athlete_ids = list(set(athlete_ids))
+
+    # If we have no identified athletes, we cannot compute tiers; return empty
+    if not athlete_ids:
+        return jsonify({"elites": []})
+
+    rating_rows = (
+        db.session.query(
+            AthleteRating.athlete_id,
+            AthleteRating.percentile,
+            AthleteRating.age,
+            AthleteRating.gender,
+        )
+        .filter(
+            AthleteRating.athlete_id.in_(athlete_ids),
+            AthleteRating.gi == gi,
+        )
+        .all()
+    )
+
+    ratings_by_athlete = {}
+    for rr in rating_rows:
+        ratings_by_athlete.setdefault(rr.athlete_id, []).append(rr)
+
+    # Age ordering to evaluate "same or higher age"
+    same_or_higher_ages_list = age_order_all
+    age_index = {a: i for i, a in enumerate(same_or_higher_ages_list)}
+
+    def percentile_to_tier(percentile, belt):
+        if percentile is None or belt is None:
+            return None
+        # Suppressed belts (mirror frontend badgeForPercentile)
+        if belt in [
+            "WHITE",
+            "GREY",
+            "YELLOW",
+            "YELLOW-GREY",
+            "ORANGE",
+            "GREEN",
+            "GREEN-ORANGE",
+        ]:
+            return None
+        inverted = (1 - float(percentile)) * 100.0
+        if inverted >= 98:
+            return 1
+        if inverted >= 95:
+            return 2
+        if inverted >= 90:
+            return 3
+        return None
+
+    # compute best percentile per athlete under rule: same gender, ages >= current division age, any belt/weight
+    elites = []
+    for row in aggregated_rows:
+        athlete_id = row.get("id")
+        if athlete_id is None:
+            continue
+        current_age = row.get("age")
+        current_gender = row.get("gender")
+        current_belt = row.get("belt")
+
+        current_age_idx = age_index.get(current_age, None)
+        if current_age_idx is None:
+            continue
+
+        best_percentile = None
+        for rr in ratings_by_athlete.get(athlete_id, []):
+            if rr.gender != current_gender:
+                continue
+            rr_idx = age_index.get(rr.age, None)
+            if rr_idx is None:
+                continue
+            if rr_idx >= current_age_idx and rr.percentile is not None:
+                if best_percentile is None or rr.percentile < best_percentile:
+                    best_percentile = rr.percentile
+
+        tier = percentile_to_tier(best_percentile, current_belt)
+        if tier is None or tier > min_tier:
+            continue
+
+        # Build category string to return for clarity
+        category = f"{row['belt']} / {row['age']} / {row['gender']} / {row['weight']}"
+
+        elites.append(
+            {
+                "name": row["name"],
+                "team": row["team"],
+                "id": row["id"],
+                "slug": row["slug"],
+                "rating": row["rating"],
+                "match_count": row["match_count"],
+                "rank": row["rank"],
+                "percentile": best_percentile,
+                "tier": tier,
+                "category": category,
+                "belt": row["belt"],
+                "age": row["age"],
+                "gender": row["gender"],
+                "weight": row["weight"],
+                "gi": gi,
+            }
+        )
+
+    # Sort: tier asc, rating desc, name asc
+    elites.sort(
+        key=lambda x: (
+            x.get("tier", 99),
+            -(x.get("rating") if x.get("rating") is not None else -1),
+            x.get("name") or "",
+        )
+    )
+
+    return jsonify({"elites": elites})
+
+
 def compute_match_ratings(matches, results, belt, weight, age):
     athlete_results = {}
     athlete_ratings = {}
