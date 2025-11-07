@@ -8,6 +8,7 @@ import { axiosErrorToast, getCountryName,
 import GiTabs from './GiTabs';
 import { useAppContext } from '../AppContext';
 import igLogoColor from '/src/assets/instagram-color.png';
+import noPhoto from '/src/assets/no-photo.jpg';
 import { Tooltip } from 'react-tooltip';
 import DBTableRows from './DBTableRows';
 import { useNavigate } from 'react-router-dom'
@@ -345,12 +346,20 @@ function Athlete() {
   return (
     <div className="container athlete-container">
       <div className="box athlete-profile-box">
-        {responseData.athlete.instagram_profile && responseData.athlete.instagram_profile_photo_url && (
+        {responseData.athlete.instagram_profile && responseData.athlete.instagram_profile_photo_url ? (
           <figure className="image is-128x128" style={{ margin: 0 }}>
             <img
               className="is-rounded athlete-profile-photo"
               src={responseData.athlete.instagram_profile_photo_url}
               alt={responseData.athlete.instagram_profile}
+            />
+          </figure>
+        ) : (
+          <figure className="image is-128x128" style={{ margin: 0 }}>
+            <img
+              className="is-rounded athlete-profile-photo"
+              src={noPhoto}
+              alt="No Photo"
             />
           </figure>
         )}
