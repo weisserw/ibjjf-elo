@@ -223,7 +223,7 @@ def get_athlete(id):
     athlete_json = {
         "name": athlete.name,
         "instagram_profile": athlete.instagram_profile,
-        "instagram_profile_personal_name": athlete.instagram_profile_personal_name,
+        "personal_name": athlete.personal_name,
         "instagram_profile_photo_url": None,
         "country": athlete.country,
         "country_note": athlete.country_note,

@@ -31,7 +31,7 @@ interface Athlete {
   country: string | null;
   country_note: string | null;
   country_note_pt: string | null;
-  instagram_profile_personal_name: string | null;
+  personal_name: string | null;
   instagram_profile_photo_url: string | null;
   team_name: string | null;
   rating: number | null;
@@ -375,7 +375,7 @@ function Athlete() {
           <h2 className="subtitle is-5 mt-0 mb-2 athlete-nickname">
             <a href={`https://instagram.com/${responseData.athlete.instagram_profile}`} target="_blank" rel="noopener noreferrer">
               <img src={igLogoColor} alt="Instagram" className="ig-tooltip-instagram-logo" />
-              {responseData.athlete.instagram_profile_personal_name || `@${responseData.athlete.instagram_profile}`}
+              {responseData.athlete.personal_name || `@${responseData.athlete.instagram_profile}`}
             </a>
             {responseData.athlete.country && (
               <span className={`fi fi-${responseData.athlete.country.trim().toLowerCase().substring(0, 2)} country-flag is-visible-mobile`} data-tooltip-place="top" data-tooltip-id='athlete-tooltip' data-tooltip-content={getCountryName(responseData.athlete.country, responseData.athlete.country_note, responseData.athlete.country_note_pt, language)} />

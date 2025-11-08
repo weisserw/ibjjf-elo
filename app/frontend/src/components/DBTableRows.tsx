@@ -168,7 +168,7 @@ function DBTableRows(props: DBTableRowsProps) {
                           {row.winner}
                         </a>
                         <NameInfo instagram_profile={row.winnerInstagramProfile}
-                                  instagram_profile_personal_name={row.winnerInstagramProfilePersonalName}
+                                  personal_name={row.winnerpersonalName}
                                   profile_image_url={row.winnerProfileImageUrl}
                                   country={row.winnerCountry}
                                   country_note={row.winnerCountryNote}
@@ -192,7 +192,7 @@ function DBTableRows(props: DBTableRowsProps) {
                           {row.loser}
                         </a>
                         <NameInfo instagram_profile={row.loserInstagramProfile}
-                                  instagram_profile_personal_name={row.loserInstagramProfilePersonalName}
+                                  personal_name={row.loserpersonalName}
                                   profile_image_url={row.loserProfileImageUrl}
                                   country={row.loserCountry}
                                   country_note={row.loserCountryNote}
@@ -269,7 +269,7 @@ function DBTableRows(props: DBTableRowsProps) {
                         <div className="name-container">
                           <a href="#" onClick={e => athleteClicked?.(e, row.winnerSlug)}>{row.winner}</a>
                           <NameInfo instagram_profile={row.winnerInstagramProfile}
-                                    instagram_profile_personal_name={row.winnerInstagramProfilePersonalName}
+                                    personal_name={row.winnerpersonalName}
                                     profile_image_url={row.winnerProfileImageUrl}
                                     country={row.winnerCountry}
                                     country_note={row.winnerCountryNote}
@@ -291,7 +291,7 @@ function DBTableRows(props: DBTableRowsProps) {
                         <div className="name-container">
                           <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>{row.loser}</a>
                           <NameInfo instagram_profile={row.loserInstagramProfile}
-                                    instagram_profile_personal_name={row.loserInstagramProfilePersonalName}
+                                    personal_name={row.loserpersonalName}
                                     profile_image_url={row.loserProfileImageUrl}
                                     country={row.loserCountry}
                                     country_note={row.loserCountryNote}

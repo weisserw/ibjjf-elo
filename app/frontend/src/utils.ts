@@ -65,7 +65,7 @@ export interface DBRow {
   winnerStartMatchCount: number
   winnerEndMatchCount: number
   winnerInstagramProfile: string | null
-  winnerInstagramProfilePersonalName: string | null
+  winnerpersonalName: string | null
   winnerProfileImageUrl: string | null
   winnerCountry: string | null
   winnerCountryNote: string | null
@@ -80,7 +80,7 @@ export interface DBRow {
   loserStartMatchCount: number
   loserEndMatchCount: number
   loserInstagramProfile: string | null
-  loserInstagramProfilePersonalName: string | null
+  loserpersonalName: string | null
   loserProfileImageUrl: string | null
   loserCountry: string | null
   loserCountryNote: string | null

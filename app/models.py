@@ -84,7 +84,8 @@ class Athlete(db.Model):
     country_note = Column(String, nullable=True)
     country_note_pt = Column(String, nullable=True)
     profile_image_saved_at = Column(TIMESTAMP(timezone=True), nullable=True)
-    instagram_profile_personal_name = Column(String, nullable=True)
+    personal_name = Column(String, nullable=True)
+    normalized_personal_name = Column(String, nullable=True)
     slug = Column(String, nullable=False)
 
     __table_args__ = (

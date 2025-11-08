@@ -194,7 +194,7 @@ def get_ratings(
             Athlete.name,
             Athlete.slug,
             Athlete.instagram_profile,
-            Athlete.instagram_profile_personal_name,
+            Athlete.personal_name,
             Athlete.profile_image_saved_at,
             Athlete.country,
             Athlete.country_note,
@@ -231,9 +231,7 @@ def get_ratings(
             result["name"] = athlete.name
             result["slug"] = athlete.slug
             result["instagram_profile"] = athlete.instagram_profile
-            result["instagram_profile_personal_name"] = (
-                athlete.instagram_profile_personal_name
-            )
+            result["personal_name"] = athlete.personal_name
             result["profile_image_url"] = (
                 get_public_photo_url(s3_client, athlete)
                 if athlete.profile_image_saved_at
@@ -248,9 +246,7 @@ def get_ratings(
                 result["id"] = athlete.id
             result["slug"] = athlete.slug
             result["instagram_profile"] = athlete.instagram_profile
-            result["instagram_profile_personal_name"] = (
-                athlete.instagram_profile_personal_name
-            )
+            result["personal_name"] = athlete.personal_name
             result["profile_image_url"] = (
                 get_public_photo_url(s3_client, athlete)
                 if athlete.profile_image_saved_at
@@ -980,7 +976,7 @@ def registration_competitors():
                         "last_weight": None,
                         "slug": None,
                         "instagram_profile": None,
-                        "instagram_profile_personal_name": None,
+                        "personal_name": None,
                         "profile_image_url": None,
                         "country": None,
                         "country_note": None,
@@ -1027,7 +1023,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         red_match_count = None
         red_slug = None
         red_instagram_profile = None
-        red_instagram_profile_personal_name = None
+        red_personal_name = None
         red_profile_image_url = None
         red_country = None
         red_country_note = None
@@ -1047,9 +1043,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
             red_name = athlete_results[red_id]["name"]
             red_slug = athlete_results[red_id]["slug"]
             red_instagram_profile = athlete_results[red_id]["instagram_profile"]
-            red_instagram_profile_personal_name = athlete_results[red_id][
-                "instagram_profile_personal_name"
-            ]
+            red_personal_name = athlete_results[red_id]["personal_name"]
             red_profile_image_url = athlete_results[red_id]["profile_image_url"]
             red_country = athlete_results[red_id]["country"]
             red_country_note = athlete_results[red_id]["country_note"]
@@ -1065,7 +1059,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         blue_match_count = None
         blue_slug = None
         blue_instagram_profile = None
-        blue_instagram_profile_personal_name = None
+        blue_personal_name = None
         blue_profile_image_url = None
         blue_country = None
         blue_country_note = None
@@ -1085,9 +1079,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
             blue_name = athlete_results[blue_id]["name"]
             blue_slug = athlete_results[blue_id]["slug"]
             blue_instagram_profile = athlete_results[blue_id]["instagram_profile"]
-            blue_instagram_profile_personal_name = athlete_results[blue_id][
-                "instagram_profile_personal_name"
-            ]
+            blue_personal_name = athlete_results[blue_id]["personal_name"]
             blue_profile_image_url = athlete_results[blue_id]["profile_image_url"]
             blue_country = athlete_results[blue_id]["country"]
             blue_country_note = athlete_results[blue_id]["country_note"]
@@ -1161,9 +1153,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["red_end_rating"] = red_end_rating
         match["red_slug"] = red_slug
         match["red_instagram_profile"] = red_instagram_profile
-        match["red_instagram_profile_personal_name"] = (
-            red_instagram_profile_personal_name
-        )
+        match["red_personal_name"] = red_personal_name
         match["red_profile_image_url"] = red_profile_image_url
         match["red_country"] = red_country
         match["red_country_note"] = red_country_note
@@ -1181,9 +1171,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["blue_match_count"] = blue_match_count
         match["blue_slug"] = blue_slug
         match["blue_instagram_profile"] = blue_instagram_profile
-        match["blue_instagram_profile_personal_name"] = (
-            blue_instagram_profile_personal_name
-        )
+        match["blue_personal_name"] = blue_personal_name
         match["blue_profile_image_url"] = blue_profile_image_url
         match["blue_country"] = blue_country
         match["blue_country_note"] = blue_country_note
@@ -1319,7 +1307,7 @@ def parse_match(match, weight):
         "red_match_count": None,
         "red_slug": None,
         "red_instagram_profile": None,
-        "red_instagram_profile_personal_name": None,
+        "red_personal_name": None,
         "red_profile_image_url": None,
         "red_country": None,
         "red_country_note": None,
@@ -1343,7 +1331,7 @@ def parse_match(match, weight):
         "blue_match_count": None,
         "blue_slug": None,
         "blue_instagram_profile": None,
-        "blue_instagram_profile_personal_name": None,
+        "blue_personal_name": None,
         "blue_profile_image_url": None,
         "blue_country": None,
         "blue_country_note": None,
@@ -1536,7 +1524,7 @@ def competitors():
                         "next_when": None,
                         "slug": None,
                         "instagram_profile": None,
-                        "instagram_profile_personal_name": None,
+                        "personal_name": None,
                         "profile_image_url": None,
                         "country": None,
                         "country_note": None,
@@ -1963,7 +1951,7 @@ def archive_competitors():
                 "red_match_count": red.start_match_count,
                 "red_slug": red.athlete.slug,
                 "red_instagram_profile": red.athlete.instagram_profile,
-                "red_instagram_profile_personal_name": red.athlete.instagram_profile_personal_name,
+                "red_personal_name": red.athlete.personal_name,
                 "red_profile_image_url": (
                     get_public_photo_url(s3_client, red.athlete)
                     if red.athlete.profile_image_saved_at
@@ -1990,7 +1978,7 @@ def archive_competitors():
                 "blue_match_count": blue.start_match_count,
                 "blue_slug": blue.athlete.slug,
                 "blue_instagram_profile": blue.athlete.instagram_profile,
-                "blue_instagram_profile_personal_name": blue.athlete.instagram_profile_personal_name,
+                "blue_personal_name": blue.athlete.personal_name,
                 "blue_profile_image_url": (
                     get_public_photo_url(s3_client, blue.athlete)
                     if blue.athlete.profile_image_saved_at
@@ -2026,9 +2014,7 @@ def archive_competitors():
                     "team": match["red_team"],
                     "slug": match["red_slug"],
                     "instagram_profile": match["red_instagram_profile"],
-                    "instagram_profile_personal_name": match[
-                        "red_instagram_profile_personal_name"
-                    ],
+                    "personal_name": match["red_personal_name"],
                     "profile_image_url": match["red_profile_image_url"],
                     "country": match["red_country"],
                     "country_note": match["red_country_note"],
@@ -2062,9 +2048,7 @@ def archive_competitors():
                     "team": match["blue_team"],
                     "slug": match["blue_slug"],
                     "instagram_profile": match["blue_instagram_profile"],
-                    "instagram_profile_personal_name": match[
-                        "blue_instagram_profile_personal_name"
-                    ],
+                    "personal_name": match["blue_personal_name"],
                     "profile_image_url": match["blue_profile_image_url"],
                     "country": match["blue_country"],
                     "country_note": match["blue_country_note"],

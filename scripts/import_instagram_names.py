@@ -29,21 +29,15 @@ if __name__ == "__main__":
         with app.app_context():
             for row in reader:
                 id = row["id"].strip()
-                instagram_profile_personal_name = to_null(
-                    row.get("instagram_profile_personal_name", "")
-                )
+                personal_name = to_null(row.get("personal_name", ""))
                 athlete = db.session.get(Athlete, UUID(id))
                 if not athlete:
                     print(f"No athlete found for id: {id}")
                     continue
-                if coalesce(instagram_profile_personal_name, "") != coalesce(
-                    athlete.instagram_profile_personal_name, ""
-                ):
-                    athlete.instagram_profile_personal_name = (
-                        instagram_profile_personal_name
-                    )
+                if coalesce(personal_name, "") != coalesce(athlete.personal_name, ""):
+                    athlete.personal_name = personal_name
                     print(
-                        f"Updated {id} / {athlete.name}: instagram_profile_personal_name={instagram_profile_personal_name}"
+                        f"Updated {id} / {athlete.name}: personal_name={personal_name}"
                     )
             db.session.commit()
     print("Import complete.")
