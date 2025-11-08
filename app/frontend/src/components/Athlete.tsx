@@ -507,7 +507,8 @@ function Athlete() {
                 {responseData.registrations.map((r, index) => (
                   <div key={index} className="athlete-registration">
                     <a href="#" onClick={e => onRegistrationClicked(e, r)}>
-                      <span>{r.event_name} ({formatEventDates(r.event_start_date, r.event_end_date, language)})</span>
+                      <span>{r.event_name}</span>
+                      <span className="white-space-nowrap">{formatEventDates(r.event_start_date, r.event_end_date, language)}</span>
                       <span className="white-space-nowrap">{translateMulti(r.division)}</span>
                     </a>
                   </div>))}

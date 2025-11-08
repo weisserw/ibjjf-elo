@@ -134,7 +134,6 @@
 .athlete-registration a {
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
 
 .white-space-nowrap {
