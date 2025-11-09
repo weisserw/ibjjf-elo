@@ -110,6 +110,18 @@ export interface Registration {
   link: string
 }
 
+export interface AthleteSuggestion {
+  name: string;
+  personal_name: string | null;
+}
+
+export function renderAthleteSuggestion(suggestion: AthleteSuggestion): string {
+  if (suggestion.personal_name) {
+    return `${suggestion.personal_name} (${suggestion.name})`;
+  }
+  return suggestion.name;
+}
+
 export function formatEventDates(startDate: string, endDate: string, language: string): string {
     if (!startDate || !endDate) {
         return "";

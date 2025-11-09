@@ -10,7 +10,7 @@ import classNames from 'classnames';
 import NameInfo from './NameInfo';
 import 'dayjs/locale/pt';
 import { Tooltip } from 'react-tooltip';
-import { axiosErrorToast, immatureClass, formatEventDates, type Registration } from '../utils';
+import { axiosErrorToast, immatureClass, formatEventDates, renderAthleteSuggestion, type Registration, type AthleteSuggestion } from '../utils';
 import { t, translateMulti } from '../translate';
 
 import "./EloTable.css"
@@ -65,7 +65,7 @@ function EloTable() {
   const [reloading, setReloading] = useState(false)
   const [data, setData] = useState<Row[]>([])
   const [totalPages, setTotalPages] = useState(1)
-  const [athleteSuggestions, setAthleteSuggestions] = useState<string[]>([])
+  const [athleteSuggestions, setAthleteSuggestions] = useState<AthleteSuggestion[]>([])
 
   const navigate = useNavigate()
 
@@ -243,8 +243,8 @@ function EloTable() {
                           onSuggestionsFetchRequested={debouncedGetAthleteSuggestions}
                           onSuggestionsClearRequested={() => setAthleteSuggestions([])}
                           multiSection={false}
-                          getSuggestionValue={(suggestion) => '"' + suggestion + '"'}
-                          renderSuggestion={(suggestion) => suggestion}
+                          getSuggestionValue={(suggestion) => '"' + suggestion.name + '"'}
+                          renderSuggestion={renderAthleteSuggestion}
                           inputProps={{
                             className: "input",
                             value: nameFilterSearch,

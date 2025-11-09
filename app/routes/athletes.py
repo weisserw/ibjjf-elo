@@ -1,7 +1,8 @@
+import os
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from uuid import UUID
-from sqlalchemy import and_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.sql import exists
 from extensions import db
 from models import (
@@ -400,9 +401,26 @@ def athletes():
     gender = request.args.get("gender")
     allowteen = request.args.get("allow_teen", "")
 
-    query = db.session.query(Athlete.name).filter(
-        Athlete.normalized_name.like(f"{search}%")
-    )
+    if os.getenv("DATABASE_URL"):
+        # Use full-text search
+        search_terms = [term + ":*" for term in search.split()]
+        ts_query = func.to_tsquery("simple", " & ".join(search_terms))
+        query = db.session.query(Athlete.name, Athlete.personal_name).filter(
+            or_(
+                Athlete.normalized_name_tsvector.op("@@")(ts_query),
+                Athlete.normalized_personal_name_tsvector.op("@@")(ts_query),
+            )
+        )
+    else:
+        # Fallback to LIKE search
+        query = db.session.query(Athlete.name, Athlete.personal_name)
+        for name_part in search.split():
+            query = query.filter(
+                or_(
+                    Athlete.normalized_name.like(f"%{name_part}%"),
+                    Athlete.normalized_personal_name.like(f"%{name_part}%"),
+                )
+            )
 
     if gi:
         gi = gi.lower() == "true"
@@ -457,35 +475,24 @@ def athletes():
 
         query = query.filter(~teen_recent_match_exists)
 
-    query = query.order_by(Athlete.name).limit(MAX_RESULTS)
-    results = query.all()
-
-    unique_names = set(result.name for result in results)
-
-    if len(results) < MAX_RESULTS:
-        remaining_count = MAX_RESULTS - len(results)
-        additional_query = db.session.query(Athlete.name)
-        for name_part in search.split():
-            additional_query = additional_query.filter(
-                Athlete.normalized_name.like(f"%{name_part}%")
-            )
-        if gi:
-            additional_query = additional_query.filter(
-                exists().where(Athlete.id == subquery_gi.c.athlete_id)
-            )
-        if gender:
-            additional_query = additional_query.filter(
-                exists().where(Athlete.id == subquery_gender.c.athlete_id)
-            )
-        additional_query = additional_query.order_by(Athlete.name).limit(
-            remaining_count
+    # if using tsvector, order by relevance first
+    if os.getenv("DATABASE_URL"):
+        rank_name = func.ts_rank_cd(Athlete.normalized_name_tsvector, ts_query)
+        rank_personal_name = func.ts_rank_cd(
+            Athlete.normalized_personal_name_tsvector, ts_query
         )
-        additional_results = additional_query.all()
-        for result in additional_results:
-            if result.name not in unique_names:
-                results.append(result)
-                unique_names.add(result.name)
+        query = query.order_by(
+            func.greatest(rank_name, rank_personal_name).desc(),
+            Athlete.personal_name.isnot(None).desc(),
+            Athlete.name,
+        )
+    else:
+        query = query.order_by(Athlete.name)
+    results = query.limit(MAX_RESULTS).all()
 
-    response = [result.name for result in results]
+    response = [
+        {"name": result.name, "personal_name": result.personal_name}
+        for result in sorted(results, key=lambda x: x.name.lower())
+    ]
 
     return jsonify(response)
