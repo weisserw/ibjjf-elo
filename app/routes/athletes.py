@@ -475,24 +475,15 @@ def athletes():
 
         query = query.filter(~teen_recent_match_exists)
 
-    # if using tsvector, order by relevance first
-    if os.getenv("DATABASE_URL"):
-        rank_name = func.ts_rank_cd(Athlete.normalized_name_tsvector, ts_query)
-        rank_personal_name = func.ts_rank_cd(
-            Athlete.normalized_personal_name_tsvector, ts_query
-        )
-        query = query.order_by(
-            Athlete.personal_name.isnot(None).desc(),
-            func.greatest(rank_name, rank_personal_name).desc(),
-            Athlete.name,
-        )
-    else:
-        query = query.order_by(Athlete.personal_name.isnot(None).desc(), Athlete.name)
-    results = query.limit(MAX_RESULTS).all()
+    results = (
+        query.order_by(Athlete.personal_name.isnot(None).desc(), Athlete.name)
+        .limit(MAX_RESULTS)
+        .all()
+    )
 
     response = [
         {"name": result.name, "personal_name": result.personal_name}
-        for result in sorted(results, key=lambda x: x.name.lower())
+        for result in results
     ]
 
     return jsonify(response)
