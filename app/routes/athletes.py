@@ -482,12 +482,12 @@ def athletes():
             Athlete.normalized_personal_name_tsvector, ts_query
         )
         query = query.order_by(
-            func.greatest(rank_name, rank_personal_name).desc(),
             Athlete.personal_name.isnot(None).desc(),
+            func.greatest(rank_name, rank_personal_name).desc(),
             Athlete.name,
         )
     else:
-        query = query.order_by(Athlete.name)
+        query = query.order_by(Athlete.personal_name.isnot(None).desc(), Athlete.name)
     results = query.limit(MAX_RESULTS).all()
 
     response = [
