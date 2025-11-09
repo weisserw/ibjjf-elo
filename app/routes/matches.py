@@ -1,3 +1,4 @@
+import os
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from sqlalchemy.sql import text
@@ -215,23 +216,44 @@ def matches():
     filters = ""
 
     def add_athlete_name_filter(f, name, variable):
-        operator = "LIKE"
         exact = name.strip().startswith('"') and name.strip().endswith('"')
         if exact:
-            operator = "="
             name = name.strip()[1:-1]
-        f += f"""AND EXISTS (
-            SELECT 1
-            FROM athletes a
-            JOIN match_participants mp ON a.id = mp.athlete_id
-            WHERE mp.match_id = m.id
-            AND a.normalized_name {operator} :{variable}
-        )
-        """
-        if exact:
+            f += f"""AND EXISTS (
+                SELECT 1
+                FROM athletes a
+                JOIN match_participants mp ON a.id = mp.athlete_id
+                WHERE mp.match_id = m.id
+                AND a.normalized_name = :{variable}
+            )
+            """
             params[variable] = normalize(name)
+        elif os.getenv("DATABASE_URL"):
+            # Use full-text search
+            search_terms = " & ".join([term + ":*" for term in normalize(name).split()])
+            f += f"""AND EXISTS (
+                    SELECT 1
+                    FROM athletes a
+                    JOIN match_participants mp ON a.id = mp.athlete_id
+                    WHERE mp.match_id = m.id
+                    AND (
+                        a.normalized_name_tsvector @@ to_tsquery('simple', :{variable})
+                        OR a.normalized_personal_name_tsvector @@ to_tsquery('simple', :{variable})
+                    )
+                )"""
+            params[variable] = search_terms
         else:
-            params[variable] = f"%{normalize(name)}%"
+            # Fallback to LIKE search
+            for index, name_part in enumerate(normalize(name).split()):
+                f += f"""
+                AND EXISTS (
+                    SELECT 1
+                    FROM athletes a
+                    JOIN match_participants mp ON a.id = mp.athlete_id
+                    WHERE mp.match_id = m.id
+                    AND a.normalized_name LIKE :{variable}_{index}
+                )"""
+                params[f"{variable}_{index}"] = f"%{name_part}%"
         return f
 
     if athlete_name:

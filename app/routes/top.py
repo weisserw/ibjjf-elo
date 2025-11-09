@@ -1,3 +1,4 @@
+import os
 import math
 from flask import Blueprint, request, jsonify
 from datetime import datetime
@@ -81,7 +82,25 @@ def top():
             name = name.strip()[1:-1]
             query = query.filter(Athlete.normalized_name == normalize(name))
         else:
-            query = query.filter(Athlete.normalized_name.like(f"%{normalize(name)}%"))
+            if os.getenv("DATABASE_URL"):
+                # Use full-text search
+                search_terms = [term + ":*" for term in normalize(name).split()]
+                ts_query = func.to_tsquery("simple", " & ".join(search_terms))
+                query = query.filter(
+                    or_(
+                        Athlete.normalized_name_tsvector.op("@@")(ts_query),
+                        Athlete.normalized_personal_name_tsvector.op("@@")(ts_query),
+                    )
+                )
+            else:
+                # Fallback to LIKE search
+                for name_part in normalize(name).split():
+                    query = query.filter(
+                        or_(
+                            Athlete.normalized_name.like(f"%{name_part}%"),
+                            Athlete.normalized_personal_name.like(f"%{name_part}%"),
+                        )
+                    )
 
     if changed:
         query = query.filter(
