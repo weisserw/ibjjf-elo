@@ -44,6 +44,11 @@
 
 .event-name {
   margin-bottom: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media screen and (max-width: 768px) {
@@ -153,4 +158,34 @@
 .badge-table-cell {
   width: 40px;
   padding-right: 0 !important;
+}
+
+@media screen and (max-width: 360px) {
+  .seg-count {
+    display: none;
+  }
+}
+
+.no-wrap {
+  white-space: nowrap;
+}
+
+.seg-control {
+  margin-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.seg-control .button {
+  margin-bottom: 0;
+  font-size: 0.85rem;
+  padding: 0.2em 0.6em;
+  line-height: 1.1;
+  text-transform: none;
+  border-radius: 0;
+}
+
+.seg-control .button:first-child,
+.seg-control .button:last-child {
+  border-radius: 0;
 }

@@ -24,6 +24,21 @@ interface UpcomingLinksResponse {
 }
 
 function BracketRegistration() {
+  const formatCountAbbrev = (n: number | null | undefined): string | null => {
+    if (n === null || n === undefined) return null
+    if (n < 1000) return `${n}`
+    if (n < 1_000_000) return `${(n / 1000).toFixed(n % 1000 >= 100 ? 1 : 0)}k`
+    return `${(n / 1_000_000).toFixed(1)}M`
+  }
+  const extractLink = (val: string): string => val.split('||')[0]
+  const extractName = (val: string): string | null => {
+    const parts = val.split('||')
+    return parts.length > 1 ? parts.slice(1).join('||') : null
+  }
+  const sanitizeLink = (url: string): string => {
+    const m = url.match(/^(https?:\/\/www\.ibjjfdb\.com\/ChampionshipResults\/\d+\/PublicRegistrations)/)
+    return m ? m[1] : url
+  }
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [elitesLoading, setElitesLoading] = useState(false)
@@ -115,6 +130,17 @@ function BracketRegistration() {
     });
   }, [registrationCompetitors])
 
+  const displayEventName = useMemo(() => {
+    const explicit = extractName(selectedUpcomingLink)
+    if (explicit) return explicit
+    const linkOnly = extractLink(selectedUpcomingLink)
+    const selected = upcomingLinks.find(l => l.link === linkOnly)
+    return selected?.name || registrationEventName
+  }, [upcomingLinks, selectedUpcomingLink, registrationEventName])
+
+  const allCount = useMemo(() => registrationCompetitors?.length ?? null, [registrationCompetitors])
+  const elitesCount = useMemo(() => elites?.length ?? null, [elites])
+
   const averageRating = useMemo(() => {
     if (registrationCompetitors === null || registrationCompetitors.length === 0) {
       return undefined
@@ -132,7 +158,7 @@ function BracketRegistration() {
     try {
       const { data } = await axios.get<RegistrationCategoriesResponse>('/api/brackets/registrations/categories', {
         params: {
-          link: url
+          link: sanitizeLink(url)
         }
       });
       if (data.error) {
@@ -145,7 +171,7 @@ function BracketRegistration() {
         setError(null)
         setRegistrationEventName(data.event_name)
         setRegistrationEventTotal(data.total_competitors ?? null)
-        setRegistrationEventUrl(url)
+        setRegistrationEventUrl(sanitizeLink(url))
         setRegistrationCategories(data.categories)
 
         if (!selectedRegistrationCategory || !data.categories.includes(selectedRegistrationCategory)) {
@@ -199,7 +225,7 @@ function BracketRegistration() {
 
   useEffect(() => {
     if (selectedUpcomingLink) {
-      getRegistrationCategories(selectedUpcomingLink)
+      getRegistrationCategories(extractLink(selectedUpcomingLink))
     }
   }, [selectedUpcomingLink])
 
@@ -249,6 +275,7 @@ function BracketRegistration() {
                     <select className="select" disabled={!upcomingLinks.length} value={selectedUpcomingLink} onChange={e => {
                       if (e.target.value === '') {
                         setSelectedUpcomingLink('')
+                        setSelectedUpcomingLink('')
                         return;
                       }
                       setSelectedUpcomingLink(e.target.value)
@@ -256,7 +283,7 @@ function BracketRegistration() {
                       <option value="">{t("Choose a tournament")}</option>
                       {
                         upcomingLinks.map(link => (
-                          <option key={link.link} value={link.link}>{link.name}</option>
+                          <option key={`${link.link}||${link.name}`} value={`${link.link}||${link.name}`}>{link.name}</option>
                         ))
                       }
                     </select>
@@ -272,8 +299,8 @@ function BracketRegistration() {
         {
         (registrationEventUrl !== null && registrationCategories !== null) && (
           <div className="category-list">
-            <div className="event-name">
-              <strong>{registrationEventName}</strong>
+            <div className="event-name" title={displayEventName}>
+              <strong>{displayEventName}</strong>
               {
                 registrationEventTotal !== null && (
                   <span> - {registrationEventTotal.toLocaleString()} {t("competitors")}</span>
@@ -282,31 +309,58 @@ function BracketRegistration() {
             </div>
             {
               registrationCategories.length > 0 && (
-                <div className="columns no-bottom-margin">
-                  <div className="column column-padding is-vcentered">
-                    <div className="field">
-                      <div className="select">
-                        <select className="select" value={selectedRegistrationCategory ?? ''} onChange={e => {setSelectedRegistrationCategory(e.target.value); }}>
-                          {
-                            registrationCategories.map(category => (
-                              <option key={category} value={category}>{translateMulti(category)}</option>
-                            ))
-                          }
-                        </select>
+                <div className="columns is-vcentered no-bottom-margin">
+                  {viewMode !== 'elites' && (
+                    <div className="column column-padding is-vcentered">
+                      <div className="field">
+                        <div className="select">
+                          <select className="select" value={selectedRegistrationCategory ?? ''} onChange={e => {setSelectedRegistrationCategory(e.target.value); }}>
+                            {
+                              registrationCategories.map(category => (
+                                <option key={category} value={category}>{translateMulti(category)}</option>
+                              ))
+                            }
+                          </select>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="column is-vcentered">
+                  )}
+                  <div className="column column-padding is-flex is-align-items-center">
                   {
                     (showRatings && averageRating !== undefined) && (
                       <span>{`${t("Average rating")}: ${averageRating}`}</span>
                     )
                   }
                   </div>
-                  <div className="column is-vcentered has-text-right">
-                    <div className="buttons has-addons">
-                      <button className={`button ${viewMode === 'all' ? 'is-link is-light' : ''}`} onClick={() => setViewMode('all')}>{t('All competitors')}</button>
-                      <button className={`button ${viewMode === 'elites' ? 'is-link is-light' : ''}`} onClick={() => setViewMode('elites')}>{t('Elites')}</button>
+                  <div className="column column-padding is-flex is-align-items-center is-justify-content-flex-end is-narrow has-text-right">
+                    <div className="buttons has-addons is-toggle is-small no-wrap seg-control" role="radiogroup">
+                      <button
+                        className={`button ${viewMode === 'all' ? 'is-link is-light is-selected' : ''}`}
+                        style={{ whiteSpace: 'nowrap' }}
+                        aria-pressed={viewMode === 'all'}
+                        aria-controls="all-panel"
+                        aria-label={`All${allCount !== null ? ` (${allCount})` : ''}`}
+                        onClick={() => setViewMode('all')}
+                      >
+                        <span className="seg-label">{t('All')}</span>
+                        {allCount !== null && (
+                          <span className="seg-count" style={{ marginLeft: 6 }}>{`(${formatCountAbbrev(allCount)})`}</span>
+                        )}
+                      </button>
+                      <button
+                        className={`button ${viewMode === 'elites' ? 'is-link is-light is-selected' : ''} ${elitesLoading ? 'is-loading' : ''}`}
+                        style={{ whiteSpace: 'nowrap' }}
+                        aria-pressed={viewMode === 'elites'}
+                        aria-controls="elites-panel"
+                        aria-label={`Elites${elitesCount !== null ? ` (${elitesCount})` : ''}`}
+                        disabled={elites !== null && elites.length === 0}
+                        onClick={() => setViewMode('elites')}
+                      >
+                        <span className="seg-label">{t('Elites')}</span>
+                        {elitesCount !== null && (
+                          <span className="seg-count" style={{ marginLeft: 6 }}>{`(${formatCountAbbrev(elitesCount)})`}</span>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
