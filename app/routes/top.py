@@ -1,3 +1,4 @@
+import os
 import math
 from flask import Blueprint, request, jsonify
 from datetime import datetime
@@ -52,7 +53,7 @@ def top():
             Athlete.name,
             Athlete.slug,
             Athlete.instagram_profile,
-            Athlete.instagram_profile_personal_name,
+            Athlete.personal_name,
             Athlete.profile_image_saved_at,
             Athlete.country,
             Athlete.country_note,
@@ -81,7 +82,25 @@ def top():
             name = name.strip()[1:-1]
             query = query.filter(Athlete.normalized_name == normalize(name))
         else:
-            query = query.filter(Athlete.normalized_name.like(f"%{normalize(name)}%"))
+            if os.getenv("DATABASE_URL"):
+                # Use full-text search
+                search_terms = [term + ":*" for term in normalize(name).split()]
+                ts_query = func.to_tsquery("simple", " & ".join(search_terms))
+                query = query.filter(
+                    or_(
+                        Athlete.normalized_name_tsvector.op("@@")(ts_query),
+                        Athlete.normalized_personal_name_tsvector.op("@@")(ts_query),
+                    )
+                )
+            else:
+                # Fallback to LIKE search
+                for name_part in normalize(name).split():
+                    query = query.filter(
+                        or_(
+                            Athlete.normalized_name.like(f"%{name_part}%"),
+                            Athlete.normalized_personal_name.like(f"%{name_part}%"),
+                        )
+                    )
 
     if changed:
         query = query.filter(
@@ -167,7 +186,7 @@ def top():
             "name": result.name,
             "slug": result.slug,
             "instagram_profile": result.instagram_profile,
-            "instagram_profile_personal_name": result.instagram_profile_personal_name,
+            "personal_name": result.personal_name,
             "profile_image_url": (
                 get_public_photo_url(s3_client, result)
                 if result.profile_image_saved_at

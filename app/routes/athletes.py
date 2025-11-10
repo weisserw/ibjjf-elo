@@ -1,6 +1,8 @@
+import os
+from datetime import datetime
 from flask import Blueprint, request, jsonify
 from uuid import UUID
-from sqlalchemy import and_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.sql import exists
 from extensions import db
 from models import (
@@ -8,6 +10,7 @@ from models import (
     MatchParticipant,
     Match,
     Division,
+    RegistrationLink,
     Team,
     AthleteRating,
     AthleteRatingAverage,
@@ -147,10 +150,31 @@ def get_athlete(id):
 
     # load registrations and manual promotions
     registrations = (
-        db.session.query(Division.belt)
+        db.session.query(
+            RegistrationLink.name,
+            RegistrationLink.event_start_date,
+            RegistrationLink.event_end_date,
+            RegistrationLink.link,
+            RegistrationLink.event_id,
+            Division.belt,
+            Division.age,
+            Division.gender,
+            Division.weight,
+        )
         .select_from(RegistrationLinkCompetitor)
-        .join(Division)
-        .filter(RegistrationLinkCompetitor.athlete_name == athlete.name)
+        .join(
+            RegistrationLink,
+            RegistrationLinkCompetitor.registration_link_id == RegistrationLink.id,
+        )
+        .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
+        .filter(
+            RegistrationLinkCompetitor.athlete_name == athlete.name,
+            RegistrationLink.event_end_date >= datetime.now(),
+        )
+        .order_by(
+            RegistrationLink.event_end_date,
+            RegistrationLink.name,
+        )
         .all()
     )
     promotions = (
@@ -200,7 +224,7 @@ def get_athlete(id):
     athlete_json = {
         "name": athlete.name,
         "instagram_profile": athlete.instagram_profile,
-        "instagram_profile_personal_name": athlete.instagram_profile_personal_name,
+        "personal_name": athlete.personal_name,
         "instagram_profile_photo_url": None,
         "country": athlete.country,
         "country_note": athlete.country_note,
@@ -215,12 +239,26 @@ def get_athlete(id):
         photo_url = get_public_photo_url(s3_client, athlete)
         athlete_json["instagram_profile_photo_url"] = photo_url
 
+    registrations_list = []
+    for row in registrations:
+        registrations_list.append(
+            {
+                "event_name": row.name,
+                "division": f"{row.belt} / {row.age} / {row.gender} / {row.weight}",
+                "event_start_date": row.event_start_date.strftime("%Y-%m-%d"),
+                "event_end_date": row.event_end_date.strftime("%Y-%m-%d"),
+                "link": row.link,
+                "event_id": row.event_id,
+            }
+        )
+
     return (
         jsonify(
             {
                 "athlete": athlete_json,
                 "eloHistory": filtered_elo_history,
                 "ranks": ranks,
+                "registrations": registrations_list,
             }
         ),
         200,
@@ -363,9 +401,26 @@ def athletes():
     gender = request.args.get("gender")
     allowteen = request.args.get("allow_teen", "")
 
-    query = db.session.query(Athlete.name).filter(
-        Athlete.normalized_name.like(f"{search}%")
-    )
+    if os.getenv("DATABASE_URL"):
+        # Use full-text search
+        search_terms = [term + ":*" for term in search.split()]
+        ts_query = func.to_tsquery("simple", " & ".join(search_terms))
+        query = db.session.query(Athlete.name, Athlete.personal_name).filter(
+            or_(
+                Athlete.normalized_name_tsvector.op("@@")(ts_query),
+                Athlete.normalized_personal_name_tsvector.op("@@")(ts_query),
+            )
+        )
+    else:
+        # Fallback to LIKE search
+        query = db.session.query(Athlete.name, Athlete.personal_name)
+        for name_part in search.split():
+            query = query.filter(
+                or_(
+                    Athlete.normalized_name.like(f"%{name_part}%"),
+                    Athlete.normalized_personal_name.like(f"%{name_part}%"),
+                )
+            )
 
     if gi:
         gi = gi.lower() == "true"
@@ -420,35 +475,15 @@ def athletes():
 
         query = query.filter(~teen_recent_match_exists)
 
-    query = query.order_by(Athlete.name).limit(MAX_RESULTS)
-    results = query.all()
+    results = (
+        query.order_by(Athlete.personal_name.isnot(None).desc(), Athlete.name)
+        .limit(MAX_RESULTS)
+        .all()
+    )
 
-    unique_names = set(result.name for result in results)
-
-    if len(results) < MAX_RESULTS:
-        remaining_count = MAX_RESULTS - len(results)
-        additional_query = db.session.query(Athlete.name)
-        for name_part in search.split():
-            additional_query = additional_query.filter(
-                Athlete.normalized_name.like(f"%{name_part}%")
-            )
-        if gi:
-            additional_query = additional_query.filter(
-                exists().where(Athlete.id == subquery_gi.c.athlete_id)
-            )
-        if gender:
-            additional_query = additional_query.filter(
-                exists().where(Athlete.id == subquery_gender.c.athlete_id)
-            )
-        additional_query = additional_query.order_by(Athlete.name).limit(
-            remaining_count
-        )
-        additional_results = additional_query.all()
-        for result in additional_results:
-            if result.name not in unique_names:
-                results.append(result)
-                unique_names.add(result.name)
-
-    response = [result.name for result in results]
+    response = [
+        {"name": result.name, "personal_name": result.personal_name}
+        for result in results
+    ]
 
     return jsonify(response)

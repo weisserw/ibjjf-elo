@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 import Autosuggest from 'react-autosuggest';
 import axios from 'axios';
 import { useAppContext } from '../AppContext';
-import { axiosErrorToast } from '../utils';
+import { axiosErrorToast, renderAthleteSuggestion, type AthleteSuggestion } from '../utils';
 import { t, type translationKeys } from '../translate';
 
 import './DBFilters.css';
@@ -119,7 +119,7 @@ function DBFilters() {
   const [eventName, setEventName] = useState(filters.event_name || '');
   const [ratingStart, setRatingStart] = useState(filters.rating_start || '');
   const [ratingEnd, setRatingEnd] = useState(filters.rating_end || '');
-  const [athleteSuggestions, setAthleteSuggestions] = useState<string[]>([]);
+  const [athleteSuggestions, setAthleteSuggestions] = useState<AthleteSuggestion[]>([]);
   const [eventSuggestions, setEventSuggestions] = useState<string[]>([]);
 
   const anyFiltersSet = Object.values(filters).some(value => value !== undefined);
@@ -237,8 +237,8 @@ function DBFilters() {
                                onSuggestionsFetchRequested={debouncedGetAthleteSuggestions}
                                onSuggestionsClearRequested={() => setAthleteSuggestions([])}
                                multiSection={false}
-                               getSuggestionValue={(suggestion) => '"' + suggestion + '"'}
-                               renderSuggestion={(suggestion) => suggestion}
+                               getSuggestionValue={(suggestion) => '"' + suggestion.name + '"'}
+                               renderSuggestion={renderAthleteSuggestion}
                                inputProps={{
                                  className: "input is-small",
                                  value: athleteName,

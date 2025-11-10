@@ -2,14 +2,17 @@ import {useEffect, useState, useMemo, useCallback} from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
 import { useParams } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
-import { axiosErrorToast, getCountryName, type DBRow as Row, type DBResults as Results, isHistorical, badgeForPercentile, percentileInteger } from '../utils';
+import { axiosErrorToast, getCountryName,
+  type Registration, type DBRow as Row, type DBResults as Results,
+  isHistorical, badgeForPercentile, percentileInteger, formatEventDates } from '../utils';
 import GiTabs from './GiTabs';
 import { useAppContext } from '../AppContext';
 import igLogoColor from '/src/assets/instagram-color.png';
+import noPhoto from '/src/assets/no-photo.jpg';
 import { Tooltip } from 'react-tooltip';
 import DBTableRows from './DBTableRows';
 import { useNavigate } from 'react-router-dom'
-import { t, type translationKeys } from '../translate'
+import { t, translateMulti, type translationKeys } from '../translate'
 import DBPagination from './DBPagination';
 import classNames from 'classnames';
 import {
@@ -28,7 +31,7 @@ interface Athlete {
   country: string | null;
   country_note: string | null;
   country_note_pt: string | null;
-  instagram_profile_personal_name: string | null;
+  personal_name: string | null;
   instagram_profile_photo_url: string | null;
   team_name: string | null;
   rating: number | null;
@@ -56,6 +59,7 @@ interface ResponseData {
   athlete: Athlete;
   eloHistory: Elo[];
   ranks: Rank[];
+  registrations: Registration[];
 }
 
 const ageOrder = (age: string): number => {
@@ -129,6 +133,10 @@ function Athlete() {
     setBracketArchiveEventName,
     setBracketArchiveEventNameFetch,
     setBracketArchiveSelectedCategory,
+    setBracketSelectedEvent,
+    setBracketSelectedCategory,
+    setBracketRegistrationSelectedUpcomingLink,
+    setBracketRegistrationSelectedCategory,
     athletePage: page,
     setAthletePage: setPage,
     filters,
@@ -312,6 +320,25 @@ function Athlete() {
     navigate('/');
   };
 
+
+  const onRegistrationClicked = (e: React.MouseEvent, registration: Registration) => {
+    e.preventDefault();
+
+    // if event start date is in less than 24 hours, go to live brackets
+    const eventStartDate = new Date(registration.event_start_date);
+    if (eventStartDate.getTime() - new Date().getTime() < 24 * 60 * 60 * 1000) {
+      setBracketSelectedEvent(registration.event_id);
+      setBracketSelectedCategory(registration.division);
+      setBracketActiveTab('Live');
+    } else {
+      setBracketRegistrationSelectedUpcomingLink(registration.link);
+      setBracketRegistrationSelectedCategory(registration.division);
+      setBracketActiveTab('Registrations');
+    }
+
+    navigate('/tournaments');
+  }
+
   if (!responseData) {
     return <div className="loader"></div>;
   }
@@ -319,12 +346,20 @@ function Athlete() {
   return (
     <div className="container athlete-container">
       <div className="box athlete-profile-box">
-        {responseData.athlete.instagram_profile && responseData.athlete.instagram_profile_photo_url && (
+        {responseData.athlete.instagram_profile && responseData.athlete.instagram_profile_photo_url ? (
           <figure className="image is-128x128" style={{ margin: 0 }}>
             <img
               className="is-rounded athlete-profile-photo"
               src={responseData.athlete.instagram_profile_photo_url}
               alt={responseData.athlete.instagram_profile}
+            />
+          </figure>
+        ) : (
+          <figure className="image is-128x128" style={{ margin: 0 }}>
+            <img
+              className="is-rounded athlete-profile-photo"
+              src={noPhoto}
+              alt="No Photo"
             />
           </figure>
         )}
@@ -340,7 +375,7 @@ function Athlete() {
           <h2 className="subtitle is-5 mt-0 mb-2 athlete-nickname">
             <a href={`https://instagram.com/${responseData.athlete.instagram_profile}`} target="_blank" rel="noopener noreferrer">
               <img src={igLogoColor} alt="Instagram" className="ig-tooltip-instagram-logo" />
-              {responseData.athlete.instagram_profile_personal_name || `@${responseData.athlete.instagram_profile}`}
+              {responseData.athlete.personal_name || `@${responseData.athlete.instagram_profile}`}
             </a>
             {responseData.athlete.country && (
               <span className={`fi fi-${responseData.athlete.country.trim().toLowerCase().substring(0, 2)} country-flag is-visible-mobile`} data-tooltip-place="top" data-tooltip-id='athlete-tooltip' data-tooltip-content={getCountryName(responseData.athlete.country, responseData.athlete.country_note, responseData.athlete.country_note_pt, language)} />
@@ -379,7 +414,7 @@ function Athlete() {
                 </figure>
               }
               {activeTab === 'No Gi' &&
-                <div className='athlete-no-gi-badge'>
+                <div className='white-space-nowrap'>
                   No Gi
                 </div>
               }
@@ -390,79 +425,98 @@ function Athlete() {
         }
       </div>
       <GiTabs />
-      {
-        (hasRating && sortedRanks.length > 0) && (
-          <div className="athlete-ranks-box">
-            <table className="table athlete-ranks-table">
-              <thead>
-                <tr>
-                  <th>
-                    {t("Division")}
-                  </th>
-                  <th className="has-text-right">
-                    <span className="is-hidden-mobile">{t("Average")}</span>
-                    <span className="is-visible-mobile">{t("Avg")}</span>
-                  </th>
-                  <th className="has-text-right">
-                    <span className="is-hidden-mobile">{t("Difference")}</span>
-                    <span className="is-visible-mobile">{t("Diff")}</span>
-                  </th>
-                  <th className="has-text-right">
-                    {t("Rank")}
-                  </th>
-                  <th className="has-text-right">
-                    <span className="is-hidden-mobile">{t("Percentile")}</span>
-                    <span className="is-visible-mobile">{t("Pctl")}</span>
-                  </th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedRanks.map((rankEntry, index) => {
-                  const [badge, badgeDescription] = badgeForRank([rankEntry]);
-                  return (
-                  <tr key={index}>
-                    <td>
-                      <a href="#" onClick={rankDivisionClicked.bind(null, rankEntry)}>
-                        {`${t(rankEntry.age as translationKeys)} / ${t((rankEntry.weight || 'P4P') as translationKeys)}`}
-                      </a>
-                    </td>
-                    <td className="has-text-right">
-                      {rankEntry.avg_rating !== null ? rankEntry.avg_rating : 'N/A'}
-                    </td>
-                    <td className="has-text-right">
-                      {rankEntry.avg_rating !== null && responseData.athlete.rating !== null
-                        ? (responseData.athlete.rating - rankEntry.avg_rating >= 0 ? '+' : '') + (responseData.athlete.rating - rankEntry.avg_rating)
-                        : 'N/A'
-                      }
-                    </td>
-                    <td className={classNames('has-text-right', {'has-text-weight-bold': percentileInteger(rankEntry.percentile) >= 90})}>
-                      #{rankEntry.rank.toLocaleString()}
-                    </td>
-                    <td className={classNames('has-text-right', {'has-text-weight-bold': percentileInteger(rankEntry.percentile) >= 90})}>
-                        {percentileInteger(rankEntry.percentile)}%
-                    </td>
-                    <td>
-                      {badge &&
-                        <Tooltip id={`athlete-rank-badge-tooltip-${index}`} className="tooltip-normal" />
-                      }
-                      {badge &&
-                        <figure className="image is-24x24 athlete-elite-badge" style={{ margin: 0 }} data-tooltip-id={`athlete-rank-badge-tooltip-${index}`} data-tooltip-place="right" data-tooltip-content={badgeDescription}>
-                          <img
-                            src={badge}
-                            alt={badgeDescription}
-                          />
-                        </figure>
-                      }
-                    </td>
-                  </tr>);
-                })
-              }
-              </tbody>
-            </table>
-          </div>
-        )
-      }
+      <div className="athlete-ranks-upcoming">
+        {
+          (hasRating && sortedRanks.length > 0) && (
+            <div className="athlete-ranks-box">
+              <table className="table athlete-ranks-table">
+                <thead>
+                  <tr>
+                    <th>
+                      {t("Division")}
+                    </th>
+                    <th className="has-text-right">
+                      <span className="is-hidden-mobile">{t("Average")}</span>
+                      <span className="is-visible-mobile">{t("Avg")}</span>
+                    </th>
+                    <th className="has-text-right">
+                      <span className="is-hidden-mobile">{t("Difference")}</span>
+                      <span className="is-visible-mobile">{t("Diff")}</span>
+                    </th>
+                    <th className="has-text-right">
+                      {t("Rank")}
+                    </th>
+                    <th className="has-text-right">
+                      <span className="is-hidden-mobile">{t("Percentile")}</span>
+                      <span className="is-visible-mobile">{t("Pctl")}</span>
+                    </th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedRanks.map((rankEntry, index) => {
+                    const [badge, badgeDescription] = badgeForRank([rankEntry]);
+                    return (
+                    <tr key={index}>
+                      <td>
+                        <a href="#" onClick={rankDivisionClicked.bind(null, rankEntry)}>
+                          {`${t(rankEntry.age as translationKeys)} / ${t((rankEntry.weight || 'P4P') as translationKeys)}`}
+                        </a>
+                      </td>
+                      <td className="has-text-right">
+                        {rankEntry.avg_rating !== null ? rankEntry.avg_rating : 'N/A'}
+                      </td>
+                      <td className="has-text-right">
+                        {rankEntry.avg_rating !== null && responseData.athlete.rating !== null
+                          ? (responseData.athlete.rating - rankEntry.avg_rating >= 0 ? '+' : '') + (responseData.athlete.rating - rankEntry.avg_rating)
+                          : 'N/A'
+                        }
+                      </td>
+                      <td className={classNames('has-text-right', {'has-text-weight-bold': percentileInteger(rankEntry.percentile) >= 90})}>
+                        #{rankEntry.rank.toLocaleString()}
+                      </td>
+                      <td className={classNames('has-text-right', {'has-text-weight-bold': percentileInteger(rankEntry.percentile) >= 90})}>
+                          {percentileInteger(rankEntry.percentile)}%
+                      </td>
+                      <td>
+                        {badge &&
+                          <Tooltip id={`athlete-rank-badge-tooltip-${index}`} className="tooltip-normal" />
+                        }
+                        {badge &&
+                          <figure className="image is-24x24 athlete-elite-badge" style={{ margin: 0 }} data-tooltip-id={`athlete-rank-badge-tooltip-${index}`} data-tooltip-place="right" data-tooltip-content={badgeDescription}>
+                            <img
+                              src={badge}
+                              alt={badgeDescription}
+                            />
+                          </figure>
+                        }
+                      </td>
+                    </tr>);
+                  })
+                }
+                </tbody>
+              </table>
+            </div>
+          )
+        }
+        {
+          responseData.registrations.length > 0 && (
+            <div className="athlete-registrations-box">
+              <h2 className="has-text-weight-bold is-5 mb-2">{t("Upcoming Events")}</h2>
+              <div className="athlete-registrations-links">
+                {responseData.registrations.map((r, index) => (
+                  <div key={index} className="athlete-registration">
+                    <a href="#" onClick={e => onRegistrationClicked(e, r)}>
+                      <span>{r.event_name}</span>
+                      <span className="white-space-nowrap">{formatEventDates(r.event_start_date, r.event_end_date, language)}</span>
+                      <span className="white-space-nowrap">{translateMulti(r.division)}</span>
+                    </a>
+                  </div>))}
+              </div>
+            </div>
+          )
+        }
+      </div>
       {
         parsedEloHistory.length === 0 && (
           <div className="notification">

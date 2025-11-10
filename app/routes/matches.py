@@ -1,3 +1,4 @@
+import os
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from sqlalchemy.sql import text
@@ -215,23 +216,44 @@ def matches():
     filters = ""
 
     def add_athlete_name_filter(f, name, variable):
-        operator = "LIKE"
         exact = name.strip().startswith('"') and name.strip().endswith('"')
         if exact:
-            operator = "="
             name = name.strip()[1:-1]
-        f += f"""AND EXISTS (
-            SELECT 1
-            FROM athletes a
-            JOIN match_participants mp ON a.id = mp.athlete_id
-            WHERE mp.match_id = m.id
-            AND a.normalized_name {operator} :{variable}
-        )
-        """
-        if exact:
+            f += f"""AND EXISTS (
+                SELECT 1
+                FROM athletes a
+                JOIN match_participants mp ON a.id = mp.athlete_id
+                WHERE mp.match_id = m.id
+                AND a.normalized_name = :{variable}
+            )
+            """
             params[variable] = normalize(name)
+        elif os.getenv("DATABASE_URL"):
+            # Use full-text search
+            search_terms = " & ".join([term + ":*" for term in normalize(name).split()])
+            f += f"""AND EXISTS (
+                    SELECT 1
+                    FROM athletes a
+                    JOIN match_participants mp ON a.id = mp.athlete_id
+                    WHERE mp.match_id = m.id
+                    AND (
+                        a.normalized_name_tsvector @@ to_tsquery('simple', :{variable})
+                        OR a.normalized_personal_name_tsvector @@ to_tsquery('simple', :{variable})
+                    )
+                )"""
+            params[variable] = search_terms
         else:
-            params[variable] = f"%{normalize(name)}%"
+            # Fallback to LIKE search
+            for index, name_part in enumerate(normalize(name).split()):
+                f += f"""
+                AND EXISTS (
+                    SELECT 1
+                    FROM athletes a
+                    JOIN match_participants mp ON a.id = mp.athlete_id
+                    WHERE mp.match_id = m.id
+                    AND a.normalized_name LIKE :{variable}_{index}
+                )"""
+                params[f"{variable}_{index}"] = f"%{name_part}%"
         return f
 
     if athlete_name:
@@ -366,7 +388,7 @@ def matches():
     sql = f"""
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
             mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating,
-            a.id as athlete_id, a.name, a.slug, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.instagram_profile_personal_name, a.profile_image_saved_at,
+            a.id as athlete_id, a.name, a.slug, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.personal_name, a.profile_image_saved_at,
             mp.note, m.rated, mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
@@ -441,9 +463,7 @@ def matches():
                     country_note=row["country_note"],
                     country_note_pt=row["country_note_pt"],
                     instagram_profile=row["instagram_profile"],
-                    instagram_profile_personal_name=row[
-                        "instagram_profile_personal_name"
-                    ],
+                    personal_name=row["personal_name"],
                     profile_image_saved_at=row["profile_image_saved_at"],
                 ),
                 note=row["note"],
@@ -482,7 +502,7 @@ def matches():
                     "winnerCountryNote": winner.athlete.country_note,
                     "winnerCountryNotePt": winner.athlete.country_note_pt,
                     "winnerInstagramProfile": winner.athlete.instagram_profile,
-                    "winnerInstagramProfilePersonalName": winner.athlete.instagram_profile_personal_name,
+                    "winnerpersonalName": winner.athlete.personal_name,
                     "winnerProfileImageUrl": (
                         get_public_photo_url(s3_client, winner.athlete)
                         if winner.athlete.profile_image_saved_at
@@ -500,7 +520,7 @@ def matches():
                     "loserCountryNote": loser.athlete.country_note,
                     "loserCountryNotePt": loser.athlete.country_note_pt,
                     "loserInstagramProfile": loser.athlete.instagram_profile,
-                    "loserInstagramProfilePersonalName": loser.athlete.instagram_profile_personal_name,
+                    "loserpersonalName": loser.athlete.personal_name,
                     "loserProfileImageUrl": (
                         get_public_photo_url(s3_client, loser.athlete)
                         if loser.athlete.profile_image_saved_at

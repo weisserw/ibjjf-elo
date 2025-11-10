@@ -8,22 +8,12 @@ import EloFilters from './EloFilters';
 import Autosuggest from 'react-autosuggest';
 import classNames from 'classnames';
 import NameInfo from './NameInfo';
-import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { Tooltip } from 'react-tooltip';
-import { axiosErrorToast, immatureClass } from '../utils';
+import { axiosErrorToast, immatureClass, formatEventDates, renderAthleteSuggestion, type Registration, type AthleteSuggestion } from '../utils';
 import { t, translateMulti } from '../translate';
 
 import "./EloTable.css"
-
-interface Registration {
-  event_name: string
-  event_id: string
-  division: string
-  event_start_date: string
-  event_end_date: string
-  link: string
-}
 
 interface Row {
   rank: number
@@ -32,7 +22,7 @@ interface Row {
   slug: string
   name: string
   instagram_profile: string | null
-  instagram_profile_personal_name: string | null
+  personal_name: string | null
   profile_image_url: string | null
   country: string | null
   country_note: string | null
@@ -47,29 +37,6 @@ interface Row {
 interface Results {
   rows: Row[]
   totalPages: number
-}
-
-function formatEventDates(startDate: string, endDate: string, language: string): string {
-    if (!startDate || !endDate) {
-        return "";
-    }
-    const start = dayjs(startDate);
-    const end = dayjs(endDate);
-
-    if (!start.isValid() || !end.isValid()) {
-        return "";
-    }
-
-    if (start.isSame(end, 'day')) {
-        // Example: Oct 15
-        return `${start.locale(language).format('MMM')} ${start.date()}`;
-    }
-    if (start.month() === end.month() && start.year() === end.year()) {
-        // Example: Oct 15 - 17
-        return `${start.locale(language).format('MMM')} ${start.date()} - ${end.date()}`;
-    }
-    // Example: Oct 28 - Nov 2
-    return `${start.locale(language).format('MMM')} ${start.date()} - ${end.locale(language).format('MMM')} ${end.date()}`;
 }
 
 function EloTable() {
@@ -98,7 +65,7 @@ function EloTable() {
   const [reloading, setReloading] = useState(false)
   const [data, setData] = useState<Row[]>([])
   const [totalPages, setTotalPages] = useState(1)
-  const [athleteSuggestions, setAthleteSuggestions] = useState<string[]>([])
+  const [athleteSuggestions, setAthleteSuggestions] = useState<AthleteSuggestion[]>([])
 
   const navigate = useNavigate()
 
@@ -276,8 +243,8 @@ function EloTable() {
                           onSuggestionsFetchRequested={debouncedGetAthleteSuggestions}
                           onSuggestionsClearRequested={() => setAthleteSuggestions([])}
                           multiSection={false}
-                          getSuggestionValue={(suggestion) => '"' + suggestion + '"'}
-                          renderSuggestion={(suggestion) => suggestion}
+                          getSuggestionValue={(suggestion) => '"' + suggestion.name + '"'}
+                          renderSuggestion={renderAthleteSuggestion}
                           inputProps={{
                             className: "input",
                             value: nameFilterSearch,
@@ -347,7 +314,7 @@ function EloTable() {
                             {row.name}
                           </a>
                           <NameInfo instagram_profile={row.instagram_profile}
-                                    instagram_profile_personal_name={row.instagram_profile_personal_name}
+                                    personal_name={row.personal_name}
                                     profile_image_url={row.profile_image_url}
                                     country={row.country}
                                     country_note={row.country_note}

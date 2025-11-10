@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import { toast } from 'bulma-toast';
 import { countryNames, countryNamesPt } from './countries';
 import eliteTier1Badge from '/src/assets/elite-tier1.png';
@@ -64,7 +65,7 @@ export interface DBRow {
   winnerStartMatchCount: number
   winnerEndMatchCount: number
   winnerInstagramProfile: string | null
-  winnerInstagramProfilePersonalName: string | null
+  winnerpersonalName: string | null
   winnerProfileImageUrl: string | null
   winnerCountry: string | null
   winnerCountryNote: string | null
@@ -79,7 +80,7 @@ export interface DBRow {
   loserStartMatchCount: number
   loserEndMatchCount: number
   loserInstagramProfile: string | null
-  loserInstagramProfilePersonalName: string | null
+  loserpersonalName: string | null
   loserProfileImageUrl: string | null
   loserCountry: string | null
   loserCountryNote: string | null
@@ -98,6 +99,50 @@ export interface DBRow {
 export interface DBResults {
   rows: DBRow[]
   totalPages: number
+}
+
+export interface Registration {
+  event_name: string
+  event_id: string
+  division: string
+  event_start_date: string
+  event_end_date: string
+  link: string
+}
+
+export interface AthleteSuggestion {
+  name: string;
+  personal_name: string | null;
+}
+
+export function renderAthleteSuggestion(suggestion: AthleteSuggestion): string {
+  if (suggestion.personal_name) {
+    return `${suggestion.personal_name} (${suggestion.name})`;
+  }
+  return suggestion.name;
+}
+
+export function formatEventDates(startDate: string, endDate: string, language: string): string {
+    if (!startDate || !endDate) {
+        return "";
+    }
+    const start = dayjs(startDate);
+    const end = dayjs(endDate);
+
+    if (!start.isValid() || !end.isValid()) {
+        return "";
+    }
+
+    if (start.isSame(end, 'day')) {
+        // Example: Oct 15
+        return `${start.locale(language).format('MMM')} ${start.date()}`;
+    }
+    if (start.month() === end.month() && start.year() === end.year()) {
+        // Example: Oct 15 - 17
+        return `${start.locale(language).format('MMM')} ${start.date()} - ${end.date()}`;
+    }
+    // Example: Oct 28 - Nov 2
+    return `${start.locale(language).format('MMM')} ${start.date()} - ${end.locale(language).format('MMM')} ${end.date()}`;
 }
 
 export const isHistorical = (eventName: string) => {

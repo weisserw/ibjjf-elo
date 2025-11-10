@@ -4,7 +4,7 @@ import GiTabs from "./GiTabs"
 import Autosuggest from 'react-autosuggest'
 import axios, { AxiosResponse } from 'axios'
 import { debounce } from 'lodash'
-import { axiosErrorToast, ages, isHistorical, type DBRow as Row, type DBResults as Results } from '../utils'
+import { axiosErrorToast, ages, isHistorical, renderAthleteSuggestion, type DBRow as Row, type DBResults as Results, type AthleteSuggestion } from '../utils'
 import { useAppContext } from '../AppContext'
 import DBTableRows from './DBTableRows'
 import { t, type translationKeys } from '../translate'
@@ -59,8 +59,8 @@ interface AthleteRating {
 }
 
 function Calculator() {
-  const [athleteSuggestions1, setAthleteSuggestions1] = useState<string[]>([])
-  const [athleteSuggestions2, setAthleteSuggestions2] = useState<string[]>([])
+  const [athleteSuggestions1, setAthleteSuggestions1] = useState<AthleteSuggestion[]>([])
+  const [athleteSuggestions2, setAthleteSuggestions2] = useState<AthleteSuggestion[]>([])
   const [firstAthleteToFetch, setFirstAthleteToFetch] = useState<string | null>(null)
   const [secondAthleteToFetch, setSecondAthleteToFetch] = useState<string | null>(null)
   const [firstFetchedAthlete, setFirstFetchedAthlete] = useState<AthleteRating | null>(null)
@@ -243,9 +243,9 @@ function Calculator() {
   const firstRatingChanged = useCallback(debounce((value: string) => { setFirstRatingToPredict(value) }, 750, {trailing: true}), [])
   const secondRatingChanged = useCallback(debounce((value: string) => { setSecondRatingToPredict(value) }, 750, {trailing: true}), [])
 
-  const getAthleteSuggestions = async (setCb: (value: string[]) => void, { value }: { value: string }) => {
+  const getAthleteSuggestions = async (setCb: (value: AthleteSuggestion[]) => void, { value }: { value: string }) => {
     try {
-      const response = await axios.get<string[]>(`/api/athletes?search=${encodeURIComponent('"' + value + '"')}&gender=${calcGender}&gi=${activeTab === 'Gi' ? 'true' : 'false'}`);
+      const response = await axios.get<AthleteSuggestion[]>(`/api/athletes?search=${encodeURIComponent('"' + value + '"')}&gender=${calcGender}&gi=${activeTab === 'Gi' ? 'true' : 'false'}`);
       setCb(response.data);
     } catch (error) {
       axiosErrorToast(error);
@@ -341,11 +341,11 @@ function Calculator() {
                            onSuggestionsFetchRequested={debouncedGetAthleteSuggestions1}
                            onSuggestionsClearRequested={() => setAthleteSuggestions1([])}
                            onSuggestionSelected={(_, { suggestion }) => {
-                             setFirstAthleteToFetch(suggestion);
+                             setFirstAthleteToFetch(suggestion.name);
                            }}
                            multiSection={false}
-                           getSuggestionValue={(suggestion) => suggestion}
-                           renderSuggestion={(suggestion) => suggestion}
+                           getSuggestionValue={(suggestion) => suggestion.name}
+                           renderSuggestion={renderAthleteSuggestion}
                            inputProps={{
                              className: "input",
                              value: calcFirstAthlete,
@@ -372,11 +372,11 @@ function Calculator() {
                            onSuggestionsFetchRequested={debouncedGetAthleteSuggestions2}
                            onSuggestionsClearRequested={() => setAthleteSuggestions2([])}
                            onSuggestionSelected={(_, { suggestion }) => {
-                             setSecondAthleteToFetch(suggestion);
+                             setSecondAthleteToFetch(suggestion.name);
                            }}
                            multiSection={false}
-                           getSuggestionValue={(suggestion) => suggestion}
-                           renderSuggestion={(suggestion) => suggestion}
+                           getSuggestionValue={(suggestion) => suggestion.name}
+                           renderSuggestion={renderAthleteSuggestion}
                            inputProps={{
                              className: "input",
                              value: calcSecondAthlete,

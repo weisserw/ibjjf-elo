@@ -105,12 +105,12 @@ def athlete_edit():
             instagram_profile = instagram_profile[1:]
         athlete.instagram_profile = instagram_profile
 
-        instagram_profile_personal_name = request.form.get(
-            "instagram_profile_personal_name", ""
-        ).strip()
-        athlete.instagram_profile_personal_name = (
-            instagram_profile_personal_name if instagram_profile_personal_name else None
-        )
+        personal_name = request.form.get("personal_name", "").strip()
+        athlete.personal_name = personal_name if personal_name else None
+        if personal_name:
+            athlete.normalized_personal_name = normalize(personal_name)
+        else:
+            athlete.normalized_personal_name = None
 
         country = request.form.get("country", "").strip().lower()
         athlete.country = country[:2]

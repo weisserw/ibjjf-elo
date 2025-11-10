@@ -13,7 +13,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP, TSVECTOR
 from extensions import db
 
 
@@ -84,15 +84,33 @@ class Athlete(db.Model):
     country_note = Column(String, nullable=True)
     country_note_pt = Column(String, nullable=True)
     profile_image_saved_at = Column(TIMESTAMP(timezone=True), nullable=True)
-    instagram_profile_personal_name = Column(String, nullable=True)
+    personal_name = Column(String, nullable=True)
+    normalized_personal_name = Column(String, nullable=True)
     slug = Column(String, nullable=False)
+    normalized_name_tsvector = Column(TSVECTOR, nullable=True)
+    normalized_personal_name_tsvector = Column(TSVECTOR, nullable=True)
 
     __table_args__ = (
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),
         Index("ix_athletes_normalized_name_covering", "normalized_name", "id"),
+        Index(
+            "ix_athletes_normalized_personal_name_covering",
+            "normalized_personal_name",
+            "id",
+        ),
         UniqueConstraint(
             "slug",
             name="uq_athlete_slug",
+        ),
+        Index(
+            "ix_athletes_normalized_name_tsvector",
+            "normalized_name_tsvector",
+            postgresql_using="gin",
+        ),
+        Index(
+            "ix_athletes_normalized_personal_name_tsvector",
+            "normalized_personal_name_tsvector",
+            postgresql_using="gin",
         ),
     )
 
