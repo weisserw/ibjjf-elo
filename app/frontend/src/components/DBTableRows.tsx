@@ -180,7 +180,7 @@ function DBTableRows(props: DBTableRowsProps) {
                     {
                     showRating(row) &&
                       <span>
-                      {row.winnerStartRating}→ <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}
+                      {row.winnerStartRating} → <span className={outcomeClass(row.winnerStartRating, row.winnerEndRating)}>{row.winnerEndRating}</span>{ratingAsterisk(row.winnerRatingNote, index === 0)}
                       </span>
                     }
                   </td>
