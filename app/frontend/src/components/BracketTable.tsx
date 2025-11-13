@@ -177,6 +177,7 @@ function BracketTable(props: BracketTableProps) {
             }
             <th></th>
             <th>{t("Name")}</th>
+            <th className="is-visible-mobile-table-cell cell-no-padding"></th>
             <th>{t("Team")}</th>
             {
               props.showWeight &&
@@ -250,23 +251,40 @@ function BracketTable(props: BracketTableProps) {
                 }
                 {
                   competitor.id !== null ?
-                    <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
-                      <div className="name-container">
-                        <a href="#" onClick={e => athleteClicked(e, competitor.slug)}>{competitor.personal_name ? competitor.personal_name : competitor.name}</a>
+                    <>
+                      <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
+                        <div className="name-container">
+                          <a href="#" onClick={e => athleteClicked(e, competitor.slug)}>{competitor.personal_name ? competitor.personal_name : competitor.name}</a>
+                          <div className="is-hidden-mobile">
+                            <NameInfo instagram_profile={competitor.instagram_profile}
+                                      profile_image_url={competitor.profile_image_url}
+                                      country={competitor.country} country_note={competitor.country_note} country_note_pt={competitor.country_note_pt}
+                                      medal={competitor.medal} topPadding={true} />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="is-visible-mobile-table-cell cell-no-side-padding">
                         <NameInfo instagram_profile={competitor.instagram_profile}
                                   profile_image_url={competitor.profile_image_url}
                                   country={competitor.country} country_note={competitor.country_note} country_note_pt={competitor.country_note_pt}
-                                  medal={competitor.medal} />
-                      </div>
-                    </td> :
-                    <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
-                      <div className="name-container">
-                        <span>
-                          {competitor.personal_name ? competitor.personal_name : competitor.name}
-                        </span>
-                        <NameInfo instagram_profile={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} />
-                      </div>
-                    </td>
+                                  medal={competitor.medal} topPadding={true} />
+                      </td>
+                    </> :
+                    <>
+                      <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
+                        <div className="name-container">
+                          <span>
+                            {competitor.personal_name ? competitor.personal_name : competitor.name}
+                          </span>
+                          <div className="is-hidden-mobile">
+                            <NameInfo instagram_profile={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} topPadding={true} />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="is-visible-mobile-table-cell cell-no-side-padding">
+                        <NameInfo instagram_profile={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} topPadding={true} />
+                      </td>
+                    </>
                 }
                 <td>{competitor.team}</td>
                 {

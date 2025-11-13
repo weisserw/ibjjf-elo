@@ -100,10 +100,6 @@
   gap: 4px;
 }
 
-.is-visible-mobile {
-  display: none;
-}
-
 .athlete-ranks-upcoming {
   display: flex;
   gap: 4rem;
@@ -148,9 +144,6 @@
 }
 
 @media (max-width: 768px) {
-  .is-visible-mobile {
-    display: inline-block;
-  }
   .athlete-info-box {
     text-align: center;
     max-width: calc(100% - 70px);

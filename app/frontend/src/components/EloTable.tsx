@@ -283,6 +283,7 @@ function EloTable() {
                   <th className="has-text-right">#</th>
                   <th className="has-text-right">↑↓</th>
                   <th>{t("Name")}</th>
+                  <th className="is-visible-mobile-table-cell cell-no-side-padding"></th>
                   <th className="has-text-right">{t("Rating")}</th>
                   <th className="cell-no-padding"></th>
                   <th className="has-text-right">+/-</th>
@@ -313,12 +314,21 @@ function EloTable() {
                           <a href="#" onClick={e => onNameClick(e, row.slug)}>
                             {row.personal_name ? row.personal_name : row.name}
                           </a>
-                          <NameInfo instagram_profile={row.instagram_profile}
-                                    profile_image_url={row.profile_image_url}
-                                    country={row.country}
-                                    country_note={row.country_note}
-                                    country_note_pt={row.country_note_pt} />
+                          <div className="is-hidden-mobile">
+                            <NameInfo instagram_profile={row.instagram_profile}
+                                      profile_image_url={row.profile_image_url}
+                                      country={row.country}
+                                      country_note={row.country_note}
+                                      country_note_pt={row.country_note_pt} />
+                          </div>
                         </div>
+                      </td>
+                      <td className="is-visible-mobile-table-cell cell-no-side-padding">
+                        <NameInfo instagram_profile={row.instagram_profile}
+                                      profile_image_url={row.profile_image_url}
+                                      country={row.country}
+                                      country_note={row.country_note}
+                                      country_note_pt={row.country_note_pt} />
                       </td>
                       <td className={"has-text-right " + immatureClass(row.match_count)}>
                         {row.rating}
