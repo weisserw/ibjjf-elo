@@ -48,7 +48,7 @@ from constants import (
     JUVENILE_1,
     JUVENILE_2,
     ADULT,
-    MASTER_PREFIX,
+    NON_ELITE_BELTS,
     MASTER_1,
     MASTER_2,
     MASTER_3,
@@ -351,7 +351,7 @@ def get_ratings(
         result["percentile"] = percentiles_by_id.get(result["id"])
 
     if elite_only:
-        results[:] = [result for result in results if result["percentile"] is not None]
+        results[:] = [result for result in results if result["percentile"] is not None and round(result["percentile"] * 100) <= 10 and result["belt"] not in NON_ELITE_BELTS]
 
     # get ranks from athlete_ratings if available
     ratings_results = (
@@ -629,10 +629,26 @@ def get_ratings(
                 if result["id"] in last_weight_by_id:
                     result["last_weight"] = last_weight_by_id[result["id"]]
 
-    results.sort(key=lambda x: competitor_sort_key(x, "rating"), reverse=True)
+    if elite_only:
+        elite_sort(results)
+    else:
+        results.sort(key=lambda x: competitor_sort_key(x, "rating"), reverse=True)
 
-    compute_ordinals(results, weight, belt)
+        compute_ordinals(results, weight, belt)
 
+
+def elite_sort(results):
+    # sort by belt in descending order of belt rank, then age, then gender, then weight, then rating
+    results.sort(
+        key=lambda x: (
+            belt_order.index(x["belt"]),
+            -age_order.index(x["age"]),
+            -gender_order.index(x["gender"]),
+            -weight_class_order_all.index(x["weight"]),
+            x["rating"] if x["rating"] is not None else -1,
+        ),
+        reverse=True,
+    )
 
 def compute_ordinals(results, weight, belt):
     # for each competitor, get the average handicap against the rest of the competitors and add it to their rating

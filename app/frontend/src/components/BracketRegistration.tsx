@@ -27,7 +27,6 @@ function BracketRegistration() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [elitesLoading, setElitesLoading] = useState(false)
-  const [viewMode, setViewMode] = useState<'all' | 'elites'>('all')
   const [elites, setElites] = useState<EliteAthlete[] | null>(null)
 
   const {
@@ -47,6 +46,8 @@ function BracketRegistration() {
     setBracketRegistrationUpcomingLinks: setUpcomingLinks,
     bracketRegistrationSelectedUpcomingLink: selectedUpcomingLink,
     setBracketRegistrationSelectedUpcomingLink: setSelectedUpcomingLink,
+    bracketRegistrationViewMode: viewMode,
+    setBracketRegistrationViewMode: setViewMode,
     setActiveTab,
   } = useAppContext()
 
@@ -115,19 +116,32 @@ function BracketRegistration() {
     });
   }, [registrationCompetitors])
 
+  const divisionCount = useMemo(() => registrationCompetitors?.length ?? null, [registrationCompetitors])
   const elitesCount = useMemo(() => elites?.length ?? null, [elites])
 
   const averageRating = useMemo(() => {
-    if (registrationCompetitors === null || registrationCompetitors.length === 0) {
-      return undefined
+    if (viewMode === 'all') {
+      if (registrationCompetitors === null || registrationCompetitors.length === 0) {
+        return undefined
+      }
+      const ratings = registrationCompetitors.map(c => c.rating).filter(r => r !== undefined && r !== null) as number[]
+      if (ratings.length === 0) {
+        return undefined
+      }
+      const sum = ratings.reduce((a, b) => a + b, 0)
+      return Math.round(sum / ratings.length)
+    } else {
+      if (elites === null || elites.length === 0) {
+        return undefined
+      }
+      const ratings = elites.map(c => c.rating).filter(r => r !== undefined && r !== null) as number[]
+      if (ratings.length === 0) {
+        return undefined
+      }
+      const sum = ratings.reduce((a, b) => a + b, 0)
+      return Math.round(sum / ratings.length)
     }
-    const ratings = registrationCompetitors.map(c => c.rating).filter(r => r !== undefined && r !== null) as number[]
-    if (ratings.length === 0) {
-      return undefined
-    }
-    const sum = ratings.reduce((a, b) => a + b, 0)
-    return Math.round(sum / ratings.length)
-  }, [registrationCompetitors])
+  }, [registrationCompetitors, elites, viewMode])
 
   const getRegistrationCategories = async (url: string) => {
     setLoading(true)
@@ -275,19 +289,18 @@ function BracketRegistration() {
         {
         (registrationEventUrl !== null && registrationCategories !== null) && (
           <div className="category-list">
-            <div className="event-name" title={registrationEventName}>
-              <strong>{registrationEventName}</strong>
+            <div className="competitor-count">
               {
                 registrationEventTotal !== null && (
-                  <span> - {registrationEventTotal.toLocaleString()} {t("competitors")}</span>
+                  <span><strong>Total Competitors:</strong> {registrationEventTotal.toLocaleString()}</span>
                 )
               }
             </div>
             {
               registrationCategories.length > 0 && (
-                <div className="columns is-vcentered no-bottom-margin">
-                  {viewMode !== 'elites' && (
-                    <div className="column column-padding is-vcentered">
+                <div className="category-view">
+                  <div className="category-picker">
+                    {viewMode !== 'elites' && (
                       <div className="field">
                         <div className="select">
                           <select className="select" value={selectedRegistrationCategory ?? ''} onChange={e => {setSelectedRegistrationCategory(e.target.value); }}>
@@ -299,26 +312,35 @@ function BracketRegistration() {
                           </select>
                         </div>
                       </div>
-                    </div>
-                  )}
-                  <div className="column column-padding is-flex is-align-items-center">
-                  {
-                    (showRatings && averageRating !== undefined) && (
-                      <span>{`${t("Average rating")}: ${averageRating}`}</span>
-                    )
-                  }
+                    )}
                   </div>
-                  <div className="column column-padding is-flex is-align-items-center is-justify-content-flex-end is-narrow has-text-right">
+                  <div className="average-rating">
+                    {
+                      (showRatings && averageRating !== undefined) && (
+                        <span>{`${t("Average rating")}: ${averageRating}`}</span>
+                      )
+                    }
+                  </div>
+                </div>
+              )
+            }
+            {
+              registrationCategories.length > 0 && (
+                <div className="view-mode-switcher">
+                  <div>
                     <div className="buttons has-addons is-toggle is-small no-wrap seg-control" role="radiogroup">
                       <button
                         className={`button ${viewMode === 'all' ? 'is-link is-light is-selected' : ''}`}
                         style={{ whiteSpace: 'nowrap' }}
                         aria-pressed={viewMode === 'all'}
                         aria-controls="all-panel"
-                        aria-label="All"
+                        aria-label="Division"
                         onClick={() => setViewMode('all')}
                       >
-                        <span className="seg-label">{t('All')}</span>
+                        <span className="seg-label">{t('Division')}</span>
+                        {divisionCount !== null && (
+                          <span className="seg-count" style={{ marginLeft: 6 }}>{`(${divisionCount.toLocaleString()})`}</span>
+                        )}
                       </button>
                       <button
                         className={`button ${viewMode === 'elites' ? 'is-link is-light is-selected' : ''} ${elitesLoading ? 'is-loading' : ''}`}

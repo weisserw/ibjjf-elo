@@ -76,6 +76,8 @@ interface AppContextProps {
   setBracketRegistrationUpcomingLinks: (links: BracketRegistrationUpcomingLink[]) => void;
   bracketRegistrationSelectedUpcomingLink: string;
   setBracketRegistrationSelectedUpcomingLink: (link: string) => void;
+  bracketRegistrationViewMode: 'all' | 'elites';
+  setBracketRegistrationViewMode: (mode: 'all' | 'elites') => void;
   bracketArchiveEventName: string;
   setBracketArchiveEventName: (name: string) => void;
   bracketArchiveEventNameFetch: string;
@@ -149,6 +151,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketRegistrationCompetitors, setBracketRegistrationCompetitors] = useState<BracketCompetitor[] | null>(null)
   const [bracketRegistrationUpcomingLinks, setBracketRegistrationUpcomingLinks] = useState<BracketRegistrationUpcomingLink[]>([])
   const [bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink] = useState<string>('')
+  const [bracketRegistrationViewMode, setBracketRegistrationViewMode] = useState<'all' | 'elites'>('all')
   const [bracketArchiveEventName, setBracketArchiveEventName] = useState('')
   const [bracketArchiveEventNameFetch, setBracketArchiveEventNameFetch] = useState('')
   const [bracketArchiveCategories, setBracketArchiveCategories] = useState<BracketCategory[] | null>(null)
@@ -262,6 +265,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketRegistrationCompetitors, setBracketRegistrationCompetitors,
       bracketRegistrationUpcomingLinks, setBracketRegistrationUpcomingLinks,
       bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink,
+      bracketRegistrationViewMode, setBracketRegistrationViewMode,
       bracketArchiveEventName, setBracketArchiveEventName,
       bracketArchiveEventNameFetch, setBracketArchiveEventNameFetch,
       bracketArchiveCategories, setBracketArchiveCategories,
