@@ -252,9 +252,8 @@ function BracketTable(props: BracketTableProps) {
                   competitor.id !== null ?
                     <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
                       <div className="name-container">
-                        <a href="#" onClick={e => athleteClicked(e, competitor.slug)}>{competitor.name}</a>
+                        <a href="#" onClick={e => athleteClicked(e, competitor.slug)}>{competitor.personal_name ? competitor.personal_name : competitor.name}</a>
                         <NameInfo instagram_profile={competitor.instagram_profile}
-                                  personal_name={competitor.personal_name}
                                   profile_image_url={competitor.profile_image_url}
                                   country={competitor.country} country_note={competitor.country_note} country_note_pt={competitor.country_note_pt}
                                   medal={competitor.medal} />
@@ -263,9 +262,9 @@ function BracketTable(props: BracketTableProps) {
                     <td className={classNames({"strike-through": noMatchStrings.some(s => competitor.note?.toLowerCase() === s)})}>
                       <div className="name-container">
                         <span>
-                          {competitor.name}
+                          {competitor.personal_name ? competitor.personal_name : competitor.name}
                         </span>
-                        <NameInfo instagram_profile={null} personal_name={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} />
+                        <NameInfo instagram_profile={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} />
                       </div>
                     </td>
                 }

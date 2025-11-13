@@ -175,7 +175,7 @@ function Athlete() {
     axios.get<Results>('/api/matches', {
       params: {
         gi: activeTab === 'Gi' ? 'true' : 'false',
-        athlete_name: '"' + responseData.athlete.name + '"',
+        athlete_name: '"' + athlete.name + '"',
         page: page
       }
     }).then((response: AxiosResponse<Results>) => {
@@ -343,15 +343,17 @@ function Athlete() {
     return <div className="loader"></div>;
   }
 
+  const athlete = responseData.athlete;
+
   return (
     <div className="container athlete-container">
       <div className="box athlete-profile-box">
-        {responseData.athlete.instagram_profile && responseData.athlete.instagram_profile_photo_url ? (
+        {athlete.instagram_profile && athlete.instagram_profile_photo_url ? (
           <figure className="image is-128x128" style={{ margin: 0 }}>
             <img
               className="is-rounded athlete-profile-photo"
-              src={responseData.athlete.instagram_profile_photo_url}
-              alt={responseData.athlete.instagram_profile}
+              src={athlete.instagram_profile_photo_url}
+              alt={athlete.instagram_profile}
             />
           </figure>
         ) : (
@@ -366,43 +368,46 @@ function Athlete() {
         <div className='athlete-info-box'>
           <Tooltip id='athlete-tooltip' className="tooltip-normal" />
           <h1 className="title is-3 mb-1 athlete-title">
-            {responseData.athlete.name}
-            {responseData.athlete.country && (
-              <span className={`fi fi-${responseData.athlete.country.trim().toLowerCase().substring(0, 2)} country-flag is-hidden-mobile`} data-tooltip-place="top" data-tooltip-id='athlete-tooltip' data-tooltip-content={getCountryName(responseData.athlete.country, responseData.athlete.country_note, responseData.athlete.country_note_pt, language)} />
+            {athlete.personal_name ? athlete.personal_name : athlete.name}
+            {athlete.country && (
+              <span className={`fi fi-${athlete.country.trim().toLowerCase().substring(0, 2)} country-flag`} data-tooltip-place="top" data-tooltip-id='athlete-tooltip' data-tooltip-content={getCountryName(athlete.country, athlete.country_note, athlete.country_note_pt, language)} />
             )}
           </h1>
-          {responseData.athlete.instagram_profile && (
-          <h2 className="subtitle is-5 mt-0 mb-2 athlete-nickname">
-            <a href={`https://instagram.com/${responseData.athlete.instagram_profile}`} target="_blank" rel="noopener noreferrer">
-              <img src={igLogoColor} alt="Instagram" className="ig-tooltip-instagram-logo" />
-              {responseData.athlete.personal_name || `@${responseData.athlete.instagram_profile}`}
-            </a>
-            {responseData.athlete.country && (
-              <span className={`fi fi-${responseData.athlete.country.trim().toLowerCase().substring(0, 2)} country-flag is-visible-mobile`} data-tooltip-place="top" data-tooltip-id='athlete-tooltip' data-tooltip-content={getCountryName(responseData.athlete.country, responseData.athlete.country_note, responseData.athlete.country_note_pt, language)} />
-            )}
-          </h2>
-          )}
-          {responseData.athlete.team_name && (
-            <h2 className="subtitle is-6 mt-0 mb-2 athlete-team">
-              {responseData.athlete.team_name}
+          {athlete.team_name && (
+            <h2 className="subtitle is-5 mt-0 mb-3 athlete-team">
+              {athlete.team_name}
             </h2>
+          )}
+          {
+            (athlete.personal_name && athlete.personal_name !== athlete.name) && (
+              <h2 className="subtitle is-6 mt-0 mb-3 athlete-fullname">
+                <span>Full Name: {athlete.name}</span>
+              </h2>
+            )
+          }
+          {athlete.instagram_profile && (
+          <h2 className="subtitle is-6 mt-0 mb-2 athlete-nickname">
+            <a href={`https://instagram.com/${athlete.instagram_profile}`} target="_blank" rel="noopener noreferrer">
+              <img src={igLogoColor} alt="Instagram" className="ig-tooltip-instagram-logo" /> {athlete.instagram_profile}
+            </a>
+          </h2>
           )}
         </div>
         {!loading &&
         <div className='athlete-rating-box'>
           <div className='athlete-rating-subbox'>
-            {(hasRating && responseData.athlete.rating !== null) &&
-              <h1 className="title mt-0 mb-0 athlete-rating">{responseData.athlete.rating}</h1>
+            {(hasRating && athlete.rating !== null) &&
+              <h1 className="title mt-0 mb-0 athlete-rating">{athlete.rating}</h1>
             }
-            {responseData.athlete.belt &&
+            {athlete.belt &&
               <h2
-                className={classNames('subtitle mt-0 mb-0 athlete-belt', { 'athlete-belt--outlined': beltHasOutline[responseData.athlete.belt] })}
-                style={{ color: beltColors[responseData.athlete.belt] || 'black' }}
+                className={classNames('subtitle mt-0 mb-0 athlete-belt', { 'athlete-belt--outlined': beltHasOutline[athlete.belt] })}
+                style={{ color: beltColors[athlete.belt] || 'black' }}
               >
-                {t(`${beltNames[responseData.athlete.belt]} Belt` as translationKeys)}
+                {t(`${beltNames[athlete.belt]} Belt` as translationKeys)}
               </h2>
             }
-            {(badge || activeTab === 'No Gi') && (hasRating && responseData.athlete.rating !== null) && (
+            {(badge || activeTab === 'No Gi') && (hasRating && athlete.rating !== null) && (
             <div className='athlete-badge-box'>
               <Tooltip id='athlete-badge-tooltip' className="tooltip-normal" />
               {badge &&
@@ -467,8 +472,8 @@ function Athlete() {
                         {rankEntry.avg_rating !== null ? rankEntry.avg_rating : 'N/A'}
                       </td>
                       <td className="has-text-right">
-                        {rankEntry.avg_rating !== null && responseData.athlete.rating !== null
-                          ? (responseData.athlete.rating - rankEntry.avg_rating >= 0 ? '+' : '') + (responseData.athlete.rating - rankEntry.avg_rating)
+                        {rankEntry.avg_rating !== null && athlete.rating !== null
+                          ? (athlete.rating - rankEntry.avg_rating >= 0 ? '+' : '') + (athlete.rating - rankEntry.avg_rating)
                           : 'N/A'
                         }
                       </td>
@@ -609,7 +614,7 @@ function Athlete() {
             </p>
             <DBTableRows data={matchData}
                          loading={false}
-                         linkAthlete={name => name !== responseData.athlete.name }
+                         linkAthlete={name => name !== athlete.name }
                          athleteClicked={athleteClicked}
                          eventClicked={eventClicked}
                          divisionClicked={divisionClicked}

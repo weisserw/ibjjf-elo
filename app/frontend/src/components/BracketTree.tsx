@@ -97,7 +97,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
               <td className="bracket-tree-match-competitor-name">
                 <div className="bracket-tree-match-competitor-name-name">
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.red_note?.toLowerCase() === s)})}>
-                    {match.red_name}
+                    {match.red_personal_name ? match.red_personal_name : match.red_name}
                     {match.red_instagram_profile && (
                       <span className="instagram-profile-tree">
                         <a href={`https://www.instagram.com/${match.red_instagram_profile}`} target="_blank" rel="noopener noreferrer">
@@ -169,7 +169,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
               <td className="bracket-tree-match-competitor-name">
                 <div className="bracket-tree-match-competitor-name-name">
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)})}>
-                    {match.blue_name}
+                    {match.blue_personal_name ? match.blue_personal_name : match.blue_name}
                     {match.blue_instagram_profile && (
                       <span className="instagram-profile-tree">
                         <a href={`https://www.instagram.com/${match.blue_instagram_profile}`} target="_blank" rel="noopener noreferrer">

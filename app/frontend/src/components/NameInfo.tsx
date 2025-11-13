@@ -10,7 +10,6 @@ import "./NameInfo.css";
 
 interface NameInfoProps {
   instagram_profile: string | null;
-  personal_name: string | null;
   profile_image_url: string | null;
   country: string | null;
   country_note: string | null;
@@ -34,7 +33,7 @@ const competitorMedal = (medal: string | null | undefined) => {
   }
 }
 
-function NameInfo({ instagram_profile, personal_name, profile_image_url, country, country_note, country_note_pt, medal, tree }: NameInfoProps) {
+function NameInfo({ instagram_profile, profile_image_url, country, country_note, country_note_pt, medal, tree }: NameInfoProps) {
   const [uniqueId] = useState(() => Math.random().toString(36).substring(2, 9));
 
   // manage hover state for instagram tooltip because of react-tooltip bug that doesn't close it sometimes
@@ -88,7 +87,7 @@ function NameInfo({ instagram_profile, personal_name, profile_image_url, country
               <a href={`https://www.instagram.com/${instagram_profile}`} target="_blank" rel="noopener noreferrer" className="ig-tooltip-username">
                 <img src={profile_image_url ?? ''} alt={`@${instagram_profile}`} className="ig-tooltip-photo" />
                 <div className="ig-tooltip-name">
-                  {personal_name ?? `@${instagram_profile}`} <img src={igLogoColor} alt="Instagram" className="ig-tooltip-instagram-logo" />
+                  <img src={igLogoColor} alt="Instagram" className="ig-tooltip-instagram-logo" /> {instagram_profile}
                 </div>
               </a>
             </div>

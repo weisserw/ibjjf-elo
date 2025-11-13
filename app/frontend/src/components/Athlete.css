@@ -25,13 +25,13 @@
 
 .athlete-nickname a {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.3rem;
   align-items: center;
 }
 
 .athlete-nickname a img {
-    width: 20px;
-    height: 20px;
+  width: 12px;
+  height: 12px;
 }
 
 .athlete-elo-box {
@@ -42,6 +42,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  position: relative;
 }
 
 .athlete-title .country-flag {
@@ -54,9 +55,11 @@
   background-size: 100% 100%;
 }
 
-@media (pointer: coarse) and (max-width: 768px) {
+@media screen and (max-width: 768px) {
   .athlete-title .country-flag {
-    height: 16px;
+    position: absolute;
+    left: calc(100% + 12px);
+    top: calc(50% - 13px);
   }
 }
 
@@ -146,6 +149,7 @@
   }
   .athlete-info-box {
     text-align: center;
+    max-width: calc(100% - 70px);
   }
   .athlete-profile-box {
     flex-direction: column;

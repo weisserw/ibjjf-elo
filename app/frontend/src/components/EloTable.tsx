@@ -311,10 +311,9 @@ function EloTable() {
                       <td>
                         <div className="name-container">
                           <a href="#" onClick={e => onNameClick(e, row.slug)}>
-                            {row.name}
+                            {row.personal_name ? row.personal_name : row.name}
                           </a>
                           <NameInfo instagram_profile={row.instagram_profile}
-                                    personal_name={row.personal_name}
                                     profile_image_url={row.profile_image_url}
                                     country={row.country}
                                     country_note={row.country_note}
