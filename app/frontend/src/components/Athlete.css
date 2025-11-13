@@ -56,6 +56,10 @@
 }
 
 @media screen and (max-width: 768px) {
+  .athlete-title {
+    justify-content: center;
+  }
+
   .athlete-title .country-flag {
     position: absolute;
     left: calc(100% + 12px);

@@ -368,7 +368,9 @@ function Athlete() {
         <div className='athlete-info-box'>
           <Tooltip id='athlete-tooltip' className="tooltip-normal" />
           <h1 className="title is-3 mb-1 athlete-title">
-            {athlete.personal_name ? athlete.personal_name : athlete.name}
+            <span>
+              {athlete.personal_name ? athlete.personal_name : athlete.name}
+            </span>
             {athlete.country && (
               <span className={`fi fi-${athlete.country.trim().toLowerCase().substring(0, 2)} country-flag`} data-tooltip-place="top" data-tooltip-id='athlete-tooltip' data-tooltip-content={getCountryName(athlete.country, athlete.country_note, athlete.country_note_pt, language)} />
             )}
