@@ -383,7 +383,7 @@ function Athlete() {
           {
             (athlete.personal_name && athlete.personal_name !== athlete.name) && (
               <h2 className="subtitle is-6 mt-0 mb-3 athlete-fullname">
-                <span>Full Name: {athlete.name}</span>
+                <span>{t("Full Name")}: {athlete.name}</span>
               </h2>
             )
           }
