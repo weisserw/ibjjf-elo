@@ -291,34 +291,40 @@ def get_ratings(
                 )
             )
 
-    percentile_rows = (
-        db.session.query(
-            AthleteRating.athlete_id,
-            AthleteRating.age,
-            AthleteRating.belt,
-            AthleteRating.gender,
-            AthleteRating.gi,
-            func.min(AthleteRating.percentile).label("percentile"),
-        )
-        .filter(
-            tuple_(
+    # Run the query in batches of max 500 athlete_keys at a time
+    percentile_rows = []
+    batch_size = 500
+    for i in range(0, len(athlete_keys), batch_size):
+        batch = athlete_keys[i : i + batch_size]
+        batch_rows = (
+            db.session.query(
                 AthleteRating.athlete_id,
                 AthleteRating.age,
                 AthleteRating.belt,
                 AthleteRating.gender,
                 AthleteRating.gi,
-            ).in_(athlete_keys),
-            AthleteRating.percentile <= 0.11,
+                func.min(AthleteRating.percentile).label("percentile"),
+            )
+            .filter(
+                tuple_(
+                    AthleteRating.athlete_id,
+                    AthleteRating.age,
+                    AthleteRating.belt,
+                    AthleteRating.gender,
+                    AthleteRating.gi,
+                ).in_(batch),
+                AthleteRating.percentile <= 0.11,
+            )
+            .group_by(
+                AthleteRating.athlete_id,
+                AthleteRating.age,
+                AthleteRating.belt,
+                AthleteRating.gender,
+                AthleteRating.gi,
+            )
+            .all()
         )
-        .group_by(
-            AthleteRating.athlete_id,
-            AthleteRating.age,
-            AthleteRating.belt,
-            AthleteRating.gender,
-            AthleteRating.gi,
-        )
-        .all()
-    )
+        percentile_rows.extend(batch_rows)
 
     # For each athlete, pick the best percentile (lowest) from their valid ages
     percentiles_by_id = {}
@@ -351,7 +357,13 @@ def get_ratings(
         result["percentile"] = percentiles_by_id.get(result["id"])
 
     if elite_only:
-        results[:] = [result for result in results if result["percentile"] is not None and round(result["percentile"] * 100) <= 10 and result["belt"] not in NON_ELITE_BELTS]
+        results[:] = [
+            result
+            for result in results
+            if result["percentile"] is not None
+            and round(result["percentile"] * 100) <= 10
+            and result["belt"] not in NON_ELITE_BELTS
+        ]
 
     # get ranks from athlete_ratings if available
     ratings_results = (
@@ -649,6 +661,7 @@ def elite_sort(results):
         ),
         reverse=True,
     )
+
 
 def compute_ordinals(results, weight, belt):
     # for each competitor, get the average handicap against the rest of the competitors and add it to their rating

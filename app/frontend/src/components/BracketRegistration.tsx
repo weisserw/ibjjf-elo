@@ -338,7 +338,7 @@ function BracketRegistration() {
                         onClick={() => setViewMode('all')}
                       >
                         <span className="seg-label">{t('Division')}</span>
-                        {divisionCount !== null && (
+                        {(divisionCount !== null && viewMode === 'all') && (
                           <span className="seg-count" style={{ marginLeft: 6 }}>{`(${divisionCount.toLocaleString()})`}</span>
                         )}
                       </button>
@@ -347,12 +347,12 @@ function BracketRegistration() {
                         style={{ whiteSpace: 'nowrap' }}
                         aria-pressed={viewMode === 'elites'}
                         aria-controls="elites-panel"
-                        aria-label={`Elites${elitesCount !== null ? ` (${elitesCount})` : ''}`}
+                        aria-label="Elites"
                         disabled={elites !== null && elites.length === 0}
                         onClick={() => setViewMode('elites')}
                       >
                         <span className="seg-label">{t('Elites')}</span>
-                        {elitesCount !== null && (
+                        {(elitesCount !== null && viewMode === 'elites') && (
                           <span className="seg-count" style={{ marginLeft: 6 }}>{`(${elitesCount.toLocaleString()})`}</span>
                         )}
                       </button>
