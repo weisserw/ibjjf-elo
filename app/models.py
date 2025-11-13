@@ -14,6 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP, TSVECTOR
+from sqlalchemy.types import TypeDecorator
 from extensions import db
 
 
@@ -73,6 +74,16 @@ class Division(db.Model):
         return f"{self.age} / {self.gender} / {self.belt} / {self.weight}"
 
 
+class SqliteTSVECTOR(TypeDecorator):
+    impl = Text
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(TSVECTOR())
+        else:
+            return dialect.type_descriptor(Text())
+
+
 class Athlete(db.Model):
     __tablename__ = "athletes"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -87,8 +98,8 @@ class Athlete(db.Model):
     personal_name = Column(String, nullable=True)
     normalized_personal_name = Column(String, nullable=True)
     slug = Column(String, nullable=False)
-    normalized_name_tsvector = Column(TSVECTOR, nullable=True)
-    normalized_personal_name_tsvector = Column(TSVECTOR, nullable=True)
+    normalized_name_tsvector = Column(SqliteTSVECTOR, nullable=True)
+    normalized_personal_name_tsvector = Column(SqliteTSVECTOR, nullable=True)
 
     __table_args__ = (
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),
@@ -340,6 +351,7 @@ class RegistrationLinkCompetitor(db.Model):
         nullable=False,
     )
     athlete_name = Column(String, nullable=False)
+    team_name = Column(String, nullable=True)
     division_id = Column(UUID(as_uuid=True), ForeignKey("divisions.id"), nullable=False)
 
     __table_args__ = (
