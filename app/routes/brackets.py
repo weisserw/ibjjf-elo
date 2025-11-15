@@ -357,13 +357,24 @@ def get_ratings(
         result["percentile"] = percentiles_by_id.get(result["id"])
 
     if elite_only:
-        results[:] = [
-            result
-            for result in results
-            if result["percentile"] is not None
-            and round(result["percentile"] * 100) <= 10
-            and result["belt"] not in NON_ELITE_BELTS
-        ]
+
+        def filter_pct(pct):
+            results[:] = [
+                result
+                for result in results
+                if result["percentile"] is not None
+                and round(result["percentile"] * 100) <= pct
+                and result["belt"] not in NON_ELITE_BELTS
+            ]
+
+        # filter to elites only
+        filter_pct(10)
+
+        # if there are a huge number of elites (for major tournaments), filter down further to tier 2 then 1
+        if len(results) > 100:
+            filter_pct(5)
+        if len(results) > 100:
+            filter_pct(2)
 
     # get ranks from athlete_ratings if available
     ratings_results = (
