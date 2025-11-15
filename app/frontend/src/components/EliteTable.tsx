@@ -31,11 +31,11 @@ interface EliteTableProps {
   elites: EliteAthlete[] | null
   isGi: boolean
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, slug: string) => void
+  divisionClicked: (ev: React.MouseEvent<HTMLAnchorElement>, category: string) => void
 }
 
 function EliteTable(props: EliteTableProps) {
-  const { elites, athleteClicked } = props
-
+  const { elites, athleteClicked, divisionClicked } = props
   return (
     <div className="table-container">
       <table className="table is-fullwidth bracket-table">
@@ -66,9 +66,9 @@ function EliteTable(props: EliteTableProps) {
                 <td>
                   <div className="name-container">
                     {e.slug ? (
-                      <a href="#" onClick={(ev) => athleteClicked(ev, e.slug!)}>{e.name}</a>
+                      <a href="#" onClick={(ev) => athleteClicked(ev, e.slug!)}>{e.personal_name || e.name}</a>
                     ) : (
-                      <span>{e.name}</span>
+                      <span>{e.personal_name || e.name}</span>
                     )}
                     <div className="is-hidden-mobile">
                       <NameInfo instagram_profile={e.instagram_profile}
@@ -83,7 +83,7 @@ function EliteTable(props: EliteTableProps) {
                             country={e.country} country_note={e.country_note} country_note_pt={e.country_note_pt} />
                 </td>
                 <td>{e.team}</td>
-                <td>{e.category}</td>
+                <td><a href="#" onClick={(ev) => divisionClicked(ev, e.category)}>{e.category}</a></td>
                 <td className="has-text-right">{e.rating !== null ? Math.round(e.rating) : ''}</td>
                 <td className="has-text-right">{e.rank ?? ''}</td>
               </tr>

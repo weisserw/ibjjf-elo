@@ -101,6 +101,13 @@ function BracketRegistration() {
     navigate('/athlete/' + encodeURIComponent(slug));
   }
 
+  const registrationDivisionClicked = (ev: React.MouseEvent<HTMLAnchorElement>, category: string) => {
+    ev.preventDefault()
+
+    setViewMode('all')
+    setSelectedRegistrationCategory(category)
+  }
+
   const sortedRegistrationCompetitors = useMemo(() => {
     if (registrationCompetitors === null) {
       return null
@@ -297,35 +304,28 @@ function BracketRegistration() {
               }
             </div>
             {
-              registrationCategories.length > 0 && (
+              (registrationCategories.length > 0 && viewMode !== 'elites') && (
                 <div className="category-view">
                   <div className="category-picker">
-                    {viewMode !== 'elites' && (
-                      <div className="field">
-                        <div className="select">
-                          <select className="select" value={selectedRegistrationCategory ?? ''} onChange={e => {setSelectedRegistrationCategory(e.target.value); }}>
-                            {
-                              registrationCategories.map(category => (
-                                <option key={category} value={category}>{translateMulti(category)}</option>
-                              ))
-                            }
-                          </select>
-                        </div>
+                    <div className="field">
+                      <div className="select">
+                        <select className="select" value={selectedRegistrationCategory ?? ''} onChange={e => {setSelectedRegistrationCategory(e.target.value); }}>
+                          {
+                            registrationCategories.map(category => (
+                              <option key={category} value={category}>{translateMulti(category)}</option>
+                            ))
+                          }
+                        </select>
                       </div>
-                    )}
+                    </div>
                   </div>
-                  <div className="average-rating">
-                    {
-                      (showRatings && averageRating !== undefined && viewMode !== 'elites') && (
-                        <span>{`${t("Division average rating")}: ${averageRating}`}</span>
-                      )
-                    }
-                    {
-                      (showRatings && averageRating !== undefined && viewMode === 'elites') && (
-                        <span>{`${t("Elites average rating")}: ${averageRating}`}</span>
-                      )
-                    }
-                  </div>
+                  {
+                    (showRatings && averageRating !== undefined) && (
+                      <div className="average-rating">
+                        <span>{`${t("Average rating")}: ${averageRating}`}</span>
+                      </div>
+                    )
+                  }
                 </div>
               )
             }
@@ -395,7 +395,8 @@ function BracketRegistration() {
           viewMode === 'elites' && registrationEventUrl !== null && elites !== null && (
             <EliteTable elites={elites}
                         isGi={isGi(registrationEventName ?? '')}
-                        athleteClicked={registrationAthleteClicked} />
+                        athleteClicked={registrationAthleteClicked}
+                        divisionClicked={registrationDivisionClicked} />
           )
         }
         {
