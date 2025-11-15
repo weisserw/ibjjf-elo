@@ -226,7 +226,7 @@ function BracketRegistration() {
     try {
       const { data } = await axios.get<{ elites?: EliteAthlete[]; error?: string }>(
         '/api/brackets/registrations/elites',
-        { params: { link: registrationEventUrl, min_tier: 3 } }
+        { params: { link: registrationEventUrl } }
       )
       if (data.error) {
         setElites(null)
