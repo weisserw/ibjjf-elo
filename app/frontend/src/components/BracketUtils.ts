@@ -96,6 +96,7 @@ export interface Category {
 export interface CategoriesResponse {
   error?: string
   categories?: Category[]
+  total?: number
 }
 
 export interface LiveCompetitorsResponse extends CompetitorsResponse {

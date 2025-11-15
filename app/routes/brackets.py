@@ -2200,7 +2200,14 @@ def categories(tournament_id):
         ),
     )
 
-    return jsonify({"categories": results})
+    total_competitors = (
+        db.session.query(RegistrationLinkCompetitor.id)
+        .join(RegistrationLink)
+        .filter(RegistrationLink.event_id == tournament_id)
+        .count()
+    )
+
+    return jsonify({"categories": results, "total": total_competitors})
 
 
 @brackets_route.route("/api/brackets/events")
@@ -2281,6 +2288,16 @@ def archive_categories():
         )
     )
 
+    total_competitors = (
+        db.session.query(MatchParticipant.athlete_id)
+        .join(Match)
+        .join(Event)
+        .join(Division)
+        .filter(Event.name == event_name)
+        .distinct()
+        .count()
+    )
+
     return jsonify(
         {
             "categories": [
@@ -2292,6 +2309,7 @@ def archive_categories():
                 }
                 for division in divisions
             ],
+            "total": total_competitors,
         }
     )
 

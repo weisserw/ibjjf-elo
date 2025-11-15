@@ -54,6 +54,8 @@ interface AppContextProps {
   setBracketSelectedCategory: (category: string | null) => void;
   bracketCompetitors: BracketCompetitor[] | null;
   setBracketCompetitors: (competitors: BracketCompetitor[] | null) => void;
+  bracketEventTotal: number | null;
+  setBracketEventTotal: (total: number | null) => void;
   bracketMatches: BracketMatch[] | null;
   setBracketMatches: (matches: BracketMatch[] | null) => void;
   bracketSortColumn: BracketSortColumn;
@@ -90,6 +92,8 @@ interface AppContextProps {
   setBracketArchiveCompetitors: (competitors: BracketCompetitor[] | null) => void;
   bracketArchiveMatches: BracketMatch[] | null;
   setBracketArchiveMatches: (matches: BracketMatch[] | null) => void;
+  bracketArchiveEventTotal: number | null;
+  setBracketArchiveEventTotal: (total: number | null) => void;
   calcGender: string;
   setCalcGender: (gender: string) => void;
   calcFirstAthlete: string;
@@ -141,6 +145,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketSelectedCategory, setBracketSelectedCategory] = useState<string | null>(null)
   const [bracketCompetitors, setBracketCompetitors] = useState<BracketCompetitor[] | null>(null)
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[] | null>(null)
+  const [bracketEventTotal, setBracketEventTotal] = useState<number | null>(null)
   const [bracketSortColumn, setBracketSortColumn] = useState<BracketSortColumn>('rating')
   const [bracketActiveTab, setBracketActiveTab] = useState<BracketTabs>('Live')
   const [bracketRegistrationEventName, setBracketRegistrationEventName] = useState('')
@@ -158,6 +163,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketArchiveSelectedCategory, setBracketArchiveSelectedCategory] = useState<string | null>(null)
   const [bracketArchiveCompetitors, setBracketArchiveCompetitors] = useState<BracketCompetitor[] | null>(null)
   const [bracketArchiveMatches, setBracketArchiveMatches] = useState<BracketMatch[] | null>(null)
+  const [bracketArchiveEventTotal, setBracketArchiveEventTotal] = useState<number | null>(null)
   const [calcGender, setCalcGender] = useState('Male')
   const [calcFirstAthlete, setCalcFirstAthlete] = useState('')
   const [calcSecondAthlete, setCalcSecondAthlete] = useState('')
@@ -255,6 +261,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketSelectedCategory, setBracketSelectedCategory,
       bracketCompetitors, setBracketCompetitors,
       bracketMatches, setBracketMatches,
+      bracketEventTotal, setBracketEventTotal,
       bracketSortColumn, setBracketSortColumn,
       bracketActiveTab, setBracketActiveTab,
       bracketRegistrationEventName, setBracketRegistrationEventName,
@@ -272,6 +279,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketArchiveSelectedCategory, setBracketArchiveSelectedCategory,
       bracketArchiveCompetitors, setBracketArchiveCompetitors,
       bracketArchiveMatches, setBracketArchiveMatches,
+      bracketArchiveEventTotal, setBracketArchiveEventTotal,
       calcGender, setCalcGender,
       calcFirstAthlete, setCalcFirstAthlete,
       calcSecondAthlete, setCalcSecondAthlete,

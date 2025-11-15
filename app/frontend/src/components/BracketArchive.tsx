@@ -21,6 +21,7 @@ export interface Category {
 interface CategoriesResponse {
   error?: string
   categories?: Category[]
+  total: number
 }
 
 
@@ -44,6 +45,8 @@ function BracketArchive() {
     setBracketArchiveMatches: setMatches,
     bracketSortColumn: sortColumn,
     setBracketSortColumn: setSortColumn,
+    bracketArchiveEventTotal: eventTotal,
+    setBracketArchiveEventTotal: setEventTotal,
     setActiveTab,
     setCalcFirstAthlete,
     setCalcSecondAthlete,
@@ -101,9 +104,11 @@ function BracketArchive() {
 
       if (data.error) {
         setCategories(null)
+        setEventTotal(null)
         setError(data.error)
       } else if (data.categories) {
         setCategories(data.categories)
+        setEventTotal(data.total)
         setError(null)
 
         const category = data.categories.find(c => categoryString(c) === selectedCategory)
@@ -360,6 +365,11 @@ function BracketArchive() {
               {
                 categories.length > 0 && (
                   <div className="columns no-bottom-margin">
+                    <div className="column is-narrow is-vcentered">
+                      {eventTotal !== null &&
+                        <span>Total Competitors: {eventTotal.toLocaleString()}</span>
+                      }
+                    </div>
                     <div className="column column-padding is-vcentered">
                       <div className="field">
                         <div className="select">
@@ -376,7 +386,7 @@ function BracketArchive() {
                     <div className="column is-vcentered">
                     {
                       (showRatings && averageRating !== undefined) && (
-                        <span>{`${t("Average rating")}: ${averageRating}`}</span>
+                        <span>{`${t("Division average rating")}: ${averageRating}`}</span>
                       )
                     }
                     </div>

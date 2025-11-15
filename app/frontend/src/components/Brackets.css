@@ -83,6 +83,10 @@
   justify-content: flex-start;
 }
 
+.category-column > .field {
+  margin-bottom: 0;
+}
+
 @media screen and (max-width: 768px) {
   .category-flex {
     flex-direction: column;
@@ -91,7 +95,7 @@
   .category-column {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0;
+    gap: 12px;
   }
   .category-column:not(:first-child), .category-column .average {
     margin-bottom: .75rem;

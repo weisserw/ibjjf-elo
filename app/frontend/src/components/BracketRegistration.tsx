@@ -292,7 +292,7 @@ function BracketRegistration() {
             <div className="competitor-count">
               {
                 registrationEventTotal !== null && (
-                  <span><strong>Total Competitors:</strong> {registrationEventTotal.toLocaleString()}</span>
+                  <span>Total Competitors: {registrationEventTotal.toLocaleString()}</span>
                 )
               }
             </div>
@@ -316,8 +316,13 @@ function BracketRegistration() {
                   </div>
                   <div className="average-rating">
                     {
-                      (showRatings && averageRating !== undefined) && (
-                        <span>{`${t("Average rating")}: ${averageRating}`}</span>
+                      (showRatings && averageRating !== undefined && viewMode !== 'elites') && (
+                        <span>{`${t("Division average rating")}: ${averageRating}`}</span>
+                      )
+                    }
+                    {
+                      (showRatings && averageRating !== undefined && viewMode === 'elites') && (
+                        <span>{`${t("Elites average rating")}: ${averageRating}`}</span>
                       )
                     }
                   </div>

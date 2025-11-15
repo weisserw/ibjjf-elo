@@ -38,6 +38,8 @@ function BracketLive() {
     setBracketMatches: setMatches,
     bracketSortColumn: sortColumn,
     setBracketSortColumn: setSortColumn,
+    bracketEventTotal: eventTotal,
+    setBracketEventTotal: setEventTotal,
     setActiveTab,
     setCalcFirstAthlete,
     setCalcSecondAthlete,
@@ -106,9 +108,11 @@ function BracketLive() {
       const { data } = await axios.get<CategoriesResponse>('/api/brackets/categories/' + selectedEvent);
       if (data.error) {
         setCategories(null)
+        setEventTotal(null)
         setError(data.error)
       } else if (data.categories) {
         setCategories(data.categories)
+        setEventTotal(data.total ?? null)
         setError(null)
 
         const category = data.categories.find(c => categoryString(c) === selectedCategory)
@@ -403,6 +407,11 @@ function BracketLive() {
                 categories.length > 0 && (
                   <div className="category-flex">
                     <div className="category-column">
+                      <div className="total">
+                        {eventTotal !== null &&
+                          <span>Total Competitors: {eventTotal.toLocaleString()}</span>
+                        }
+                      </div>
                       <div className="field">
                         <div className="select">
                           <select disabled={loading} className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
@@ -417,7 +426,7 @@ function BracketLive() {
                       <div className="average">
                       {
                         (showRatings && averageRating !== undefined) && (
-                          <span>{`${t("Average rating")}: ${averageRating}`}</span>
+                          <span>{`${t("Division average rating")}: ${averageRating}`}</span>
                         )
                       }
                       </div>
