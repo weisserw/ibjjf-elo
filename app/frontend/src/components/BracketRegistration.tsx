@@ -28,6 +28,7 @@ function BracketRegistration() {
   const [loading, setLoading] = useState(false)
   const [elitesLoading, setElitesLoading] = useState(false)
   const [elites, setElites] = useState<EliteAthlete[] | null>(null)
+  const [elitesByLink, setElitesByLink] = useState<Record<string, EliteAthlete[]>>({})
 
   const {
     bracketRegistrationEventName: registrationEventName,
@@ -227,33 +228,56 @@ function BracketRegistration() {
     }
   }, [selectedUpcomingLink])
 
-  const getElites = async () => {
-    if (!registrationEventUrl) return;
-    setElitesLoading(true)
-    try {
-      const { data } = await axios.get<{ elites?: EliteAthlete[]; error?: string }>(
-        '/api/brackets/registrations/elites',
-        { params: { link: registrationEventUrl } }
-      )
-      if (data.error) {
-        setElites(null)
-        setError(data.error)
-      } else if (data.elites) {
-        setElites(data.elites)
-        setError(null)
-      }
-    } catch (err) {
-      handleError(err, setError)
-    } finally {
-      setElitesLoading(false)
-    }
-  }
-
   useEffect(() => {
-    if (viewMode === 'elites' && registrationEventUrl) {
-      getElites()
+    if (viewMode !== 'elites' || !registrationEventUrl) {
+      return
     }
-  }, [viewMode, registrationEventUrl])
+
+    const link = registrationEventUrl
+    const cached = elitesByLink[link]
+    if (cached !== undefined) {
+      setElites(cached)
+      return
+    }
+
+    let cancelled = false
+
+    const fetchElites = async () => {
+      setElitesLoading(true)
+      try {
+        const { data } = await axios.get<{ elites?: EliteAthlete[]; error?: string }>(
+          '/api/brackets/registrations/elites',
+          { params: { link } }
+        )
+        if (cancelled) return
+        if (data.error) {
+          setElites(null)
+          setError(data.error)
+        } else if (data.elites) {
+          setElites(data.elites)
+          setElitesByLink(prev => ({ ...prev, [link]: data.elites ?? [] }))
+          setError(null)
+        } else {
+          setElites([])
+          setElitesByLink(prev => ({ ...prev, [link]: [] }))
+        }
+      } catch (err) {
+        if (!cancelled) {
+          handleError(err, setError)
+        }
+      } finally {
+        if (!cancelled) {
+          setElitesLoading(false)
+        }
+      }
+    }
+
+    void fetchElites()
+
+    return () => {
+      cancelled = true
+    }
+  }, [viewMode, registrationEventUrl, elitesByLink])
 
   return (
     <div className="brackets-content">
