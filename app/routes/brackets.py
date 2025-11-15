@@ -376,31 +376,35 @@ def get_ratings(
         if len(results) > 100:
             filter_pct(2)
 
-    # get ranks from athlete_ratings if available
-    ratings_results = (
-        db.session.query(
-            AthleteRating.athlete_id,
-            AthleteRating.rank,
-        )
-        .filter(
-            or_(
-                and_(
-                    AthleteRating.athlete_id == result["id"],
-                    AthleteRating.age == result["age"],
-                    AthleteRating.belt == result["belt"],
-                    AthleteRating.weight == result["weight"],
-                    AthleteRating.gender == result["gender"],
-                    AthleteRating.gi == gi,
-                )
-                for result in results
-                if result["id"]
+    if not results:
+        return
+
+    if len([result for result in results if result["id"]]) > 0:
+        # get ranks from athlete_ratings if available
+        ratings_results = (
+            db.session.query(
+                AthleteRating.athlete_id,
+                AthleteRating.rank,
             )
+            .filter(
+                or_(
+                    and_(
+                        AthleteRating.athlete_id == result["id"],
+                        AthleteRating.age == result["age"],
+                        AthleteRating.belt == result["belt"],
+                        AthleteRating.weight == result["weight"],
+                        AthleteRating.gender == result["gender"],
+                        AthleteRating.gi == gi,
+                    )
+                    for result in results
+                    if result["id"]
+                )
+            )
+            .all()
         )
-        .all()
-    )
-    ranks_by_id = {r.athlete_id: r.rank for r in ratings_results}
-    for result in results:
-        result["rank"] = ranks_by_id.get(result["id"])
+        ranks_by_id = {r.athlete_id: r.rank for r in ratings_results}
+        for result in results:
+            result["rank"] = ranks_by_id.get(result["id"])
 
     # get rating and match_count from their most recent match
     ratings_by_id = {}
