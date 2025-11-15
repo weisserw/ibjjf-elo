@@ -30,7 +30,6 @@ function DBTable() {
     setOpenFilters,
     dbPage: page,
     setDbPage: setPage,
-    setBracketActiveTab,
     setBracketArchiveEventName,
     setBracketArchiveEventNameFetch,
     setBracketArchiveSelectedCategory,
@@ -127,11 +126,10 @@ function DBTable() {
   }
 
   const divisionBracketClicked = (row: Row) => {
-    setBracketActiveTab('Archive')
     setBracketArchiveEventName(row.event)
     setBracketArchiveEventNameFetch(row.event)
     setBracketArchiveSelectedCategory(`${row.belt} / ${row.age} / ${row.gender} / ${row.weight}`)
-    navigate('/tournaments')
+    navigate('/tournaments/archive')
   }
 
   const hasHistorical = useMemo(() => data.map(row => row.event).some(isHistorical), [data]);

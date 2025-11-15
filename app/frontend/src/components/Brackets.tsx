@@ -1,65 +1,66 @@
 import classNames from 'classnames'
-import { useAppContext } from '../AppContext'
 import BracketLive from './BracketLive'
 import BracketRegistration from './BracketRegistration'
 import BracketArchive from './BracketArchive'
 import { t } from '../translate'
+import { useNavigate } from 'react-router-dom'
 
 import "./Brackets.css"
 
 export type Tabs = 'Live' | 'Registrations' | 'Archive'
 
-function Brackets() {
-  const {
-    bracketActiveTab,
-    setBracketActiveTab,
-  } = useAppContext()
+interface BracketsProps {
+  tab?: Tabs
+}
+
+function Brackets({ tab }: BracketsProps) {
+  const navigate = useNavigate()
 
   return (
     <div className="container pl-2 pr-2">
       <div className="tabs">
         <ul>
-          <li onClick={() => setBracketActiveTab('Live')} className={classNames({"is-active": bracketActiveTab === 'Live'})}><a>{t("Live Brackets")}</a></li>
-          <li onClick={() => setBracketActiveTab('Registrations')} className={classNames({"is-active": bracketActiveTab === 'Registrations'})}><a>{t("Registrations")}</a></li>
-          <li onClick={() => setBracketActiveTab('Archive')} className={classNames({"is-active": bracketActiveTab === 'Archive'})}><a>{t("Archive")}</a></li>
+          <li onClick={() => navigate('/tournaments')} className={classNames({"is-active": tab === 'Live'})}><a>{t("Live Brackets")}</a></li>
+          <li onClick={() => navigate('/tournaments/registrations')} className={classNames({"is-active": tab === 'Registrations'})}><a>{t("Registrations")}</a></li>
+          <li onClick={() => navigate('/tournaments/archive')} className={classNames({"is-active": tab === 'Archive'})}><a>{t("Archive")}</a></li>
         </ul>
       </div>
       {
-        bracketActiveTab === 'Live' && (
+        tab === 'Live' && (
           <p>
             {t("This tool imports brackets from")}{' '}<a href="https://bjjcompsystem.com/" target="_blank" rel="nofollow noreferrer">bjjcompsystem.com</a>{' '}{t("and displays the current ratings of the competitors. Brackets are typically posted 1-2 days before an event starts.")}
           </p>
         )
       }
       {
-        bracketActiveTab === 'Archive' && (
+        tab === 'Archive' && (
           <p>
             {t("Search for a past event in our database to view brackets. Brackets are not available before December 2024.")}
           </p>
         )
       }
       {
-        bracketActiveTab === 'Live' && (
+        tab === 'Live' && (
           <BracketLive />
         )
       }
       {
-        bracketActiveTab === 'Registrations' && (
+        tab === 'Registrations' && (
           <BracketRegistration />
         )
       }
       {
-        bracketActiveTab === 'Archive' && (
+        tab === 'Archive' && (
           <BracketArchive />
         )
       }
       {
-        (bracketActiveTab === 'Live' || bracketActiveTab === 'Registrations') &&
+        (tab === 'Live' || tab === 'Registrations') &&
           <div className="notification mt-5 content bracket-notification">
             <ul>
               <li>{t("We cache responses from the IBJJF servers. If you don't see the latest data, try again in a few minutes.")}</li>
               {
-                bracketActiveTab === 'Live' && (
+                tab === 'Live' && (
                   <li>
                     {t("Ratings shown are estimates and may differ from an athlete's final rating at the end of an event.")}
                   </li>
@@ -71,5 +72,5 @@ function Brackets() {
     </div>
   );
 }
-  
+
 export default Brackets

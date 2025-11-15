@@ -60,8 +60,6 @@ interface AppContextProps {
   setBracketMatches: (matches: BracketMatch[] | null) => void;
   bracketSortColumn: BracketSortColumn;
   setBracketSortColumn: (column: BracketSortColumn) => void;
-  bracketActiveTab: BracketTabs;
-  setBracketActiveTab: (tab: BracketTabs) => void;
   bracketRegistrationEventName: string;
   setBracketRegistrationEventName: (name: string) => void;
   bracketRegistrationEventTotal: number | null;
@@ -147,7 +145,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[] | null>(null)
   const [bracketEventTotal, setBracketEventTotal] = useState<number | null>(null)
   const [bracketSortColumn, setBracketSortColumn] = useState<BracketSortColumn>('rating')
-  const [bracketActiveTab, setBracketActiveTab] = useState<BracketTabs>('Live')
   const [bracketRegistrationEventName, setBracketRegistrationEventName] = useState('')
   const [bracketRegistrationEventTotal, setBracketRegistrationEventTotal] = useState<number | null>(null)
   const [bracketRegistrationEventUrl, setBracketRegistrationEventUrl] = useState('')
@@ -263,7 +260,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketMatches, setBracketMatches,
       bracketEventTotal, setBracketEventTotal,
       bracketSortColumn, setBracketSortColumn,
-      bracketActiveTab, setBracketActiveTab,
       bracketRegistrationEventName, setBracketRegistrationEventName,
       bracketRegistrationEventTotal, setBracketRegistrationEventTotal,
       bracketRegistrationEventUrl, setBracketRegistrationEventUrl,

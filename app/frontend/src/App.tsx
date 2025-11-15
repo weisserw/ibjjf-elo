@@ -23,7 +23,9 @@ function App() {
             <Routes>
               <Route path="/" element={<Ratings />} />
               <Route path="/database" element={<Database />} />
-              <Route path="/tournaments" element={<Brackets />} />
+              <Route path="/tournaments" element={<Brackets tab="Live" />} />
+              <Route path="/tournaments/registrations" element={<Brackets tab="Registrations" />} />
+              <Route path="/tournaments/archive" element={<Brackets tab="Archive" />} />
               <Route path="/calculator" element={<Calculator />} />
               <Route path="/about" element={<About />} />
               <Route path="/athlete/:id" element={<Athlete />} />

@@ -16,8 +16,8 @@ function Navbar() {
   const language = appContext?.language || 'en';
   const setLanguage = appContext?.setLanguage;
 
-  const getNavItemClass = (path: string) => classNames("navbar-item", {
-    "is-active": activeLink === path,
+  const getNavItemClass = (path: string, startsWith?: boolean) => classNames("navbar-item", {
+    "is-active": startsWith ? activeLink.startsWith(path) : activeLink === path,
   });
 
   const handleLanguageSwitch = (e: React.MouseEvent) => {
@@ -50,7 +50,7 @@ function Navbar() {
           <Link className={getNavItemClass("/database")} to="/database">
             {t("Database")}
           </Link>
-          <Link className={getNavItemClass("/tournaments")} to="/tournaments">
+          <Link className={getNavItemClass("/tournaments", true)} to="/tournaments">
             {t("Tournaments")}
           </Link>
           <Link className={getNavItemClass("/calculator")} to="/calculator">

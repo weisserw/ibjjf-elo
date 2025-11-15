@@ -95,7 +95,6 @@ function Calculator() {
     setCalcSecondWeight,
     calcCustomInfo,
     setCalcCustomInfo,
-    setBracketActiveTab,
     setBracketArchiveEventName,
     setBracketArchiveEventNameFetch,
     setBracketArchiveSelectedCategory,
@@ -104,11 +103,10 @@ function Calculator() {
   const navigate = useNavigate();
 
   const divisionBracketClicked = (row: Row) => {
-    setBracketActiveTab('Archive')
     setBracketArchiveEventName('"' + row.event + '"')
     setBracketArchiveEventNameFetch('"' + row.event + '"')
     setBracketArchiveSelectedCategory(`${row.belt} / ${row.age} / ${row.gender} / ${row.weight}`)
-    navigate('/tournaments')
+    navigate('/tournaments/archive')
   }
 
   const athleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, slug: string) => {

@@ -57,7 +57,6 @@ function EloTable() {
     setBracketSelectedCategory,
     setBracketRegistrationSelectedUpcomingLink,
     setBracketRegistrationSelectedCategory,
-    setBracketActiveTab,
   } = useAppContext();
 
   const [nameFilterSearch, setNameFilterSearch] = useState(nameFilter)
@@ -223,14 +222,12 @@ function EloTable() {
     if (eventStartDate.getTime() - new Date().getTime() < 24 * 60 * 60 * 1000) {
       setBracketSelectedEvent(registration.event_id);
       setBracketSelectedCategory(registration.division);
-      setBracketActiveTab('Live');
+      navigate('/tournaments');
     } else {
       setBracketRegistrationSelectedUpcomingLink(registration.link);
       setBracketRegistrationSelectedCategory(registration.division);
-      setBracketActiveTab('Registrations');
+      navigate('/tournaments/registrations');
     }
-
-    navigate('/tournaments');
   }
 
   return (

@@ -129,7 +129,6 @@ function Athlete() {
   const {
     activeTab,
     language,
-    setBracketActiveTab,
     setBracketArchiveEventName,
     setBracketArchiveEventNameFetch,
     setBracketArchiveSelectedCategory,
@@ -198,11 +197,10 @@ function Athlete() {
   }, [responseData]);
 
   const divisionBracketClicked = (row: Row) => {
-    setBracketActiveTab('Archive')
     setBracketArchiveEventName('"' + row.event + '"')
     setBracketArchiveEventNameFetch('"' + row.event + '"')
     setBracketArchiveSelectedCategory(`${row.belt} / ${row.age} / ${row.gender} / ${row.weight}`)
-    navigate('/tournaments')
+    navigate('/tournaments/archive')
   }
 
   const hasHistorical = useMemo(() => matchData.map(row => row.event).some(isHistorical), [matchData]);
@@ -329,14 +327,12 @@ function Athlete() {
     if (eventStartDate.getTime() - new Date().getTime() < 24 * 60 * 60 * 1000) {
       setBracketSelectedEvent(registration.event_id);
       setBracketSelectedCategory(registration.division);
-      setBracketActiveTab('Live');
+      navigate('/tournaments');
     } else {
       setBracketRegistrationSelectedUpcomingLink(registration.link);
       setBracketRegistrationSelectedCategory(registration.division);
-      setBracketActiveTab('Registrations');
+      navigate('/tournaments/registrations');
     }
-
-    navigate('/tournaments');
   }
 
   if (!responseData) {
