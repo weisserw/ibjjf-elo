@@ -128,3 +128,20 @@ body {
   align-items: center;
   gap: 4px;
 }
+
+.is-visible-mobile {
+  display: none;
+}
+
+.is-visible-mobile-table-cell {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .is-visible-mobile {
+    display: inline-block;
+  }
+  .is-visible-mobile-table-cell {
+    display: table-cell;
+  }
+}

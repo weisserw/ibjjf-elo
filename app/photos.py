@@ -76,7 +76,7 @@ def save_instagram_profile_photo_to_s3(
         )
         athlete.profile_image_saved_at = datetime.now(timezone.utc)
 
-    if save_name:
+    if save_name and not athlete.personal_name:
         athlete.personal_name = ig_name
         athlete.normalized_personal_name = (
             None if ig_name is None else normalize(ig_name)

@@ -502,7 +502,7 @@ def matches():
                     "winnerCountryNote": winner.athlete.country_note,
                     "winnerCountryNotePt": winner.athlete.country_note_pt,
                     "winnerInstagramProfile": winner.athlete.instagram_profile,
-                    "winnerpersonalName": winner.athlete.personal_name,
+                    "winnerPersonalName": winner.athlete.personal_name,
                     "winnerProfileImageUrl": (
                         get_public_photo_url(s3_client, winner.athlete)
                         if winner.athlete.profile_image_saved_at
@@ -520,7 +520,7 @@ def matches():
                     "loserCountryNote": loser.athlete.country_note,
                     "loserCountryNotePt": loser.athlete.country_note_pt,
                     "loserInstagramProfile": loser.athlete.instagram_profile,
-                    "loserpersonalName": loser.athlete.personal_name,
+                    "loserPersonalName": loser.athlete.personal_name,
                     "loserProfileImageUrl": (
                         get_public_photo_url(s3_client, loser.athlete)
                         if loser.athlete.profile_image_saved_at

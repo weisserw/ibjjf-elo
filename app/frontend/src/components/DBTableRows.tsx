@@ -162,13 +162,12 @@ function DBTableRows(props: DBTableRowsProps) {
                 <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row.event)})}>
                   <td data-id={row.winnerId}>
                     {
-                      !linkAthlete(row.winner) ? row.winner :
+                      !linkAthlete(row.winner) ? (row.winnerPersonalName ? row.winnerPersonalName : row.winner) :
                       <div className="name-container">
                         <a href="#" onClick={e => athleteClicked?.(e, row.winnerSlug)}>
-                          {row.winner}
+                          {row.winnerPersonalName ? row.winnerPersonalName : row.winner}
                         </a>
                         <NameInfo instagram_profile={row.winnerInstagramProfile}
-                                  personal_name={row.winnerpersonalName}
                                   profile_image_url={row.winnerProfileImageUrl}
                                   country={row.winnerCountry}
                                   country_note={row.winnerCountryNote}
@@ -186,13 +185,12 @@ function DBTableRows(props: DBTableRowsProps) {
                   </td>
                   <td data-id={row.loserId}>
                     {
-                      !linkAthlete(row.loser) ? row.loser :
+                      !linkAthlete(row.loser) ? (row.loserPersonalName ? row.loserPersonalName : row.loser) :
                       <div className="name-container">
                         <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
-                          {row.loser}
+                          {row.loserPersonalName ? row.loserPersonalName : row.loser}
                         </a>
                         <NameInfo instagram_profile={row.loserInstagramProfile}
-                                  personal_name={row.loserpersonalName}
                                   profile_image_url={row.loserProfileImageUrl}
                                   country={row.loserCountry}
                                   country_note={row.loserCountryNote}
@@ -265,11 +263,10 @@ function DBTableRows(props: DBTableRowsProps) {
                     <div className="column" data-id={row.winnerId}>
                       <strong>{t("Winner")}:</strong>{' '}
                       {
-                        !linkAthlete(row.winner) ? row.winner :
+                        !linkAthlete(row.winner) ? (row.winnerPersonalName ? row.winnerPersonalName : row.winner) :
                         <div className="name-container">
-                          <a href="#" onClick={e => athleteClicked?.(e, row.winnerSlug)}>{row.winner}</a>
+                          <a href="#" onClick={e => athleteClicked?.(e, row.winnerSlug)}>{row.winnerPersonalName ? row.winnerPersonalName : row.winner}</a>
                           <NameInfo instagram_profile={row.winnerInstagramProfile}
-                                    personal_name={row.winnerpersonalName}
                                     profile_image_url={row.winnerProfileImageUrl}
                                     country={row.winnerCountry}
                                     country_note={row.winnerCountryNote}
@@ -287,11 +284,13 @@ function DBTableRows(props: DBTableRowsProps) {
                     <div className="column has-text-right-tablet" data-id={row.loserId}>
                       <strong>{t("Loser")}:</strong>{' '}
                       {
-                        !linkAthlete(row.loser) ? row.loser :
+                        !linkAthlete(row.loser) ?
+                        (row.loserPersonalName ? row.loserPersonalName : row.loser) :
                         <div className="name-container">
-                          <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>{row.loser}</a>
+                          <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
+                            {row.loserPersonalName ? row.loserPersonalName : row.loser}
+                          </a>
                           <NameInfo instagram_profile={row.loserInstagramProfile}
-                                    personal_name={row.loserpersonalName}
                                     profile_image_url={row.loserProfileImageUrl}
                                     country={row.loserCountry}
                                     country_note={row.loserCountryNote}

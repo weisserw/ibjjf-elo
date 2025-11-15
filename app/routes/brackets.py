@@ -785,7 +785,12 @@ def registration_links():
     )
 
     bring_to_front(
-        links, "european ibjjf ", "pan ibjjf ", "world ibjjf ", "campeonato brasileiro "
+        links,
+        "ibjjf crown ",
+        "european ibjjf ",
+        "pan ibjjf ",
+        "world ibjjf ",
+        "campeonato brasileiro ",
     )
 
     rows = []
@@ -841,7 +846,8 @@ def save_competitors(link_id, json_data, division_set):
             if db_division is not None:
                 for competitor in entry["RegistrationCategories"]:
                     name = competitor["AthleteName"]
-                    if save_registration_link_competitor(link, db_division, name):
+                    team = competitor["AcademyTeamName"]
+                    if save_registration_link_competitor(link, db_division, name, team):
                         added_row = True
     if added_row:
         db.session.commit()
@@ -933,6 +939,59 @@ def import_registration_link(link, background):
     }
 
 
+def internal_registration_categories(link):
+    db_link = (
+        db.session.query(RegistrationLink).filter(RegistrationLink.link == link).first()
+    )
+    if not db_link:
+        return jsonify({"error": "Link not found"}), 400
+
+    divisions = []
+    for competitor in (
+        db.session.query(RegistrationLinkCompetitor.division_id)
+        .filter(RegistrationLinkCompetitor.registration_link_id == db_link.id)
+        .distinct()
+        .all()
+    ):
+        division = db.session.get(Division, competitor.division_id)
+
+        divisions.append(division)
+
+    divisions.sort(
+        key=lambda division: (
+            belt_order.index(division.belt),
+            age_order_all.index(division.age),
+            gender_order.index(division.gender),
+            weight_class_order_all.index(division.weight),
+        )
+    )
+
+    rows = []
+    for division in divisions:
+        rows.append(
+            format_division(
+                {
+                    "age": division.age,
+                    "weight": division.weight,
+                    "belt": division.belt,
+                    "gender": division.gender,
+                }
+            )
+        )
+
+    total_competitors = (
+        db.session.query(RegistrationLinkCompetitor)
+        .filter(RegistrationLinkCompetitor.registration_link_id == db_link.id)
+        .count()
+    )
+
+    return {
+        "categories": rows,
+        "event_name": db_link.name,
+        "total_competitors": total_competitors,
+    }
+
+
 @brackets_route.route("/api/brackets/registrations/categories")
 def registration_categories():
     link = request.args.get("link")
@@ -940,6 +999,8 @@ def registration_categories():
     if not link:
         return jsonify({"error": "Missing parameter"}), 400
 
+    if link.startswith("internal:"):
+        return jsonify(internal_registration_categories(link))
     try:
         data = import_registration_link(link, background=True)
     except ValueError as e:
@@ -983,11 +1044,11 @@ def get_db_division(gi, divdata):
     return db_division, added_row
 
 
-def save_registration_link_competitor(db_link, db_division, name):
+def save_registration_link_competitor(db_link, db_division, name, team):
     if db_link is None or db_division is None:
         return False
 
-    added_row = False
+    updated = False
 
     competitor_entries = (
         db.session.query(RegistrationLinkCompetitor)
@@ -1005,20 +1066,82 @@ def save_registration_link_competitor(db_link, db_division, name):
         competitor_entry = RegistrationLinkCompetitor(
             registration_link_id=db_link.id,
             athlete_name=name,
+            team_name=team,
             division_id=db_division.id,
         )
         db.session.add(competitor_entry)
-        added_row = True
+        updated = True
     elif len(competitor_entries) == 1:
         competitor_entry = competitor_entries[0]
         if competitor_entry.division_id != db_division.id:
             competitor_entry.division_id = db_division.id
-            added_row = True
+            updated = True
+        if competitor_entry.team_name != team:
+            competitor_entry.team_name = team
+            updated = True
 
-    if added_row:
+    if updated:
         db.session.flush()
 
-    return added_row
+    return updated
+
+
+def internal_registration_competitors(link, divdata, gi):
+    db_link = (
+        db.session.query(RegistrationLink).filter(RegistrationLink.link == link).first()
+    )
+
+    if not db_link:
+        raise ValueError("Link not found")
+
+    db_division = (
+        db.session.query(Division)
+        .filter(
+            Division.gi == gi,
+            Division.age == divdata["age"],
+            Division.belt == divdata["belt"],
+            Division.weight == divdata["weight"],
+            Division.gender == divdata["gender"],
+        )
+        .first()
+    )
+
+    if db_division is None:
+        raise ValueError("Division not found")
+
+    rows = []
+    for competitor in (
+        db.session.query(RegistrationLinkCompetitor)
+        .filter(
+            RegistrationLinkCompetitor.registration_link_id == db_link.id,
+            RegistrationLinkCompetitor.division_id == db_division.id,
+        )
+        .all()
+    ):
+        rows.append(
+            {
+                "name": competitor.athlete_name,
+                "team": competitor.team_name,
+                "id": None,
+                "ibjjf_id": None,
+                "seed": 0,
+                "rating": None,
+                "match_count": None,
+                "rank": None,
+                "percentile": None,
+                "note": None,
+                "last_weight": None,
+                "slug": None,
+                "instagram_profile": None,
+                "personal_name": None,
+                "profile_image_url": None,
+                "country": None,
+                "country_note": None,
+                "country_note_pt": None,
+            }
+        )
+
+    return rows
 
 
 @brackets_route.route("/api/brackets/registrations/competitors")
@@ -1034,82 +1157,91 @@ def registration_competitors():
 
     s3_client = get_s3_client()
 
-    m = validibjjfdblink.search(link)
-    if not m:
-        return (
-            jsonify(
-                {
-                    "error": "Link should be in the format 'https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations'"
-                }
-            ),
-            400,
-        )
+    if link.startswith("internal:"):
+        try:
+            divdata = parse_division(division)
+            rows = internal_registration_competitors(link, divdata, gi)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+    else:
+        m = validibjjfdblink.search(link)
+        if not m:
+            return (
+                jsonify(
+                    {
+                        "error": "Link should be in the format 'https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations'"
+                    }
+                ),
+                400,
+            )
 
-    url = m.group(1) + "?lang=en-US"
-
-    try:
-        divdata = parse_division(division)
-
-        soup = BeautifulSoup(
-            get_bracket_page(url, newer_than=datetime.now() - timedelta(minutes=10)),
-            "html.parser",
-        )
-
-        json_data = parse_registrations(soup)
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-    rows = []
-    for entry in json_data:
-        division_name = entry["FriendlyName"]
-        division_name = weightre.sub("", division_name)
+        url = m.group(1) + "?lang=en-US"
 
         try:
-            parsed = parse_division(division_name)
-        except ValueError:
-            log.debug(f"Invalid division name: {division_name}")
-            continue
+            divdata = parse_division(division)
 
-        age_lower = parsed["age"].lower()
-        if not (
-            "master" in age_lower
-            or "adult" in age_lower
-            or "juven" in age_lower
-            or "teen" in age_lower
-        ):
-            continue
+            soup = BeautifulSoup(
+                get_bracket_page(
+                    url, newer_than=datetime.now() - timedelta(minutes=10)
+                ),
+                "html.parser",
+            )
 
-        if format_division(parsed) == division:
-            for competitor in entry["RegistrationCategories"]:
-                team = competitor["AcademyTeamName"]
-                name = competitor["AthleteName"]
-                rows.append(
-                    {
-                        "name": name,
-                        "team": team,
-                        "id": None,
-                        "ibjjf_id": None,
-                        "seed": 0,
-                        "rating": None,
-                        "match_count": None,
-                        "rank": None,
-                        "percentile": None,
-                        "note": None,
-                        "last_weight": None,
-                        "slug": None,
-                        "instagram_profile": None,
-                        "personal_name": None,
-                        "profile_image_url": None,
-                        "country": None,
-                        "country_note": None,
-                        "country_note_pt": None,
-                        "age": divdata["age"],
-                        "belt": divdata["belt"],
-                        "weight": divdata["weight"],
-                        "gender": divdata["gender"],
-                        "gi": gi,
-                    }
-                )
+            json_data = parse_registrations(soup)
+        except Exception as e:
+            return jsonify({"error": str(e)})
+
+        rows = []
+        for entry in json_data:
+            division_name = entry["FriendlyName"]
+            division_name = weightre.sub("", division_name)
+
+            try:
+                parsed = parse_division(division_name)
+            except ValueError:
+                log.debug(f"Invalid division name: {division_name}")
+                continue
+
+            age_lower = parsed["age"].lower()
+            if not (
+                "master" in age_lower
+                or "adult" in age_lower
+                or "juven" in age_lower
+                or "teen" in age_lower
+            ):
+                continue
+
+            if format_division(parsed) == division:
+                for competitor in entry["RegistrationCategories"]:
+                    team = competitor["AcademyTeamName"]
+                    name = competitor["AthleteName"]
+                    rows.append(
+                        {
+                            "name": name,
+                            "team": team,
+                            "id": None,
+                            "ibjjf_id": None,
+                            "seed": 0,
+                            "rating": None,
+                            "match_count": None,
+                            "rank": None,
+                            "percentile": None,
+                            "note": None,
+                            "last_weight": None,
+                            "slug": None,
+                            "instagram_profile": None,
+                            "personal_name": None,
+                            "profile_image_url": None,
+                            "country": None,
+                            "country_note": None,
+                            "country_note_pt": None,
+                            "age": divdata["age"],
+                            "belt": divdata["belt"],
+                            "weight": divdata["weight"],
+                            "gender": divdata["gender"],
+                            "gi": gi,
+                        }
+                    )
 
     get_ratings(
         rows,
