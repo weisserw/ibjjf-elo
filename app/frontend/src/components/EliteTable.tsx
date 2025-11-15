@@ -1,6 +1,7 @@
 import { badgeForPercentile } from '../utils'
 import { t } from '../translate'
 import { Tooltip } from 'react-tooltip'
+import NameInfo from "./NameInfo";
 
 export interface EliteAthlete {
   name: string
@@ -18,6 +19,12 @@ export interface EliteAthlete {
   gender: string
   weight: string
   gi: boolean
+  personal_name: string | null
+  instagram_profile: string | null
+  profile_image_url: string | null
+  country: string | null
+  country_note: string | null
+  country_note_pt: string | null
 }
 
 interface EliteTableProps {
@@ -36,6 +43,7 @@ function EliteTable(props: EliteTableProps) {
           <tr>
             <th></th>
             <th>{t('Name')}</th>
+            <th className="is-visible-mobile-table-cell cell-no-padding"></th>
             <th>{t('Team')}</th>
             <th>{t('Category')}</th>
             <th className="has-text-right">{t('Rating')}</th>
@@ -56,11 +64,23 @@ function EliteTable(props: EliteTableProps) {
                   }
                 </td>
                 <td>
-                  {e.slug ? (
-                    <a href="#" onClick={(ev) => athleteClicked(ev, e.slug!)}>{e.name}</a>
-                  ) : (
-                    <span>{e.name}</span>
-                  )}
+                  <div className="name-container">
+                    {e.slug ? (
+                      <a href="#" onClick={(ev) => athleteClicked(ev, e.slug!)}>{e.name}</a>
+                    ) : (
+                      <span>{e.name}</span>
+                    )}
+                    <div className="is-hidden-mobile">
+                      <NameInfo instagram_profile={e.instagram_profile}
+                                profile_image_url={e.profile_image_url}
+                                country={e.country} country_note={e.country_note} country_note_pt={e.country_note_pt} />
+                    </div>
+                  </div>
+                </td>
+                <td className="is-visible-mobile-table-cell cell-no-side-padding">
+                  <NameInfo instagram_profile={e.instagram_profile}
+                            profile_image_url={e.profile_image_url}
+                            country={e.country} country_note={e.country_note} country_note_pt={e.country_note_pt} />
                 </td>
                 <td>{e.team}</td>
                 <td>{e.category}</td>

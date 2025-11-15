@@ -1447,6 +1447,12 @@ def registration_elites():
                 "gender": row["gender"],
                 "weight": row["weight"],
                 "gi": gi,
+                "personal_name": row["personal_name"],
+                "instagram_profile": row["instagram_profile"],
+                "profile_image_url": row["profile_image_url"],
+                "country": row["country"],
+                "country_note": row["country_note"],
+                "country_note_pt": row["country_note_pt"],
             }
         )
 
