@@ -6,6 +6,7 @@
   min-width: 16px;
   vertical-align: middle;
   cursor: pointer;
+  margin-bottom: 2px;
 }
 
 .name-subinfo {
@@ -27,6 +28,8 @@
   width: 19px;
   height: 15px;
   background-size: 100% 100%;
+  margin-top: 5.5px;
+  margin-bottom: 5.5px;
 }
 
 .country-flag-tree {

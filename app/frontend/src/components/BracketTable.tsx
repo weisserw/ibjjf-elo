@@ -259,7 +259,7 @@ function BracketTable(props: BracketTableProps) {
                             <NameInfo instagram_profile={competitor.instagram_profile}
                                       profile_image_url={competitor.profile_image_url}
                                       country={competitor.country} country_note={competitor.country_note} country_note_pt={competitor.country_note_pt}
-                                      medal={competitor.medal} topPadding={true} />
+                                      medal={competitor.medal} />
                           </div>
                         </div>
                       </td>
@@ -267,7 +267,7 @@ function BracketTable(props: BracketTableProps) {
                         <NameInfo instagram_profile={competitor.instagram_profile}
                                   profile_image_url={competitor.profile_image_url}
                                   country={competitor.country} country_note={competitor.country_note} country_note_pt={competitor.country_note_pt}
-                                  medal={competitor.medal} topPadding={true} />
+                                  medal={competitor.medal} />
                       </td>
                     </> :
                     <>
@@ -277,12 +277,12 @@ function BracketTable(props: BracketTableProps) {
                             {competitor.personal_name ? competitor.personal_name : competitor.name}
                           </span>
                           <div className="is-hidden-mobile">
-                            <NameInfo instagram_profile={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} topPadding={true} />
+                            <NameInfo instagram_profile={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} />
                           </div>
                         </div>
                       </td>
                       <td className="is-visible-mobile-table-cell cell-no-side-padding">
-                        <NameInfo instagram_profile={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} topPadding={true} />
+                        <NameInfo instagram_profile={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} />
                       </td>
                     </>
                 }

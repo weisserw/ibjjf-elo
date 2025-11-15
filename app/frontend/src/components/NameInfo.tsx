@@ -4,7 +4,6 @@ import igLogoColor from '/src/assets/instagram-color.png';
 import { getCountryName } from '../utils';
 import { useAppContext } from '../AppContext';
 import { Tooltip } from 'react-tooltip';
-import classNames from 'classnames';
 import "/node_modules/flag-icons/css/flag-icons.min.css";
 
 import "./NameInfo.css";
@@ -17,7 +16,6 @@ interface NameInfoProps {
   country_note_pt: string | null;
   medal?: string | null;
   tree?: boolean;
-  topPadding?: boolean;
 }
 
 const competitorMedal = (medal: string | null | undefined) => {
@@ -35,7 +33,7 @@ const competitorMedal = (medal: string | null | undefined) => {
   }
 }
 
-function NameInfo({ instagram_profile, profile_image_url, country, country_note, country_note_pt, medal, tree, topPadding }: NameInfoProps) {
+function NameInfo({ instagram_profile, profile_image_url, country, country_note, country_note_pt, medal, tree }: NameInfoProps) {
   const [uniqueId] = useState(() => Math.random().toString(36).substring(2, 9));
 
   // manage hover state for instagram tooltip because of react-tooltip bug that doesn't close it sometimes
@@ -77,7 +75,7 @@ function NameInfo({ instagram_profile, profile_image_url, country, country_note,
   }
 
   return (
-      <div className={classNames("name-subinfo", {"name-subinfo-top-padding": topPadding})}>
+      <div className="name-subinfo">
         <Tooltip id={uniqueId} className="tooltip-normal" />
       {country && (
         <span className={`fi fi-${country.trim().toLowerCase().substring(0, 2)} country-flag`} data-tooltip-place="top" data-tooltip-id={uniqueId} data-tooltip-content={getCountryName(country, country_note, country_note_pt, language)} />
