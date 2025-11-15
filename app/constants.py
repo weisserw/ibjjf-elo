@@ -182,6 +182,21 @@ age_order = [
     MASTER_7,
 ]
 
+age_order_adult_first = [
+    ADULT,
+    JUVENILE,
+    MASTER_1,
+    MASTER_2,
+    MASTER_3,
+    MASTER_4,
+    MASTER_5,
+    MASTER_6,
+    MASTER_7,
+    TEEN_1,
+    TEEN_2,
+    TEEN_3,
+]
+
 age_order_all = [
     TEEN_1,
     TEEN_2,

@@ -41,6 +41,7 @@ from constants import (
     weight_class_order_all,
     gender_order,
     age_order,
+    age_order_adult_first,
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
     OPEN_CLASS_LIGHT,
@@ -668,8 +669,8 @@ def elite_sort(results):
     # sort by belt in descending order of belt rank, then age, then gender, then weight, then rating
     results.sort(
         key=lambda x: (
+            -age_order_adult_first.index(x["age"]),
             belt_order.index(x["belt"]),
-            -age_order.index(x["age"]),
             -gender_order.index(x["gender"]),
             -weight_class_order_all.index(x["weight"]),
             x["rating"] if x["rating"] is not None else -1,
