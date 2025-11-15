@@ -426,7 +426,7 @@ function BracketLive() {
                       <div className="average">
                       {
                         (showRatings && averageRating !== undefined) && (
-                          <span>{`${t("Division average rating")}: ${averageRating}`}</span>
+                          <span>{`${t("Average rating")}: ${averageRating}`}</span>
                         )
                       }
                       </div>
