@@ -2,9 +2,6 @@ import { createContext, useState, useContext, useCallback, ReactNode } from 'rea
 import type { FilterValues, OpenFilters } from './components/DBFilters';
 import type { TabName } from './components/GiTabs';
 import type {
-  Tabs as BracketTabs,
-} from './components/Brackets';
-import type {
   Event as BracketEvent,
 } from './components/BracketLive';
 import type {
