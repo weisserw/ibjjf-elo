@@ -96,6 +96,7 @@ matches_route.before_request(rate_limit)
 @matches_route.route("/api/matches")
 def matches():
     gi = request.args.get("gi")
+    athlete_id = request.args.get("athlete_id")
     athlete_name = request.args.get("athlete_name")
     athlete_name2 = request.args.get("athlete_name2")
     event_name = request.args.get("event_name")
@@ -214,6 +215,18 @@ def matches():
     params = {"gi": gi}
 
     filters = ""
+
+    if athlete_id:
+        filters += """AND EXISTS (
+            SELECT 1
+            FROM match_participants mp
+            WHERE mp.match_id = m.id AND mp.athlete_id = :athlete_id
+        )
+        """
+        if os.environ.get("DATABASE_URL"):
+            params["athlete_id"] = athlete_id
+        else:
+            params["athlete_id"] = athlete_id.replace("-", "")
 
     def add_athlete_name_filter(f, name, variable):
         exact = name.strip().startswith('"') and name.strip().endswith('"')
@@ -406,6 +419,7 @@ def matches():
     # get one extra match to determine if there are more pages
     params["limit"] = (page_size + 1) * 2
     params["offset"] = (page - 1) * page_size * 2
+
     results = db.session.execute(
         text(
             f"""

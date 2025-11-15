@@ -26,6 +26,7 @@ import {
 import './Athlete.css';
 
 interface Athlete {
+  id: string;
   name: string;
   instagram_profile: string | null;
   country: string | null;
@@ -174,7 +175,7 @@ function Athlete() {
     axios.get<Results>('/api/matches', {
       params: {
         gi: activeTab === 'Gi' ? 'true' : 'false',
-        athlete_name: '"' + athlete.name + '"',
+        athlete_id: responseData.athlete.id,
         page: page
       }
     }).then((response: AxiosResponse<Results>) => {

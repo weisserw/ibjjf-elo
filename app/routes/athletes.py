@@ -222,6 +222,7 @@ def get_athlete(id):
                         rating += COLOR_PROMOTION_RATING_BUMP
 
     athlete_json = {
+        "id": str(athlete.id),
         "name": athlete.name,
         "instagram_profile": athlete.instagram_profile,
         "personal_name": athlete.personal_name,
