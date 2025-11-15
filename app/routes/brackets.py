@@ -12,7 +12,7 @@ from pull import (
 )
 import re
 import json
-from sqlalchemy.sql import func, or_
+from sqlalchemy.sql import func, or_, and_, tuple_
 from sqlalchemy.orm import aliased
 from extensions import db
 from models import (
@@ -48,7 +48,7 @@ from constants import (
     JUVENILE_1,
     JUVENILE_2,
     ADULT,
-    MASTER_PREFIX,
+    NON_ELITE_BELTS,
     MASTER_1,
     MASTER_2,
     MASTER_3,
@@ -177,14 +177,11 @@ def competitor_sort_key(competitor, rating_prop):
 def get_ratings(
     results,
     event_id,
-    age,
-    belt,
-    weight,
-    gender,
     gi,
     rating_date,
     use_live_ratings,
     s3_client,
+    elite_only=False,
 ):
     athlete_results = (
         db.session.query(
@@ -256,6 +253,118 @@ def get_ratings(
             result["country_note"] = athlete.country_note
             result["country_note_pt"] = athlete.country_note_pt
 
+    JUVENILE_PERCENTILE_AGES = [JUVENILE_1, JUVENILE_2, JUVENILE]
+    ADULT_PERCENTILE_AGES = [JUVENILE_1, JUVENILE_2, JUVENILE, ADULT]
+    MASTER_PERCENTILE_AGES = [
+        JUVENILE_1,
+        JUVENILE_2,
+        JUVENILE,
+        ADULT,
+        MASTER_1,
+        MASTER_2,
+        MASTER_3,
+        MASTER_4,
+        MASTER_5,
+        MASTER_6,
+        MASTER_7,
+    ]
+
+    # Build all valid (athlete_id, age, belt, gender, gi) combinations
+    athlete_keys = []
+    for result in results:
+        if not result.get("id"):
+            continue
+        if result["age"] in JUVENILE_PERCENTILE_AGES:
+            age_set = JUVENILE_PERCENTILE_AGES
+        elif result["age"] in ADULT_PERCENTILE_AGES:
+            age_set = ADULT_PERCENTILE_AGES
+        else:
+            age_set = MASTER_PERCENTILE_AGES
+        for age in age_set:
+            athlete_keys.append(
+                (
+                    result["id"],
+                    age,
+                    result["belt"],
+                    result["gender"],
+                    gi,
+                )
+            )
+
+    # Run the query in batches of max 500 athlete_keys at a time
+    percentile_rows = []
+    batch_size = 500
+    for i in range(0, len(athlete_keys), batch_size):
+        batch = athlete_keys[i : i + batch_size]
+        batch_rows = (
+            db.session.query(
+                AthleteRating.athlete_id,
+                AthleteRating.age,
+                AthleteRating.belt,
+                AthleteRating.gender,
+                AthleteRating.gi,
+                func.min(AthleteRating.percentile).label("percentile"),
+            )
+            .filter(
+                tuple_(
+                    AthleteRating.athlete_id,
+                    AthleteRating.age,
+                    AthleteRating.belt,
+                    AthleteRating.gender,
+                    AthleteRating.gi,
+                ).in_(batch),
+                AthleteRating.percentile <= 0.11,
+            )
+            .group_by(
+                AthleteRating.athlete_id,
+                AthleteRating.age,
+                AthleteRating.belt,
+                AthleteRating.gender,
+                AthleteRating.gi,
+            )
+            .all()
+        )
+        percentile_rows.extend(batch_rows)
+
+    # For each athlete, pick the best percentile (lowest) from their valid ages
+    percentiles_by_id = {}
+    for result in results:
+        if not result.get("id"):
+            continue
+        valid_ages = (
+            JUVENILE_PERCENTILE_AGES
+            if result["age"] in JUVENILE_PERCENTILE_AGES
+            else (
+                ADULT_PERCENTILE_AGES
+                if result["age"] in ADULT_PERCENTILE_AGES
+                else MASTER_PERCENTILE_AGES
+            )
+        )
+        best_percentile = None
+        for row in percentile_rows:
+            if (
+                row.athlete_id == result["id"]
+                and row.belt == result["belt"]
+                and row.gender == result["gender"]
+                and row.gi == gi
+                and row.age in valid_ages
+            ):
+                if best_percentile is None or row.percentile < best_percentile:
+                    best_percentile = row.percentile
+        percentiles_by_id[result["id"]] = best_percentile
+
+    for result in results:
+        result["percentile"] = percentiles_by_id.get(result["id"])
+
+    if elite_only:
+        results[:] = [
+            result
+            for result in results
+            if result["percentile"] is not None
+            and round(result["percentile"] * 100) <= 10
+            and result["belt"] not in NON_ELITE_BELTS
+        ]
+
     # get ranks from athlete_ratings if available
     ratings_results = (
         db.session.query(
@@ -263,12 +372,18 @@ def get_ratings(
             AthleteRating.rank,
         )
         .filter(
-            AthleteRating.athlete_id.in_([result["id"] for result in results]),
-            AthleteRating.age == age,
-            AthleteRating.belt == belt,
-            AthleteRating.weight == weight,
-            AthleteRating.gender == gender,
-            AthleteRating.gi == gi,
+            or_(
+                and_(
+                    AthleteRating.athlete_id == result["id"],
+                    AthleteRating.age == result["age"],
+                    AthleteRating.belt == result["belt"],
+                    AthleteRating.weight == result["weight"],
+                    AthleteRating.gender == result["gender"],
+                    AthleteRating.gi == gi,
+                )
+                for result in results
+                if result["id"]
+            )
         )
         .all()
     )
@@ -276,145 +391,113 @@ def get_ratings(
     for result in results:
         result["rank"] = ranks_by_id.get(result["id"])
 
-    if age.startswith(JUVENILE):
-        percentile_ages = [JUVENILE_1, JUVENILE_2, JUVENILE]
-    elif age == ADULT:
-        percentile_ages = [JUVENILE_1, JUVENILE_2, JUVENILE, ADULT]
-    elif age.startswith(MASTER_PREFIX):
-        percentile_ages = [
-            JUVENILE_1,
-            JUVENILE_2,
-            JUVENILE,
-            ADULT,
-            MASTER_1,
-            MASTER_2,
-            MASTER_3,
-            MASTER_4,
-            MASTER_5,
-            MASTER_6,
-            MASTER_7,
-        ]
-
-    percentile_results = (
-        db.session.query(
-            AthleteRating.athlete_id,
-            func.min(AthleteRating.percentile).label("percentile"),
-        )
-        .filter(
-            AthleteRating.athlete_id.in_([result["id"] for result in results]),
-            AthleteRating.age.in_(percentile_ages),
-            AthleteRating.belt == belt,
-            AthleteRating.gender == gender,
-            AthleteRating.gi == gi,
-            AthleteRating.percentile <= 0.11,
-        )
-        .group_by(AthleteRating.athlete_id)
-        .all()
-    )
-    percentiles_by_id = {r.athlete_id: r.percentile for r in percentile_results}
-    for result in results:
-        result["percentile"] = percentiles_by_id.get(result["id"])
-
     # get rating and match_count from their most recent match
-    recent_matches_cte = (
-        db.session.query(
-            MatchParticipant.id,
-            MatchParticipant.athlete_id,
-            MatchParticipant.end_rating,
-            MatchParticipant.end_match_count,
-            Division.belt,
-            Division.age,
-            Match.happened_at.label("happened_at"),
-            func.row_number()
-            .over(
-                partition_by=MatchParticipant.athlete_id,
-                order_by=Match.happened_at.desc(),
-            )
-            .label("row_num"),
-        )
-        .select_from(MatchParticipant)
-        .join(Match)
-        .join(Division)
-        .filter(
-            MatchParticipant.athlete_id.in_([result["id"] for result in results]),
-            Division.gi == gi,
-            Division.gender == gender,
-            Match.happened_at < rating_date,
-        )
-        .cte("recent_matches_cte")
-    )
-    recent_matches = aliased(recent_matches_cte)
-    match_results = (
-        db.session.query(
-            recent_matches.c.id,
-            recent_matches.c.athlete_id,
-            recent_matches.c.end_rating,
-            recent_matches.c.end_match_count,
-            recent_matches.c.belt,
-            recent_matches.c.age,
-            recent_matches.c.happened_at,
-        )
-        .select_from(recent_matches)
-        .filter(recent_matches.c.row_num == 1)
-        .all()
-    )
-
-    same_or_higher_ages = age_order[age_order.index(age) :]
-    division = Division(age=age, belt=belt, gi=gi, gender=gender, weight=weight)
-
     ratings_by_id = {}
     notes_by_id = {}
     match_happened_at_by_id = {}
-    for rating in match_results:
-        # if last match was a different belt or age, see if we need to adjust it to the current division
-        if rating.belt != belt or rating.age != age:
-            last_match = (
-                db.session.query(MatchParticipant)
-                .join(Match)
-                .filter(
-                    MatchParticipant.id == rating.id,
-                    Match.happened_at < rating_date,
+    for result in results:
+        athlete_id = result.get("id")
+        belt = result.get("belt")
+        age = result.get("age")
+        gender = result.get("gender")
+        weight = result.get("weight")
+        if not athlete_id:
+            continue
+        recent_matches_cte = (
+            db.session.query(
+                MatchParticipant.id,
+                MatchParticipant.athlete_id,
+                MatchParticipant.end_rating,
+                MatchParticipant.end_match_count,
+                Division.belt,
+                Division.age,
+                Match.happened_at.label("happened_at"),
+                func.row_number()
+                .over(
+                    partition_by=MatchParticipant.athlete_id,
+                    order_by=Match.happened_at.desc(),
                 )
-                .first()
+                .label("row_num"),
             )
-            same_or_higher_age_match = (
-                db.session.query(MatchParticipant)
-                .join(Match)
-                .join(Division)
-                .filter(
-                    Division.gi == gi,
-                    Division.gender == gender,
-                    Division.age.in_(same_or_higher_ages),
-                    MatchParticipant.athlete_id == rating.athlete_id,
-                    (Match.happened_at < last_match.match.happened_at)
-                    | (
-                        (Match.happened_at == last_match.match.happened_at)
-                        & (Match.id < last_match.match.id)
-                    ),
+            .select_from(MatchParticipant)
+            .join(Match)
+            .join(Division)
+            .filter(
+                MatchParticipant.athlete_id == athlete_id,
+                Division.gi == gi,
+                Division.gender == gender,
+                Match.happened_at < rating_date,
+            )
+            .cte("recent_matches_cte")
+        )
+        recent_matches = aliased(recent_matches_cte)
+        match_result = (
+            db.session.query(
+                recent_matches.c.id,
+                recent_matches.c.athlete_id,
+                recent_matches.c.end_rating,
+                recent_matches.c.end_match_count,
+                recent_matches.c.belt,
+                recent_matches.c.age,
+                recent_matches.c.happened_at,
+            )
+            .select_from(recent_matches)
+            .filter(recent_matches.c.row_num == 1)
+            .first()
+        )
+        if match_result:
+            same_or_higher_ages = age_order[age_order.index(age) :]
+            division = Division(age=age, belt=belt, gi=gi, gender=gender, weight=weight)
+            if match_result.belt != belt or match_result.age != age:
+                last_match = (
+                    db.session.query(MatchParticipant)
+                    .join(Match)
+                    .filter(
+                        MatchParticipant.id == match_result.id,
+                        Match.happened_at < rating_date,
+                    )
+                    .first()
                 )
-                .limit(1)
-                .first()
-            )
-
-            adjusted_start_rating, note = compute_start_rating(
-                division,
-                last_match,
-                same_or_higher_age_match is not None,
-                rating.end_match_count,
-            )
-
-            ratings_by_id[rating.athlete_id] = (
-                adjusted_start_rating,
-                rating.end_match_count,
-            )
-            notes_by_id[rating.athlete_id] = note
-            match_happened_at_by_id[rating.athlete_id] = rating.happened_at
-        else:
-            ratings_by_id[rating.athlete_id] = (
-                rating.end_rating,
-                rating.end_match_count,
-            )
-            match_happened_at_by_id[rating.athlete_id] = rating.happened_at
+                same_or_higher_age_match = (
+                    db.session.query(MatchParticipant)
+                    .join(Match)
+                    .join(Division)
+                    .filter(
+                        Division.gi == gi,
+                        Division.gender == gender,
+                        Division.age.in_(same_or_higher_ages),
+                        MatchParticipant.athlete_id == match_result.athlete_id,
+                        (Match.happened_at < last_match.match.happened_at)
+                        | (
+                            (Match.happened_at == last_match.match.happened_at)
+                            & (Match.id < last_match.match.id)
+                        ),
+                    )
+                    .limit(1)
+                    .first()
+                )
+                adjusted_start_rating, note = compute_start_rating(
+                    division,
+                    last_match,
+                    same_or_higher_age_match is not None,
+                    match_result.end_match_count,
+                )
+                ratings_by_id[match_result.athlete_id] = (
+                    adjusted_start_rating,
+                    match_result.end_match_count,
+                )
+                notes_by_id[match_result.athlete_id] = note
+                match_happened_at_by_id[match_result.athlete_id] = (
+                    match_result.happened_at
+                )
+            else:
+                ratings_by_id[match_result.athlete_id] = (
+                    match_result.end_rating,
+                    match_result.end_match_count,
+                )
+                match_happened_at_by_id[match_result.athlete_id] = (
+                    match_result.happened_at
+                )
 
     live_ratings_by_id = {}
     if use_live_ratings:
@@ -461,7 +544,29 @@ def get_ratings(
         if result["match_count"] is None:
             result["match_count"] = 0
         if result["rating"] is None:
-            result["rating"] = DEFAULT_RATINGS[belt][age]
+            result["rating"] = DEFAULT_RATINGS[result["belt"]][result["age"]]
+
+    # determine if all results are in a single division
+    one_division = True
+    first_division = None
+    for result in results:
+        current_division = (
+            result["weight"],
+            result["belt"],
+            result["age"],
+            result["gender"],
+        )
+        if first_division is None:
+            first_division = current_division
+        elif current_division != first_division:
+            one_division = False
+            break
+
+    weight = ""
+    belt = ""
+    if first_division is not None and one_division:
+        weight = first_division[0]
+        belt = first_division[1]
 
     # get the last weight for competitors in open class
     if OPEN_CLASS in weight:
@@ -512,7 +617,7 @@ def get_ratings(
                 .join(Division)
                 .filter(
                     MatchParticipant.athlete_id.in_(
-                        [result["id"] for result in results]
+                        [result["id"] for result in results if result["id"]]
                     ),
                     Division.gi == gi,
                     Division.weight != OPEN_CLASS,
@@ -536,9 +641,26 @@ def get_ratings(
                 if result["id"] in last_weight_by_id:
                     result["last_weight"] = last_weight_by_id[result["id"]]
 
-    results.sort(key=lambda x: competitor_sort_key(x, "rating"), reverse=True)
+    if elite_only:
+        elite_sort(results)
+    else:
+        results.sort(key=lambda x: competitor_sort_key(x, "rating"), reverse=True)
 
-    compute_ordinals(results, weight, belt)
+        compute_ordinals(results, weight, belt)
+
+
+def elite_sort(results):
+    # sort by belt in descending order of belt rank, then age, then gender, then weight, then rating
+    results.sort(
+        key=lambda x: (
+            belt_order.index(x["belt"]),
+            -age_order.index(x["age"]),
+            -gender_order.index(x["gender"]),
+            -weight_class_order_all.index(x["weight"]),
+            x["rating"] if x["rating"] is not None else -1,
+        ),
+        reverse=True,
+    )
 
 
 def compute_ordinals(results, weight, belt):
@@ -964,6 +1086,64 @@ def save_registration_link_competitor(db_link, db_division, name, team):
     return updated
 
 
+def internal_registration_competitors_elites(link):
+    db_link = (
+        db.session.query(RegistrationLink).filter(RegistrationLink.link == link).first()
+    )
+
+    if not db_link:
+        raise ValueError("Link not found")
+
+    gi = is_gi(db_link.name)
+
+    rows = []
+    for competitor in (
+        db.session.query(
+            RegistrationLinkCompetitor.athlete_name,
+            RegistrationLinkCompetitor.team_name,
+            Division.age,
+            Division.belt,
+            Division.weight,
+            Division.gender,
+        )
+        .select_from(RegistrationLinkCompetitor)
+        .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
+        .filter(
+            RegistrationLinkCompetitor.registration_link_id == db_link.id,
+        )
+        .all()
+    ):
+        rows.append(
+            {
+                "name": competitor.athlete_name,
+                "team": competitor.team_name,
+                "id": None,
+                "ibjjf_id": None,
+                "seed": 0,
+                "rating": None,
+                "match_count": None,
+                "rank": None,
+                "percentile": None,
+                "note": None,
+                "last_weight": None,
+                "slug": None,
+                "instagram_profile": None,
+                "personal_name": None,
+                "profile_image_url": None,
+                "country": None,
+                "country_note": None,
+                "country_note_pt": None,
+                "age": competitor.age,
+                "belt": competitor.belt,
+                "weight": competitor.weight,
+                "gender": competitor.gender,
+                "gi": gi,
+            }
+        )
+
+    return rows, gi
+
+
 def internal_registration_competitors(link, divdata, gi):
     db_link = (
         db.session.query(RegistrationLink).filter(RegistrationLink.link == link).first()
@@ -1016,6 +1196,11 @@ def internal_registration_competitors(link, divdata, gi):
                 "country": None,
                 "country_note": None,
                 "country_note_pt": None,
+                "age": divdata["age"],
+                "belt": divdata["belt"],
+                "weight": divdata["weight"],
+                "gender": divdata["gender"],
+                "gi": gi,
             }
         )
 
@@ -1113,16 +1298,17 @@ def registration_competitors():
                             "country": None,
                             "country_note": None,
                             "country_note_pt": None,
+                            "age": divdata["age"],
+                            "belt": divdata["belt"],
+                            "weight": divdata["weight"],
+                            "gender": divdata["gender"],
+                            "gi": gi,
                         }
                     )
 
     get_ratings(
         rows,
         None,
-        divdata["age"],
-        divdata["belt"],
-        divdata["weight"],
-        divdata["gender"],
         gi,
         datetime.now() + timedelta(days=1),
         False,
@@ -1130,6 +1316,147 @@ def registration_competitors():
     )
 
     return jsonify({"competitors": rows})
+
+
+@brackets_route.route("/api/brackets/registrations/elites")
+def registration_elites():
+    link = request.args.get("link")
+
+    # validate params
+    if not link:
+        return jsonify({"error": "Missing parameter"}), 400
+
+    # Build competitors across all valid divisions and fill ratings per division
+    s3_client = get_s3_client()
+
+    if link.startswith("internal:"):
+        rows, gi = internal_registration_competitors_elites(link)
+    else:
+        # normalize link and lookup event to determine gi
+        try:
+            url = normalize_registration_link(link)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+        db_link = (
+            db.session.query(RegistrationLink)
+            .filter(RegistrationLink.link == url)
+            .first()
+        )
+        if not db_link:
+            return jsonify({"error": "Link not found"}), 400
+
+        gi = is_gi(db_link.name)
+
+        # pull page (cached) and parse registrations
+        try:
+            soup = BeautifulSoup(
+                get_bracket_page(
+                    url, newer_than=datetime.now() - timedelta(minutes=10)
+                ),
+                "html.parser",
+            )
+            json_data = parse_registrations(soup)
+        except Exception as e:
+            return jsonify({"error": str(e)})
+
+        rows = []
+
+        for entry in json_data:
+            division_name = entry["FriendlyName"]
+            division_name = weightre.sub("", division_name)
+
+            try:
+                parsed = parse_division(division_name)
+            except ValueError:
+                log.debug(f"Invalid division name: {division_name}")
+                continue
+
+            age_lower = parsed["age"].lower()
+            if not (
+                "master" in age_lower
+                or "adult" in age_lower
+                or "juven" in age_lower
+                or "teen" in age_lower
+            ):
+                continue
+
+            # competitors for this division
+            for competitor in entry["RegistrationCategories"]:
+                team = competitor.get("AcademyTeamName")
+                name = competitor.get("AthleteName")
+                rows.append(
+                    {
+                        "name": name,
+                        "team": team,
+                        "id": None,
+                        "ibjjf_id": None,
+                        "seed": 0,
+                        "rating": None,
+                        "match_count": None,
+                        "rank": None,
+                        "percentile": None,
+                        "note": None,
+                        "last_weight": None,
+                        "slug": None,
+                        "instagram_profile": None,
+                        "instagram_profile_personal_name": None,
+                        "profile_image_url": None,
+                        "country": None,
+                        "country_note": None,
+                        "country_note_pt": None,
+                        "age": parsed["age"],
+                        "belt": parsed["belt"],
+                        "weight": parsed["weight"],
+                        "gender": parsed["gender"],
+                        "gi": gi,
+                    }
+                )
+
+    if not rows:
+        return jsonify({"elites": []})
+
+    get_ratings(
+        rows,
+        None,
+        gi,
+        datetime.now() + timedelta(days=1),
+        False,
+        s3_client,
+        elite_only=True,
+    )
+
+    elites = []
+    for row in rows:
+        # Build category string to return for clarity
+        category = f"{row['belt']} / {row['age']} / {row['gender']} / {row['weight']}"
+
+        elites.append(
+            {
+                "name": row["name"],
+                "team": row["team"],
+                "id": row["id"],
+                "slug": row["slug"],
+                "rating": row["rating"],
+                "match_count": row["match_count"],
+                "rank": row["rank"],
+                "percentile": row["percentile"],
+                "category": category,
+                "belt": row["belt"],
+                "age": row["age"],
+                "gender": row["gender"],
+                "weight": row["weight"],
+                "gi": gi,
+                "personal_name": row["personal_name"],
+                "instagram_profile": row["instagram_profile"],
+                "profile_image_url": row["profile_image_url"],
+                "country": row["country"],
+                "country_note": row["country_note"],
+                "country_note_pt": row["country_note_pt"],
+            }
+        )
+
+    return jsonify({"elites": elites})
 
 
 def compute_match_ratings(matches, results, belt, weight, age):
@@ -1661,6 +1988,11 @@ def competitors():
                         "country": None,
                         "country_note": None,
                         "country_note_pt": None,
+                        "age": age,
+                        "belt": belt,
+                        "weight": weight,
+                        "gender": gender,
+                        "gi": gi,
                     }
                 )
 
@@ -1690,10 +2022,6 @@ def competitors():
     get_ratings(
         results,
         event_id,
-        age,
-        belt,
-        weight,
-        gender,
         gi,
         earliest_match_date,
         True,
@@ -2162,6 +2490,11 @@ def archive_competitors():
                     "medal": match["red_medal"],
                     "next_where": None,
                     "next_when": None,
+                    "age": age,
+                    "belt": belt,
+                    "weight": weight,
+                    "gender": gender,
+                    "gi": gi,
                 }
             )
             added_competitors.add(match["red_id"])
@@ -2196,6 +2529,11 @@ def archive_competitors():
                     "medal": match["blue_medal"],
                     "next_where": None,
                     "next_when": None,
+                    "belt": belt,
+                    "age": age,
+                    "weight": weight,
+                    "gender": gender,
+                    "gi": gi,
                 }
             )
             added_competitors.add(match["blue_id"])

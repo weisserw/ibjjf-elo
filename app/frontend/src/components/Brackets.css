@@ -38,21 +38,32 @@
   display: flex;
   flex-direction: row;
   gap: 16px;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
 }
 
-.event-name {
-  margin-bottom: 0;
+.category-view {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  align-items: center;
 }
 
-@media screen and (max-width: 768px) {
+.competitor-count {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 1024px) {
   .category-list {
     flex-direction: column;
-    gap: 0;
+    align-items: flex-start;
   }
-  .event-name {
-    margin-bottom: 24px;
+
+  .category-view {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
@@ -153,4 +164,34 @@
 .badge-table-cell {
   width: 40px;
   padding-right: 0 !important;
+}
+
+@media screen and (max-width: 360px) {
+  .seg-count {
+    display: none;
+  }
+}
+
+.no-wrap {
+  white-space: nowrap;
+}
+
+.seg-control {
+  margin-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.seg-control .button {
+  margin-bottom: 0;
+  font-size: 0.85rem;
+  padding: 0.2em 0.6em;
+  line-height: 1.1;
+  text-transform: none;
+  border-radius: 0;
+}
+
+.seg-control .button:first-child,
+.seg-control .button:last-child {
+  border-radius: 0;
 }

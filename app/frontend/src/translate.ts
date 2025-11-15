@@ -102,6 +102,8 @@ const translations = {
     "Registrations": "Inscrições",
     "Archive": "Arquivo",
     "Average rating": "Rating média",
+    "Category": "Categoria",
+    "Elites": "Elites",
     "Fight": "Luta",
     "Mat": "Área",
     "This tool imports brackets from": "Esta ferramenta importa chaves de",
