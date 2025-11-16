@@ -28,7 +28,9 @@ function BracketRegistration() {
   const [loading, setLoading] = useState(false)
   const [elitesLoading, setElitesLoading] = useState(false)
   const [elites, setElites] = useState<EliteAthlete[] | null>(null)
-  const [elitesByLink, setElitesByLink] = useState<Record<string, EliteAthlete[]>>({})
+  const [elitesByLink, setElitesByLink] = useState<
+    Record<string, { data: EliteAthlete[]; fetchedAt: number }>
+  >({})
 
   const {
     bracketRegistrationEventName: registrationEventName,
@@ -235,8 +237,10 @@ function BracketRegistration() {
 
     const link = registrationEventUrl
     const cached = elitesByLink[link]
-    if (cached !== undefined) {
-      setElites(cached)
+    const now = Date.now()
+    const tenMinutesMs = 10 * 60 * 1000
+    if (cached && now - cached.fetchedAt < tenMinutesMs) {
+      setElites(cached.data)
       return
     }
 
@@ -254,12 +258,20 @@ function BracketRegistration() {
           setElites(null)
           setError(data.error)
         } else if (data.elites) {
-          setElites(data.elites)
-          setElitesByLink(prev => ({ ...prev, [link]: data.elites ?? [] }))
+          const elitesData = data.elites ?? []
+          setElites(elitesData)
+          setElitesByLink(prev => ({
+            ...prev,
+            [link]: { data: elitesData, fetchedAt: Date.now() },
+          }))
           setError(null)
         } else {
-          setElites([])
-          setElitesByLink(prev => ({ ...prev, [link]: [] }))
+          const elitesData: EliteAthlete[] = []
+          setElites(elitesData)
+          setElitesByLink(prev => ({
+            ...prev,
+            [link]: { data: elitesData, fetchedAt: Date.now() },
+          }))
         }
       } catch (err) {
         if (!cancelled) {
