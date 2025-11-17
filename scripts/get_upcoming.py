@@ -142,13 +142,17 @@ def main():
                 else:
                     link.event_id = event_id
 
-                competitor_count = import_registration_link(
-                    event_link, background=False
-                )["total_competitors"]
-                log.info(
-                    f"Imported tournament {name} ({event_link}), {competitor_count} competitors"
-                )
-                total_registrations += competitor_count
+                try:
+                    competitor_count = import_registration_link(
+                        event_link, background=False
+                    )["total_competitors"]
+                    log.info(
+                        f"Imported tournament {name} ({event_link}), {competitor_count} competitors"
+                    )
+                    total_registrations += competitor_count
+                except Exception as e:
+                    log.error(f"Error importing {event_link}: {e}")
+                    traceback.print_exc()
             db.session.commit()
 
         log.info(f"Total registrations found: {total_registrations}")
