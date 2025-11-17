@@ -47,7 +47,7 @@
 
 .athlete-title .country-flag {
   line-height: 25px;
-  margin-top: 2px;
+  margin-top: 8px;
   vertical-align: middle;
   border: 1px solid #ccc;
   width: 32px;
@@ -62,8 +62,9 @@
 
   .athlete-title .country-flag {
     position: absolute;
+    margin-top: 0;
     left: calc(100% + 12px);
-    top: calc(50% - 13px);
+    top: calc(50% - 11px);
   }
 }
 
