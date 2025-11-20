@@ -32,6 +32,7 @@ class Event(db.Model):
     name = Column(String, nullable=False)
     normalized_name = Column(String, nullable=False)
     slug = Column(String, nullable=False)
+    medals_only = Column(Boolean, nullable=True)
 
     __table_args__ = (
         Index("ix_events_ibjjf_id", "ibjjf_id"),
