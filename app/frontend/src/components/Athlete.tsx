@@ -134,7 +134,7 @@ function Athlete() {
   const [loading, setLoading] = useState(false);
   const [reloading, setReloading] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
-  const [medalCaseOpen, setMedalCaseOpen] = useState(true)
+  const [medalCaseOpen, setMedalCaseOpen] = useState(false)
 
   const {
     activeTab,
@@ -212,7 +212,6 @@ function Athlete() {
     setBracketArchiveSelectedCategory(`${row.belt} / ${row.age} / ${row.gender} / ${row.weight}`)
     navigate('/tournaments/archive')
   }
-
 
   const medalBracketClicked = (event: React.MouseEvent<HTMLAnchorElement>, medal: Medal) => {
     event.preventDefault()
@@ -554,7 +553,7 @@ function Athlete() {
       </div>
       {
         sortedMedals.length > 0 && (
-          <div className={classNames("box accordion-box", {"open": medalCaseOpen})}>
+          <div className={classNames("box accordion-box mt-5", {"open": medalCaseOpen})}>
             <div className="accordion">
               <header className="accordion-header" onClick={() => setMedalCaseOpen(!medalCaseOpen)}>
                 <p><strong>{t("Earned Medals")}</strong></p>
@@ -575,7 +574,7 @@ function Athlete() {
                           </td>
                           <td>{medal.event_name}</td>
                           <td>
-                            {(!medal.event_medals_only && !medal.event_name.includes("(")) ?
+                            {(!medal.event_medals_only && !medal.event_name.includes("(") && !medal.division.includes('Juvenile')) ?
                               <a href="#" onClick={(e) => medalBracketClicked(e, medal)}>
                                 {translateMulti(medal.division)}
                               </a> : <span>{translateMulti(medal.division)}</span>
