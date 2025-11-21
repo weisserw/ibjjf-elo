@@ -552,7 +552,7 @@ function Athlete() {
         }
       </div>
       {
-        sortedMedals.length > 0 && (
+        false /*sortedMedals.length > 0*/ && (
           <div className={classNames("box accordion-box mt-5", {"open": medalCaseOpen})}>
             <div className="accordion">
               <header className="accordion-header" onClick={() => setMedalCaseOpen(!medalCaseOpen)}>
