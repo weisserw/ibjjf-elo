@@ -552,7 +552,7 @@ function Athlete() {
         }
       </div>
       {
-        /*sortedMedals.length > 0*/false && (
+        sortedMedals.length > 0 && (
           <div className={classNames("box accordion-box mt-5", {"open": medalCaseOpen})}>
             <div className="accordion">
               <header className="accordion-header" onClick={() => setMedalCaseOpen(!medalCaseOpen)}>
@@ -574,7 +574,7 @@ function Athlete() {
                           </td>
                           <td>{medal.event_name}</td>
                           <td>
-                            {(!medal.event_medals_only && !medal.event_name.includes("(") && !medal.division.includes('Juvenile')) ?
+                            {(!medal.event_medals_only && !isHistorical(medal.event_name) && !medal.division.includes('Juvenile')) ?
                               <a href="#" onClick={(e) => medalBracketClicked(e, medal)}>
                                 {translateMulti(medal.division)}
                               </a> : <span>{translateMulti(medal.division)}</span>
