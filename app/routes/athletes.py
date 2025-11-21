@@ -278,7 +278,9 @@ def get_athlete(id):
             "event_medals_only": r.medals_only,
             "division": f"{r.belt} / {r.age} / {r.gender} / {r.weight}",
         }
-        for r in (medal_query.distinct().order_by(Medal.happened_at.desc()).all())
+        for r in (
+            medal_query.distinct().order_by(Medal.place, Medal.happened_at.desc()).all()
+        )
     ]
 
     athlete_json = {
