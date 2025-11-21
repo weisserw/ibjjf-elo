@@ -228,6 +228,7 @@ def get_athlete(id):
     medal_query = (
         db.session.query(
             Medal.place,
+            Medal.happened_at,
             Event.name,
             Event.medals_only,
             Division.belt,
