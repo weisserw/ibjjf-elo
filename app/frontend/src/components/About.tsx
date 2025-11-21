@@ -77,6 +77,8 @@ function About() {
             <li>{t("Tier 1: Awarded to athletes in the 98th percentile or above.")}</li>
           </ul>
         </p>
+        <p className="content"><strong>{t("Q: Why aren't some of my medals showing on my profile?")}</strong></p>
+        <p className="content">{t("A: The \"Earned Medals\" section only includes medals from matches where the athlete won a match, not just participated. Also, while effort was made to collect historical medal data, events before April 2025 may be incomplete. If you have an earned medal that is missing, please contact us on Instagram to have it added.")}</p>
       </div>
     </section>
   );

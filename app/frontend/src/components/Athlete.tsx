@@ -56,11 +56,19 @@ interface Rank {
   avg_rating: number;
 }
 
+interface Medal {
+  place: number;
+  event_name: string;
+  event_medals_only: boolean;
+  division: string;
+}
+
 interface ResponseData {
   athlete: Athlete;
   eloHistory: Elo[];
   ranks: Rank[];
   registrations: Registration[];
+  medals: Medal[];
 }
 
 const ageOrder = (age: string): number => {
@@ -126,6 +134,7 @@ function Athlete() {
   const [loading, setLoading] = useState(false);
   const [reloading, setReloading] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
+  const [medalCaseOpen, setMedalCaseOpen] = useState(true)
 
   const {
     activeTab,
@@ -202,6 +211,24 @@ function Athlete() {
     setBracketArchiveEventNameFetch('"' + row.event + '"')
     setBracketArchiveSelectedCategory(`${row.belt} / ${row.age} / ${row.gender} / ${row.weight}`)
     navigate('/tournaments/archive')
+  }
+
+
+  const medalBracketClicked = (event: React.MouseEvent<HTMLAnchorElement>, medal: Medal) => {
+    event.preventDefault()
+
+    setBracketArchiveEventName('"' + medal.event_name + '"')
+    setBracketArchiveEventNameFetch('"' + medal.event_name + '"')
+    setBracketArchiveSelectedCategory(medal.division)
+    navigate('/tournaments/archive')
+  }
+
+  const isMajor = (eventName: string) => {
+    return ["ibjjf crown ",
+        "european ibjjf ",
+        "pan ibjjf ",
+        "world ibjjf ",
+        "campeonato brasileiro "].some(major => eventName.toLowerCase().includes(major));
   }
 
   const hasHistorical = useMemo(() => matchData.map(row => row.event).some(isHistorical), [matchData]);
@@ -341,6 +368,10 @@ function Athlete() {
   }
 
   const athlete = responseData.athlete;
+
+  const sortedMedals = responseData.medals.filter(medal => isMajor(medal.event_name)).concat(
+    responseData.medals.filter(medal => !isMajor(medal.event_name))
+  );
 
   return (
     <div className="container athlete-container">
@@ -521,6 +552,45 @@ function Athlete() {
           )
         }
       </div>
+      {
+        sortedMedals.length > 0 && (
+          <div className={classNames("box accordion-box", {"open": medalCaseOpen})}>
+            <div className="accordion">
+              <header className="accordion-header" onClick={() => setMedalCaseOpen(!medalCaseOpen)}>
+                <p><strong>{t("Earned Medals")}</strong></p>
+                <span className={`accordion-icon ${medalCaseOpen ? 'is-active' : ''}`}>
+                  <i className={`fas fa-angle-${medalCaseOpen ? 'up' : 'down'}`}></i>
+                </span>
+              </header>
+              {medalCaseOpen && (
+                <div className="accordion-body">
+                  <table className="table is-fullwidth medal-case-table">
+                    <tbody>
+                      {sortedMedals.map((medal, index) => (
+                        <tr key={index}>
+                          <td className="medal-place-cell cell-no-padding">
+                            {medal.place === 1 && '🥇'}
+                            {medal.place === 2 && '🥈'}
+                            {medal.place === 3 && '🥉'}
+                          </td>
+                          <td>{medal.event_name}</td>
+                          <td>
+                            {(!medal.event_medals_only && !medal.event_name.includes("(")) ?
+                              <a href="#" onClick={(e) => medalBracketClicked(e, medal)}>
+                                {translateMulti(medal.division)}
+                              </a> : <span>{translateMulti(medal.division)}</span>
+                            }
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      }
       {
         parsedEloHistory.length === 0 && (
           <div className="notification">

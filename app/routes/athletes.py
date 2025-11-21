@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify
 from uuid import UUID
 from sqlalchemy import and_, func, or_
 from sqlalchemy.sql import exists
+from sqlalchemy.orm import aliased
 from extensions import db
 from models import (
     Athlete,
@@ -16,6 +17,8 @@ from models import (
     AthleteRatingAverage,
     ManualPromotions,
     RegistrationLinkCompetitor,
+    Medal,
+    Event,
 )
 from normalize import normalize
 from elo import (
@@ -221,6 +224,62 @@ def get_athlete(id):
                     else:
                         rating += COLOR_PROMOTION_RATING_BUMP
 
+    MedalAlias = aliased(Medal)
+    medal_query = (
+        db.session.query(
+            Medal.place,
+            Event.name,
+            Event.medals_only,
+            Division.belt,
+            Division.age,
+            Division.gender,
+            Division.weight,
+        )
+        .select_from(Medal)
+        .join(Event)
+        .join(Division)
+        .filter(Medal.athlete_id == id_uuid)
+        .filter(Division.gi == gi)
+        .filter(
+            or_(
+                Medal.place == 1,
+                and_(
+                    Medal.place != 1,
+                    db.session.query(Match)
+                    .join(MatchParticipant)
+                    .filter(
+                        Match.event_id == Medal.event_id,
+                        Match.division_id == Medal.division_id,
+                        MatchParticipant.match_id == Match.id,
+                        MatchParticipant.athlete_id == Medal.athlete_id,
+                        MatchParticipant.winner == True,
+                    )
+                    .exists(),
+                ),
+                and_(
+                    Medal.place == 2,
+                    db.session.query(MedalAlias)
+                    .filter(
+                        MedalAlias.event_id == Medal.event_id,
+                        MedalAlias.division_id == Medal.division_id,
+                        MedalAlias.place == 3,
+                    )
+                    .exists(),
+                ),
+            )
+        )
+    )
+
+    medals = [
+        {
+            "place": r.place,
+            "event_name": r.name,
+            "event_medals_only": r.medals_only,
+            "division": f"{r.belt} / {r.age} / {r.gender} / {r.weight}",
+        }
+        for r in (medal_query.distinct().order_by(Medal.happened_at.desc()).all())
+    ]
+
     athlete_json = {
         "id": str(athlete.id),
         "name": athlete.name,
@@ -260,6 +319,7 @@ def get_athlete(id):
                 "eloHistory": filtered_elo_history,
                 "ranks": ranks,
                 "registrations": registrations_list,
+                "medals": medals,
             }
         ),
         200,

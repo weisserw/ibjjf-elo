@@ -178,3 +178,7 @@
 .athlete-belt--outlined {
   -webkit-text-stroke: 1px #222;
 }
+
+.medal-place-cell {
+  font-size: 24px;
+}
