@@ -18,7 +18,7 @@ def events():
     if gi is not None:
         gi = gi.lower() == "true"
 
-    query = db.session.query(Event.name)
+    query = db.session.query(Event.name).filter(Event.medals_only.isnot(True))
 
     if gi is not None:
         subquery_gi = (
