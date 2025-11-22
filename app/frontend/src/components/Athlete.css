@@ -182,3 +182,9 @@
 .medal-place-cell {
   font-size: 24px;
 }
+
+.medal-event {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

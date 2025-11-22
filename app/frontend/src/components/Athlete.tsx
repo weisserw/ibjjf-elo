@@ -673,8 +673,10 @@ function Athlete() {
                             {medal.place === 3 && '🥉'}
                           </td>
                           <td>
-                            {isMajor(medal.event_name) ? <strong>{removeParens(medal.event_name)}</strong> : removeParens(medal.event_name)}
-                            {medalEmoji(medal)}
+                            <div className="medal-event">
+                              {isMajor(medal.event_name) ? <strong>{removeParens(medal.event_name)}</strong> : removeParens(medal.event_name)}
+                              {medalEmoji(medal)}
+                            </div>
                           </td>
                           <td>
                             {(!medal.event_medals_only && !isHistorical(medal.event_name) && !medal.division.includes('Juvenile')) ?
