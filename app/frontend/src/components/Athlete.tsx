@@ -431,12 +431,6 @@ function Athlete() {
   const athlete = responseData.athlete;
 
   const sortedMedals = responseData.medals.sort((a, b) => {
-    const aisMajor = isMajor(a.event_name) ? 1 : 0;
-    const bisMajor = isMajor(b.event_name) ? 1 : 0;
-    if (aisMajor !== bisMajor) {
-      return bisMajor - aisMajor;
-    }
-
     const aDivisionParts = a.division.split(' / ');
     const bDivisionParts = b.division.split(' / ');
 
@@ -445,6 +439,18 @@ function Athlete() {
 
     if (aBelt !== bBelt) {
       return beltOrder.indexOf(bBelt) - beltOrder.indexOf(aBelt);
+    }
+  
+    const aIsWorlds = a.event_name.toLowerCase().includes('world ');
+    const bIsWorlds = b.event_name.toLowerCase().includes('world ');
+    if (aIsWorlds !== bIsWorlds) {
+      return bIsWorlds ? 1 : -1;
+    }
+
+    const aisMajor = isMajor(a.event_name) ? 1 : 0;
+    const bisMajor = isMajor(b.event_name) ? 1 : 0;
+    if (aisMajor !== bisMajor) {
+      return bisMajor - aisMajor;
     }
 
     const aAge = aDivisionParts[1];
