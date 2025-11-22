@@ -414,7 +414,7 @@ function Athlete() {
     const age = divisionParts[1];
 
     if (isMajor(medal.event_name) && belt === 'BLACK' && age === 'Adult') {
-      return '⭐';
+      return '⚫⭐';
     }
 
     return beltColorEmojis[belt];
