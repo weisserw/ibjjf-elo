@@ -109,6 +109,11 @@
   text-decoration: line-through;
 }
 
+.strike-through > div.name-container > span,
+.strike-through > div.name-container > a {
+  text-decoration: line-through;
+}
+
 .bracket-tree-match-container {
   padding-right: 48px;
   height: 95px;
