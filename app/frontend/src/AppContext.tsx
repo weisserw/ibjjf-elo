@@ -1,4 +1,5 @@
 import { createContext, useState, useContext, useCallback, ReactNode } from 'react';
+import { useLocalStorage } from '@uidotdev/usehooks';
 import type { FilterValues, OpenFilters } from './components/DBFilters';
 import type { TabName } from './components/GiTabs';
 import type {
@@ -124,22 +125,22 @@ export const useAppContext = () => {
 };
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [filters, setFilters] = useState<FilterValues>({});
-  const [openFilters, setOpenFilters] = useState<OpenFilters>({ athlete: true, event: false, division: false });
-  const [activeTab, setActiveTab] = useState<TabName>('Gi');
-  const [rankingGender, setRankingGender] = useState('Male');
-  const [rankingAge, setRankingAge] = useState('Adult');
-  const [rankingBelt, setRankingBelt] = useState('BLACK');
-  const [rankingWeight, setRankingWeight] = useState('');
-  const [rankingChanged, setRankingChanged] = useState(false);
-  const [rankingUpcoming, setRankingUpcoming] = useState(false);
-  const [rankingNameFilter, setRankingNameFilter] = useState('');
+  const [filters, setFilters] = useLocalStorage<FilterValues>('filters', {});
+  const [openFilters, setOpenFilters] = useLocalStorage<OpenFilters>('openFilters', { athlete: true, event: false, division: false });
+  const [activeTab, setActiveTab] = useLocalStorage<TabName>('activeTab', 'Gi');
+  const [rankingGender, setRankingGender] = useLocalStorage('rankingGender', 'Male');
+  const [rankingAge, setRankingAge] = useLocalStorage('rankingAge', 'Adult');
+  const [rankingBelt, setRankingBelt] = useLocalStorage('rankingBelt', 'BLACK');
+  const [rankingWeight, setRankingWeight] = useLocalStorage('rankingWeight', '');
+  const [rankingChanged, setRankingChanged] = useLocalStorage('rankingChanged', false);
+  const [rankingUpcoming, setRankingUpcoming] = useLocalStorage('rankingUpcoming', false);
+  const [rankingNameFilter, setRankingNameFilter] = useLocalStorage('rankingNameFilter', '');
   const [rankingPage, setRankingPage] = useState(1);
   const [dbPage, setDbPage] = useState(1);
   const [bracketEvents, setBracketEvents] = useState<BracketEvent[] | null>(null)
-  const [bracketSelectedEvent, setBracketSelectedEvent] = useState<string | null>(null)
+  const [bracketSelectedEvent, setBracketSelectedEvent] = useLocalStorage<string | null>('bracketSelectedEvent', null)
   const [bracketCategories, setBracketCategories] = useState<BracketCategory[] | null>(null)
-  const [bracketSelectedCategory, setBracketSelectedCategory] = useState<string | null>(null)
+  const [bracketSelectedCategory, setBracketSelectedCategory] = useLocalStorage<string | null>('bracketSelectedCategory', null)
   const [bracketCompetitors, setBracketCompetitors] = useState<BracketCompetitor[] | null>(null)
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[] | null>(null)
   const [bracketEventTotal, setBracketEventTotal] = useState<number | null>(null)
@@ -151,12 +152,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory] = useState<string | null>(null)
   const [bracketRegistrationCompetitors, setBracketRegistrationCompetitors] = useState<BracketCompetitor[] | null>(null)
   const [bracketRegistrationUpcomingLinks, setBracketRegistrationUpcomingLinks] = useState<BracketRegistrationUpcomingLink[]>([])
-  const [bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink] = useState<string>('')
-  const [bracketRegistrationViewMode, setBracketRegistrationViewMode] = useState<'all' | 'elites'>('all')
-  const [bracketArchiveEventName, setBracketArchiveEventName] = useState('')
-  const [bracketArchiveEventNameFetch, setBracketArchiveEventNameFetch] = useState('')
+  const [bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink] = useLocalStorage<string>('bracketRegistrationSelectedUpcomingLink', '')
+  const [bracketRegistrationViewMode, setBracketRegistrationViewMode] = useLocalStorage<'all' | 'elites'>('bracketRegistrationViewMode', 'all')
+  const [bracketArchiveEventName, setBracketArchiveEventName] = useLocalStorage('bracketArchiveEventName', '')
+  const [bracketArchiveEventNameFetch, setBracketArchiveEventNameFetch] = useLocalStorage('bracketArchiveEventNameFetch', '')
   const [bracketArchiveCategories, setBracketArchiveCategories] = useState<BracketCategory[] | null>(null)
-  const [bracketArchiveSelectedCategory, setBracketArchiveSelectedCategory] = useState<string | null>(null)
+  const [bracketArchiveSelectedCategory, setBracketArchiveSelectedCategory] = useLocalStorage<string | null>('bracketArchiveSelectedCategory', null)
   const [bracketArchiveCompetitors, setBracketArchiveCompetitors] = useState<BracketCompetitor[] | null>(null)
   const [bracketArchiveMatches, setBracketArchiveMatches] = useState<BracketMatch[] | null>(null)
   const [bracketArchiveEventTotal, setBracketArchiveEventTotal] = useState<number | null>(null)
@@ -169,7 +170,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [calcSecondWeight, setCalcSecondWeight] = useState('Heavy')
   const [calcCustomInfo, setCalcCustomInfo] = useState(false)
   const [athletePage, setAthletePage] = useState(1)
-  const [medalCaseOpen, setMedalCaseOpen] = useState(false);
+  const [medalCaseOpen, setMedalCaseOpen] = useLocalStorage('medalCaseOpen', false);
 
   // Read initial language from localStorage, fallback to 'en'
   const getInitialLanguage = () => {
