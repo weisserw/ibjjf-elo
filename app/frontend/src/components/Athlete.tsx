@@ -625,7 +625,7 @@ function Athlete() {
           <div className={classNames("box accordion-box mt-5", {"open": medalCaseOpen})}>
             <div className="accordion">
               <header className="accordion-header" onClick={() => setMedalCaseOpen(!medalCaseOpen)}>
-                <p><strong>{t("Earned Medals")}</strong></p>
+                <p><strong>{t("Earned Medals")} 🏆</strong></p>
                 <span className={`accordion-icon ${medalCaseOpen ? 'is-active' : ''}`}>
                   <i className={`fas fa-angle-${medalCaseOpen ? 'up' : 'down'}`}></i>
                 </span>
