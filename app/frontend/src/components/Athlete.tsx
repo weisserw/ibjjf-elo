@@ -253,7 +253,8 @@ function Athlete() {
     return [
         "crown ",
         " european ",
-        " pan ",
+        "pan jiu-jitsu ",
+        "pan ibjjf ",
         "world ",
         "campeonato brasileiro ",
       ].some(major => eventName.toLowerCase().includes(major));
