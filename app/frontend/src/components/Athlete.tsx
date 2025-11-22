@@ -80,10 +80,12 @@ const ageOrder = (age: string): number => {
 }
 
 const ageOrderForMedals = (age: string): number => {
-  if (age.startsWith('Teen ')) return 2;
+  if (age === 'Teen 1') return 4;
+  if (age === 'Teen 2') return 3;
+  if (age === 'Teen 3') return 2;
   if (age.startsWith('Juvenile ')) return 1;
   if (age === 'Adult') return 0;
-  return 3;
+  return 5;
 }
 
 const weightOrder: Record<string, number> = {
@@ -433,6 +435,10 @@ function Athlete() {
     return b.happened_at.localeCompare(a.happened_at);
   });
 
+  const removeParens = (str: string) => {
+    return str.replace(/\([^)]*\)$/, '');
+  };
+
   return (
     <div className="container athlete-container">
       <div className="box athlete-profile-box">
@@ -634,7 +640,7 @@ function Athlete() {
                             {medal.place === 3 && '🥉'}
                           </td>
                           <td>
-                            {isMajor(medal.event_name) ? <strong>{medal.event_name}</strong> : medal.event_name}
+                            {isMajor(medal.event_name) ? <strong>{removeParens(medal.event_name)}</strong> : removeParens(medal.event_name)}
                           </td>
                           <td>
                             {(!medal.event_medals_only && !isHistorical(medal.event_name) && !medal.division.includes('Juvenile')) ?
