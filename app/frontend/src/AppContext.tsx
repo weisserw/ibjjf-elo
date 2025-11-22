@@ -109,6 +109,8 @@ interface AppContextProps {
   setLanguage: (lang: 'en' | 'pt') => void;
   athletePage: number;
   setAthletePage: (page: number) => void;
+  medalCaseOpen: boolean;
+  setMedalCaseOpen: (open: boolean) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -167,6 +169,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [calcSecondWeight, setCalcSecondWeight] = useState('Heavy')
   const [calcCustomInfo, setCalcCustomInfo] = useState(false)
   const [athletePage, setAthletePage] = useState(1)
+  const [medalCaseOpen, setMedalCaseOpen] = useState(false);
 
   // Read initial language from localStorage, fallback to 'en'
   const getInitialLanguage = () => {
@@ -283,6 +286,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       calcCustomInfo, setCalcCustomInfo,
       language, setLanguage,
       athletePage, setAthletePage,
+      medalCaseOpen, setMedalCaseOpen,
     }}>
       {children}
     </AppContext.Provider>

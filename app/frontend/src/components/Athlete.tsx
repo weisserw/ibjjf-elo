@@ -175,11 +175,12 @@ function Athlete() {
   const [loading, setLoading] = useState(false);
   const [reloading, setReloading] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
-  const [medalCaseOpen, setMedalCaseOpen] = useState(false)
 
   const {
     activeTab,
     language,
+    medalCaseOpen,
+    setMedalCaseOpen,
     setBracketArchiveEventName,
     setBracketArchiveEventNameFetch,
     setBracketArchiveSelectedCategory,
@@ -414,7 +415,7 @@ function Athlete() {
     const age = divisionParts[1];
 
     if (isMajor(medal.event_name) && belt === 'BLACK' && age === 'Adult') {
-      return '⚫⭐';
+      return '⭐';
     }
 
     return beltColorEmojis[belt];
@@ -676,8 +677,8 @@ function Athlete() {
                           </td>
                           <td>
                             <div className="medal-event">
-                              {isMajor(medal.event_name) ? <strong>{removeParens(medal.event_name)}</strong> : removeParens(medal.event_name)}
-                              {medalEmoji(medal)}
+                              <span>{medalEmoji(medal)}</span>
+                              <span>{isMajor(medal.event_name) ? <strong>{removeParens(medal.event_name)}</strong> : removeParens(medal.event_name)}</span>
                             </div>
                           </td>
                           <td>
