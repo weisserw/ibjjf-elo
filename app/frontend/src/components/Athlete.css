@@ -188,3 +188,11 @@
   align-items: center;
   gap: 8px;
 }
+
+.is-major {
+  font-weight: 600;
+}
+
+.is-worlds {
+  font-weight: 800;
+}

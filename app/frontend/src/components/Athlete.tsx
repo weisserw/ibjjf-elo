@@ -264,6 +264,10 @@ function Athlete() {
     navigate('/tournaments/archive')
   }
 
+  const isWorlds = (eventName: string) => {
+    return eventName.toLowerCase().includes("world ");
+  }
+
   const isMajor = (eventName: string) => {
     return [
         "crown ",
@@ -272,7 +276,6 @@ function Athlete() {
         "pan jiu-jitsu ",
         "pan ibjjf ",
         "pan kids ",
-        "world ",
         "campeonato brasileiro ",
       ].some(major => eventName.toLowerCase().includes(major));
   }
@@ -414,7 +417,7 @@ function Athlete() {
     const belt = divisionParts[0];
     const age = divisionParts[1];
 
-    if (isMajor(medal.event_name) && belt === 'BLACK' && age === 'Adult') {
+    if ((isWorlds(medal.event_name) || isMajor(medal.event_name)) && belt === 'BLACK' && age === 'Adult') {
       return '⭐';
     }
 
@@ -438,8 +441,8 @@ function Athlete() {
       return beltOrder.indexOf(bBelt) - beltOrder.indexOf(aBelt);
     }
   
-    const aIsWorlds = a.event_name.toLowerCase().includes('world ');
-    const bIsWorlds = b.event_name.toLowerCase().includes('world ');
+    const aIsWorlds = isWorlds(a.event_name);
+    const bIsWorlds = isWorlds(b.event_name);
     if (aIsWorlds !== bIsWorlds) {
       return bIsWorlds ? 1 : -1;
     }
@@ -678,7 +681,7 @@ function Athlete() {
                           <td>
                             <div className="medal-event">
                               <span>{medalEmoji(medal)}</span>
-                              <span>{isMajor(medal.event_name) ? <strong>{removeParens(medal.event_name)}</strong> : removeParens(medal.event_name)}</span>
+                              <span className={classNames({'is-major': isMajor(medal.event_name), 'is-worlds': isWorlds(medal.event_name)})}>{removeParens(medal.event_name)}</span>
                             </div>
                           </td>
                           <td>
