@@ -255,6 +255,7 @@ function Athlete() {
         " european ",
         "pan jiu-jitsu ",
         "pan ibjjf ",
+        "pan kids ",
         "world ",
         "campeonato brasileiro ",
       ].some(major => eventName.toLowerCase().includes(major));
