@@ -132,6 +132,20 @@ const beltColors: Record<string, string> = {
   WHITE: "#FFFFFF",
 };
 
+const beltColorEmojis: Record<string, string> = {
+  BLACK: "⚫",
+  BROWN: "🟤",
+  PURPLE: "🟣",
+  BLUE: "🔵",
+  GREEN: "🟢",
+  GREEN_ORANGE: "🟢",
+  ORANGE: "🟠",
+  YELLOW: "🟡",
+  YELLOW_GREY: "🟡",
+  GREY: "⚪",
+  WHITE: "⚪",
+};
+
 const beltHasOutline: Record<string, boolean> = {
   WHITE: true,
   YELLOW: true,
@@ -394,6 +408,22 @@ function Athlete() {
     }
   }
 
+  const medalEmoji = (medal: Medal) => {
+    if (!isMajor(medal.event_name)) {
+      return null;
+    }
+
+    const divisionParts = medal.division.split(' / ');
+    const belt = divisionParts[0];
+    const age = divisionParts[1];
+
+    if (belt === 'BLACK' && age === 'Adult') {
+      return '⭐';
+    }
+
+    return beltColorEmojis[belt];
+  }
+
   if (!responseData) {
     return <div className="loader"></div>;
   }
@@ -644,6 +674,7 @@ function Athlete() {
                           </td>
                           <td>
                             {isMajor(medal.event_name) ? <strong>{removeParens(medal.event_name)}</strong> : removeParens(medal.event_name)}
+                            {medalEmoji(medal)}
                           </td>
                           <td>
                             {(!medal.event_medals_only && !isHistorical(medal.event_name) && !medal.division.includes('Juvenile')) ?
