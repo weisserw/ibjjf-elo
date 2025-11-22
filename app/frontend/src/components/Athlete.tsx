@@ -252,7 +252,8 @@ function Athlete() {
   const isMajor = (eventName: string) => {
     return [
         "crown ",
-        " european ",
+        "european ibjjf ",
+        "european jiu-jitsu ",
         "pan jiu-jitsu ",
         "pan ibjjf ",
         "pan kids ",
