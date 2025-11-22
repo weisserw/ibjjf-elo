@@ -61,6 +61,7 @@ interface Medal {
   event_name: string;
   event_medals_only: boolean;
   division: string;
+  happened_at: string;
 }
 
 interface ResponseData {
@@ -78,6 +79,13 @@ const ageOrder = (age: string): number => {
   return 3;
 }
 
+const ageOrderForMedals = (age: string): number => {
+  if (age.startsWith('Teen ')) return 2;
+  if (age.startsWith('Juvenile ')) return 1;
+  if (age === 'Adult') return 0;
+  return 3;
+}
+
 const weightOrder: Record<string, number> = {
   '': -1, // P4P
   'Rooster': 0,
@@ -89,6 +97,9 @@ const weightOrder: Record<string, number> = {
   'Heavy': 6,
   'Super Heavy': 7,
   'Ultra Heavy': 8,
+  'Open Class': 9,
+  'Open Class Light': 10,
+  'Open Class Heavy': 11,
 };
 
 const beltNames: Record<string, string> = {
@@ -126,6 +137,20 @@ const beltHasOutline: Record<string, boolean> = {
   GREY: true,
   ORANGE: true,
 };
+
+const beltOrder = [
+  'WHITE',
+  'GREY',
+  'YELLOW-GREY',
+  'YELLOW',
+  'ORANGE',
+  'GREEN-ORANGE',
+  'GREEN',
+  'BLUE',
+  'PURPLE',
+  'BROWN',
+  'BLACK',
+];
 
 function Athlete() {
 	const { id } = useParams();
@@ -223,11 +248,13 @@ function Athlete() {
   }
 
   const isMajor = (eventName: string) => {
-    return ["ibjjf crown ",
-        "european ibjjf ",
-        "pan ibjjf ",
-        "world ibjjf ",
-        "campeonato brasileiro "].some(major => eventName.toLowerCase().includes(major));
+    return [
+        "crown ",
+        " european ",
+        " pan ",
+        "world ",
+        "campeonato brasileiro ",
+      ].some(major => eventName.toLowerCase().includes(major));
   }
 
   const hasHistorical = useMemo(() => matchData.map(row => row.event).some(isHistorical), [matchData]);
@@ -368,9 +395,43 @@ function Athlete() {
 
   const athlete = responseData.athlete;
 
-  const sortedMedals = responseData.medals.filter(medal => isMajor(medal.event_name)).concat(
-    responseData.medals.filter(medal => !isMajor(medal.event_name))
-  );
+  const sortedMedals = responseData.medals.sort((a, b) => {
+    const aisMajor = isMajor(a.event_name) ? 1 : 0;
+    const bisMajor = isMajor(b.event_name) ? 1 : 0;
+    if (aisMajor !== bisMajor) {
+      return bisMajor - aisMajor;
+    }
+
+    const aDivisionParts = a.division.split(' / ');
+    const bDivisionParts = b.division.split(' / ');
+
+    const aBelt = aDivisionParts[0];
+    const bBelt = bDivisionParts[0];
+
+    if (aBelt !== bBelt) {
+      return beltOrder.indexOf(bBelt) - beltOrder.indexOf(aBelt);
+    }
+
+    const aAge = aDivisionParts[1];
+    const bAge = bDivisionParts[1];
+
+    if (aAge !== bAge) {
+      return ageOrderForMedals(aAge) - ageOrderForMedals(bAge);
+    }
+
+    const aWeight = aDivisionParts[2];
+    const bWeight = bDivisionParts[2];
+
+    if (aWeight !== bWeight) {
+      return (weightOrder[aWeight] ?? 0) - (weightOrder[bWeight] ?? 0);
+    }
+
+    if (a.place !== b.place) {
+      return a.place - b.place;
+    }
+
+    return b.happened_at.localeCompare(a.happened_at);
+  });
 
   return (
     <div className="container athlete-container">
@@ -552,7 +613,7 @@ function Athlete() {
         }
       </div>
       {
-        false /*sortedMedals.length > 0*/ && (
+        sortedMedals.length > 0 && (
           <div className={classNames("box accordion-box mt-5", {"open": medalCaseOpen})}>
             <div className="accordion">
               <header className="accordion-header" onClick={() => setMedalCaseOpen(!medalCaseOpen)}>
@@ -572,7 +633,9 @@ function Athlete() {
                             {medal.place === 2 && '🥈'}
                             {medal.place === 3 && '🥉'}
                           </td>
-                          <td>{medal.event_name}</td>
+                          <td>
+                            {isMajor(medal.event_name) ? <strong>{medal.event_name}</strong> : medal.event_name}
+                          </td>
                           <td>
                             {(!medal.event_medals_only && !isHistorical(medal.event_name) && !medal.division.includes('Juvenile')) ?
                               <a href="#" onClick={(e) => medalBracketClicked(e, medal)}>
