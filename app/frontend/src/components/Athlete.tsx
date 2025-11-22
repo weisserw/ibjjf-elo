@@ -678,13 +678,13 @@ function Athlete() {
                             {medal.place === 2 && '🥈'}
                             {medal.place === 3 && '🥉'}
                           </td>
-                          <td>
+                          <td className="medal-event-cell">
                             <div className="medal-event">
                               <span>{medalEmoji(medal)}</span>
                               <span className={classNames({'is-major': isMajor(medal.event_name), 'is-worlds': isWorlds(medal.event_name)})}>{removeParens(medal.event_name)}</span>
                             </div>
                           </td>
-                          <td>
+                          <td className="medal-division-cell">
                             {(!medal.event_medals_only && !isHistorical(medal.event_name) && !medal.division.includes('Juvenile')) ?
                               <a href="#" onClick={(e) => medalBracketClicked(e, medal)}>
                                 {translateMulti(medal.division)}

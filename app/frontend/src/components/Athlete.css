@@ -183,6 +183,11 @@
   font-size: 24px;
 }
 
+.medal-event-cell,
+.medal-division-cell {
+  vertical-align: middle !important;
+}
+
 .medal-event {
   display: flex;
   align-items: center;
