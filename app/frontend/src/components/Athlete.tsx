@@ -409,15 +409,11 @@ function Athlete() {
   }
 
   const medalEmoji = (medal: Medal) => {
-    if (!isMajor(medal.event_name)) {
-      return null;
-    }
-
     const divisionParts = medal.division.split(' / ');
     const belt = divisionParts[0];
     const age = divisionParts[1];
 
-    if (belt === 'BLACK' && age === 'Adult') {
+    if (isMajor(medal.event_name) && belt === 'BLACK' && age === 'Adult') {
       return '⭐';
     }
 
@@ -464,14 +460,14 @@ function Athlete() {
       return ageOrderForMedals(aAge) - ageOrderForMedals(bAge);
     }
 
+    if (a.place !== b.place) {
+      return a.place - b.place;
+    }
+
     const aWeight = aDivisionParts[2];
     const bWeight = bDivisionParts[2];
 
-    if (aWeight !== bWeight) {
-      return (weightOrder[aWeight] ?? 0) - (weightOrder[bWeight] ?? 0);
-    }
-
-    return a.place - b.place;
+    return (weightOrder[aWeight] ?? 0) - (weightOrder[bWeight] ?? 0);
   });
 
   const removeParens = (str: string) => {
