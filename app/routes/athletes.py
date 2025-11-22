@@ -240,6 +240,7 @@ def get_athlete(id):
         .join(Event)
         .join(Division)
         .filter(Medal.athlete_id == id_uuid)
+        .filter(Medal.default_gold == False)
         .filter(Division.gi == gi)
         .filter(
             or_(
@@ -251,6 +252,7 @@ def get_athlete(id):
                     .filter(
                         Match.event_id == Medal.event_id,
                         Match.division_id == Medal.division_id,
+                        Match.rated == True,
                         MatchParticipant.match_id == Match.id,
                         MatchParticipant.athlete_id == Medal.athlete_id,
                         MatchParticipant.winner == True,
