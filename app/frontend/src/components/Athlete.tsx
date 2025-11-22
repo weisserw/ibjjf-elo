@@ -453,6 +453,10 @@ function Athlete() {
       return bisMajor - aisMajor;
     }
 
+    if (a.happened_at !== b.happened_at) {
+      return b.happened_at.localeCompare(a.happened_at);
+    }
+
     const aAge = aDivisionParts[1];
     const bAge = bDivisionParts[1];
 
@@ -467,11 +471,7 @@ function Athlete() {
       return (weightOrder[aWeight] ?? 0) - (weightOrder[bWeight] ?? 0);
     }
 
-    if (a.place !== b.place) {
-      return a.place - b.place;
-    }
-
-    return b.happened_at.localeCompare(a.happened_at);
+    return a.place - b.place;
   });
 
   const removeParens = (str: string) => {
