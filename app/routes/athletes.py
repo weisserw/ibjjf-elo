@@ -243,10 +243,8 @@ def get_athlete(id):
         .filter(Medal.default_gold == False)
         .filter(Division.gi == gi)
         .filter(
-            or_(
-                Medal.place == 1,
-                and_(
-                    Medal.place != 1,
+            or_(  # OR conditions for valid medals
+                and_(  # athletes won a match in the same event/division they got a medal in
                     db.session.query(Match)
                     .join(MatchParticipant)
                     .filter(
@@ -259,8 +257,8 @@ def get_athlete(id):
                     )
                     .exists(),
                 ),
-                and_(
-                    Medal.place == 2,
+                and_(  # athletes got 1st or 2nd place and there is a 3rd place medal awarded in that event/division (for tournaments where we have medals but no matches)
+                    or_(Medal.place == 1, Medal.place == 2),
                     db.session.query(MedalAlias)
                     .filter(
                         MedalAlias.event_id == Medal.event_id,
