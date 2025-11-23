@@ -185,7 +185,10 @@ function DBTableRows(props: DBTableRowsProps) {
                   </td>
                   <td data-id={row.loserId}>
                     {
-                      !linkAthlete(row.loser) ? (row.loserPersonalName ? row.loserPersonalName : row.loser) :
+                      !linkAthlete(row.loser) ?
+                      <span className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
+                      {row.loserPersonalName ? row.loserPersonalName : row.loser}
+                      </span> :
                       <div className="name-container">
                         <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
                           {row.loserPersonalName ? row.loserPersonalName : row.loser}
@@ -285,7 +288,9 @@ function DBTableRows(props: DBTableRowsProps) {
                       <strong>{t("Loser")}:</strong>{' '}
                       {
                         !linkAthlete(row.loser) ?
-                        (row.loserPersonalName ? row.loserPersonalName : row.loser) :
+                        <span className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
+                          {row.loserPersonalName ? row.loserPersonalName : row.loser}
+                        </span> :
                         <div className="name-container">
                           <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
                             {row.loserPersonalName ? row.loserPersonalName : row.loser}
