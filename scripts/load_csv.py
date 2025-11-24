@@ -57,7 +57,12 @@ def get_or_create_event_or_athlete(session, model, ibjjf_id, name, do_update=Tru
         if instance:
             return instance
         else:
-            instance = model(ibjjf_id=None, name=name, normalized_name=normalized_name)
+            instance = model(
+                ibjjf_id=None,
+                name=name,
+                normalized_name=normalized_name,
+                slug=generate_slug(session, model, normalized_name),
+            )
             session.add(instance)
             session.flush()
             return instance
@@ -312,6 +317,8 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 match_num = row.get("Match Number")
                                 if match_num is not None and match_num != "":
                                     match_num = int(match_num)
+                                else:
+                                    match_num = None
                             except ValueError:
                                 print(
                                     "Invalid match number value:", row["Match Number"]
@@ -323,6 +330,8 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 fight_num = row.get("Fight Number", "") or None
                                 if fight_num is not None and fight_num != "":
                                     fight_num = int(fight_num)
+                                else:
+                                    fight_num = None
                             except ValueError:
                                 print("Invalid fight number value:", fight_num)
 

@@ -2366,6 +2366,11 @@ def archive_competitors():
         .all()
     )
 
+    # If any matches have fight_number set, filter to only those matches
+    # This is a hack to deal with events like the Crown where there are 3rd place matches
+    if any(match.fight_number is not None for match in matches):
+        matches = [match for match in matches if match.fight_number is not None]
+
     medals = (
         db.session.query(Medal)
         .filter(
