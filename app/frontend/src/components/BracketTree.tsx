@@ -76,7 +76,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
         </div>
         <table className="bracket-tree-match-competitors">
           <tbody>
-            <tr className={classNames({"bracket-tree-match-winner": match.blue_loser && !match.red_loser})}>
+            <tr className={classNames({"bracket-tree-match-winner": match.blue_loser && !match.red_loser && !match.red_bye})}>
               <td className="bracket-tree-match-ordinal">
                 {props.showSeed && match.red_seed}
                 {props.showSeed && !match.red_seed && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
@@ -148,7 +148,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 {match.red_note && <span className="bracket-tree-match-note has-cursor-pointer" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={match.red_note}> ℹ️</span>}
               </td>
             </tr>
-            <tr className={classNames({"bracket-tree-match-winner": match.red_loser && !match.blue_loser})}>
+            <tr className={classNames({"bracket-tree-match-winner": match.red_loser && !match.blue_loser && !match.blue_bye})}>
               <td className="bracket-tree-match-ordinal">
                 {props.showSeed && match.blue_seed}
                 {props.showSeed && !match.blue_seed && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
