@@ -2297,7 +2297,6 @@ def archive_categories():
         db.session.query(MatchParticipant.athlete_id)
         .join(Match)
         .join(Event)
-        .join(Division)
         .filter(Event.name == event_name)
         .distinct()
         .count()
