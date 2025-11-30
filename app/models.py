@@ -101,6 +101,7 @@ class Athlete(db.Model):
     slug = Column(String, nullable=False)
     normalized_name_tsvector = Column(SqliteTSVECTOR, nullable=True)
     normalized_personal_name_tsvector = Column(SqliteTSVECTOR, nullable=True)
+    nickname_translation = Column(String, nullable=True)
 
     __table_args__ = (
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),

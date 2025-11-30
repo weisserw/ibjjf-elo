@@ -121,6 +121,11 @@ def athlete_edit():
         country_note_pt = request.form.get("country_note_pt", "").strip()
         athlete.country_note_pt = country_note_pt if country_note_pt else None
 
+        nickname_translation = request.form.get("nickname_translation", "").strip()
+        athlete.nickname_translation = (
+            nickname_translation if nickname_translation else None
+        )
+
         db.session.commit()
         message = "Athlete info updated."
     return render_template("athlete_edit.html", athlete=athlete, message=message)

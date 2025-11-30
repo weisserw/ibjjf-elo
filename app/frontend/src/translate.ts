@@ -237,6 +237,7 @@ const translations = {
     "Tier 1: Awarded to athletes in the 98th percentile or above.": "Nível 1: Concedido a atletas no percentil 98 ou acima.",
     "Upcoming Events": "Próximos Eventos",
     "Full Name": "Nome Completo",
+    "Nickname Translation": "Tradução do Apelido",
     "Earned Medals": "Medalhas Conquistadas",
     "Q: Why aren't some of my medals showing on my profile?": "Q: Por que algumas das minhas medalhas não estão aparecendo no meu perfil?",
     "A: The \"Earned Medals\" section only includes medals from matches where the athlete won a match, not just participated. Also, while effort was made to collect historical medal data, events before April 2025 may be incomplete. If you have an earned medal that is missing, please contact us on Instagram to have it added.": "A: A seção \"Medalhas Conquistadas\" inclui apenas medalhas de lutas em que o atleta venceu uma luta, não apenas participou. Além disso, embora tenha sido feito um esforço para coletar dados históricos de medalhas, os eventos antes de abril de 2025 podem estar incompletos. Se você tiver uma medalha conquistada que esteja faltando, entre em contato conosco no Instagram para adicioná-la."

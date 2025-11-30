@@ -33,6 +33,7 @@ interface Athlete {
   country_note: string | null;
   country_note_pt: string | null;
   personal_name: string | null;
+  nickname_translation: string | null;
   instagram_profile_photo_url: string | null;
   team_name: string | null;
   rating: number | null;
@@ -520,6 +521,11 @@ function Athlete() {
               </h2>
             )
           }
+          {athlete.nickname_translation && (
+            <h2 className="subtitle is-6 mt-0 mb-3 athlete-nickname-translation">
+              <span>{t("Nickname Translation")}: "{athlete.nickname_translation}"</span>
+            </h2>
+          )}
           {athlete.instagram_profile && (
           <h2 className="subtitle is-6 mt-0 mb-2 athlete-nickname">
             <a href={`https://instagram.com/${athlete.instagram_profile}`} target="_blank" rel="noopener noreferrer">

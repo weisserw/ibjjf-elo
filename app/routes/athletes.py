@@ -297,6 +297,7 @@ def get_athlete(id):
         "name": athlete.name,
         "instagram_profile": athlete.instagram_profile,
         "personal_name": athlete.personal_name,
+        "nickname_translation": athlete.nickname_translation,
         "instagram_profile_photo_url": None,
         "country": athlete.country,
         "country_note": athlete.country_note,
