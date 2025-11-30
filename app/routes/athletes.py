@@ -257,13 +257,23 @@ def get_athlete(id):
                     )
                     .exists(),
                 ),
-                and_(  # athletes got 1st or 2nd place and there is a 3rd place medal awarded in that event/division (for tournaments where we have medals but no matches)
-                    or_(Medal.place == 1, Medal.place == 2),
+                and_(  # athletes got 2nd place and there is a 3rd place medal awarded in that event/division (for tournaments where we have medals but no matches)
+                    Medal.place == 2,
                     db.session.query(MedalAlias)
                     .filter(
                         MedalAlias.event_id == Medal.event_id,
                         MedalAlias.division_id == Medal.division_id,
                         MedalAlias.place == 3,
+                    )
+                    .exists(),
+                ),
+                and_(  # athletes got 1st place and there is a 2nd place medal awarded in that event/division (for tournaments where we have medals but no matches)
+                    Medal.place == 1,
+                    db.session.query(MedalAlias)
+                    .filter(
+                        MedalAlias.event_id == Medal.event_id,
+                        MedalAlias.division_id == Medal.division_id,
+                        MedalAlias.place == 2,
                     )
                     .exists(),
                 ),
