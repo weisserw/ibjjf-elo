@@ -28,8 +28,9 @@ function BracketRegistration() {
   const [loading, setLoading] = useState(false)
   const [elitesLoading, setElitesLoading] = useState(false)
   const [elites, setElites] = useState<EliteAthlete[] | null>(null)
+  const [eliteNote, setEliteNote] = useState<string | null>(null);
   const [elitesByLink, setElitesByLink] = useState<
-    Record<string, { data: EliteAthlete[]; fetchedAt: number }>
+    Record<string, { data: {elites: EliteAthlete[]; note: string | null; }; fetchedAt: number }>
   >({})
 
   const {
@@ -240,7 +241,8 @@ function BracketRegistration() {
     const now = Date.now()
     const tenMinutesMs = 10 * 60 * 1000
     if (cached && now - cached.fetchedAt < tenMinutesMs) {
-      setElites(cached.data)
+      setElites(cached.data.elites)
+      setEliteNote(cached.data.note)
       return
     }
 
@@ -249,28 +251,31 @@ function BracketRegistration() {
     const fetchElites = async () => {
       setElitesLoading(true)
       try {
-        const { data } = await axios.get<{ elites?: EliteAthlete[]; error?: string }>(
+        const { data } = await axios.get<{ elites?: EliteAthlete[]; note?: string; error?: string }>(
           '/api/brackets/registrations/elites',
           { params: { link } }
         )
         if (cancelled) return
         if (data.error) {
           setElites(null)
+          setEliteNote(null);
           setError(data.error)
         } else if (data.elites) {
           const elitesData = data.elites ?? []
           setElites(elitesData)
+          setEliteNote(data.note ?? null);
           setElitesByLink(prev => ({
             ...prev,
-            [link]: { data: elitesData, fetchedAt: Date.now() },
+            [link]: { data: { elites: elitesData, note: data.note ?? null }, fetchedAt: Date.now() },
           }))
           setError(null)
         } else {
           const elitesData: EliteAthlete[] = []
           setElites(elitesData)
+          setEliteNote(null);
           setElitesByLink(prev => ({
             ...prev,
-            [link]: { data: elitesData, fetchedAt: Date.now() },
+            [link]: { data: { elites: elitesData, note: null }, fetchedAt: Date.now() },
           }))
         }
       } catch (err) {
@@ -368,36 +373,37 @@ function BracketRegistration() {
             {
               registrationCategories.length > 0 && (
                 <div className="view-mode-switcher">
-                  <div>
-                    <div className="buttons has-addons is-toggle is-small no-wrap seg-control" role="radiogroup">
-                      <button
-                        className={`button ${viewMode === 'all' ? 'is-link is-light is-selected' : ''}`}
-                        style={{ whiteSpace: 'nowrap' }}
-                        aria-pressed={viewMode === 'all'}
-                        aria-controls="all-panel"
-                        aria-label="Division"
-                        onClick={() => setViewMode('all')}
-                      >
-                        <span className="seg-label">{t('Division')}</span>
-                        {(divisionCount !== null && viewMode === 'all') && (
-                          <span className="seg-count" style={{ marginLeft: 6 }}>{`(${divisionCount.toLocaleString()})`}</span>
-                        )}
-                      </button>
-                      <button
-                        className={`button ${viewMode === 'elites' ? 'is-link is-light is-selected' : ''} ${elitesLoading ? 'is-loading' : ''}`}
-                        style={{ whiteSpace: 'nowrap' }}
-                        aria-pressed={viewMode === 'elites'}
-                        aria-controls="elites-panel"
-                        aria-label="Elites"
-                        disabled={elites !== null && elites.length === 0}
-                        onClick={() => setViewMode('elites')}
-                      >
-                        <span className="seg-label">{t('Elites')}</span>
-                        {(elitesCount !== null && viewMode === 'elites') && (
-                          <span className="seg-count" style={{ marginLeft: 6 }}>{`(${elitesCount.toLocaleString()})`}</span>
-                        )}
-                      </button>
-                    </div>
+                  {(viewMode === 'elites' && eliteNote) && (
+                    <div>{eliteNote}</div>
+                  )}
+                  <div className="buttons has-addons is-toggle is-small no-wrap seg-control" role="radiogroup">
+                    <button
+                      className={`button ${viewMode === 'all' ? 'is-link is-light is-selected' : ''}`}
+                      style={{ whiteSpace: 'nowrap' }}
+                      aria-pressed={viewMode === 'all'}
+                      aria-controls="all-panel"
+                      aria-label="Division"
+                      onClick={() => setViewMode('all')}
+                    >
+                      <span className="seg-label">{t('Division')}</span>
+                      {(divisionCount !== null && viewMode === 'all') && (
+                        <span className="seg-count" style={{ marginLeft: 6 }}>{`(${divisionCount.toLocaleString()})`}</span>
+                      )}
+                    </button>
+                    <button
+                      className={`button ${viewMode === 'elites' ? 'is-link is-light is-selected' : ''} ${elitesLoading ? 'is-loading' : ''}`}
+                      style={{ whiteSpace: 'nowrap' }}
+                      aria-pressed={viewMode === 'elites'}
+                      aria-controls="elites-panel"
+                      aria-label="Elites"
+                      disabled={elites !== null && elites.length === 0}
+                      onClick={() => setViewMode('elites')}
+                    >
+                      <span className="seg-label">{t('Elites')}</span>
+                      {(elitesCount !== null && viewMode === 'elites') && (
+                        <span className="seg-count" style={{ marginLeft: 6 }}>{`(${elitesCount.toLocaleString()})`}</span>
+                      )}
+                    </button>
                   </div>
                 </div>
               )

@@ -199,3 +199,9 @@
 .seg-control .button:last-child {
   border-radius: 0;
 }
+
+.view-mode-switcher {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

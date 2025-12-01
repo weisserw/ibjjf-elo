@@ -58,6 +58,7 @@ from constants import (
     MASTER_6,
     MASTER_7,
     rated_ages,
+    BLACK,
 )
 from elo import (
     compute_start_rating,
@@ -357,6 +358,7 @@ def get_ratings(
     for result in results:
         result["percentile"] = percentiles_by_id.get(result["id"])
 
+    elite_note = None
     if elite_only:
 
         def filter_pct(pct):
@@ -368,17 +370,30 @@ def get_ratings(
                 and result["belt"] not in NON_ELITE_BELTS
             ]
 
+        def filter_belt(belt, age):
+            results[:] = [
+                result
+                for result in results
+                if result["belt"] == belt and result["age"] == age
+            ]
+
         # filter to elites only
         filter_pct(10)
 
-        # if there are a huge number of elites (for major tournaments), filter down further to tier 2 then 1
-        if len(results) > 100:
+        # if there are a huge number of elites (for major tournaments),
+        # start by filtering out non-black belts, then narrowing the percentile further
+        if len(results) > 50:
+            filter_belt(BLACK, ADULT)
+            elite_note = "Showing only adult black belt competitors"
+        if len(results) > 50:
             filter_pct(5)
-        if len(results) > 100:
+            elite_note = "Showing only adult black belts tier 2 and above"
+        if len(results) > 50:
             filter_pct(2)
+            elite_note = "Showing only adult black belts tier 1 and above"
 
     if not results:
-        return
+        return None
 
     if len([result for result in results if result["id"]]) > 0:
         # get ranks from athlete_ratings if available
@@ -663,6 +678,8 @@ def get_ratings(
         results.sort(key=lambda x: competitor_sort_key(x, "rating"), reverse=True)
 
         compute_ordinals(results, weight, belt)
+
+    return elite_note
 
 
 def elite_sort(results):
@@ -1432,7 +1449,7 @@ def registration_elites():
     if not rows:
         return jsonify({"elites": []})
 
-    get_ratings(
+    elite_note = get_ratings(
         rows,
         None,
         gi,
@@ -1472,7 +1489,7 @@ def registration_elites():
             }
         )
 
-    return jsonify({"elites": elites})
+    return jsonify({"elites": elites, "note": elite_note})
 
 
 def compute_match_ratings(matches, results, belt, weight, age):
