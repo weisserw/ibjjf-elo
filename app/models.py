@@ -373,6 +373,7 @@ class Suspension(db.Model):
     athlete_name = Column(String, nullable=False)
     start_date = Column(DateTime, nullable=False)
     end_date = Column(DateTime, nullable=False)
+    reason = Column(String, nullable=True)
 
 
 class LiveRating(db.Model):
