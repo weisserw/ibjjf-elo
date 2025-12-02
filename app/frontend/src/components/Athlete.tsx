@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom'
 import { t, translateMulti, type translationKeys } from '../translate'
 import DBPagination from './DBPagination';
 import classNames from 'classnames';
+import dayjs from 'dayjs';
 import {
   ageToFilter,
   genderToFilter,
@@ -65,12 +66,19 @@ interface Medal {
   happened_at: string;
 }
 
+interface Suspension {
+  start_date: string;
+  end_date: string;
+  reason: string;
+}
+
 interface ResponseData {
   athlete: Athlete;
   eloHistory: Elo[];
   ranks: Rank[];
   registrations: Registration[];
   medals: Medal[];
+  suspensions: Suspension[];
 }
 
 const ageOrder = (age: string): number => {
@@ -425,6 +433,19 @@ function Athlete() {
     return beltColorEmojis[belt];
   }
 
+  const removeParens = (str: string) => {
+    return str.replace(/\([^)]*\)$/, '');
+  };
+
+  const isSuspended = useMemo(() => {
+    if (!responseData) return false;
+    const today = new Date();
+    return responseData.suspensions.some(suspension => {
+      const endDate = new Date(suspension.end_date);
+      return today <= endDate;
+    });
+  }, [responseData]);
+
   if (!responseData) {
     return <div className="loader"></div>;
   }
@@ -474,10 +495,6 @@ function Athlete() {
 
     return (weightOrder[aWeight] ?? 0) - (weightOrder[bWeight] ?? 0);
   });
-
-  const removeParens = (str: string) => {
-    return str.replace(/\([^)]*\)$/, '');
-  };
 
   return (
     <div className="container athlete-container">
@@ -566,11 +583,43 @@ function Athlete() {
               }
             </div>
             )}
+            {isSuspended && (
+              <div className="athlete-suspension-warning">
+                {t("Suspended")}
+              </div>
+            )}
           </div>
         </div>
         }
       </div>
       <GiTabs />
+      {
+        responseData.suspensions.length > 0 && (
+          <div>
+            <p className="has-text-weight-bold mb-3">
+              {t("Anti-Doping Violations")}:
+            </p>
+            <table className="table mb-2">
+              <thead>
+                <tr>
+                  <th>{t("Start Date")}</th>
+                  <th>{t("End Date")}</th>
+                  <th>{t("Reason")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {responseData.suspensions.map((suspension, index) => (
+                  <tr key={index}>
+                    <td>{dayjs(suspension.start_date).format('MMM D, YYYY')}</td>
+                    <td>{dayjs(suspension.end_date).format('MMM D, YYYY')}</td>
+                    <td>{suspension.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
       <div className="athlete-ranks-upcoming">
         {
           (hasRating && sortedRanks.length > 0) && (

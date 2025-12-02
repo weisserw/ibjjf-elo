@@ -201,3 +201,9 @@
 .is-worlds {
   font-weight: 800;
 }
+
+.athlete-suspension-warning {
+  color: rgb(218, 67, 67);
+  font-weight: bold;
+  text-transform: uppercase;
+}

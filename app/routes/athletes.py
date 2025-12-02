@@ -19,6 +19,7 @@ from models import (
     RegistrationLinkCompetitor,
     Medal,
     Event,
+    Suspension,
 )
 from normalize import normalize
 from elo import (
@@ -325,6 +326,16 @@ def get_athlete(id):
             }
         )
 
+    suspensions = [
+        {
+            "start_date": s.start_date.strftime("%Y-%m-%d"),
+            "end_date": s.end_date.strftime("%Y-%m-%d"),
+            "reason": s.reason,
+        }
+        for s in db.session.query(Suspension)
+        .filter(Suspension.athlete_name == athlete.name)
+        .all()
+    ]
     return (
         jsonify(
             {
@@ -333,6 +344,7 @@ def get_athlete(id):
                 "ranks": ranks,
                 "registrations": registrations_list,
                 "medals": medals,
+                "suspensions": suspensions,
             }
         ),
         200,
