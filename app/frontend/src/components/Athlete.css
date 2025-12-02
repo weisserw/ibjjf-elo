@@ -221,5 +221,7 @@
 
 .usada-logo {
   height: 36px;
-  width: auto;
+  width: 36px;
+  max-height: 36px;
+  max-width: 36px;
 }
