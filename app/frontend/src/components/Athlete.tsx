@@ -8,6 +8,7 @@ import { axiosErrorToast, getCountryName,
 import GiTabs from './GiTabs';
 import { useAppContext } from '../AppContext';
 import igLogoColor from '/src/assets/instagram-color.png';
+import usadaLogo from '/src/assets/usada.png';
 import noPhoto from '/src/assets/no-photo.jpg';
 import { Tooltip } from 'react-tooltip';
 import DBTableRows from './DBTableRows';
@@ -599,9 +600,10 @@ function Athlete() {
             <p className="has-text-weight-bold mb-3">
               {t("Anti-Doping Violations")}:
             </p>
-            <table className="table mb-2">
+            <table className="table athlete-suspension-table mb-2">
               <thead>
                 <tr>
+                  <th></th>
                   <th>{t("Start Date")}</th>
                   <th>{t("End Date")}</th>
                   <th>{t("Reason")}</th>
@@ -610,6 +612,11 @@ function Athlete() {
               <tbody>
                 {responseData.suspensions.map((suspension, index) => (
                   <tr key={index}>
+                    <td>
+                      <div className="athlete-suspension-usada-logo-box">
+                        <img src={usadaLogo} alt="USADA" className="usada-logo" />
+                      </div>
+                    </td>
                     <td>{dayjs(suspension.start_date).format('MMM D, YYYY')}</td>
                     <td>{dayjs(suspension.end_date).format('MMM D, YYYY')}</td>
                     <td>{suspension.reason}</td>

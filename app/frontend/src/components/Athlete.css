@@ -207,3 +207,19 @@
   font-weight: bold;
   text-transform: uppercase;
 }
+
+.athlete-suspension-table td {
+  vertical-align: middle;
+}
+
+.athlete-suspension-usada-logo-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.usada-logo {
+  height: 36px;
+  width: auto;
+}
