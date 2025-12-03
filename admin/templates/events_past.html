@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Past Events{% endblock %}
+{% block content %}
+<div class="container mt-6">
+    <div class="columns is-centered">
+        <div class="column is-half">
+            <div class="box">
+                <h1 class="title is-4 has-text-centered">Past Events</h1>
+                <form class="mb-4" method="get" action="{{ url_for('past_events') }}">
+                    <div class="field has-addons">
+                        <div class="control is-expanded">
+                            <input class="input" type="text" name="search" placeholder="Search event name..." value="{{ search_term }}">
+                        </div>
+                        <div class="control">
+                            <button class="button is-link" type="submit">Search</button>
+                        </div>
+                    </div>
+                </form>
+                {% if events %}
+                    <div class="content">
+                        <h2 class="subtitle is-5">Results:</h2>
+                        <ul>
+                            {% for event in events %}
+                                <li>
+                                    <a href="{{ url_for('event_livestreams') }}?id={{ event.ibjjf_id }}&name={{ event.name }}">{{ event.name }}</a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% elif search_term %}
+                    <p class="has-text-danger">No events found.</p>
+                {% endif %}
+                <a class="button is-link is-light mt-4" href="{{ url_for('index') }}">Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+/* event_livestreams.css */
+.url-input {
+    width: 400px;
+}
+
+.num-input {
+    width: 80px;
+}
+
+.action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.table td {
+    vertical-align: middle;
+}

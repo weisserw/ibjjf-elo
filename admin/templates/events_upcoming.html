@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Upcoming Events{% endblock %}
+{% block content %}
+<div class="container mt-6">
+    <div class="columns is-centered">
+        <div class="column is-half">
+            <div class="box">
+                <h1 class="title is-4 has-text-centered">Upcoming Events</h1>
+                <div class="content">
+                    <ul>
+                        {% for event in events %}
+                            <li>
+                                <a href="{{ url_for('event_livestreams') }}?id={{ event.event_id }}&name={{ event.name }}">{{ event.name }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <a class="button is-link is-light mt-4" href="{{ url_for('index') }}">Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

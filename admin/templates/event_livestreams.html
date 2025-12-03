@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Upcoming Events{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='event_livestreams.css') }}">
+<div class="container mt-6">
+    <h1 class="title is-4 has-text-centered">Edit Live Streams for {{ event_name }}</h1>
+    {% if error %}
+    <div class="notification is-danger">{{ error }}</div>
+    {% endif %}
+    <form method="post">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Mat</th>
+                    <th>URL</th>
+                    <th class="has-text-centered">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stream in streams %}
+                <tr>
+                    <form method="post">
+                        <input type="hidden" name="stream_id" value="{{ stream.id }}">
+                        <td><input class="input num-input" type="number" name="day_number" value="{{ stream.day_number }}" min="1" required></td>
+                        <td><input class="input num-input" type="number" name="mat_number" value="{{ stream.mat_number }}" min="1" required></td>
+                        <td><input class="input url-input" type="url" name="link" value="{{ stream.link }}" required></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="button is-success is-small" type="submit" name="action" value="edit">Save</button>
+                                <button class="button is-danger is-small" type="submit" name="action" value="delete">Delete</button>
+                            </div>
+                        </td>
+                    </form>
+                </tr>
+                {% endfor %}
+                <tr>
+                    <form method="post">
+                        <input type="hidden" name="action" value="add">
+                        <td><input class="input num-input" type="number" name="day_number" min="1" required></td>
+                        <td><input class="input num-input" type="number" name="mat_number" min="1" required></td>
+                        <td><input class="input url-input" type="url" name="link" required></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="button is-link is-small" type="submit">Add</button>
+                            </div>
+                        </td>
+                    </form>
+                </tr>
+            </tbody>
+        </table>
+    </form>
+    <a class="button is-link is-light mt-4" href="{{ url_for('index') }}">Back to Dashboard</a>
+</div>
+{% endblock %}

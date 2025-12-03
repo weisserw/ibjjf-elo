@@ -343,6 +343,21 @@ class RegistrationLink(db.Model):
     )
 
 
+class LiveStream(db.Model):
+    __tablename__ = "live_streams"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(String, nullable=False)
+    platform = Column(String, nullable=False)
+    mat_number = Column(Integer, nullable=False)
+    day_number = Column(Integer, nullable=False)
+    start_hour = Column(Integer, nullable=False)
+    start_minute = Column(Integer, nullable=False)
+    link = Column(String, nullable=False)
+
+    __table_args__ = (Index("ix_live_streams_event_id", "event_id"),)
+
+
 class RegistrationLinkCompetitor(db.Model):
     __tablename__ = "registration_link_competitors"
 

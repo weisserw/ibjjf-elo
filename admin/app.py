@@ -1,12 +1,13 @@
 import os
 import sys
 import uuid
+from datetime import datetime, timedelta
 from flask import Flask, render_template, redirect, url_for, request, session
 
 # Ensure app directory is in sys.path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../app")))
 from extensions import db
-from models import Athlete
+from models import Athlete, Event, RegistrationLink, LiveStream
 from normalize import normalize
 
 app = Flask(__name__)
@@ -66,6 +67,97 @@ def logout():
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/events/upcoming")
+def upcoming_events():
+    events = (
+        RegistrationLink.query.filter(RegistrationLink.hidden.isnot(True))
+        .filter(RegistrationLink.event_end_date > datetime.now() - timedelta(days=1))
+        .order_by(RegistrationLink.event_end_date, RegistrationLink.name)
+        .all()
+    )
+    return render_template("events_upcoming.html", events=events)
+
+
+@app.route("/events/past")
+def past_events():
+    search_term = request.args.get("search", "")
+    events = []
+    if search_term:
+        events = (
+            Event.query.filter(
+                Event.normalized_name.ilike(f"%{normalize(search_term)}%")
+            )
+            .filter(Event.ibjjf_id.isnot(None))
+            .order_by(Event.name)
+            .limit(30)
+            .all()
+        )
+    return render_template("events_past.html", events=events)
+
+
+@app.route("/event/livestreams", methods=["GET", "POST"])
+def event_livestreams():
+    event_id = request.args.get("id")
+    name = request.args.get("name")
+    error = None
+
+    streams = (
+        LiveStream.query.filter(LiveStream.event_id == event_id)
+        .order_by(LiveStream.day_number, LiveStream.mat_number)
+        .all()
+    )
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        day_number = request.form.get("day_number", type=int)
+        mat_number = request.form.get("mat_number", type=int)
+        link = request.form.get("link", "").strip()
+        stream_id = request.form.get("stream_id")
+
+        if action == "add":
+            new_stream = LiveStream(
+                event_id=event_id,
+                platform="youtube",
+                mat_number=mat_number,
+                day_number=day_number,
+                start_hour=9,
+                start_minute=30,
+                link=link,
+            )
+            db.session.add(new_stream)
+            db.session.commit()
+            return redirect(url_for("event_livestreams", id=event_id, name=name))
+
+        elif action == "edit":
+            stream = LiveStream.query.get(uuid.UUID(stream_id))
+            if stream:
+                stream.day_number = day_number
+                stream.mat_number = mat_number
+                stream.link = link
+                db.session.commit()
+            return redirect(url_for("event_livestreams", id=event_id, name=name))
+        elif action == "delete":
+            stream = LiveStream.query.get(uuid.UUID(stream_id))
+            if stream:
+                db.session.delete(stream)
+                db.session.commit()
+            return redirect(url_for("event_livestreams", id=event_id, name=name))
+
+        streams = (
+            LiveStream.query.filter(LiveStream.event_id == event_id)
+            .order_by(LiveStream.day_number, LiveStream.mat_number)
+            .all()
+        )
+
+    return render_template(
+        "event_livestreams.html",
+        event_id=event_id,
+        event_name=name,
+        streams=streams,
+        error=error,
+    )
 
 
 @app.route("/athletes")
