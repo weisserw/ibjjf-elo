@@ -617,16 +617,19 @@ def matches():
                         except ValueError:
                             mat_number_int = None
                     if mat_number_int is not None:
-                        link, start_hour, start_minute = live_streams.get(
+                        livestream_info = live_streams.get(
                             (match["event_ibjjf_id"], day_number, mat_number_int)
                         )
+                        if livestream_info:
+                            link, start_hour, start_minute = livestream_info
 
-                        match_minutes = match_hour * 60 + match_minute
-                        start_minutes = start_hour * 60 + start_minute
-                        time_offset_mins = match_minutes - start_minutes
-                        link += "&t=" + str(time_offset_mins * 60) + "s"
+                            match_minutes = match_hour * 60 + match_minute
+                            start_minutes = start_hour * 60 + start_minute
+                            time_offset_mins = match_minutes - start_minutes
+                            link += "&t=" + str(time_offset_mins * 60) + "s"
 
-                        match["livestream"] = link
+                            match["livestream"] = link
+
             del match["event_ibjjf_id"]
             del match["date_happened_at"]
 
