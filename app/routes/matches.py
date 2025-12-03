@@ -584,7 +584,10 @@ def matches():
             ),
         )
         for ibjjf_id, min_date in event_results:
-            tournament_days[ibjjf_id] = datetime.fromisoformat(min_date).date()
+            min_date_date = min_date
+            if isinstance(min_date, str):
+                min_date_date = datetime.fromisoformat(min_date)
+            tournament_days[ibjjf_id] = min_date_date.date()
         live_streams = {
             (event_id, day_number, mat_number): (link, start_hour, start_minute)
             for event_id, day_number, mat_number, link, start_hour, start_minute in db.session.execute(
