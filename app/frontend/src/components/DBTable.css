@@ -8,6 +8,7 @@ td.empty-row {
 }
 
 div.card.db-row-card {
+  padding-top: 8px;
   margin-bottom: 10px;
 }
 
@@ -23,7 +24,13 @@ div.card.db-row-card {
 .db-row-card div.date-box {
   position: absolute;
   right: 10px;
-  top: -4px;
+  top: 0px;
+}
+
+.db-row-card div.video-link {
+  position: absolute;
+  left: 20px;
+  top: 4px;
 }
 
 .is-historical {
@@ -53,4 +60,9 @@ div.notification.is-historical {
 
 button.is-small.is-tiny {
   font-size: 0.55rem;
+}
+
+td.video-link-cell {
+  padding: 0 !important;
+  padding-top: 6px !important;
 }

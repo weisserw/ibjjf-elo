@@ -94,6 +94,7 @@ export interface DBRow {
   rated: boolean
   notes: string
   matchLocation: string | null
+  livestream: string | null
 }
 
 export interface DBResults {

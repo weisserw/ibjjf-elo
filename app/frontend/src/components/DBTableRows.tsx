@@ -2,6 +2,7 @@ import React from 'react';
 import classNames from "classnames";
 import dayjs from "dayjs";
 import 'dayjs/locale/pt';
+import youtubeLogo from '/src/assets/youtube.png';
 import { Tooltip } from 'react-tooltip';
 import { isHistorical, noMatchStrings, type DBRow as Row } from "../utils";
 import { useAppContext } from '../AppContext';
@@ -129,12 +130,17 @@ function DBTableRows(props: DBTableRowsProps) {
     return !row.age.startsWith('Teen')
   }
 
+  const noMatch = (r: Row) => {
+    return noMatchStrings.some(s => r.notes?.toLowerCase() === s)
+  }
+
   return (
     <>
       <div className="table-container is-hidden-touch">
         <table className={classNames("table db-table is-striped", {"is-narrow": !loading && !!data.length})}>
           <thead>
             <tr>
+              <th></th>
               <th>{t("Winner")}</th>
               <th>{t("Rating")}</th>
               <th>{t("Loser")}</th>
@@ -160,6 +166,13 @@ function DBTableRows(props: DBTableRowsProps) {
             {
               !!data.length && data.map((row: Row, index: number) => (
                 <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row.event)})}>
+                  <td className="video-link-cell">
+                    {(row.livestream && !noMatch(row)) &&
+                      <a href={row.livestream} target="_blank" rel="noopener noreferrer">
+                        <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '20px', height: '20px', maxWidth: '20px'}} />
+                      </a>
+                    }
+                  </td>
                   <td data-id={row.winnerId}>
                     {
                       !linkAthlete(row.winner) ? (row.winnerPersonalName ? row.winnerPersonalName : row.winner) :
@@ -186,11 +199,11 @@ function DBTableRows(props: DBTableRowsProps) {
                   <td data-id={row.loserId}>
                     {
                       !linkAthlete(row.loser) ?
-                      <span className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
+                      <span className={classNames({"strike-through": noMatch(row)})}>
                       {row.loserPersonalName ? row.loserPersonalName : row.loser}
                       </span> :
                       <div className="name-container">
-                        <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
+                        <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatch(row)})}>
                           {row.loserPersonalName ? row.loserPersonalName : row.loser}
                         </a>
                         <NameInfo instagram_profile={row.loserInstagramProfile}
@@ -261,6 +274,14 @@ function DBTableRows(props: DBTableRowsProps) {
                 <div className="date-box">
                   {dayjs(row.date).locale(language).format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${row.matchLocation}`}
                 </div>
+                {
+                  (row.livestream && !noMatch(row)) &&
+                  <div className="video-link">
+                    <a href={row.livestream} target="_blank" rel="noopener noreferrer">
+                      <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '20px', height: '20px'}} />
+                    </a>
+                  </div>
+                }
                 <div className="card-content">
                   <div className="columns">
                     <div className="column" data-id={row.winnerId}>
@@ -288,11 +309,11 @@ function DBTableRows(props: DBTableRowsProps) {
                       <strong>{t("Loser")}:</strong>{' '}
                       {
                         !linkAthlete(row.loser) ?
-                        <span className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
+                        <span className={classNames({"strike-through": noMatch(row)})}>
                           {row.loserPersonalName ? row.loserPersonalName : row.loser}
                         </span> :
                         <div className="name-container">
-                          <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatchStrings.some(s => row.notes?.toLowerCase() === s)})}>
+                          <a href="#" onClick={e => athleteClicked?.(e, row.loserSlug)} className={classNames({"strike-through": noMatch(row)})}>
                             {row.loserPersonalName ? row.loserPersonalName : row.loser}
                           </a>
                           <NameInfo instagram_profile={row.loserInstagramProfile}

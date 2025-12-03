@@ -399,7 +399,7 @@ def matches():
         params["rating_end"] = rating_end_int
 
     sql = f"""
-        SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name,
+        SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name, e.ibjjf_id,
             mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating,
             a.id as athlete_id, a.name, a.slug, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.personal_name, a.profile_image_saved_at,
             mp.note, m.rated, mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location
@@ -433,6 +433,7 @@ def matches():
 
     s3_client = get_s3_client()
 
+    event_ids = set()
     response = []
     current_match = None
     for result in results:
@@ -446,7 +447,7 @@ def matches():
                 belt=row["belt"],
                 weight=row["weight"],
             )
-            event = Event(name=row["event_name"])
+            event = Event(name=row["event_name"], ibjjf_id=row["ibjjf_id"])
 
             # sqlite returns a string for datetime fields, but postgres returns a datetime object
             if isinstance(row["happened_at"], str):
@@ -501,9 +502,12 @@ def matches():
                 winner = current_match.participants[0]
                 loser = current_match.participants[1]
 
+            event_ids.add(current_match.event.ibjjf_id)
+
             response.append(
                 {
                     "id": current_match.id,
+                    "livestream": None,
                     "winner": winner.athlete.name,
                     "winnerSlug": winner.athlete.slug,
                     "winnerId": winner.athlete.id,
@@ -551,6 +555,8 @@ def matches():
                     "winnerRatingNote": winner.rating_note,
                     "loserRatingNote": loser.rating_note,
                     "matchLocation": current_match.match_location,
+                    "event_ibjjf_id": current_match.event.ibjjf_id,
+                    "date_happened_at": current_match.happened_at,
                 }
             )
 
@@ -560,5 +566,64 @@ def matches():
 
     if len(response) > page_size:
         response = response[:page_size]
+
+    # Fill query results with livestream links
+    tournament_days = {}
+    live_streams = {}
+
+    if len(event_ids):
+        event_results = db.session.execute(
+            text(
+                f"""
+            SELECT e.ibjjf_id, MIN(m.happened_at) AS min_date
+            FROM events e
+            JOIN matches m ON e.id = m.event_id
+            WHERE e.ibjjf_id IN ({', '.join("'" + str(eid) + "'" for eid in event_ids)})
+            """
+            ),
+        )
+        for ibjjf_id, min_date in event_results:
+            tournament_days[ibjjf_id] = datetime.fromisoformat(min_date).date()
+        live_streams = {
+            (event_id, day_number, mat_number): (link, start_hour, start_minute)
+            for event_id, day_number, mat_number, link, start_hour, start_minute in db.session.execute(
+                text(
+                    f"""
+                SELECT event_id, day_number, mat_number, link, start_hour, start_minute
+                FROM live_streams
+                WHERE event_id IN ({', '.join("'" + str(eid) + "'" for eid in event_ids)})
+                """
+                ),
+            )
+        }
+
+        for match in response:
+            if len(live_streams):
+                event_start_day = tournament_days.get(match["event_ibjjf_id"])
+                if event_start_day:
+                    match_day = match["date_happened_at"].date()
+                    match_hour = match["date_happened_at"].hour
+                    match_minute = match["date_happened_at"].minute
+                    day_number = (match_day - event_start_day).days + 1
+                    mat_number = match["matchLocation"]
+                    mat_number_int = None
+                    if mat_number:
+                        try:
+                            mat_number_int = int(mat_number.split()[-1])
+                        except ValueError:
+                            mat_number_int = None
+                    if mat_number_int is not None:
+                        link, start_hour, start_minute = live_streams.get(
+                            (match["event_ibjjf_id"], day_number, mat_number_int)
+                        )
+
+                        match_minutes = match_hour * 60 + match_minute
+                        start_minutes = start_hour * 60 + start_minute
+                        time_offset_mins = match_minutes - start_minutes
+                        link += "&t=" + str(time_offset_mins * 60) + "s"
+
+                        match["livestream"] = link
+            del match["event_ibjjf_id"]
+            del match["date_happened_at"]
 
     return jsonify({"rows": response, "totalPages": totalPages})
