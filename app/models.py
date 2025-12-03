@@ -374,6 +374,7 @@ class Suspension(db.Model):
     start_date = Column(DateTime, nullable=False)
     end_date = Column(DateTime, nullable=False)
     reason = Column(String, nullable=True)
+    suspending_org = Column(String, nullable=True)
 
 
 class LiveRating(db.Model):

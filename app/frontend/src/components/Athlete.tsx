@@ -9,6 +9,7 @@ import GiTabs from './GiTabs';
 import { useAppContext } from '../AppContext';
 import igLogoColor from '/src/assets/instagram-color.png';
 import usadaLogo from '/src/assets/usada.png';
+import uaeNadaLogo from '/src/assets/uae-nada.png';
 import noPhoto from '/src/assets/no-photo.jpg';
 import { Tooltip } from 'react-tooltip';
 import DBTableRows from './DBTableRows';
@@ -71,6 +72,7 @@ interface Suspension {
   start_date: string;
   end_date: string;
   reason: string;
+  suspending_org: string;
 }
 
 interface ResponseData {
@@ -614,7 +616,16 @@ function Athlete() {
                   <tr key={index}>
                     <td>
                       <div className="athlete-suspension-usada-logo-box">
-                        <img src={usadaLogo} alt="USADA" className="usada-logo" />
+                        {
+                        suspension.suspending_org === "USADA" && (
+                          <img src={usadaLogo} alt="USADA" className="usada-logo" />
+                        )
+                        }
+                        {
+                        suspension.suspending_org === "UAE NADA" && (
+                          <img src={uaeNadaLogo} alt="UAE NADA" className="usada-logo" />
+                        )
+                        }
                       </div>
                     </td>
                     <td>{dayjs(suspension.start_date).format('MMM D, YYYY')}</td>

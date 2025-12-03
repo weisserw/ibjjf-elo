@@ -331,6 +331,7 @@ def get_athlete(id):
             "start_date": s.start_date.strftime("%Y-%m-%d"),
             "end_date": s.end_date.strftime("%Y-%m-%d"),
             "reason": s.reason,
+            "suspending_org": s.suspending_org,
         }
         for s in db.session.query(Suspension)
         .filter(Suspension.athlete_name == athlete.name)
