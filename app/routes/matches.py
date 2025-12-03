@@ -579,6 +579,7 @@ def matches():
             FROM events e
             JOIN matches m ON e.id = m.event_id
             WHERE e.ibjjf_id IN ({', '.join("'" + str(eid) + "'" for eid in event_ids)})
+            GROUP BY e.ibjjf_id
             """
             ),
         )
