@@ -220,12 +220,11 @@ def athlete_matches():
         athlete = Athlete.query.get(uuid.UUID(athlete_id))
         if athlete:
             matches = (
-                Match.query
-                .filter(
+                Match.query.filter(
                     db.session.query(MatchParticipant)
                     .filter(
                         MatchParticipant.match_id == Match.id,
-                        MatchParticipant.athlete_id == athlete.id
+                        MatchParticipant.athlete_id == athlete.id,
                     )
                     .exists()
                 )
@@ -243,9 +242,8 @@ def athlete_matches():
                         opponent = p
                 match.athlete_participant = athlete_participant
                 match.opponent = opponent
-    return render_template(
-        "athlete_matches.html", athlete=athlete, matches=matches
-    )
+    return render_template("athlete_matches.html", athlete=athlete, matches=matches)
+
 
 @app.route("/update_video_link", methods=["POST"])
 def update_video_link():
@@ -258,6 +256,7 @@ def update_video_link():
             match.video_link = video_link
             db.session.commit()
     return redirect(url_for("athlete_matches", id=athlete_id))
+
 
 @app.route("/athlete_edit")
 @app.route("/athlete_edit", methods=["GET", "POST"])
