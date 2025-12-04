@@ -120,7 +120,10 @@ def event_livestreams():
         start_time_str = request.form.get("start_time", "09:30")
 
         try:
-            start_hour, start_minute = map(int, start_time_str.split(":"))
+            comps = start_time_str.split(":")
+            if len(comps) != 2:
+                raise ValueError
+            start_hour, start_minute = map(int, comps)
             if (
                 start_hour < 0
                 or start_hour > 23
