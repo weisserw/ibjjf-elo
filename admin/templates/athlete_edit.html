@@ -57,6 +57,7 @@
           <p class="has-text-danger">Athlete not found.</p>
         {% endif %}
         <a class="button is-link is-light mt-4" href="{{ url_for('athletes') }}">Back to Search</a>
+        <a class="button is-link is-light ml-4 mt-4" href="{{ url_for('athlete_matches') }}?id={{ athlete.id }}">View Matches</a>
       </div>
     </div>
   </div>

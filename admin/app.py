@@ -9,7 +9,7 @@ from urllib.parse import urlparse, urlencode, urlunparse
 # Ensure app directory is in sys.path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../app")))
 from extensions import db
-from models import Athlete, Event, RegistrationLink, LiveStream
+from models import Athlete, Event, RegistrationLink, LiveStream, Match, MatchParticipant
 from normalize import normalize
 
 app = Flask(__name__)
@@ -210,6 +210,54 @@ def athletes():
         )
     return render_template("athletes.html", search_term=search_term, athletes=athletes)
 
+
+@app.route("/athlete_matches")
+def athlete_matches():
+    athlete_id = request.args.get("id")
+    athlete = None
+    matches = []
+    if athlete_id:
+        athlete = Athlete.query.get(uuid.UUID(athlete_id))
+        if athlete:
+            matches = (
+                Match.query
+                .filter(
+                    db.session.query(MatchParticipant)
+                    .filter(
+                        MatchParticipant.match_id == Match.id,
+                        MatchParticipant.athlete_id == athlete.id
+                    )
+                    .exists()
+                )
+                .order_by(Match.happened_at.desc())
+                .all()
+            )
+            # Add opponent and athlete_participant fields to each match
+            for match in matches:
+                athlete_participant = None
+                opponent = None
+                for p in match.participants:
+                    if p.athlete_id == athlete.id:
+                        athlete_participant = p
+                    else:
+                        opponent = p
+                match.athlete_participant = athlete_participant
+                match.opponent = opponent
+    return render_template(
+        "athlete_matches.html", athlete=athlete, matches=matches
+    )
+
+@app.route("/update_video_link", methods=["POST"])
+def update_video_link():
+    match_id = request.form.get("match_id")
+    video_link = request.form.get("video_link", "").strip()
+    athlete_id = request.form.get("athlete_id")
+    if match_id:
+        match = Match.query.get(uuid.UUID(match_id))
+        if match:
+            match.video_link = video_link
+            db.session.commit()
+    return redirect(url_for("athlete_matches", id=athlete_id))
 
 @app.route("/athlete_edit")
 @app.route("/athlete_edit", methods=["GET", "POST"])

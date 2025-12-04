@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Matches for {{ athlete.name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='athlete_matches.css') }}">
+<div class="container mt-6">
+    <div class="box">
+        <h1 class="title is-4 has-text-centered">Matches for {{ athlete.name }}</h1>
+        <div class="content">
+            <table class="table is-fullwidth is-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Event</th>
+                        <th>Weight</th>
+                        <th>Opponent</th>
+                        <th>Result</th>
+                        <th>Video Link</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for match in matches %}
+                    <tr>
+                        <td class="nowrap">{{ match.happened_at.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ match.event.name }}</td>
+                        <td>{{ match.division.weight }}</td>
+                        <td>{{ match.opponent.athlete.name }}</td>
+                        <td>{{ 'Win' if match.athlete_participant.winner else 'Loss' }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('update_video_link') }}" class="video-form">
+                                <input type="hidden" name="athlete_id" value="{{ athlete.id }}">
+                                <input type="hidden" name="match_id" value="{{ match.id }}">
+                                <input type="text" name="video_link" value="{{ match.video_link or '' }}" class="video-input">
+                                <button type="submit" class="button is-small is-link">Save</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            </table>
+        </div>
+        <a class="button is-link is-light mt-4" href="{{ url_for('athlete_edit', id=athlete.id) }}">Back to Athlete</a>
+    </div>
+</div>
+{% endblock %}

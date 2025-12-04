@@ -1,0 +1,12 @@
+.video-form {
+    display: flex;
+    gap: 0.5em;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.video-input {
+    width: 250px;
+}
