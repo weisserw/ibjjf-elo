@@ -167,8 +167,8 @@ function DBTableRows(props: DBTableRowsProps) {
               !!data.length && data.map((row: Row, index: number) => (
                 <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row.event)})}>
                   <td className="video-link-cell">
-                    {(row.livestream && !noMatch(row)) &&
-                      <a href={row.livestream} target="_blank" rel="noopener noreferrer">
+                    {(row.videoLink && !noMatch(row)) &&
+                      <a href={row.videoLink} target="_blank" rel="noopener noreferrer">
                         <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '20px', height: '20px', maxWidth: '20px'}} />
                       </a>
                     }
@@ -275,9 +275,9 @@ function DBTableRows(props: DBTableRowsProps) {
                   {dayjs(row.date).locale(language).format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${row.matchLocation}`}
                 </div>
                 {
-                  (row.livestream && !noMatch(row)) &&
+                  (row.videoLink && !noMatch(row)) &&
                   <div className="video-link">
-                    <a href={row.livestream} target="_blank" rel="noopener noreferrer">
+                    <a href={row.videoLink} target="_blank" rel="noopener noreferrer">
                       <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '20px', height: '20px'}} />
                     </a>
                   </div>

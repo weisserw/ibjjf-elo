@@ -402,7 +402,7 @@ def matches():
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name, e.ibjjf_id,
             mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating,
             a.id as athlete_id, a.name, a.slug, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.personal_name, a.profile_image_saved_at,
-            mp.note, m.rated, mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location
+            mp.note, m.rated, mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location, m.video_link
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
         JOIN events e ON m.event_id = e.id
@@ -462,6 +462,7 @@ def matches():
                 event=event,
                 rated=row["rated"],
                 match_location=row["match_location"],
+                video_link=row["video_link"],
             )
 
         current_match.participants.append(
@@ -507,7 +508,7 @@ def matches():
             response.append(
                 {
                     "id": current_match.id,
-                    "livestream": None,
+                    "videoLink": current_match.video_link,
                     "winner": winner.athlete.name,
                     "winnerSlug": winner.athlete.slug,
                     "winnerId": winner.athlete.id,
@@ -602,7 +603,7 @@ def matches():
         }
 
         for match in response:
-            if len(live_streams):
+            if match["videoLink"] is None and len(live_streams):
                 event_start_day = tournament_days.get(match["event_ibjjf_id"])
                 if event_start_day:
                     match_day = match["date_happened_at"].date()
@@ -628,7 +629,7 @@ def matches():
                             time_offset_mins = match_minutes - start_minutes
                             link += "&t=" + str(time_offset_mins * 60) + "s"
 
-                            match["livestream"] = link
+                            match["videoLink"] = link
 
             del match["event_ibjjf_id"]
             del match["date_happened_at"]

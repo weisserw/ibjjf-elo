@@ -173,6 +173,7 @@ class Match(db.Model):
     match_number = Column(Integer, nullable=True)
     match_location = Column(String, nullable=True)
     fight_number = Column(Integer, nullable=True)
+    video_link = Column(String, nullable=True)
 
     participants = relationship("MatchParticipant", lazy="select", viewonly=True)
     division = relationship("Division", lazy="select", viewonly=True)

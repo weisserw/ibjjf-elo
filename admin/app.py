@@ -3,6 +3,8 @@ import sys
 import uuid
 from datetime import datetime, timedelta
 from flask import Flask, render_template, redirect, url_for, request, session
+from urllib.parse import urlparse, urlencode, urlunparse
+
 
 # Ensure app directory is in sys.path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../app")))
@@ -115,6 +117,32 @@ def event_livestreams():
         mat_number = request.form.get("mat_number", type=int)
         link = request.form.get("link", "").strip()
         stream_id = request.form.get("stream_id")
+        start_time_str = request.form.get("start_time", "09:30")
+
+        try:
+            start_hour, start_minute = map(int, start_time_str.split(":"))
+            if (
+                start_hour < 0
+                or start_hour > 23
+                or start_minute < 0
+                or start_minute > 59
+            ):
+                raise ValueError
+        except ValueError:
+            start_hour, start_minute = 9, 30  # Default time
+
+        # try to parse link with urllib so we can normalize it
+        try:
+            parsed_url = urlparse(link)
+            if parsed_url.netloc == "youtu.be":
+                video_id = parsed_url.path.lstrip("/")
+                query = urlencode({"v": video_id})
+                parsed_url = parsed_url._replace(
+                    netloc="www.youtube.com", path="/watch", query=query
+                )
+                link = urlunparse(parsed_url)
+        except Exception:
+            pass  # if parsing fails, keep the original link
 
         if action == "add":
             new_stream = LiveStream(
@@ -122,8 +150,8 @@ def event_livestreams():
                 platform="youtube",
                 mat_number=mat_number,
                 day_number=day_number,
-                start_hour=9,
-                start_minute=30,
+                start_hour=start_hour,
+                start_minute=start_minute,
                 link=link,
             )
             db.session.add(new_stream)
@@ -135,6 +163,8 @@ def event_livestreams():
             if stream:
                 stream.day_number = day_number
                 stream.mat_number = mat_number
+                stream.start_hour = start_hour
+                stream.start_minute = start_minute
                 stream.link = link
                 db.session.commit()
             return redirect(url_for("event_livestreams", id=event_id, name=name))
