@@ -117,7 +117,7 @@ def event_livestreams():
         mat_number = request.form.get("mat_number", type=int)
         link = request.form.get("link", "").strip()
         stream_id = request.form.get("stream_id")
-        start_time_str = request.form.get("start_time", "09:30")
+        start_time_str = request.form.get("start_time", "09:29")
 
         try:
             comps = start_time_str.split(":")
@@ -132,7 +132,7 @@ def event_livestreams():
             ):
                 raise ValueError
         except ValueError:
-            start_hour, start_minute = 9, 30  # Default time
+            start_hour, start_minute = 9, 29  # Default time
 
         # try to parse link with urllib so we can normalize it
         try:
