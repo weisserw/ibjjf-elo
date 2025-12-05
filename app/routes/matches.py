@@ -104,12 +104,18 @@ def name_components(name):
     ]
 
 
-def get_search_name(full_name, personal_name, belt, age):
-    if belt == BLACK and age == ADULT and personal_name:
-        names = name_components(personal_name)
-        if len(names):
-            return " ".join(names)
+SPECIAL_SEARCH_NAMES = {
+    "Adam Piotr Wardzinski": "Adam Wardzinski",
+    "Cole Anthony Abate": "Cole Abate",
+    "Andy Tomas Murasaki Pereira": "Andy Murasaki",
+    "Nolan Patrick Braga Stuart": "Nolan Stuart",
+    "London Amil Horn": "London Horn",
+}
 
+
+def get_search_name(full_name):
+    if full_name in SPECIAL_SEARCH_NAMES:
+        return SPECIAL_SEARCH_NAMES[full_name]
     names = name_components(full_name)
     return " ".join(names[:2])
 
@@ -655,15 +661,9 @@ def matches():
                     tag = flo_event_tags[match["event_ibjjf_id"]]
                     winner_last_name = get_search_name(
                         match["winner"],
-                        match["winnerPersonalName"],
-                        match["belt"],
-                        match["age"],
                     )
                     loser_last_name = get_search_name(
                         match["loser"],
-                        match["loserPersonalName"],
-                        match["belt"],
-                        match["age"],
                     )
                     match["videoLink"] = (
                         f"https://www.flograppling.com/events/{tag}/videos?openInBrowser=1&search={quote(winner_last_name)}%20vs%20{quote(loser_last_name)}"
