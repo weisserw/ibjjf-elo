@@ -105,11 +105,7 @@ def name_components(name):
 
 
 SPECIAL_SEARCH_NAMES = {
-    "Adam Piotr Wardzinski": "Adam Wardzinski",
-    "Cole Anthony Abate": "Cole Abate",
     "Andy Tomas Murasaki Pereira": "Andy Murasaki",
-    "Nolan Patrick Braga Stuart": "Nolan Stuart",
-    "London Amil Horn": "London Horn",
 }
 
 
@@ -117,7 +113,12 @@ def get_search_name(full_name):
     if full_name in SPECIAL_SEARCH_NAMES:
         return SPECIAL_SEARCH_NAMES[full_name]
     names = name_components(full_name)
-    return " ".join(names[:2])
+    if len(full_name) > 35:
+        # use first two names only to avoid cutoff
+        return " ".join(names[:2])
+    else:
+        # use first and last name
+        return " ".join([names[0], names[-1]])
 
 
 @matches_route.route("/api/matches")
