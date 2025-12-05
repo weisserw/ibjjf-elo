@@ -53,6 +53,17 @@
             </tbody>
         </table>
     </form>
+    <form method="post">
+        <input type="hidden" name="action" value="update_flo_tag">
+        <div class="field has-addons">
+            <div class="control">
+                <input class="input flo-tag-input" type="text" name="flo_tag" placeholder="Flo Event Tag eg 13487722-2025-world-jiu-jitsu-ibjjf-championship" value="{{ flo_tag or '' }}">
+            </div>
+            <div class="control">
+                <button class="button is-link" type="submit">Save</button>
+            </div>
+        </div>
+    </form>
     <a class="button is-link is-light mt-4" href="{{ url_for('index') }}">Back to Dashboard</a>
 </div>
 {% endblock %}

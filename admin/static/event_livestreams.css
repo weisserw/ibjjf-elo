@@ -17,3 +17,7 @@
 .table td {
     vertical-align: middle;
 }
+
+.flo-tag-input {
+    width: 600px;
+}

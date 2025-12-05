@@ -9,7 +9,15 @@ from urllib.parse import urlparse, urlencode, urlunparse
 # Ensure app directory is in sys.path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../app")))
 from extensions import db
-from models import Athlete, Event, RegistrationLink, LiveStream, Match, MatchParticipant
+from models import (
+    Athlete,
+    Event,
+    RegistrationLink,
+    LiveStream,
+    Match,
+    MatchParticipant,
+    FloEventTag,
+)
 from normalize import normalize
 
 app = Flask(__name__)
@@ -111,6 +119,12 @@ def event_livestreams():
         .all()
     )
 
+    flo_event_tags = FloEventTag.query.filter(FloEventTag.event_id == event_id).all()
+
+    flo_tag = ""
+    if len(flo_event_tags) > 0:
+        flo_tag = flo_event_tags[0].tag
+
     if request.method == "POST":
         action = request.form.get("action")
         day_number = request.form.get("day_number", type=int)
@@ -177,6 +191,30 @@ def event_livestreams():
                 db.session.delete(stream)
                 db.session.commit()
             return redirect(url_for("event_livestreams", id=event_id, name=name))
+        elif action == "update_flo_tag":
+            flo_tag = request.form.get("flo_tag", "").strip()
+
+            if len(flo_event_tags) > 1:
+                for event_tag in flo_event_tags[1:]:
+                    db.session.delete(event_tag)
+                flo_event_tags = flo_event_tags[:1]
+
+            if flo_tag:
+                if len(flo_event_tags) > 0:
+                    flo_event_tags[0].tag = flo_tag
+                else:
+                    new_flo_event_tag = FloEventTag(
+                        event_id=event_id,
+                        tag=flo_tag,
+                    )
+                    db.session.add(new_flo_event_tag)
+            else:
+                # If flo_tag is empty, delete existing tag if it exists
+                if len(flo_event_tags) > 0:
+                    for event_tag in flo_event_tags:
+                        db.session.delete(event_tag)
+            db.session.commit()
+            return redirect(url_for("event_livestreams", id=event_id, name=name))
 
         streams = (
             LiveStream.query.filter(LiveStream.event_id == event_id)
@@ -190,6 +228,7 @@ def event_livestreams():
         event_name=name,
         streams=streams,
         error=error,
+        flo_tag=flo_tag,
     )
 
 

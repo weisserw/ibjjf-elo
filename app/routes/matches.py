@@ -47,6 +47,7 @@ from photos import get_public_photo_url, get_s3_client
 from normalize import normalize
 from collections import defaultdict
 from time import time
+from urllib.parse import quote
 
 matches_route = Blueprint("matches_route", __name__)
 
@@ -91,6 +92,16 @@ def rate_limit():
 
 
 matches_route.before_request(rate_limit)
+
+
+def get_last_name(full_name):
+    names = full_name.strip().split()
+    if (
+        names[-1].lower() in ["jr.", "sr.", "jr", "sr", "2nd", "3rd", "ii", "iii"]
+        and len(names) > 1
+    ):
+        return names[-2]
+    return names[-1]
 
 
 @matches_route.route("/api/matches")
@@ -578,22 +589,28 @@ def matches():
     live_streams = {}
 
     if len(event_ids):
+        # Build parameterized IN clause for event_ids
+        event_id_params = {f"eid_{i}": eid for i, eid in enumerate(event_ids)}
+        event_id_placeholders = ", ".join([f":eid_{i}" for i in range(len(event_ids))])
+
         event_results = db.session.execute(
             text(
                 f"""
             SELECT e.ibjjf_id, MIN(m.happened_at) AS min_date
             FROM events e
             JOIN matches m ON e.id = m.event_id
-            WHERE e.ibjjf_id IN ({', '.join("'" + str(eid) + "'" for eid in event_ids)})
+            WHERE e.ibjjf_id IN ({event_id_placeholders})
             GROUP BY e.ibjjf_id
             """
             ),
+            event_id_params,
         )
         for ibjjf_id, min_date in event_results:
             min_date_date = min_date
             if isinstance(min_date, str):
                 min_date_date = datetime.fromisoformat(min_date)
             tournament_days[ibjjf_id] = min_date_date.date()
+
         live_streams = {
             (event_id, day_number, mat_number): (link, start_hour, start_minute)
             for event_id, day_number, mat_number, link, start_hour, start_minute in db.session.execute(
@@ -601,40 +618,63 @@ def matches():
                     f"""
                 SELECT event_id, day_number, mat_number, link, start_hour, start_minute
                 FROM live_streams
-                WHERE event_id IN ({', '.join("'" + str(eid) + "'" for eid in event_ids)})
+                WHERE event_id IN ({event_id_placeholders})
                 """
                 ),
+                event_id_params,
+            )
+        }
+
+        flo_event_tags = {
+            event_id: tag
+            for event_id, tag in db.session.execute(
+                text(
+                    f"""
+                SELECT event_id, tag
+                FROM flo_event_tags
+                WHERE event_id IN ({event_id_placeholders})
+                """
+                ),
+                event_id_params,
             )
         }
 
         for match in response:
-            if match["videoLink"] is None and len(live_streams):
-                event_start_day = tournament_days.get(match["event_ibjjf_id"])
-                if event_start_day:
-                    match_day = match["date_happened_at"].date()
-                    match_hour = match["date_happened_at"].hour
-                    match_minute = match["date_happened_at"].minute
-                    day_number = (match_day - event_start_day).days + 1
-                    mat_number = match["matchLocation"]
-                    mat_number_int = None
-                    if mat_number:
-                        try:
-                            mat_number_int = int(mat_number.split()[-1])
-                        except ValueError:
-                            mat_number_int = None
-                    if mat_number_int is not None:
-                        livestream_info = live_streams.get(
-                            (match["event_ibjjf_id"], day_number, mat_number_int)
-                        )
-                        if livestream_info:
-                            link, start_hour, start_minute = livestream_info
+            if match["videoLink"] is None:
+                if match["event_ibjjf_id"] in flo_event_tags:
+                    tag = flo_event_tags[match["event_ibjjf_id"]]
+                    winner_last_name = get_last_name(match["winner"])
+                    loser_last_name = get_last_name(match["loser"])
+                    match["videoLink"] = (
+                        f"https://www.flograppling.com/events/{tag}/videos?search={quote(winner_last_name)}%20vs%20{quote(loser_last_name)}"
+                    )
+                elif len(live_streams):
+                    event_start_day = tournament_days.get(match["event_ibjjf_id"])
+                    if event_start_day:
+                        match_day = match["date_happened_at"].date()
+                        match_hour = match["date_happened_at"].hour
+                        match_minute = match["date_happened_at"].minute
+                        day_number = (match_day - event_start_day).days + 1
+                        mat_number = match["matchLocation"]
+                        mat_number_int = None
+                        if mat_number:
+                            try:
+                                mat_number_int = int(mat_number.split()[-1])
+                            except ValueError:
+                                mat_number_int = None
+                        if mat_number_int is not None:
+                            livestream_info = live_streams.get(
+                                (match["event_ibjjf_id"], day_number, mat_number_int)
+                            )
+                            if livestream_info:
+                                link, start_hour, start_minute = livestream_info
 
-                            match_minutes = match_hour * 60 + match_minute
-                            start_minutes = start_hour * 60 + start_minute
-                            time_offset_mins = match_minutes - start_minutes
-                            link += "&t=" + str(time_offset_mins * 60) + "s"
+                                match_minutes = match_hour * 60 + match_minute
+                                start_minutes = start_hour * 60 + start_minute
+                                time_offset_mins = match_minutes - start_minutes
+                                link += "&t=" + str(time_offset_mins * 60) + "s"
 
-                            match["videoLink"] = link
+                                match["videoLink"] = link
 
             del match["event_ibjjf_id"]
             del match["date_happened_at"]

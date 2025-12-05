@@ -359,6 +359,16 @@ class LiveStream(db.Model):
     __table_args__ = (Index("ix_live_streams_event_id", "event_id"),)
 
 
+class FloEventTag(db.Model):
+    __tablename__ = "flo_event_tags"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(String, nullable=False)
+    tag = Column(String, nullable=False)
+
+    __table_args__ = (Index("ix_flo_event_tags_event_id", "event_id"),)
+
+
 class RegistrationLinkCompetitor(db.Model):
     __tablename__ = "registration_link_competitors"
 
