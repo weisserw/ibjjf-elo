@@ -94,13 +94,22 @@ def rate_limit():
 matches_route.before_request(rate_limit)
 
 
-def get_last_name(full_name):
-    names = full_name.strip().split()
-    if (
-        names[-1].lower() in ["jr.", "sr.", "jr", "sr", "2nd", "3rd", "ii", "iii"]
-        and len(names) > 1
-    ):
-        return names[-2]
+def name_components(name):
+    return [
+        n
+        for n in name.strip().split()
+        if n.lower() not in ["jr.", "sr.", "jr", "sr", "2nd", "3rd", "ii", "iii"]
+        and not n.startswith('"')
+    ]
+
+
+def get_last_name(full_name, personal_name):
+    if personal_name:
+        names = name_components(personal_name)
+        if len(names):
+            return names[-1]
+
+    names = name_components(full_name)
     return names[-1]
 
 
@@ -643,8 +652,12 @@ def matches():
             if match["videoLink"] is None:
                 if match["event_ibjjf_id"] in flo_event_tags:
                     tag = flo_event_tags[match["event_ibjjf_id"]]
-                    winner_last_name = get_last_name(match["winner"])
-                    loser_last_name = get_last_name(match["loser"])
+                    winner_last_name = get_last_name(
+                        match["winner"], match["winnerPersonalName"]
+                    )
+                    loser_last_name = get_last_name(
+                        match["loser"], match["loserPersonalName"]
+                    )
                     match["videoLink"] = (
                         f"https://www.flograppling.com/events/{tag}/videos?search={quote(winner_last_name)}%20vs%20{quote(loser_last_name)}"
                     )
