@@ -74,6 +74,7 @@ export interface FilterValues {
   weight_open_class?: boolean;
   date_start?: string;
   date_end?: string;
+  mat_number?: number;
   rating_start?: number;
   rating_end?: number;
 }
@@ -297,7 +298,8 @@ function DBFilters() {
                      isBold={
                         !!filters.event_name ||
                         !!filters.date_start ||
-                        !!filters.date_end
+                        !!filters.date_end ||
+                        filters.mat_number !== undefined
                      }>
               <div className="field is-grouped">
                 <div className="control is-expanded">
@@ -344,6 +346,21 @@ function DBFilters() {
                 </div>
                 <div className="control">
                   <button className="button is-small is-light" onClick={onClearProps.bind(null, ['date_start', 'date_end'])}>{t("Clear")}</button>
+                </div>
+              </div>
+              <div className="field is-grouped mat-number-field">
+                <div className="control">
+                  <input
+                    className="input is-small mat-number-input"
+                    type="number"
+                    min={1}
+                    placeholder={t("Mat Number")}
+                    value={filters.mat_number !== undefined ? filters.mat_number : ''}
+                    onChange={(e) => onChange('mat_number', e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                  />
+                </div>
+                <div className="control">
+                  <button className="button is-small is-light" onClick={onClearProps.bind(null, ['mat_number'])}>{t("Clear")}</button>
                 </div>
               </div>
             </Section>

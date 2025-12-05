@@ -133,6 +133,7 @@ def matches():
     weight_open_class = request.args.get("weight_open_class")
     date_start = request.args.get("date_start")
     date_end = request.args.get("date_end")
+    mat_number = request.args.get("mat_number")
     rating_start = request.args.get("rating_start")
     rating_end = request.args.get("rating_end")
     page = request.args.get("page") or 1
@@ -378,6 +379,10 @@ def matches():
     if date_end:
         filters += "AND m.happened_at <= :date_end\n"
         params["date_end"] = datetime.fromisoformat(date_end)
+    if mat_number is not None:
+        filters += """AND m.match_location IS NOT NULL AND m.match_location LIKE :mat_number
+        """
+        params["mat_number"] = f"% {mat_number}"
 
     if rating_start is not None:
         rating_start_int = int(rating_start)

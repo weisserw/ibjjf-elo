@@ -68,3 +68,7 @@
 .date-input, .rating-input {
   width: 105px;
 }
+
+.mat-number-input {
+  width: 100px;
+}

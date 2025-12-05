@@ -246,6 +246,7 @@ const translations = {
     "Start Date": "Data de Início",
     "End Date": "Data de Término",
     "Reason": "Razão",
+    "Mat Number": "Número do Tatame"
 };
 
 export type translationKeys = keyof typeof translations;
