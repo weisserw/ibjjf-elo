@@ -103,14 +103,14 @@ def name_components(name):
     ]
 
 
-def get_last_name(full_name, personal_name):
+def get_search_name(full_name, personal_name):
     if personal_name:
         names = name_components(personal_name)
         if len(names):
-            return names[-1]
+            return " ".join(names[:2])
 
     names = name_components(full_name)
-    return names[-1]
+    return " ".join(names[:2])
 
 
 @matches_route.route("/api/matches")
@@ -652,10 +652,10 @@ def matches():
             if match["videoLink"] is None:
                 if match["event_ibjjf_id"] in flo_event_tags:
                     tag = flo_event_tags[match["event_ibjjf_id"]]
-                    winner_last_name = get_last_name(
+                    winner_last_name = get_search_name(
                         match["winner"], match["winnerPersonalName"]
                     )
-                    loser_last_name = get_last_name(
+                    loser_last_name = get_search_name(
                         match["loser"], match["loserPersonalName"]
                     )
                     match["videoLink"] = (
