@@ -100,6 +100,7 @@ def name_components(name):
         for n in name.strip().split()
         if n.lower() not in ["jr.", "sr.", "jr", "sr", "2nd", "3rd", "ii", "iii"]
         and not n.startswith('"')
+        and len(n.replace(".", "")) > 1
     ]
 
 
@@ -107,7 +108,7 @@ def get_search_name(full_name, personal_name, belt, age):
     if belt == BLACK and age == ADULT and personal_name:
         names = name_components(personal_name)
         if len(names):
-            return names[-1]
+            return " ".join(names)
 
     names = name_components(full_name)
     return " ".join(names[:2])
