@@ -659,7 +659,7 @@ def matches():
                         match["loser"], match["loserPersonalName"]
                     )
                     match["videoLink"] = (
-                        f"https://www.flograppling.com/events/{tag}/videos?search={quote(winner_last_name)}%20vs%20{quote(loser_last_name)}"
+                        f"https://www.flograppling.com/events/{tag}/videos?openInBrowser=1&search={quote(winner_last_name)}%20vs%20{quote(loser_last_name)}"
                     )
                 elif len(live_streams):
                     event_start_day = tournament_days.get(match["event_ibjjf_id"])
