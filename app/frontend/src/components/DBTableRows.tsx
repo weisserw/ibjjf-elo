@@ -3,6 +3,7 @@ import classNames from "classnames";
 import dayjs from "dayjs";
 import 'dayjs/locale/pt';
 import youtubeLogo from '/src/assets/youtube.png';
+import floLogo from '/src/assets/flo.png';
 import { Tooltip } from 'react-tooltip';
 import { isHistorical, noMatchStrings, type DBRow as Row } from "../utils";
 import { useAppContext } from '../AppContext';
@@ -134,6 +135,14 @@ function DBTableRows(props: DBTableRowsProps) {
     return noMatchStrings.some(s => r.notes?.toLowerCase() === s)
   }
 
+  const logoForLink = (link: string) => {
+    if (link.includes('flograppling')) {
+      return <img src={floLogo} alt="Match Video" title="Match Video" style={{width: '14px', height: '14px', maxWidth: '14px', marginLeft: '2px'}} />
+    } else {
+      return <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '20px', height: '20px', maxWidth: '20px'}} />
+    }
+  }
+
   return (
     <>
       <div className="table-container is-hidden-touch">
@@ -169,7 +178,7 @@ function DBTableRows(props: DBTableRowsProps) {
                   <td className="video-link-cell">
                     {(row.videoLink && !noMatch(row)) &&
                       <a href={row.videoLink} target="_blank" rel="noopener noreferrer">
-                        <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '20px', height: '20px', maxWidth: '20px'}} />
+                        {logoForLink(row.videoLink)}
                       </a>
                     }
                   </td>
@@ -278,7 +287,7 @@ function DBTableRows(props: DBTableRowsProps) {
                   (row.videoLink && !noMatch(row)) &&
                   <div className="video-link">
                     <a href={row.videoLink} target="_blank" rel="noopener noreferrer">
-                      <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '20px', height: '20px'}} />
+                      {logoForLink(row.videoLink)}
                     </a>
                   </div>
                 }
