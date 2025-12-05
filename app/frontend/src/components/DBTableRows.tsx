@@ -143,6 +143,15 @@ function DBTableRows(props: DBTableRowsProps) {
     }
   }
 
+  const onVideoClick = (link: string, e: React.MouseEvent<HTMLAnchorElement>) => {
+    // workaround for flo video links opening in flo app on android
+    if (link.includes('flograppling') && /Android/i.test(navigator.userAgent)) {
+      e.preventDefault();
+      const w = window.open('about:blank', '_blank');
+      if (w) w.location = link;
+    }
+  }
+
   return (
     <>
       <div className="table-container is-hidden-touch">
@@ -177,7 +186,7 @@ function DBTableRows(props: DBTableRowsProps) {
                 <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row.event)})}>
                   <td className="video-link-cell">
                     {(row.videoLink && row.videoLink.toLowerCase() !== 'none' && !noMatch(row)) &&
-                      <a href={row.videoLink} target="_blank" rel="noopener noreferrer">
+                      <a href={row.videoLink} target="_blank" rel="noopener noreferrer" onClick={onVideoClick.bind(null, row.videoLink)}>
                         {logoForLink(row.videoLink)}
                       </a>
                     }
@@ -286,7 +295,7 @@ function DBTableRows(props: DBTableRowsProps) {
                 {
                   (row.videoLink && row.videoLink.toLowerCase() !== 'none'  && !noMatch(row)) &&
                   <div className="video-link">
-                    <a href={row.videoLink} target="_blank" rel="noopener noreferrer">
+                    <a href={row.videoLink} target="_blank" rel="noopener noreferrer" onClick={onVideoClick.bind(null, row.videoLink)}>
                       {logoForLink(row.videoLink)}
                     </a>
                   </div>
