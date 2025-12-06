@@ -7,6 +7,10 @@
     width: 80px;
 }
 
+.num-input-seconds {
+    width: 100px;
+}
+
 .action-buttons {
     display: flex;
     align-items: center;

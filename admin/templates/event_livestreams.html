@@ -15,6 +15,7 @@
                     <th>Mat</th>
                     <th>URL</th>
                     <th>Start Time</th>
+                    <th>End Time</th>
                     <th class="has-text-centered">Actions</th>
                 </tr>
             </thead>
@@ -26,7 +27,8 @@
                         <td><input class="input num-input" type="number" name="day_number" value="{{ stream.day_number }}" min="1" required></td>
                         <td><input class="input num-input" type="number" name="mat_number" value="{{ stream.mat_number }}" min="1" required></td>
                         <td><input class="input url-input" type="url" name="link" value="{{ stream.link }}" required></td>
-                        <td><input class="input num-input" name="start_time" value="{{ '%02d:%02d' | format(stream.start_hour, stream.start_minute) }}" required></td>
+                        <td><input class="input num-input-seconds" name="start_time" value="{{ '%02d:%02d:%02d' | format(stream.start_hour, stream.start_minute, stream.start_seconds) }}" required></td>
+                        <td><input class="input num-input" name="end_time" value="{{ '%02d:%02d' | format(stream.end_hour, stream.end_minute) }}" required></td>
                         <td>
                             <div class="action-buttons">
                                 <button class="button is-success is-small" type="submit" name="action" value="edit">Save</button>
@@ -42,7 +44,8 @@
                         <td><input class="input num-input" type="number" name="day_number" min="1" required></td>
                         <td><input class="input num-input" type="number" name="mat_number" min="1" required></td>
                         <td><input class="input url-input" type="url" name="link" required></td>
-                        <td><input class="input num-input" name="start_time" value="09:29" required></td>
+                        <td><input class="input num-input-seconds" name="start_time" value="09:29:00" required></td>
+                        <td><input class="input num-input" name="end_time" value="23:00" required></td>
                         <td>
                             <div class="action-buttons">
                                 <button class="button is-link is-small" type="submit">Add</button>

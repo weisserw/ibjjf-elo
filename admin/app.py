@@ -131,22 +131,36 @@ def event_livestreams():
         mat_number = request.form.get("mat_number", type=int)
         link = request.form.get("link", "").strip()
         stream_id = request.form.get("stream_id")
-        start_time_str = request.form.get("start_time", "09:29")
+        start_time_str = request.form.get("start_time", "09:29:00")
+        end_time_str = request.form.get("end_time", "23:00:00")
 
         try:
             comps = start_time_str.split(":")
-            if len(comps) != 2:
+            if len(comps) < 2 or len(comps) > 3:
                 raise ValueError
-            start_hour, start_minute = map(int, comps)
+            start_hour, start_minute = map(int, comps[:2])
+            start_seconds = int(comps[2]) if len(comps) == 3 else 0
             if (
                 start_hour < 0
                 or start_hour > 23
                 or start_minute < 0
                 or start_minute > 59
+                or start_seconds < 0
+                or start_seconds > 59
             ):
                 raise ValueError
         except ValueError:
-            start_hour, start_minute = 9, 29  # Default time
+            start_hour, start_minute, start_seconds = 9, 29, 0  # Default time
+
+        try:
+            comps = end_time_str.split(":")
+            if len(comps) != 2:
+                raise ValueError
+            end_hour, end_minute = map(int, comps)
+            if end_hour < 0 or end_hour > 23 or end_minute < 0 or end_minute > 59:
+                raise ValueError
+        except ValueError:
+            end_hour, end_minute = 23, 0  # Default time
 
         # try to parse link with urllib so we can normalize it
         try:
@@ -169,6 +183,9 @@ def event_livestreams():
                 day_number=day_number,
                 start_hour=start_hour,
                 start_minute=start_minute,
+                start_seconds=start_seconds,
+                end_hour=end_hour,
+                end_minute=end_minute,
                 link=link,
             )
             db.session.add(new_stream)
@@ -182,6 +199,9 @@ def event_livestreams():
                 stream.mat_number = mat_number
                 stream.start_hour = start_hour
                 stream.start_minute = start_minute
+                stream.start_seconds = start_seconds
+                stream.end_hour = end_hour
+                stream.end_minute = end_minute
                 stream.link = link
                 db.session.commit()
             return redirect(url_for("event_livestreams", id=event_id, name=name))

@@ -632,11 +632,18 @@ def matches():
             tournament_days[ibjjf_id] = min_date_date.date()
 
         live_streams = {
-            (event_id, day_number, mat_number): (link, start_hour, start_minute)
-            for event_id, day_number, mat_number, link, start_hour, start_minute in db.session.execute(
+            (event_id, day_number, mat_number): (
+                link,
+                start_hour,
+                start_minute,
+                start_seconds,
+                end_hour,
+                end_minute,
+            )
+            for event_id, day_number, mat_number, link, start_hour, start_minute, start_seconds, end_hour, end_minute in db.session.execute(
                 text(
                     f"""
-                SELECT event_id, day_number, mat_number, link, start_hour, start_minute
+                SELECT event_id, day_number, mat_number, link, start_hour, start_minute, start_seconds, end_hour, end_minute
                 FROM live_streams
                 WHERE event_id IN ({event_id_placeholders})
                 """
@@ -691,14 +698,30 @@ def matches():
                                 (match["event_ibjjf_id"], day_number, mat_number_int)
                             )
                             if livestream_info:
-                                link, start_hour, start_minute = livestream_info
+                                (
+                                    link,
+                                    start_hour,
+                                    start_minute,
+                                    start_seconds,
+                                    end_hour,
+                                    end_minute,
+                                ) = livestream_info
 
-                                match_minutes = match_hour * 60 + match_minute
-                                start_minutes = start_hour * 60 + start_minute
-                                time_offset_mins = match_minutes - start_minutes
-                                link += "&t=" + str(time_offset_mins * 60) + "s"
+                                match_seconds = match_hour * 3600 + match_minute * 60
+                                start_seconds = (
+                                    start_hour * 3600
+                                    + start_minute * 60
+                                    + start_seconds
+                                )
+                                end_seconds = end_hour * 3600 + end_minute * 60
 
-                                match["videoLink"] = link
+                                if start_seconds < end_seconds:
+                                    time_offset_seconds = match_seconds - start_seconds
+
+                                    if time_offset_seconds > 0:
+                                        link += "&t=" + str(time_offset_seconds) + "s"
+
+                                    match["videoLink"] = link
 
             del match["event_ibjjf_id"]
             del match["date_happened_at"]
