@@ -175,9 +175,11 @@ def get_livestream_link(
                     if match_seconds < end_seconds:
                         time_offset_seconds = match_seconds - start_seconds
 
-                        if time_offset_seconds > 0:
-                            link += "&t=" + str(time_offset_seconds) + "s"
+                        if time_offset_seconds <= 0:
+                            time_offset_seconds = 1
 
-                            return link
+                        link += "&t=" + str(time_offset_seconds) + "s"
+
+                        return link
 
     return None
