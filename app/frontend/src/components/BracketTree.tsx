@@ -76,13 +76,13 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
           </div>
         </div>
         {
-          (match.video_link && !match.red_name?.startsWith("Winner of") && !match.blue_name?.startsWith("Winner of") &&
+          (match.video_link && !match.red_next_description && !match.blue_next_description &&
             !match.red_bye && !match.blue_bye &&
             !noMatchStrings.some(s => match.red_note?.toLowerCase() === s) &&
             !noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)) &&
           <div className="bracket-tree-match-video-link">
             <a href={match.video_link} target="_blank" rel="noopener noreferrer">
-              <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '20px', height: '20px', maxWidth: '20px'}} />
+              <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '30px', height: '30px', maxWidth: '30px'}} />
             </a>
           </div>
         }
