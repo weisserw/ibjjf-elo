@@ -12,6 +12,7 @@ import type {
   Competitor as BracketCompetitor,
   Match as BracketMatch,
   Category as BracketCategory,
+  MatLinks as BracketMatLinks,
 } from './components/BracketUtils';
 import type {
   UpcomingLink as BracketRegistrationUpcomingLink,
@@ -56,6 +57,8 @@ interface AppContextProps {
   setBracketEventTotal: (total: number | null) => void;
   bracketMatches: BracketMatch[] | null;
   setBracketMatches: (matches: BracketMatch[] | null) => void;
+  bracketMatLinks: BracketMatLinks | null;
+  setBracketMatLinks: (matLinks: BracketMatLinks | null) => void;
   bracketSortColumn: BracketSortColumn;
   setBracketSortColumn: (column: BracketSortColumn) => void;
   bracketRegistrationEventName: string;
@@ -143,6 +146,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketSelectedCategory, setBracketSelectedCategory] = useLocalStorage<string | null>('bracketSelectedCategory', null)
   const [bracketCompetitors, setBracketCompetitors] = useState<BracketCompetitor[] | null>(null)
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[] | null>(null)
+  const [bracketMatLinks, setBracketMatLinks] = useState<BracketMatLinks | null>(null)
   const [bracketEventTotal, setBracketEventTotal] = useState<number | null>(null)
   const [bracketSortColumn, setBracketSortColumn] = useState<BracketSortColumn>('rating')
   const [bracketRegistrationEventName, setBracketRegistrationEventName] = useState('')
@@ -259,6 +263,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketSelectedCategory, setBracketSelectedCategory,
       bracketCompetitors, setBracketCompetitors,
       bracketMatches, setBracketMatches,
+      bracketMatLinks, setBracketMatLinks,
       bracketEventTotal, setBracketEventTotal,
       bracketSortColumn, setBracketSortColumn,
       bracketRegistrationEventName, setBracketRegistrationEventName,

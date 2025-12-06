@@ -1,16 +1,18 @@
-import { noMatchStrings, immatureClass, badgeForPercentile } from "../utils"
+import { noMatchStrings, immatureClass, badgeForPercentile } from '../utils'
 import classNames from 'classnames';
 import dayjs from 'dayjs'
 import { useAppContext } from '../AppContext'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Competitor } from "./BracketUtils"
+import type { Competitor, MatLinks } from './BracketUtils'
 import { Tooltip } from 'react-tooltip';
 import { t } from '../translate'
-import NameInfo from "./NameInfo";
+import NameInfo from './NameInfo'
+import youtubeLogo from '/src/assets/youtube.png'
 
 interface BracketTableProps {
   competitors: Competitor[] | null;
+  matLinks?: MatLinks | null;
   selectedCategory: string | null;
   sortColumn?: string;
   showSeed: boolean;
@@ -139,6 +141,23 @@ function BracketTable(props: BracketTableProps) {
   const calculateDisabled = () => {
     return selectedAthletes.length !== 2 || selectedAthletes.filter(a => props.calculateEnabled(a)).length !== 2
   };
+
+  const getMatLink = (where: string, when: string, matLinks: MatLinks | null | undefined): string | null => {
+    if (!matLinks) {
+      return null;
+    }
+
+    const dateIso = dayjs(when).format('YYYY-MM-DD');
+    const matLinkEntry = matLinks[dateIso];
+    if (!matLinkEntry) {
+      return null;
+    }
+
+    const whereParts = where.split(/\s+/);
+    const matNumberString = whereParts[whereParts.length - 1];
+
+    return matLinkEntry[matNumberString] ?? null; 
+  }
 
   return (
     <div className="table-container">
@@ -293,7 +312,20 @@ function BracketTable(props: BracketTableProps) {
                 }
               {
                   props.showNext &&
-                  <td>{competitor.next_where && competitor.next_when && `${competitor.next_where} - ${dayjs(competitor.next_when).format('ddd h:mma')}`}</td>
+                  <td>
+                    <div className="next-match-div">
+                      {
+                        (competitor.next_where && competitor.next_when) &&
+                        <span>{competitor.next_where} - {dayjs(competitor.next_when).format('ddd h:mma')}</span>
+                      }
+                      {
+                      (competitor.next_where && competitor.next_when && getMatLink(competitor.next_where, competitor.next_when, props.matLinks)) &&
+                        <a href={getMatLink(competitor.next_where, competitor.next_when, props.matLinks) ?? ''} target="_blank" rel="noopener noreferrer">
+                          <img src={youtubeLogo} alt="Mat Link" style={{width: '20px', height: '20px'}} />
+                        </a>
+                      }
+                    </div>
+                  </td>
                 }
                 {
                   props.showRatings &&

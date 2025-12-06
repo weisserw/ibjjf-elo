@@ -10,6 +10,7 @@ from pull import (
     parse_competitor,
     parse_medals,
 )
+from livestreams import load_livestream_links, get_livestream_link
 import re
 import json
 from sqlalchemy.sql import func, or_, and_, tuple_
@@ -1781,6 +1782,7 @@ def parse_match(match, weight):
         "when": when,
         "where": where,
         "fight_num": fight_num,
+        "video_link": None,
         "red_bye": red_bye,
         "red_id": red_id,
         "red_seed": red_seed,
@@ -2139,6 +2141,7 @@ def competitors():
                     final["red_note"] = f'{final["red_note"]}, {CLOSEOUT_NOTE}'
 
     last_match_whens = {}
+    livestream_data = load_livestream_links(db.session, [event_id], registrations=True)
     for m in parsed_matches:
         if m["red_id"] is not None:
             if m["red_id"] not in last_match_whens or (
@@ -2150,6 +2153,26 @@ def competitors():
                 m["when"] and m["when"] > last_match_whens[m["blue_id"]]
             ):
                 last_match_whens[m["blue_id"]] = m["when"]
+        if m["video_link"] is None and m["when"] and m["where"]:
+            m["video_link"] = get_livestream_link(
+                livestream_data,
+                event_id,
+                m["blue_name"],
+                m["red_name"],
+                datetime.fromisoformat(m["when"]),
+                m["where"],
+            )
+
+    mat_links = {}
+    tournament_start_date = livestream_data["tournament_days"][event_id]
+    for livestream_key, livestream_info in livestream_data["live_streams"].items():
+        _, day_number, mat_number = livestream_key
+
+        link_date = tournament_start_date + timedelta(days=day_number - 1)
+
+        link = livestream_info[0]
+
+        mat_links.setdefault(link_date.strftime("%Y-%m-%d"), {})[str(mat_number)] = link
 
     division = (
         db.session.query(Division)
@@ -2174,6 +2197,7 @@ def competitors():
         {
             "competitors": results,
             "matches": parsed_matches,
+            "mat_links": mat_links,
         }
     )
 

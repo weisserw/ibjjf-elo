@@ -205,3 +205,15 @@
   gap: 8px;
   align-items: center;
 }
+
+.next-match-div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.next-match-div a {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}

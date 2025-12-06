@@ -33,6 +33,7 @@ export interface Match {
   when: string | null
   where: string | null
   fight_num: number | null
+  video_link: string | null
   red_bye: boolean
   red_id: string | null
   red_seed: number | null
@@ -99,8 +100,17 @@ export interface CategoriesResponse {
   total?: number
 }
 
+export type MatNumberString = string
+
+export type MatLink = Record<MatNumberString, string>
+
+export type TournamentDate = string
+
+export type MatLinks = Record<TournamentDate, MatLink>
+
 export interface LiveCompetitorsResponse extends CompetitorsResponse {
   matches?: Match[]
+  mat_links?: MatLinks
 }
 
 export const categoryString = (category: Category) => {
@@ -195,6 +205,7 @@ export const createBye = (id: string | null, name: string | null, team: string |
     when: null,
     where: null,
     fight_num: null,
+    video_link: null,
     red_id: id,
     red_name: name,
     red_team: team,
@@ -249,6 +260,7 @@ const createEmptyMatch = (match_num: number): Match => {
     when: null,
     where: null,
     fight_num: null,
+    video_link: null,
     red_bye: false,
     red_id: null,
     red_seed: null,

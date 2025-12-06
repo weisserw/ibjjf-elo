@@ -36,6 +36,8 @@ function BracketLive() {
     setBracketCompetitors: setCompetitors,
     bracketMatches: matches,
     setBracketMatches: setMatches,
+    bracketMatLinks: matLinks,
+    setBracketMatLinks: setMatLinks,
     bracketSortColumn: sortColumn,
     setBracketSortColumn: setSortColumn,
     bracketEventTotal: eventTotal,
@@ -208,11 +210,15 @@ function BracketLive() {
       });
       if (data.error) {
         setCompetitors(null)
+        setMatLinks(null)
         setError(data.error)
       } else if (data.competitors) {
         setCompetitors(data.competitors)
         if (data.matches) {
           setMatches(data.matches)
+        }
+        if (data.mat_links) {
+          setMatLinks(data.mat_links)
         }
         setError(null)
       }
@@ -492,6 +498,7 @@ function BracketLive() {
           (events !== null && categories !== null && competitors !== null) && (
             <BracketTable
               competitors={sortedCompetitors}
+              matLinks={matLinks}
               sortColumn={usableSortColumn}
               showSeed={true}
               showEndRating={true}

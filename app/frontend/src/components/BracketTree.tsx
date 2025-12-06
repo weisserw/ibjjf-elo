@@ -8,6 +8,7 @@ import { noMatchStrings, immatureClass, getCountryName, badgeForPercentile } fro
 import { Tooltip } from 'react-tooltip';
 import { t, translateMultiSpace } from '../translate';
 import igLogo from '/src/assets/instagram.png';
+import youtubeLogo from '/src/assets/youtube.png';
 import "/node_modules/flag-icons/css/flag-icons.min.css";
 
 import "./BracketTree.css";
@@ -74,6 +75,14 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
             }
           </div>
         </div>
+        {
+          match.video_link &&
+          <div className="bracket-tree-match-video-link">
+            <a href={match.video_link} target="_blank" rel="noopener noreferrer">
+              <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '20px', height: '20px', maxWidth: '20px'}} />
+            </a>
+          </div>
+        }
         <table className="bracket-tree-match-competitors">
           <tbody>
             <tr className={classNames({"bracket-tree-match-winner": match.blue_loser && !match.red_loser && !match.red_bye})}>

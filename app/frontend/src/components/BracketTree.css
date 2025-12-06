@@ -35,6 +35,12 @@
   align-items: center;
 }
 
+.bracket-tree-match-video-link {
+  position: absolute;
+  top: -22px;
+  left: 0;
+}
+
 .bracket-tree-match-ordinal {
   padding-left: 8px;
   padding-right: 8px;
