@@ -321,7 +321,7 @@ function BracketTable(props: BracketTableProps) {
                       {
                       (competitor.next_where && competitor.next_when && getMatLink(competitor.next_where, competitor.next_when, props.matLinks)) &&
                         <a href={getMatLink(competitor.next_where, competitor.next_when, props.matLinks) ?? ''} target="_blank" rel="noopener noreferrer">
-                          <img src={youtubeLogo} alt="Mat Link" style={{width: '20px', height: '20px'}} />
+                          <img src={youtubeLogo} alt="Mat Link" style={{width: '20px', height: '20px', maxWidth: '20px', maxHeight: '20px'}} />
                         </a>
                       }
                     </div>
