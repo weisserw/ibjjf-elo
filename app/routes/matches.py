@@ -108,6 +108,7 @@ SPECIAL_SEARCH_NAMES = {
     "Andy Tomas Murasaki Pereira": "Andy Murasaki",
     "Erich Munis dos Santos": "Erich Munis",
     "Pedro Henrique Pinheiro M. de Souza": "Pedro Machado",
+    "Jackson Nagai Hatchwell Junior": "Jackson Nagai",
 }
 
 
