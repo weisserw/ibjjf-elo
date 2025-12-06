@@ -715,7 +715,7 @@ def matches():
                                 )
                                 end_seconds = end_hour * 3600 + end_minute * 60
 
-                                if start_seconds < end_seconds:
+                                if match_seconds < end_seconds:
                                     time_offset_seconds = match_seconds - start_seconds
 
                                     if time_offset_seconds > 0:
