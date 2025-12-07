@@ -133,6 +133,13 @@ def event_livestreams():
         stream_id = request.form.get("stream_id")
         start_time_str = request.form.get("start_time", "09:29:00")
         end_time_str = request.form.get("end_time", "23:00:00")
+        drift_factor_str = request.form.get("drift_factor", "0.998")
+        try:
+            drift_factor = float(drift_factor_str)
+            if drift_factor < 0.001 or drift_factor > 1.000:
+                raise ValueError
+        except ValueError:
+            drift_factor = 0.998  # Default drift factor
 
         try:
             comps = start_time_str.split(":")
@@ -186,6 +193,7 @@ def event_livestreams():
                 start_seconds=start_seconds,
                 end_hour=end_hour,
                 end_minute=end_minute,
+                drift_factor=drift_factor,
                 link=link,
             )
             db.session.add(new_stream)
@@ -202,6 +210,7 @@ def event_livestreams():
                 stream.start_seconds = start_seconds
                 stream.end_hour = end_hour
                 stream.end_minute = end_minute
+                stream.drift_factor = drift_factor
                 stream.link = link
                 db.session.commit()
             return redirect(url_for("event_livestreams", id=event_id, name=name))

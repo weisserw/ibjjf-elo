@@ -53,11 +53,12 @@ def load_livestream_links(session, event_ids, registrations=False):
             start_seconds,
             end_hour,
             end_minute,
+            drift_factor,
         )
-        for event_id, day_number, mat_number, link, start_hour, start_minute, start_seconds, end_hour, end_minute in session.execute(
+        for event_id, day_number, mat_number, link, start_hour, start_minute, start_seconds, end_hour, end_minute, drift_factor in session.execute(
             text(
                 f"""
-            SELECT event_id, day_number, mat_number, link, start_hour, start_minute, start_seconds, end_hour, end_minute
+            SELECT event_id, day_number, mat_number, link, start_hour, start_minute, start_seconds, end_hour, end_minute, drift_factor
             FROM live_streams
             WHERE event_id IN ({event_id_placeholders})
             """
@@ -164,6 +165,7 @@ def get_livestream_link(
                         start_seconds,
                         end_hour,
                         end_minute,
+                        drift_factor,
                     ) = livestream_info
 
                     match_seconds = match_hour * 3600 + match_minute * 60
@@ -174,6 +176,8 @@ def get_livestream_link(
 
                     if match_seconds < end_seconds:
                         time_offset_seconds = match_seconds - start_seconds
+
+                        time_offset_seconds = round(time_offset_seconds * drift_factor)
 
                         if time_offset_seconds <= 0:
                             time_offset_seconds = 1
