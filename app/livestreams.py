@@ -131,6 +131,10 @@ def get_search_name(full_name):
         return " ".join([names[0], names[-1]])
 
 
+def url_without_query(url):
+    return url.split("?", 1)[0]
+
+
 def get_livestream_link(
     livestream_links,
     ibjjf_id,
@@ -182,23 +186,67 @@ def get_livestream_link(
                             drift_factor,
                         ) = livestream_info
 
+                        cut_seconds = 0
+                        (
+                            start_hour_with_link,
+                            start_minute_with_link,
+                            start_second_with_link,
+                        ) = (start_hour, start_minute, start_seconds)
+                        start_set = False
+                        if index > 0:
+                            for i in range(index):
+                                (
+                                    prevlink,
+                                    lsh,
+                                    lsm,
+                                    lss,
+                                    eh,
+                                    em,
+                                    _,
+                                ) = livestream_info_list[i]
+                                (
+                                    _,
+                                    sh,
+                                    sm,
+                                    ss,
+                                    _,
+                                    _,
+                                    _,
+                                ) = livestream_info_list[i + 1]
+                                missing_seconds = (sh * 3600 + sm * 60 + ss) - (
+                                    eh * 3600 + em * 60
+                                )
+                                cut_seconds += missing_seconds
+
+                                if (
+                                    url_without_query(prevlink)
+                                    == url_without_query(link)
+                                    and not start_set
+                                ):
+                                    start_hour_with_link = lsh
+                                    start_minute_with_link = lsm
+                                    start_second_with_link = lss
+                                    start_set = True
+
                         match_seconds = match_hour * 3600 + match_minute * 60
                         start_seconds = (
-                            start_hour * 3600 + start_minute * 60 + start_seconds
+                            start_hour_with_link * 3600
+                            + start_minute_with_link * 60
+                            + start_second_with_link
                         )
                         end_seconds = end_hour * 3600 + end_minute * 60
 
-                        if (
-                            index == 0 or match_seconds >= start_seconds
-                        ) and match_seconds < end_seconds:
-                            time_offset_seconds = match_seconds - start_seconds
-
-                            time_offset_seconds = round(
-                                time_offset_seconds * drift_factor
+                        if match_seconds < end_seconds:
+                            time_offset_seconds = (
+                                match_seconds - start_seconds - cut_seconds
                             )
 
                             if time_offset_seconds <= 0:
                                 time_offset_seconds = 1
+
+                            time_offset_seconds = round(
+                                time_offset_seconds * drift_factor
+                            )
 
                             link += "&t=" + str(time_offset_seconds) + "s"
 
