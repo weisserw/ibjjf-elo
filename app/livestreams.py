@@ -45,27 +45,40 @@ def load_livestream_links(session, event_ids, registrations=False):
                 min_date_date = datetime.fromisoformat(min_date)
             tournament_days[ibjjf_id] = min_date_date.date()
 
-    live_streams = {
-        (event_id, day_number, mat_number): (
-            link,
-            start_hour,
-            start_minute,
-            start_seconds,
-            end_hour,
-            end_minute,
-            drift_factor,
+    live_streams = {}
+    for (
+        event_id,
+        day_number,
+        mat_number,
+        link,
+        start_hour,
+        start_minute,
+        start_seconds,
+        end_hour,
+        end_minute,
+        drift_factor,
+    ) in session.execute(
+        text(
+            f"""
+        SELECT event_id, day_number, mat_number, link, start_hour, start_minute, start_seconds, end_hour, end_minute, drift_factor
+        FROM live_streams
+        WHERE event_id IN ({event_id_placeholders})
+        ORDER BY event_id, day_number, mat_number, start_hour, start_minute, start_seconds
+        """
+        ),
+        event_id_params,
+    ):
+        live_streams.setdefault((event_id, day_number, mat_number), []).append(
+            (
+                link,
+                start_hour,
+                start_minute,
+                start_seconds,
+                end_hour,
+                end_minute,
+                drift_factor,
+            )
         )
-        for event_id, day_number, mat_number, link, start_hour, start_minute, start_seconds, end_hour, end_minute, drift_factor in session.execute(
-            text(
-                f"""
-            SELECT event_id, day_number, mat_number, link, start_hour, start_minute, start_seconds, end_hour, end_minute, drift_factor
-            FROM live_streams
-            WHERE event_id IN ({event_id_placeholders})
-            """
-            ),
-            event_id_params,
-        )
-    }
 
     flo_event_tags = {
         event_id: tag
@@ -154,36 +167,41 @@ def get_livestream_link(
                 except ValueError:
                     mat_number_int = None
             if mat_number_int is not None:
-                livestream_info = live_streams.get(
+                livestream_info_list = live_streams.get(
                     (ibjjf_id, day_number, mat_number_int)
                 )
-                if livestream_info:
-                    (
-                        link,
-                        start_hour,
-                        start_minute,
-                        start_seconds,
-                        end_hour,
-                        end_minute,
-                        drift_factor,
-                    ) = livestream_info
+                if livestream_info_list:
+                    for index, livestream_info in enumerate(livestream_info_list):
+                        (
+                            link,
+                            start_hour,
+                            start_minute,
+                            start_seconds,
+                            end_hour,
+                            end_minute,
+                            drift_factor,
+                        ) = livestream_info
 
-                    match_seconds = match_hour * 3600 + match_minute * 60
-                    start_seconds = (
-                        start_hour * 3600 + start_minute * 60 + start_seconds
-                    )
-                    end_seconds = end_hour * 3600 + end_minute * 60
+                        match_seconds = match_hour * 3600 + match_minute * 60
+                        start_seconds = (
+                            start_hour * 3600 + start_minute * 60 + start_seconds
+                        )
+                        end_seconds = end_hour * 3600 + end_minute * 60
 
-                    if match_seconds < end_seconds:
-                        time_offset_seconds = match_seconds - start_seconds
+                        if (
+                            index == 0 or match_seconds >= start_seconds
+                        ) and match_seconds < end_seconds:
+                            time_offset_seconds = match_seconds - start_seconds
 
-                        time_offset_seconds = round(time_offset_seconds * drift_factor)
+                            time_offset_seconds = round(
+                                time_offset_seconds * drift_factor
+                            )
 
-                        if time_offset_seconds <= 0:
-                            time_offset_seconds = 1
+                            if time_offset_seconds <= 0:
+                                time_offset_seconds = 1
 
-                        link += "&t=" + str(time_offset_seconds) + "s"
+                            link += "&t=" + str(time_offset_seconds) + "s"
 
-                        return link
+                            return link
 
     return None

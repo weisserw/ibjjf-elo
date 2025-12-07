@@ -115,7 +115,13 @@ def event_livestreams():
 
     streams = (
         LiveStream.query.filter(LiveStream.event_id == event_id)
-        .order_by(LiveStream.day_number, LiveStream.mat_number)
+        .order_by(
+            LiveStream.day_number,
+            LiveStream.mat_number,
+            LiveStream.start_hour,
+            LiveStream.start_minute,
+            LiveStream.start_seconds,
+        )
         .all()
     )
 
@@ -247,7 +253,13 @@ def event_livestreams():
 
         streams = (
             LiveStream.query.filter(LiveStream.event_id == event_id)
-            .order_by(LiveStream.day_number, LiveStream.mat_number)
+            .order_by(
+                LiveStream.day_number,
+                LiveStream.mat_number,
+                LiveStream.start_hour,
+                LiveStream.start_minute,
+                LiveStream.start_seconds,
+            )
             .all()
         )
 
