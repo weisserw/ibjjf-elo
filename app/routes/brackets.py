@@ -2471,6 +2471,7 @@ def archive_competitors():
                 "final": False,
                 "when": match.happened_at.isoformat(),
                 "where": match.match_location,
+                "video_link": match.video_link,
                 "fight_num": match.fight_number,
                 "red_bye": False,
                 "red_id": str(red.athlete_id),
@@ -2630,11 +2631,28 @@ def archive_competitors():
     for competitor in competitors:
         ordinals_by_id[competitor["ibjjf_id"]] = competitor["ordinal"]
 
+    livestream_data = load_livestream_links(db.session, [event.ibjjf_id])
+
     for match in parsed_matches:
         if match["red_id"] in ordinals_by_id:
             match["red_ordinal"] = ordinals_by_id[match["red_id"]]
         if match["blue_id"] in ordinals_by_id:
             match["blue_ordinal"] = ordinals_by_id[match["blue_id"]]
+
+        if (
+            event.ibjjf_id
+            and match["video_link"] is None
+            and match["when"]
+            and match["where"]
+        ):
+            match["video_link"] = get_livestream_link(
+                livestream_data,
+                event.ibjjf_id,
+                match["blue_name"],
+                match["red_name"],
+                datetime.fromisoformat(match["when"]),
+                match["where"],
+            )
 
     return jsonify(
         {
