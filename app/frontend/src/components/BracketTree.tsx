@@ -76,7 +76,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
           </div>
         </div>
         {
-          (match.video_link && !match.red_next_description && !match.blue_next_description &&
+          (match.video_link &&
             !match.red_bye && !match.blue_bye &&
             !noMatchStrings.some(s => match.red_note?.toLowerCase() === s) &&
             !noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)) &&
