@@ -304,19 +304,6 @@ def athlete_matches():
     return render_template("athlete_matches.html", athlete=athlete, matches=matches)
 
 
-@app.route("/update_video_link", methods=["POST"])
-def update_video_link():
-    match_id = request.form.get("match_id")
-    video_link = request.form.get("video_link", "").strip()
-    athlete_id = request.form.get("athlete_id")
-    if match_id:
-        match = Match.query.get(uuid.UUID(match_id))
-        if match:
-            match.video_link = video_link
-            db.session.commit()
-    return redirect(url_for("athlete_matches", id=athlete_id))
-
-
 @app.route("/athlete_edit")
 @app.route("/athlete_edit", methods=["GET", "POST"])
 def athlete_edit():
@@ -360,6 +347,24 @@ def athlete_edit():
         db.session.commit()
         message = "Athlete info updated."
     return render_template("athlete_edit.html", athlete=athlete, message=message)
+
+
+@app.route("/update_all_video_links", methods=["POST"])
+def update_all_video_links():
+    athlete_id = request.form.get("athlete_id")
+    # Collect all video_link fields
+    match_video_links = {}
+    for key, value in request.form.items():
+        if key.startswith("video_link_"):
+            match_id = key[len("video_link_") :]
+            match_video_links[match_id] = value.strip()
+    # Update each match
+    for match_id, video_link in match_video_links.items():
+        match = Match.query.get(uuid.UUID(match_id))
+        if match:
+            match.video_link = video_link
+    db.session.commit()
+    return redirect(url_for("athlete_matches", id=athlete_id))
 
 
 application = app
