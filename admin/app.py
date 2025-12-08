@@ -185,7 +185,6 @@ def event_livestreams():
                     netloc="www.youtube.com", path="/watch", query=query
                 )
                 link = urlunparse(parsed_url)
-            link = link.split("?", 1)[0]  # remove query parameters
         except Exception:
             pass  # if parsing fails, keep the original link
 

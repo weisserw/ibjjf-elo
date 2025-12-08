@@ -131,10 +131,6 @@ def get_search_name(full_name):
         return " ".join([names[0], names[-1]])
 
 
-def url_without_query(url):
-    return url.split("?", 1)[0]
-
-
 def get_livestream_link(
     livestream_links,
     ibjjf_id,
@@ -218,11 +214,7 @@ def get_livestream_link(
                                 )
                                 cut_seconds += missing_seconds
 
-                                if (
-                                    url_without_query(prevlink)
-                                    == url_without_query(link)
-                                    and not start_set
-                                ):
+                                if prevlink == link and not start_set:
                                     start_hour_with_link = lsh
                                     start_minute_with_link = lsm
                                     start_second_with_link = lss
