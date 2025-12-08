@@ -2153,7 +2153,7 @@ def competitors():
                 m["when"] and m["when"] > last_match_whens[m["blue_id"]]
             ):
                 last_match_whens[m["blue_id"]] = m["when"]
-        if m["video_link"] is None and m["when"] and m["where"]:
+        if (not m["video_link"]) and m["when"] and m["where"]:
             m["video_link"] = get_livestream_link(
                 livestream_data,
                 event_id,
@@ -2641,7 +2641,7 @@ def archive_competitors():
 
         if (
             event.ibjjf_id
-            and match["video_link"] is None
+            and (not match["video_link"])
             and match["when"]
             and match["where"]
         ):

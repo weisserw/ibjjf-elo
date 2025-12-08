@@ -378,7 +378,7 @@ def update_all_video_links():
     for key, value in request.form.items():
         if key.startswith("video_link_"):
             match_id = key[len("video_link_") :]
-            match_video_links[match_id] = value.strip()
+            match_video_links[match_id] = value.strip() if value else None
     # Update each match
     for match_id, video_link in match_video_links.items():
         match = Match.query.get(uuid.UUID(match_id))

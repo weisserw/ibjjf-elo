@@ -209,16 +209,18 @@ def get_livestream_link(
                                     _,
                                     _,
                                 ) = livestream_info_list[i + 1]
-                                missing_seconds = (sh * 3600 + sm * 60 + ss) - (
-                                    eh * 3600 + em * 60
-                                )
-                                cut_seconds += missing_seconds
 
-                                if prevlink == link and not start_set:
-                                    start_hour_with_link = lsh
-                                    start_minute_with_link = lsm
-                                    start_second_with_link = lss
-                                    start_set = True
+                                if prevlink == link:
+                                    missing_seconds = (sh * 3600 + sm * 60 + ss) - (
+                                        eh * 3600 + em * 60
+                                    )
+                                    cut_seconds += missing_seconds
+
+                                    if not start_set:
+                                        start_hour_with_link = lsh
+                                        start_minute_with_link = lsm
+                                        start_second_with_link = lss
+                                        start_set = True
 
                         match_seconds = match_hour * 3600 + match_minute * 60
                         start_seconds = (
