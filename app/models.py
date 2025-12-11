@@ -358,6 +358,7 @@ class LiveStream(db.Model):
     end_hour = Column(Integer, nullable=False)
     end_minute = Column(Integer, nullable=False)
     drift_factor = Column(Float, nullable=False)
+    hide_all = Column(Boolean, nullable=False)
     link = Column(String, nullable=False)
 
     __table_args__ = (Index("ix_live_streams_event_id", "event_id"),)

@@ -57,10 +57,11 @@ def load_livestream_links(session, event_ids, registrations=False):
         end_hour,
         end_minute,
         drift_factor,
+        hide_all,
     ) in session.execute(
         text(
             f"""
-        SELECT event_id, day_number, mat_number, link, start_hour, start_minute, start_seconds, end_hour, end_minute, drift_factor
+        SELECT event_id, day_number, mat_number, link, start_hour, start_minute, start_seconds, end_hour, end_minute, drift_factor, hide_all
         FROM live_streams
         WHERE event_id IN ({event_id_placeholders})
         ORDER BY event_id, day_number, mat_number, start_hour, start_minute, start_seconds
@@ -77,6 +78,7 @@ def load_livestream_links(session, event_ids, registrations=False):
                 end_hour,
                 end_minute,
                 drift_factor,
+                hide_all,
             )
         )
 
@@ -181,6 +183,7 @@ def get_livestream_link(
                             end_hour,
                             end_minute,
                             drift_factor,
+                            hide_all,
                         ) = livestream_info
 
                         cut_seconds = 0
@@ -200,12 +203,14 @@ def get_livestream_link(
                                     eh,
                                     em,
                                     _,
+                                    _,
                                 ) = livestream_info_list[i]
                                 (
                                     _,
                                     sh,
                                     sm,
                                     ss,
+                                    _,
                                     _,
                                     _,
                                     _,
@@ -245,6 +250,9 @@ def get_livestream_link(
 
                             if not flo_event_tags.get(ibjjf_id):
                                 link += "&t=" + str(time_offset_seconds) + "s"
+
+                            if hide_all:
+                                return None
 
                             return link
 
