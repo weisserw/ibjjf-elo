@@ -88,7 +88,8 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
           (match.video_link &&
             !match.red_bye && !match.blue_bye &&
             !noMatchStrings.some(s => match.red_note?.toLowerCase() === s) &&
-            !noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)) &&
+            !noMatchStrings.some(s => match.blue_note?.toLowerCase() === s) &&
+            (!match.video_link.includes('flograppling') || match.red_loser || match.blue_loser)) &&
           <div className="bracket-tree-match-video-link">
             <a href={match.video_link} target="_blank" rel="noopener noreferrer">
               {logoForLink(match.video_link)}
