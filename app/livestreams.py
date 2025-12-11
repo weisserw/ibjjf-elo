@@ -229,16 +229,22 @@ def get_livestream_link(
                                         start_set = True
 
                         match_seconds = match_hour * 3600 + match_minute * 60
-                        start_seconds = (
+                        start_seconds_for_offset = (
                             start_hour_with_link * 3600
                             + start_minute_with_link * 60
                             + start_second_with_link
                         )
+                        stream_start_seconds = (
+                            start_hour * 3600 + start_minute * 60 + start_seconds
+                        )
                         end_seconds = end_hour * 3600 + end_minute * 60
 
-                        if match_seconds < end_seconds:
+                        if (
+                            match_seconds >= stream_start_seconds
+                            and match_seconds < end_seconds
+                        ):
                             time_offset_seconds = (
-                                match_seconds - start_seconds - cut_seconds
+                                match_seconds - start_seconds_for_offset - cut_seconds
                             )
 
                             if time_offset_seconds <= 0:
