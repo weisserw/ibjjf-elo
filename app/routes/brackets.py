@@ -2170,7 +2170,7 @@ def competitors():
 
         link_date = tournament_start_date + timedelta(days=day_number - 1)
 
-        link = livestream_info[0]
+        link = livestream_info[0][0]
 
         mat_links.setdefault(link_date.strftime("%Y-%m-%d"), {})[str(mat_number)] = link
 

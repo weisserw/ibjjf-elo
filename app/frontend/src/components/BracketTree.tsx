@@ -9,6 +9,7 @@ import { Tooltip } from 'react-tooltip';
 import { t, translateMultiSpace } from '../translate';
 import igLogo from '/src/assets/instagram.png';
 import youtubeLogo from '/src/assets/youtube.png';
+import floLogo from '/src/assets/flo.png';
 import "/node_modules/flag-icons/css/flag-icons.min.css";
 
 import "./BracketTree.css";
@@ -41,6 +42,14 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
 
   const [redBadge, redBadgeDesc] = badgeForPercentile(match.red_percentile, belt);
   const [blueBadge, blueBadgeDesc] = badgeForPercentile(match.blue_percentile, belt);
+
+  const logoForLink = (link: string) => {
+    if (link.includes('flograppling')) {
+      return <img src={floLogo} alt="Match Link" style={{width: '18px', height: '18px', maxWidth: '18px'}} />
+    } else {
+      return <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '30px', height: '30px', maxWidth: '30px'}} />
+    }
+  }
 
   return (
     <div className="bracket-tree-match-container">
@@ -82,7 +91,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
             !noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)) &&
           <div className="bracket-tree-match-video-link">
             <a href={match.video_link} target="_blank" rel="noopener noreferrer">
-              <img src={youtubeLogo} alt="Match Video" title="Match Video" style={{width: '30px', height: '30px', maxWidth: '30px'}} />
+              {logoForLink(match.video_link)}
             </a>
           </div>
         }

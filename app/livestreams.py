@@ -143,15 +143,16 @@ def get_livestream_link(
     live_streams = livestream_links["live_streams"]
     flo_event_tags = livestream_links["flo_event_tags"]
 
-    if ibjjf_id in flo_event_tags:
+    if ibjjf_id in flo_event_tags and winner_name and loser_name:
         tag = flo_event_tags[ibjjf_id]
-        winner_last_name = get_search_name(
-            winner_name,
-        )
-        loser_last_name = get_search_name(
-            loser_name,
-        )
-        return f"https://www.flograppling.com/events/{tag}/videos?openInBrowser=1&search={quote(winner_last_name)}%20vs%20{quote(loser_last_name)}"
+        if winner_name and loser_name:
+            winner_last_name = get_search_name(
+                winner_name,
+            )
+            loser_last_name = get_search_name(
+                loser_name,
+            )
+            return f"https://www.flograppling.com/events/{tag}/videos?openInBrowser=1&search={quote(winner_last_name)}%20vs%20{quote(loser_last_name)}"
     elif len(live_streams):
         event_start_day = tournament_days.get(ibjjf_id)
         if event_start_day:
@@ -242,7 +243,8 @@ def get_livestream_link(
                                 time_offset_seconds * drift_factor
                             )
 
-                            link += "&t=" + str(time_offset_seconds) + "s"
+                            if not flo_event_tags.get(ibjjf_id):
+                                link += "&t=" + str(time_offset_seconds) + "s"
 
                             return link
 

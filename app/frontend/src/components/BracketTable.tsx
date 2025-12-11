@@ -9,6 +9,7 @@ import { Tooltip } from 'react-tooltip';
 import { t } from '../translate'
 import NameInfo from './NameInfo'
 import youtubeLogo from '/src/assets/youtube.png'
+import floLogo from '/src/assets/flo.png'
 
 interface BracketTableProps {
   competitors: Competitor[] | null;
@@ -159,6 +160,14 @@ function BracketTable(props: BracketTableProps) {
     return matLinkEntry[matNumberString] ?? null; 
   }
 
+  const logoForLink = (link: string) => {
+    if (link.includes('flograppling')) {
+      return <img src={floLogo} alt="Match Link" style={{width: '14px', height: '14px', maxWidth: '14px', marginLeft: '2px'}} />
+    } else {
+      return <img src={youtubeLogo} alt="Mat Link" style={{width: '20px', height: '20px', maxWidth: '20px', maxHeight: '20px'}} />
+    }
+  }
+
   return (
     <div className="table-container">
       {
@@ -237,6 +246,8 @@ function BracketTable(props: BracketTableProps) {
           {
             competitors?.map(competitor => {
               const [badge, badgeDesc] = badgeForPercentile(competitor.percentile, belt);
+              const matLink = (competitor.next_where && competitor.next_when) ? getMatLink(competitor.next_where, competitor.next_when, props.matLinks) ?? '' : '' ;
+              
               return (
               <tr key={competitor.name}>
                 {
@@ -319,9 +330,9 @@ function BracketTable(props: BracketTableProps) {
                         <span>{competitor.next_where} - {dayjs(competitor.next_when).format('ddd h:mma')}</span>
                       }
                       {
-                      (competitor.next_where && competitor.next_when && getMatLink(competitor.next_where, competitor.next_when, props.matLinks)) &&
-                        <a href={getMatLink(competitor.next_where, competitor.next_when, props.matLinks) ?? ''} target="_blank" rel="noopener noreferrer">
-                          <img src={youtubeLogo} alt="Mat Link" style={{width: '20px', height: '20px', maxWidth: '20px', maxHeight: '20px'}} />
+                      (competitor.next_where && competitor.next_when && matLink) &&
+                        <a href={matLink} target="_blank" rel="noopener noreferrer">
+                          {logoForLink(matLink)}
                         </a>
                       }
                     </div>
