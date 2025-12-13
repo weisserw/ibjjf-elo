@@ -108,6 +108,7 @@ SPECIAL_SEARCH_NAMES = {
     "Erich Munis dos Santos": "Erich Munis",
     "Pedro Henrique Pinheiro M. de Souza": "Pedro Machado",
     "Jackson Nagai Hatchwell Junior": "Jackson Nagai",
+    "Edwin Ocasio": "Ocasio",  # inconsistent, sometimes Junny Ocasio sometimes Edwin Ocasio or Edwin Junny Ocasio
 }
 
 
