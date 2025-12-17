@@ -14,7 +14,7 @@ fi
 output=$(cat "$temp_file")
 rm -f "$temp_file"
 
-output_file=$(echo "$output" | grep -oP 'Wrote data to \K.*')
+output_file=$(echo "$output" | sed -n 's/^Wrote data to //p')
 if [ -z "$output_file" ]; then
   echo "Error: Could not extract output filename"
   exit 1

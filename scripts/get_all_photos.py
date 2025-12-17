@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
                 errors += 1
 
-                if errors >= 5:
+                if errors >= 15:
                     print("Too many errors, exiting.")
                     break
 
