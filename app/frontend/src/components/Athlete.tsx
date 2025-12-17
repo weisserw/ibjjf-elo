@@ -11,6 +11,7 @@ import igLogoColor from '/src/assets/instagram-color.png';
 import usadaLogo from '/src/assets/usada.png';
 import uaeNadaLogo from '/src/assets/uae-nada.png';
 import noPhoto from '/src/assets/no-photo.jpg';
+import bjjheroesLogo from '/src/assets/bjjheroes.png';
 import { Tooltip } from 'react-tooltip';
 import DBTableRows from './DBTableRows';
 import { useNavigate } from 'react-router-dom'
@@ -37,6 +38,7 @@ interface Athlete {
   country_note_pt: string | null;
   personal_name: string | null;
   nickname_translation: string | null;
+  bjjheroes_link: string | null;
   instagram_profile_photo_url: string | null;
   team_name: string | null;
   rating: number | null;
@@ -551,6 +553,13 @@ function Athlete() {
             <a href={`https://instagram.com/${athlete.instagram_profile}`} target="_blank" rel="noopener noreferrer">
               <img src={igLogoColor} alt="Instagram" className="ig-tooltip-instagram-logo" /> {athlete.instagram_profile}
             </a>
+            {
+              athlete.bjjheroes_link && (
+                <a href={athlete.bjjheroes_link} target="_blank" rel="noopener noreferrer" className="bjjheroes-link">
+                  <img src={bjjheroesLogo} alt="BJJ Heroes Profile" />
+                </a>
+              )
+            }
           </h2>
           )}
         </div>

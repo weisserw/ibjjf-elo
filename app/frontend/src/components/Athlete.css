@@ -34,6 +34,12 @@
   height: 12px;
 }
 
+.athlete-nickname a.bjjheroes-link img {
+  width: 100px;
+  max-width: 100px;
+  height: auto;
+}
+
 .athlete-elo-box {
   background: var(--bulma-background, #fff);
 }

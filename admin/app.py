@@ -370,6 +370,9 @@ def athlete_edit():
             nickname_translation if nickname_translation else None
         )
 
+        bjjheroes_link = request.form.get("bjjheroes_link", "").strip()
+        athlete.bjjheroes_link = bjjheroes_link if bjjheroes_link else None
+
         db.session.commit()
         message = "Athlete info updated."
     return render_template("athlete_edit.html", athlete=athlete, message=message)

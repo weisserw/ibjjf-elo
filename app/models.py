@@ -102,6 +102,7 @@ class Athlete(db.Model):
     normalized_name_tsvector = Column(SqliteTSVECTOR, nullable=True)
     normalized_personal_name_tsvector = Column(SqliteTSVECTOR, nullable=True)
     nickname_translation = Column(String, nullable=True)
+    bjjheroes_link = Column(String, nullable=True)
 
     __table_args__ = (
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),
