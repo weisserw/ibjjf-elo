@@ -1,0 +1,25 @@
+.news-section {
+  padding-left: 10px;
+}
+
+.news-badge {
+  font-weight: bold;
+  display: inline;
+  margin-right: 8px;
+}
+
+.news-posts {
+  display: inline;
+}
+
+.news-separator {
+  margin: 0 4px;
+}
+
+.news-link {
+  font-size: 14px;
+  color: rgb(74, 74, 74);
+  text-decoration: none;
+  font-weight: 600;
+  text-transform: uppercase;
+}

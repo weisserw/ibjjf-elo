@@ -7,6 +7,7 @@ from routes.matches import matches_route
 from routes.athletes import athletes_route
 from routes.events import events_route
 from routes.brackets import brackets_route
+from routes.news import news_route
 
 logger = logging.getLogger("ibjjf")
 log_level = logging.DEBUG if os.getenv("DEBUG") else logging.INFO
@@ -57,6 +58,7 @@ app.register_blueprint(matches_route)
 app.register_blueprint(athletes_route)
 app.register_blueprint(events_route)
 app.register_blueprint(brackets_route)
+app.register_blueprint(news_route)
 
 application = app
 

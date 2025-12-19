@@ -6,6 +6,7 @@ import Brackets from './components/Brackets';
 import Calculator from './components/Calculator';
 import Athlete from './components/Athlete';
 import About from './components/About';
+import News from './components/News';
 import NotFound from './components/NotFound';
 import { AppProvider } from './AppContext';
 
@@ -27,6 +28,7 @@ function App() {
               <Route path="/tournaments/registrations" element={<Brackets tab="Registrations" />} />
               <Route path="/tournaments/archive" element={<Brackets tab="Archive" />} />
               <Route path="/calculator" element={<Calculator />} />
+              <Route path="/news" element={<News />} />
               <Route path="/about" element={<About />} />
               <Route path="/athlete/:id" element={<Athlete />} />
               <Route path="*" element={<NotFound />} />
