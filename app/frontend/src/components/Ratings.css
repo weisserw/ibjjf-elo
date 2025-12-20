@@ -1,5 +1,11 @@
 .news-section {
   padding-left: 10px;
+  background: #f0f7ff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 32, 128, 0.08);
+  padding: 1rem 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #e3eaf5;
 }
 
 .news-badge {
@@ -13,7 +19,7 @@
 }
 
 .news-separator {
-  margin: 0 4px;
+  margin: 0 14px;
 }
 
 .news-link {

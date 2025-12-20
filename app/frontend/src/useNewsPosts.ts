@@ -12,6 +12,9 @@ export interface WPPost {
   title: string;
   excerpt: string;
   content: string;
+  author: {
+    name: string;
+  }
 }
 
 interface CachedPosts {

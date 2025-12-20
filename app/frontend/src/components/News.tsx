@@ -1,12 +1,12 @@
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import useNewsPosts, { WPPost } from "../useNewsPosts";
 
 export default function NewsList() {
   const { posts, loading, error } = useNewsPosts();
 
   // Scroll to anchor if hash is present, after posts are loaded
-  useEffect(() => {
+  useLayoutEffect(() => {
     const scrollToHash = () => {
       if (window.location.hash) {
         const id = window.location.hash.slice(1);
@@ -25,7 +25,7 @@ export default function NewsList() {
     return (
       <section className="section">
         <div className="container">
-          <p>Loading news…</p>
+          <div className="loader"/>
         </div>
       </section>
     );
@@ -53,6 +53,7 @@ export default function NewsList() {
 
               <p className="is-size-7 has-text-grey mb-3">
                 {new Date(post.date).toLocaleDateString()}
+                {' '}by {post.author.name}
               </p>
 
               <div
