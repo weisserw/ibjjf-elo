@@ -1,25 +1,7 @@
-
-import { useLayoutEffect } from "react";
 import useNewsPosts, { WPPost } from "../useNewsPosts";
 
 export default function NewsList() {
   const { posts, loading, error } = useNewsPosts();
-
-  // Scroll to anchor if hash is present, after posts are loaded
-  useLayoutEffect(() => {
-    const scrollToHash = () => {
-      if (window.location.hash) {
-        const id = window.location.hash.slice(1);
-        const el = document.getElementById(id);
-        if (el) {
-          el.scrollIntoView({ behavior: "instant", block: "start" });
-        }
-      }
-    };
-    scrollToHash();
-    window.addEventListener("hashchange", scrollToHash);
-    return () => window.removeEventListener("hashchange", scrollToHash);
-  }, [posts]);
 
   if (loading) {
     return (
@@ -48,8 +30,10 @@ export default function NewsList() {
 
         {posts.map((post: WPPost) => {
           return (
-            <article key={post.ID} id={`${post.ID}`} className="box mb-5">
-              <h2 className="title is-4">{post.title}</h2>
+            <article key={post.slug} className="box mb-5">
+              <h2 className="title is-4">
+                <a href={`/news/${post.ID}/${post.slug}`}>{post.title}</a>
+              </h2>
 
               <p className="is-size-7 has-text-grey mb-3">
                 {new Date(post.date).toLocaleDateString()}
@@ -59,7 +43,7 @@ export default function NewsList() {
               <div
                 className="content"
                 dangerouslySetInnerHTML={{
-                  __html: post.content
+                  __html: post.excerpt
                 }}
               />
             </article>

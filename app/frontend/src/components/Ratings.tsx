@@ -26,7 +26,7 @@ function Ratings() {
             {posts.slice(0, 3).map((post, index) => (
               <>
                 {index > 0 && <span className="news-separator">•</span>}
-                <a key={post.ID} href={`/news#${post.ID}`} className="news-link" onClick={handleNewsClick}>
+                <a key={post.slug} href={`/news/${post.ID}/${post.slug}`} className="news-link" onClick={handleNewsClick}>
                   {post.title}
                 </a>
               </>

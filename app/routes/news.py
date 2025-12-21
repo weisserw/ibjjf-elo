@@ -19,3 +19,11 @@ def get_news():
 
     print(resp.json())
     return jsonify({"posts": resp.json()["posts"]})
+
+
+@news_route.route("/api/news/<id>")
+def get_news_by_id(id):
+    resp = requests.get(f"{WP_API}/{id}")
+    if resp.status_code != 200:
+        return jsonify({"error": resp.text})
+    return jsonify({"post": resp.json()})
