@@ -53,6 +53,18 @@ export const ages = [
   'Master 7',
 ]
 
+export const ageYears = [
+  '16-17',
+  '18+',
+  '30+',
+  '35+',
+  '40+',
+  '45+',
+  '50+',
+  '55+',
+  '60+',
+]
+
 export interface DBRow {
   id: string
   winner: string
