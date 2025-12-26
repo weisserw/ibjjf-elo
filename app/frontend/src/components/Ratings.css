@@ -28,3 +28,14 @@
   font-weight: 600;
   text-transform: uppercase;
 }
+
+.new-post-marker {
+  background-color: #ff3b30;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-right: 6px;
+  vertical-align: middle;
+}

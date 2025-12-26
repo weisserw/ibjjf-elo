@@ -2,6 +2,7 @@ import GiTabs from './GiTabs';
 import EloTable from './EloTable';
 import useNewsPosts from '../useNewsPosts';
 import { useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
 
 import "./Ratings.css";
 
@@ -26,6 +27,10 @@ function Ratings() {
             {posts.slice(0, 3).map((post, index) => (
               <>
                 {index > 0 && <span className="news-separator">•</span>}
+                {
+                  index === 0 && dayjs().diff(dayjs(post.date), 'day') <= 3 &&
+                  <span className="new-post-marker">New</span>
+                }
                 <a key={post.slug} href={`/news/${post.ID}/${post.slug}`} className="news-link" onClick={handleNewsClick}>
                   {post.title}
                 </a>
