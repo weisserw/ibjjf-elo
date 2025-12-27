@@ -12,6 +12,7 @@ export interface EliteAthlete {
   match_count: number | null
   rank: number | null
   percentile: number | null
+  percentile_age: string | null
   tier: number
   category: string
   belt: string
@@ -53,7 +54,7 @@ function EliteTable(props: EliteTableProps) {
         <tbody>
         {
           elites?.map(e => {
-            const [badge, badgeDesc] = badgeForPercentile(e.percentile, e.belt)
+            const [badge, badgeDesc] = badgeForPercentile(e.percentile, e.belt, e.percentile_age)
             return (
               <tr key={`${e.name}-${e.team}-${e.category}`}>
                 <td className="badge-table-cell">
