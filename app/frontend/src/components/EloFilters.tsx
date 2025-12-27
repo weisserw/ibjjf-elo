@@ -1,184 +1,24 @@
 import { useMemo } from "react"
 import { useAppContext } from "../AppContext"
-import { ages, ageYears } from "../utils"
+import { ages, ageYears, juvenileRanks, juvenileRanksValues, adultRanks, adultRanksValues,
+  femaleWeights, maleWeights, femaleJuvenileWeightValuesKgs, femaleJuvenileWeightValuesLbs,
+  femaleAdultWeightValuesKgs, femaleAdultWeightValuesLbs, maleJuvenile1WeightValuesKgs,
+  maleJuvenile1WeightValuesLbs, maleAdultWeightValuesKgs, maleAdultWeightValuesLbs,
+  femaleNoGiJuvenileWeightValuesKgs, femaleNoGiJuvenileWeightValuesLbs,
+  femaleNoGiAdultWeightValuesKgs, femaleNoGiAdultWeightValuesLbs,
+  maleNoGiJuvenileWeightValuesKgs, maleNoGiJuvenileWeightValuesLbs,
+  maleNoGiAdultWeightValuesKgs, maleNoGiAdultWeightValuesLbs
+ } from "../constants"
 import classNames from "classnames"
 import { t, type translationKeys } from "../translate"
 import CustomSelect from "./CustomSelect"
 
 import "./EloFilters.css"
 
-const juvenileRanks = [
-  'White',
-  'Blue',
-  'Purple',
-]
-
-const juvenileRanksValues = juvenileRanks.map(rank => rank.toUpperCase())
-
-const adultRanks = [
-  'White',
-  'Blue',
-  'Purple',
-  'Brown',
-  'Black',
-]
-
-const adultRanksValues = adultRanks.map(rank => rank.toUpperCase())
-
-const femaleWeights = [{
-  name: 'P4P',
-  value: ''
-}, {
-  name: 'Rooster',
-  value: 'Rooster'
-}, {
-  name: 'Light Feather',
-  value: 'Light Feather'
-}, {
-  name: 'Feather',
-  value: 'Feather'
-}, {
-  name: 'Light',
-  value: 'Light'
-}, {
-  name: 'Middle',
-  value: 'Middle'
-}, {
-  name: 'Medium Heavy',
-  value: 'Medium Heavy'
-}, {
-  name: 'Heavy',
-  value: 'Heavy'
-}, {
-  name: 'Super Heavy',
-  value: 'Super Heavy'
-}];
-
-const maleWeights = femaleWeights.concat([{
-  name: 'Ultra Heavy',
-  value: 'Ultra Heavy'
-}]);
-
-const femaleJuvenileWeightValuesLbs = {
-  'Rooster': "98.0 lbs",
-  'Light Feather': "106.6 lbs",
-  'Feather': "116.0 lbs",
-  'Light': "125.0 lbs",
-  'Middle': "133.6 lbs",
-  'Medium Heavy': "143.6 lbs",
-  'Heavy': "152.0 lbs",
-  'Super Heavy': "No Limit",
-}
-
-const femaleJuvenileWeightValuesKgs = {
-  "Rooster": "44,30 kg",
-  "Light Feather": "48,30 kg",
-  "Feather": "52,50 kg",
-  "Light": "56,50 kg",
-  "Middle": "60,50 kg",
-  "Medium Heavy": "65,00 kg",
-  "Heavy": "69,00 kg",
-  "Super Heavy": "No Limit",
-}
-
-const femaleAdultWeightValuesLbs = {
-  "Rooster": "107.0 lbs",
-  "Light Feather": "118.0 lbs",
-  "Feather": "129.0 lbs",
-  "Light": "141.6 lbs",
-  "Middle": "152.6 lbs",
-  "Medium Heavy": "163.6 lbs",
-  "Heavy": "175.0 lbs",
-  "Super Heavy": "No Limit",
-}
-
-const femaleAdultWeightValuesKgs = {
-  "Rooster": "48,50 kg",
-  "Light Feather": "53,50 kg",
-  "Feather": "58,50 kg",
-  "Light": "64,00 kg",
-  "Middle": "69,00 kg",
-  "Medium Heavy": "74,00 kg",
-  "Heavy": "79,30 kg",
-  "Super Heavy": "No Limit",
-}
-
-const maleJuvenile1WeightValuesLbs = {
-  "Rooster": "107.0 lbs",
-  "Light Feather": "118.0 lbs",
-  "Feather": "129.0 lbs",
-  "Light": "141.0 lbs",
-  "Middle": "152.0 lbs",
-  "Medium Heavy": "163.0 lbs",
-  "Heavy": "175.0 lbs",
-  "Super Heavy": "186.0 lbs",
-  "Ultra Heavy": "No Limit",
-}
-
-const maleJuvenile1WeightValuesKgs = {
-  "Rooster": "48,50 kg",
-  "Light Feather": "53,50 kg",
-  "Feather": "58,50 kg",
-  "Light": "64,00 kg",
-  "Middle": "69,00 kg",
-  "Medium Heavy": "74,00 kg",
-  "Heavy": "79,30 kg",
-  "Super Heavy": "84,30 kg",
-  "Ultra Heavy": "No Limit",
-}
-
-/*
-const maleJuvenile2WeightValuesLbs = {
-  "Rooster": "118.0 lbs",
-  "Light Feather": "129.0 lbs",
-  "Feather": "141.6 lbs",
-  "Light": "152.6 lbs",
-  "Middle": "163.6 lbs",
-  "Medium Heavy": "175.0 lbs",
-  "Heavy": "186.0 lbs",
-  "Super Heavy": "197.0 lbs",
-  "Ultra Heavy": "No Limit",
-}
-
-const maleJuvenile2WeightValuesKgs = {
-  "Rooster": "53,50 kg",
-  "Light Feather": "58,50 kg",
-  "Feather": "64,00 kg",
-  "Light": "69,00 kg",
-  "Middle": "74,00 kg",
-  "Medium Heavy": "79,30 kg",
-  "Heavy": "84,30 kg",
-  "Super Heavy": "89,30 kg",
-  "Ultra Heavy": "No Limit",
-}*/
-
-const maleAdultWeightValuesLbs = {
-  "Rooster": "127.0 lbs",
-  "Light Feather": "141.6 lbs",
-  "Feather": "154.6 lbs",
-  "Light": "168.0 lbs",
-  "Middle": "181.6 lbs",
-  "Medium Heavy": "195.0 lbs",
-  "Heavy": "208.0 lbs",
-  "Super Heavy": "222.0 lbs",
-  "Ultra Heavy": "No Limit",
-}
-
-const maleAdultWeightValuesKgs = {
-  "Rooster": "57,50 kg",
-  "Light Feather": "64,00 kg",
-  "Feather": "70,00 kg",
-  "Light": "76,00 kg",
-  "Middle": "82,30 kg",
-  "Medium Heavy": "88,30 kg",
-  "Heavy": "94,30 kg",
-  "Super Heavy": "100,50 kg",
-  "Ultra Heavy": "No Limit",
-}
-
 function EloFilters() {
   const {
     language,
+    activeTab,
     rankingGender: gender,
     rankingAge: age,
     rankingBelt: belt,
@@ -250,17 +90,33 @@ function EloFilters() {
     let weightValues: { [key: string]: string } = {};
 
     if (gender === 'Female') {
-      if (isJuvenileAge(age)) {
-        weightValues = language === 'pt' ? femaleJuvenileWeightValuesKgs : femaleJuvenileWeightValuesLbs;
+      if (activeTab === 'Gi') {
+        if (isJuvenileAge(age)) {
+          weightValues = language === 'pt' ? femaleJuvenileWeightValuesKgs : femaleJuvenileWeightValuesLbs;
+        } else {
+          weightValues = language === 'pt' ? femaleAdultWeightValuesKgs : femaleAdultWeightValuesLbs;
+        }
       } else {
-        weightValues = language === 'pt' ? femaleAdultWeightValuesKgs : femaleAdultWeightValuesLbs;
+        if (isJuvenileAge(age)) {
+          weightValues = language === 'pt' ? femaleNoGiJuvenileWeightValuesKgs : femaleNoGiJuvenileWeightValuesLbs;
+        } else {
+          weightValues = language === 'pt' ? femaleNoGiAdultWeightValuesKgs : femaleNoGiAdultWeightValuesLbs;
+        }
       }
     } else {
-      if (isJuvenileAge(age)) {
-        // For Juvenile, use Juvenile1 values
-        weightValues = language === 'pt' ? maleJuvenile1WeightValuesKgs : maleJuvenile1WeightValuesLbs;
+      if (activeTab === 'Gi') {
+        if (isJuvenileAge(age)) {
+          // For Juvenile, use Juvenile1 values
+          weightValues = language === 'pt' ? maleJuvenile1WeightValuesKgs : maleJuvenile1WeightValuesLbs;
+        } else {
+          weightValues = language === 'pt' ? maleAdultWeightValuesKgs : maleAdultWeightValuesLbs;
+        }
       } else {
-        weightValues = language === 'pt' ? maleAdultWeightValuesKgs : maleAdultWeightValuesLbs;
+        if (isJuvenileAge(age)) {
+          weightValues = language === 'pt' ? maleNoGiJuvenileWeightValuesKgs : maleNoGiJuvenileWeightValuesLbs;
+        } else {
+          weightValues = language === 'pt' ? maleNoGiAdultWeightValuesKgs : maleNoGiAdultWeightValuesLbs;
+        }
       }
     }
 
@@ -269,7 +125,7 @@ function EloFilters() {
       label: t(name as translationKeys) + (value ? ` (${weightValues[name]})` : ''),
       selectedLabel: t(name as translationKeys),
     }));
-  }, [gender, age, language]);
+  }, [gender, age, language, activeTab]);
 
   return (
     <div className="columns is-mobile is-multiline">

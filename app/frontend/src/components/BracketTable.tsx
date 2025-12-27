@@ -1,4 +1,5 @@
-import { noMatchStrings, immatureClass, badgeForPercentile } from '../utils'
+import { immatureClass, badgeForPercentile } from '../utils'
+import { noMatchStrings } from '../constants';
 import classNames from 'classnames';
 import dayjs from 'dayjs'
 import { useAppContext } from '../AppContext'

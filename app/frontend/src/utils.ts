@@ -41,29 +41,6 @@ export const immatureClass = (matchCount: number | null) => {
   }
 }
 
-export const ages = [
-  'Juvenile',
-  'Adult',
-  'Master 1',
-  'Master 2',
-  'Master 3',
-  'Master 4',
-  'Master 5',
-  'Master 6',
-  'Master 7',
-]
-
-export const ageYears = [
-  '16-17',
-  '18+',
-  '30+',
-  '35+',
-  '40+',
-  '45+',
-  '50+',
-  '55+',
-  '60+',
-]
 
 export interface DBRow {
   id: string
@@ -162,14 +139,6 @@ export const isHistorical = (eventName: string) => {
   return !/idade 04 a 15 anos/.test(eventName) && /\([^\)]+\)/.test(eventName);
 }
 
-export const noMatchStrings = [
-  "disqualified by no show",
-  "desqualificado por no show",
-  "disqualified by overweight",
-  "disqualified by acima do peso",
-  "disqualified by withdraw",
-  "desqualificado por retirada",
-];
 
 export function getCountryName(country: string | null, note: string | null, note_pt: string | null, locale: string): string | undefined {
   if (!country) return undefined;
