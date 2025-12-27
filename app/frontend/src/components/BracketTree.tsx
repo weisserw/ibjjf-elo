@@ -41,8 +41,8 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
     return `${t("Athlete's rating is semi-provisional due to insufficient matches within three years")} (${numMatches})`;
   }
 
-  const [redBadge, redBadgeDesc] = badgeForPercentile(match.red_percentile, belt);
-  const [blueBadge, blueBadgeDesc] = badgeForPercentile(match.blue_percentile, belt);
+  const [redBadge, redBadgeDesc] = badgeForPercentile(match.red_percentile, belt, match.red_percentile_age);
+  const [blueBadge, blueBadgeDesc] = badgeForPercentile(match.blue_percentile, belt, match.blue_percentile_age);
 
   const logoForLink = (link: string) => {
     if (link.includes('flograppling')) {

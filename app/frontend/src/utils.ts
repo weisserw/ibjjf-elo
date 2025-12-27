@@ -4,6 +4,9 @@ import { countryNames, countryNamesPt } from './countries';
 import eliteTier1Badge from '/src/assets/elite-tier1.png';
 import eliteTier2Badge from '/src/assets/elite-tier2.png';
 import eliteTier3Badge from '/src/assets/elite-tier3.png';
+import eliteTier1MastersBadge from '/src/assets/elite-tier1-masters.png';
+import eliteTier2MastersBadge from '/src/assets/elite-tier2-masters.png';
+import eliteTier3MastersBadge from '/src/assets/elite-tier3-masters.png';
 
 const showToast = (message: string) => {
   toast({
@@ -170,8 +173,8 @@ export const percentileInteger = (percentile: number): number => {
   return Math.round(inverted);
 };
 
-export const badgeForPercentile = (percentile: number | null, belt: string): [string | null, string] => {
-  if (percentile === null) return [null, ''];
+export const badgeForPercentile = (percentile: number | null, belt: string, age: string | null): [string | null, string] => {
+  if (percentile === null || age === null) return [null, ''];
 
   if (!belt || ['WHITE', 'GREY', 'YELLOW', 'YELLOW-GREY', 'ORANGE', 'GREEN', 'GREEN-ORANGE'].includes(belt)) {
     return [null, ''];
@@ -179,12 +182,19 @@ export const badgeForPercentile = (percentile: number | null, belt: string): [st
 
   const invertedPct = percentileInteger(percentile);
 
+  const [tier1Badge, tier2Badge, tier3Badge] = (age.startsWith('Juvenile') || age === 'Adult') ?
+    [eliteTier1Badge, eliteTier2Badge, eliteTier3Badge] :
+    [eliteTier1MastersBadge, eliteTier2MastersBadge, eliteTier3MastersBadge];
+  const [tier1Description, tier2Description, tier3Description] = (age.startsWith('Juvenile') || age === 'Adult') ?
+    ['Tier 1 Elite (Top 2%)', 'Tier 2 Elite (Top 5%)', 'Tier 3 Elite (Top 10%)'] :
+    ['Masters Tier 1 Elite (Top 2%)', 'Masters Tier 2 Elite (Top 5%)', 'Masters Tier 3 Elite (Top 10%)'];
+
   if (invertedPct >= 98) {
-    return [eliteTier1Badge, 'Tier 1 Elite (Top 2%)'];
+    return [tier1Badge, tier1Description];
   } else if (invertedPct >= 95) {
-    return [eliteTier2Badge, 'Tier 2 Elite (Top 5%)'];
+    return [tier2Badge, tier2Description];
   } else if (invertedPct >= 90) {
-    return [eliteTier3Badge, 'Tier 3 Elite (Top 10%)'];
+    return [tier3Badge, tier3Description];
   } else {
     return [null, ''];
   }

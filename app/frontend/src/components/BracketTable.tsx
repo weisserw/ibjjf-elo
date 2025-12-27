@@ -246,7 +246,7 @@ function BracketTable(props: BracketTableProps) {
         <tbody>
           {
             competitors?.map(competitor => {
-              const [badge, badgeDesc] = badgeForPercentile(competitor.percentile, belt);
+              const [badge, badgeDesc] = badgeForPercentile(competitor.percentile, belt, competitor.percentile_age);
               const matLink = (competitor.next_where && competitor.next_when) ? getMatLink(competitor.next_where, competitor.next_when, props.matLinks) ?? '' : '' ;
               
               return (

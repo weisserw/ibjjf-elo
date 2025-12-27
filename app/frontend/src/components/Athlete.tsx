@@ -389,9 +389,23 @@ function Athlete() {
   const badgeForRank: (ranks: Rank[]) => [string | null, string] = useCallback((ranks: Rank[]) => {
     if (!responseData || responseData.athlete.rating === null || !responseData.athlete.belt) return [null, ''];
 
-    const lowestPercentile = ranks.reduce((min, rank) => Math.min(min, rank.percentile), 1);
+    const adultRanks = ranks.filter(rank => rank.age.startsWith('Juvenile') || rank.age === 'Adult');
+    const mastersRanks = ranks.filter(rank => rank.age.startsWith('Master'));
 
-    return badgeForPercentile(lowestPercentile, responseData.athlete.belt);
+    if (adultRanks.length > 0) {
+      const lowestAdultPercentile = adultRanks.reduce((min, rank) => Math.min(min, rank.percentile), 1);
+
+      const [adultBadge, adultDescription] = badgeForPercentile(lowestAdultPercentile, responseData.athlete.belt, 'Adult');
+
+      if (adultBadge) {
+        return [adultBadge, adultDescription];
+      }
+    }
+    if (mastersRanks.length > 0) {
+      const lowestMastersPercentile = mastersRanks.reduce((min, rank) => Math.min(min, rank.percentile), 1);
+      return badgeForPercentile(lowestMastersPercentile, responseData.athlete.belt, 'Master');
+    }
+    return [null, ''];
   }, [responseData]);
 
   const [badge, badgeDescription] = useMemo(() => {

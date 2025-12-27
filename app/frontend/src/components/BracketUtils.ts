@@ -20,6 +20,7 @@ export interface Competitor {
   end_match_count: number | null
   rank: number | null
   percentile: number | null
+  percentile_age: string | null
   note: string | null
   last_weight: string | null
   next_where: string | null
@@ -56,6 +57,7 @@ export interface Match {
   red_country_note: string | null
   red_country_note_pt: string | null
   red_percentile: number | null
+  red_percentile_age: string | null
   blue_bye: boolean
   blue_id: string | null
   blue_seed: number | null
@@ -78,6 +80,7 @@ export interface Match {
   blue_country_note: string | null
   blue_country_note_pt: string | null
   blue_percentile: number | null
+  blue_percentile_age: string | null
 }
 
 export interface CompetitorsResponse {
@@ -198,7 +201,7 @@ export const createBye = (id: string | null, name: string | null, team: string |
   profile_image_url: string | null,
   country: string | null, country_note: string | null, country_note_pt: string | null,
   seed: number | null, ordinal: number | null, weight: string | null,
-  rating: number | null, match_count: number | null, note: string | null, percentile: number | null): Match => {
+  rating: number | null, match_count: number | null, note: string | null, percentile: number | null, percentile_age: string | null): Match => {
   return {
     match_num: null,
     final: false,
@@ -228,6 +231,7 @@ export const createBye = (id: string | null, name: string | null, team: string |
     red_country_note: country_note,
     red_country_note_pt: country_note_pt,
     red_percentile: percentile,
+    red_percentile_age: percentile_age,
     blue_id: null,
     blue_name: null,
     blue_team: null,
@@ -249,7 +253,8 @@ export const createBye = (id: string | null, name: string | null, team: string |
     blue_country: null,
     blue_country_note: null,
     blue_country_note_pt: null,
-    blue_percentile: null
+    blue_percentile: null,
+    blue_percentile_age: null
   }
 }
 
@@ -283,6 +288,7 @@ const createEmptyMatch = (match_num: number): Match => {
     red_country_note: null,
     red_country_note_pt: null,
     red_percentile: null,
+    red_percentile_age: null,
     blue_bye: false,
     blue_id: null,
     blue_seed: null,
@@ -304,7 +310,8 @@ const createEmptyMatch = (match_num: number): Match => {
     blue_country: null,
     blue_country_note: null,
     blue_country_note_pt: null,
-    blue_percentile: null
+    blue_percentile: null,
+    blue_percentile_age: null
   }
 }
 
@@ -353,13 +360,13 @@ export const createTreeFromMatchNums = (matches: Match[], matchCount: number): M
           if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
             levels[0][k * 2] = createBye(match.red_id, match.red_name, match.red_team, match.red_instagram_profile, match.red_personal_name, match.red_profile_image_url,
               match.red_country, match.red_country_note, match.red_country_note_pt,
-              match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note, match.red_percentile);
+              match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note, match.red_percentile, match.red_percentile_age);
           } else {
             possibleEmpty = levels[0][k * 2 + 1];
             if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
               levels[0][k * 2 + 1] = createBye(match.red_id, match.red_name, match.red_team, match.red_instagram_profile, match.red_personal_name, match.red_profile_image_url,
                 match.red_country, match.red_country_note, match.red_country_note_pt,
-                match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note, match.red_percentile);
+                match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note, match.red_percentile, match.red_percentile_age);
             }
           }
         }
@@ -368,13 +375,13 @@ export const createTreeFromMatchNums = (matches: Match[], matchCount: number): M
           if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
             levels[0][k * 2] = createBye(match.blue_id, match.blue_name, match.blue_team, match.blue_instagram_profile, match.blue_personal_name, match.blue_profile_image_url,
               match.blue_country, match.blue_country_note, match.blue_country_note_pt,
-              match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note, match.blue_percentile);
+              match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note, match.blue_percentile, match.blue_percentile_age);
           } else {
             possibleEmpty = levels[0][k * 2 + 1];
             if (possibleEmpty.red_id === null && possibleEmpty.blue_id === null) {
               levels[0][k * 2 + 1] = createBye(match.blue_id, match.blue_name, match.blue_team, match.blue_instagram_profile, match.blue_personal_name, match.blue_profile_image_url,
                 match.blue_country, match.blue_country_note, match.blue_country_note_pt,
-                match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note, match.blue_percentile);
+                match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note, match.blue_percentile, match.blue_percentile_age);
             }
           }
         }
@@ -417,7 +424,7 @@ export const createTreeFromTop = (matches: Match[]): Match[][] => {
       } else if (matches.length > 4 && levels.length + 1 === numLevels(matches.length)) {
         nextLevelMatches.push(createBye(match.red_id, match.red_name, match.red_team, match.red_instagram_profile, match.red_personal_name, match.red_profile_image_url,
           match.red_country, match.red_country_note, match.red_country_note_pt,
-          match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note, match.red_percentile));
+          match.red_seed, match.red_ordinal, match.red_weight, match.red_rating, match.red_match_count, match.red_note, match.red_percentile, match.red_percentile_age));
       }
       const secondReferencedMatchIndex = allMatches.findIndex(m => referencesMatchBlue(match, m));
       if (secondReferencedMatchIndex > -1) {
@@ -427,7 +434,7 @@ export const createTreeFromTop = (matches: Match[]): Match[][] => {
       } else if (matches.length > 4 && levels.length + 1 === numLevels(matches.length)) {
           nextLevelMatches.push(createBye(match.blue_id, match.blue_name, match.blue_team, match.blue_instagram_profile, match.blue_personal_name, match.blue_profile_image_url,
             match.blue_country, match.blue_country_note, match.blue_country_note_pt,
-            match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note, match.blue_percentile));
+            match.blue_seed, match.blue_ordinal, match.blue_weight, match.blue_rating, match.blue_match_count, match.blue_note, match.blue_percentile, match.blue_percentile_age));
       }
     }
 

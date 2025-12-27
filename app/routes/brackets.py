@@ -58,6 +58,7 @@ from constants import (
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    MASTER_PREFIX,
     rated_ages,
     BLACK,
 )
@@ -352,12 +353,27 @@ def get_ratings(
                 and row.gi == gi
                 and row.age in valid_ages
             ):
-                if best_percentile is None or row.percentile < best_percentile:
-                    best_percentile = row.percentile
+                if (
+                    best_percentile is None
+                    or row.percentile < best_percentile[0]
+                    or (
+                        (
+                            row.age == JUVENILE
+                            or row.age == JUVENILE_1
+                            or row.age == JUVENILE_2
+                            or row.age == ADULT
+                        )
+                        and best_percentile[1].startswith(MASTER_PREFIX)
+                    )
+                    and round(row.percentile * 100) <= 10
+                ):
+                    best_percentile = (row.percentile, row.age)
         percentiles_by_id[result["id"]] = best_percentile
 
     for result in results:
-        result["percentile"] = percentiles_by_id.get(result["id"])
+        entry = percentiles_by_id.get(result["id"], None)
+        result["percentile"] = entry[0] if entry else None
+        result["percentile_age"] = entry[1] if entry else None
 
     elite_note = None
     if elite_only:
@@ -1158,6 +1174,7 @@ def internal_registration_competitors_elites(link):
                 "match_count": None,
                 "rank": None,
                 "percentile": None,
+                "percentile_age": None,
                 "note": None,
                 "last_weight": None,
                 "slug": None,
@@ -1221,6 +1238,7 @@ def internal_registration_competitors(link, divdata, gi):
                 "match_count": None,
                 "rank": None,
                 "percentile": None,
+                "percentile_age": None,
                 "note": None,
                 "last_weight": None,
                 "slug": None,
@@ -1323,6 +1341,7 @@ def registration_competitors():
                             "match_count": None,
                             "rank": None,
                             "percentile": None,
+                            "percentile_age": None,
                             "note": None,
                             "last_weight": None,
                             "slug": None,
@@ -1430,6 +1449,7 @@ def registration_elites():
                         "match_count": None,
                         "rank": None,
                         "percentile": None,
+                        "percentile_age": None,
                         "note": None,
                         "last_weight": None,
                         "slug": None,
@@ -1475,6 +1495,7 @@ def registration_elites():
                 "match_count": row["match_count"],
                 "rank": row["rank"],
                 "percentile": row["percentile"],
+                "percentile_age": row["percentile_age"],
                 "category": category,
                 "belt": row["belt"],
                 "age": row["age"],
@@ -1498,12 +1519,14 @@ def compute_match_ratings(matches, results, belt, weight, age):
     athlete_ratings = {}
     athlete_match_counts = {}
     athlete_percentiles = {}
+    athlete_percentile_ages = {}
     for result in results:
         ibjjf_id = result["ibjjf_id"]
         athlete_results[ibjjf_id] = result
         athlete_ratings[ibjjf_id] = result["rating"]
         athlete_match_counts[ibjjf_id] = result["match_count"]
         athlete_percentiles[ibjjf_id] = result["percentile"]
+        athlete_percentile_ages[ibjjf_id] = result["percentile_age"]
 
     for i in range(len(matches)):
         match = matches[i]
@@ -1522,6 +1545,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         red_country_note = None
         red_country_note_pt = None
         red_percentile = None
+        red_percentile_age = None
         red_name = match["red_name"]
         if red_id in athlete_results:
             if (
@@ -1542,6 +1566,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
             red_country_note = athlete_results[red_id]["country_note"]
             red_country_note_pt = athlete_results[red_id]["country_note_pt"]
             red_percentile = athlete_percentiles[red_id]
+            red_percentile_age = athlete_percentile_ages[red_id]
         red_expected = None
         red_handicap = 0
         blue_id = match["blue_id"]
@@ -1558,6 +1583,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         blue_country_note = None
         blue_country_note_pt = None
         blue_percentile = None
+        blue_percentile_age = None
         blue_name = match["blue_name"]
         if blue_id in athlete_results:
             if (
@@ -1578,6 +1604,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
             blue_country_note = athlete_results[blue_id]["country_note"]
             blue_country_note_pt = athlete_results[blue_id]["country_note_pt"]
             blue_percentile = athlete_percentiles[blue_id]
+            blue_percentile_age = athlete_percentile_ages[blue_id]
         blue_expected = None
         blue_handicap = 0
 
@@ -1652,6 +1679,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["red_country_note"] = red_country_note
         match["red_country_note_pt"] = red_country_note_pt
         match["red_percentile"] = red_percentile
+        match["red_percentile_age"] = red_percentile_age
         match["red_match_count"] = red_match_count
         match["red_name"] = red_name
 
@@ -1670,6 +1698,7 @@ def compute_match_ratings(matches, results, belt, weight, age):
         match["blue_country_note"] = blue_country_note
         match["blue_country_note_pt"] = blue_country_note_pt
         match["blue_percentile"] = blue_percentile
+        match["blue_percentile_age"] = blue_percentile_age
         match["blue_name"] = blue_name
 
 
@@ -1807,6 +1836,7 @@ def parse_match(match, weight):
         "red_country_note": None,
         "red_country_note_pt": None,
         "red_percentile": None,
+        "red_percentile_age": None,
         "blue_bye": blue_bye,
         "blue_id": blue_id,
         "blue_seed": blue_seed,
@@ -1831,6 +1861,7 @@ def parse_match(match, weight):
         "blue_country_note": None,
         "blue_country_note_pt": None,
         "blue_percentile": None,
+        "blue_percentile_age": None,
     }
 
 
@@ -2012,6 +2043,7 @@ def competitors():
                         "match_count": None,
                         "rank": None,
                         "percentile": None,
+                        "percentile_age": None,
                         "note": None,
                         "last_weight": None,
                         "next_where": None,
@@ -2565,6 +2597,7 @@ def archive_competitors():
                     "end_match_count": match["red_match_count"],
                     "rank": None,
                     "percentile": None,
+                    "percentile_age": None,
                     "note": match["red_note"],
                     "last_weight": match["red_weight"],
                     "medal": match["red_medal"],
@@ -2604,6 +2637,7 @@ def archive_competitors():
                     "end_match_count": match["blue_match_count"],
                     "rank": None,
                     "percentile": None,
+                    "percentile_age": None,
                     "note": match["blue_note"],
                     "last_weight": match["blue_weight"],
                     "medal": match["blue_medal"],
