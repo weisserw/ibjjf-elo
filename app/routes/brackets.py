@@ -47,8 +47,6 @@ from constants import (
     OPEN_CLASS_HEAVY,
     OPEN_CLASS_LIGHT,
     JUVENILE,
-    JUVENILE_1,
-    JUVENILE_2,
     ADULT,
     NON_ELITE_BELTS,
     MASTER_PREFIX,
@@ -286,6 +284,8 @@ def get_ratings(
                     AthleteRating.gi,
                 ).in_(batch),
                 AthleteRating.percentile <= 0.11,
+                AthleteRating.age.in_(rated_ages),
+                AthleteRating.belt.not_in(NON_ELITE_BELTS),
             )
             .group_by(
                 AthleteRating.athlete_id,
@@ -315,14 +315,13 @@ def get_ratings(
             ):
                 if (
                     best_percentile is None
-                    or row.percentile < best_percentile[0]
                     or (
-                        (
-                            row.age == JUVENILE
-                            or row.age == JUVENILE_1
-                            or row.age == JUVENILE_2
-                            or row.age == ADULT
-                        )
+                        row.percentile < best_percentile[0]
+                        and best_percentile[1].startswith(MASTER_PREFIX)
+                        == row.age.startswith(MASTER_PREFIX)
+                    )
+                    or (
+                        not row.age.startswith(MASTER_PREFIX)
                         and best_percentile[1].startswith(MASTER_PREFIX)
                     )
                 ) and round(row.percentile * 100) <= 10:
