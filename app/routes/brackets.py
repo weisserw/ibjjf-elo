@@ -51,13 +51,6 @@ from constants import (
     JUVENILE_2,
     ADULT,
     NON_ELITE_BELTS,
-    MASTER_1,
-    MASTER_2,
-    MASTER_3,
-    MASTER_4,
-    MASTER_5,
-    MASTER_6,
-    MASTER_7,
     MASTER_PREFIX,
     rated_ages,
     BLACK,
@@ -257,46 +250,22 @@ def get_ratings(
             result["country_note"] = athlete.country_note
             result["country_note_pt"] = athlete.country_note_pt
 
-    JUVENILE_PERCENTILE_AGES = [JUVENILE_1, JUVENILE_2, JUVENILE]
-    ADULT_PERCENTILE_AGES = [JUVENILE_1, JUVENILE_2, JUVENILE, ADULT]
-    MASTER_PERCENTILE_AGES = [
-        JUVENILE_1,
-        JUVENILE_2,
-        JUVENILE,
-        ADULT,
-        MASTER_1,
-        MASTER_2,
-        MASTER_3,
-        MASTER_4,
-        MASTER_5,
-        MASTER_6,
-        MASTER_7,
-    ]
-
     # Build all valid (athlete_id, age, belt, gender, gi) combinations
     athlete_keys = []
     for result in results:
         if not result.get("id"):
             continue
-        if result["age"] in JUVENILE_PERCENTILE_AGES:
-            age_set = JUVENILE_PERCENTILE_AGES
-        elif result["age"] in ADULT_PERCENTILE_AGES:
-            age_set = ADULT_PERCENTILE_AGES
-        else:
-            age_set = MASTER_PERCENTILE_AGES
-        for age in age_set:
-            athlete_keys.append(
-                (
-                    result["id"],
-                    age,
-                    result["belt"],
-                    result["gender"],
-                    gi,
-                )
+        athlete_keys.append(
+            (
+                result["id"],
+                result["belt"],
+                result["gender"],
+                gi,
             )
+        )
 
     # Run the query in batches of max 500 athlete_keys at a time
-    percentile_rows = []
+    percentile_rows = {}
     batch_size = 500
     for i in range(0, len(athlete_keys), batch_size):
         batch = athlete_keys[i : i + batch_size]
@@ -312,7 +281,6 @@ def get_ratings(
             .filter(
                 tuple_(
                     AthleteRating.athlete_id,
-                    AthleteRating.age,
                     AthleteRating.belt,
                     AthleteRating.gender,
                     AthleteRating.gi,
@@ -328,30 +296,22 @@ def get_ratings(
             )
             .all()
         )
-        percentile_rows.extend(batch_rows)
+        for row in batch_rows:
+            if row.athlete_id not in percentile_rows:
+                percentile_rows[row.athlete_id] = []
+            percentile_rows[row.athlete_id].append(row)
 
     # For each athlete, pick the best percentile (lowest) from their valid ages
     percentiles_by_id = {}
     for result in results:
         if not result.get("id"):
             continue
-        valid_ages = (
-            JUVENILE_PERCENTILE_AGES
-            if result["age"] in JUVENILE_PERCENTILE_AGES
-            else (
-                ADULT_PERCENTILE_AGES
-                if result["age"] in ADULT_PERCENTILE_AGES
-                else MASTER_PERCENTILE_AGES
-            )
-        )
         best_percentile = None
-        for row in percentile_rows:
+        for row in percentile_rows.get(result["id"], []):
             if (
-                row.athlete_id == result["id"]
-                and row.belt == result["belt"]
+                row.belt == result["belt"]
                 and row.gender == result["gender"]
                 and row.gi == gi
-                and row.age in valid_ages
             ):
                 if (
                     best_percentile is None
