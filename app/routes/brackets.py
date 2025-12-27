@@ -325,8 +325,7 @@ def get_ratings(
                         )
                         and best_percentile[1].startswith(MASTER_PREFIX)
                     )
-                    and round(row.percentile * 100) <= 10
-                ):
+                ) and round(row.percentile * 100) <= 10:
                     best_percentile = (row.percentile, row.age)
         percentiles_by_id[result["id"]] = best_percentile
 
