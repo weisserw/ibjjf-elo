@@ -50,6 +50,10 @@ def add_cache_control_headers(response):
         )
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+    elif response.mimetype == "text/html":
+        response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
     return response
 
 

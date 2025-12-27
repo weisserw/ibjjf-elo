@@ -25,16 +25,16 @@ function Ratings() {
           <span className="news-badge">Latest News:</span>
           <div className="news-posts">
             {posts.slice(0, 3).map((post, index) => (
-              <>
+              <span key={post.ID}>
                 {index > 0 && <span className="news-separator">•</span>}
-                <a key={post.slug} href={`/news/${post.ID}/${post.slug}`} className="news-link" onClick={handleNewsClick}>
+                <a href={`/news/${post.ID}/${post.slug}`} className="news-link" onClick={handleNewsClick}>
                   {
                     index === 0 && dayjs().diff(dayjs(post.date), 'day') <= 3 &&
                     <span className="new-post-marker">New</span>
                   }
                   {post.title}
                 </a>
-              </>
+              </span>
             ))}
           </div>
         </section>
