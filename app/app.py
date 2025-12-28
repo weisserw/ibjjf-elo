@@ -44,14 +44,10 @@ def not_found(e):
 
 @app.after_request
 def add_cache_control_headers(response):
-    if request.path.startswith("/api/"):
+    if request.path.startswith("/api/") or response.mimetype == "text/html":
         response.headers["Cache-Control"] = (
             "no-store, no-cache, must-revalidate, max-age=0"
         )
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-    elif response.mimetype == "text/html":
-        response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
     return response
