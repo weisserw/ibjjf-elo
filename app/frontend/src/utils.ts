@@ -167,7 +167,13 @@ export const percentileInteger = (percentile: number): number => {
   const inverted = (1 - percentile) * 100;
 
   if (inverted >= 99) {
-    return parseFloat(inverted.toFixed(1));
+    const value = parseFloat(inverted.toFixed(1));
+
+    // Percentiles can never be 100
+    if (value > 99.9) {
+      return 99.9;
+    }
+    return value;
   }
 
   return Math.round(inverted);
