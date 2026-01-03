@@ -7,3 +7,4 @@ app/instance/
 .DS_Store
 .creds
 *.log
+sitemaps/
