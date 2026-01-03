@@ -48,8 +48,8 @@ def fetch_default_rankings(limit=DEFAULT_SEO_LIMIT):
         db.session.query(
             AthleteRating.rank,
             AthleteRating.rating,
-            AthleteRating.match_count,
             Athlete.name,
+            Athlete.personal_name,
             Athlete.slug,
             Athlete.country,
         )
@@ -74,18 +74,16 @@ def build_seo_table_html(rows):
     """
     table_rows = []
     for row in rows:
-        name = html.escape(row.name or "")
+        name = html.escape(row.personal_name or row.name or "")
         slug = html.escape(row.slug or "")
         country = html.escape(row.country or "")
-        rating = f"{round(row.rating):,}" if row.rating is not None else "–"
-        matches = row.match_count if row.match_count is not None else "–"
+        rating = f"{round(row.rating)}" if row.rating is not None else "–"
         table_rows.append(
             f"<tr>"
             f"<td>{row.rank}</td>"
             f'<td><a href="/athlete/{slug}">{name}</a></td>'
             f"<td>{country}</td>"
             f"<td>{rating}</td>"
-            f"<td>{matches}</td>"
             f"</tr>"
         )
 
@@ -114,7 +112,6 @@ def build_seo_table_html(rows):
 
 
 def render_index_with_fallback(app):
-    logger.info("Rendering SEO fallback for path=%s", _safe_request_path())
     base_html = load_index_html(app.static_folder)
     if base_html is None:
         return send_from_directory(app.static_folder, "index.html")
@@ -133,11 +130,6 @@ def render_index_with_fallback(app):
 
 
 def render_index_with_snippet(app, snippet_name: str):
-    logger.info(
-        "Rendering SEO snippet '%s' for path=%s",
-        snippet_name,
-        _safe_request_path(),
-    )
     base_html = load_index_html(app.static_folder)
     if base_html is None:
         return send_from_directory(app.static_folder, "index.html")
@@ -154,11 +146,6 @@ def render_index_with_snippet(app, snippet_name: str):
 
 
 def render_athlete_page(app, athlete_identifier: str):
-    logger.info(
-        "Rendering SEO athlete page for %s at path=%s",
-        athlete_identifier,
-        _safe_request_path(),
-    )
     base_html = load_index_html(app.static_folder)
     if base_html is None:
         return send_from_directory(app.static_folder, "index.html")
