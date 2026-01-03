@@ -47,26 +47,28 @@ athletes_route = Blueprint("athletes_route", __name__)
 MAX_RESULTS = 50
 
 
-@athletes_route.route("/api/athlete/<id>")
-def get_athlete(id):
+def _parse_gi_flag(raw_gi):
+    if raw_gi is None:
+        return True
+    return raw_gi.lower() == "true"
+
+
+def _resolve_athlete(identifier):
     try:
-        id_uuid = UUID(id)
+        id_uuid = UUID(identifier)
         athlete = Athlete.query.get(id_uuid)
-        if not athlete:
-            return jsonify({"error": "Athlete not found"}), 404
+        return athlete, id_uuid
     except ValueError:
-        athlete = Athlete.query.filter_by(slug=id).first()
-        if not athlete:
-            return jsonify({"error": "Athlete not found"}), 404
-        id_uuid = athlete.id
+        athlete = Athlete.query.filter_by(slug=identifier).first()
+        return (athlete, athlete.id) if athlete else (None, None)
 
-    gi = request.args.get("gi")
 
-    gi = gi.lower() == "true" if gi else True
-
-    athlete = Athlete.query.get(id_uuid)
+def get_athlete_data(identifier, gi_param=None):
+    athlete, id_uuid = _resolve_athlete(identifier)
     if not athlete:
-        return jsonify({"error": "Athlete not found"}), 404
+        return None
+
+    gi = _parse_gi_flag(gi_param)
 
     # load elo over time data
     elo_history = [
@@ -296,6 +298,7 @@ def get_athlete(id):
     athlete_json = {
         "id": str(athlete.id),
         "name": athlete.name,
+        "slug": athlete.slug,
         "instagram_profile": athlete.instagram_profile,
         "personal_name": athlete.personal_name,
         "nickname_translation": athlete.nickname_translation,
@@ -338,19 +341,24 @@ def get_athlete(id):
         .filter(Suspension.athlete_name == athlete.name)
         .all()
     ]
-    return (
-        jsonify(
-            {
-                "athlete": athlete_json,
-                "eloHistory": filtered_elo_history,
-                "ranks": ranks,
-                "registrations": registrations_list,
-                "medals": medals,
-                "suspensions": suspensions,
-            }
-        ),
-        200,
-    )
+
+    return {
+        "athlete": athlete_json,
+        "eloHistory": filtered_elo_history,
+        "ranks": ranks,
+        "registrations": registrations_list,
+        "medals": medals,
+        "suspensions": suspensions,
+    }
+
+
+@athletes_route.route("/api/athlete/<id>")
+def get_athlete(id):
+    athlete_data = get_athlete_data(id, request.args.get("gi"))
+    if athlete_data is None:
+        return jsonify({"error": "Athlete not found"}), 404
+
+    return jsonify(athlete_data), 200
 
 
 @athletes_route.route("/api/athletes/predict")

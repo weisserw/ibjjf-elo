@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run seo:about && npm run seo:news",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seo:about": "node scripts/renderAbout.mjs",
+    "seo:news": "node scripts/renderNews.mjs"
   },
   "dependencies": {
     "@uidotdev/usehooks": "^2.4.1",

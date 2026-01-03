@@ -1,7 +1,12 @@
 import os
 import logging
-from flask import Flask, send_from_directory, request
+from flask import Flask, request, send_from_directory
 from extensions import db, migrate
+from seo import (
+    render_index_with_fallback,
+    render_index_with_snippet,
+    render_athlete_page,
+)
 from routes.top import top_route
 from routes.matches import matches_route
 from routes.athletes import athletes_route
@@ -34,7 +39,47 @@ migrate.init_app(app, db)
 
 @app.route("/")
 def index():
-    return send_from_directory(app.static_folder, "index.html")
+    return render_index_with_fallback(app)
+
+
+@app.route("/athlete/<athlete_id>")
+def athlete_page(athlete_id):
+    return render_athlete_page(app, athlete_id)
+
+
+@app.route("/about")
+def about():
+    return render_index_with_snippet(app, "about.html")
+
+
+@app.route("/calculator")
+def calculator():
+    return render_index_with_snippet(app, "calculator.html")
+
+
+@app.route("/database")
+def database():
+    return render_index_with_snippet(app, "database.html")
+
+
+@app.route("/tournaments")
+def tournaments():
+    return render_index_with_snippet(app, "tournaments.html")
+
+
+@app.route("/tournaments/registrations")
+def tournaments_registrations():
+    return render_index_with_snippet(app, "tournaments_registrations.html")
+
+
+@app.route("/tournaments/archive")
+def tournaments_archive():
+    return render_index_with_snippet(app, "tournaments_archive.html")
+
+
+@app.route("/news")
+def news():
+    return render_index_with_snippet(app, "news.html")
 
 
 @app.errorhandler(404)
