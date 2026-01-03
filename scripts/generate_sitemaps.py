@@ -12,7 +12,10 @@ from models import Athlete  # noqa: E402
 
 BASE_URL = os.getenv("SITE_BASE_URL", "https://ibjjfrankings.com").rstrip("/")
 OUTPUT_DIR = os.getenv(
-    "SITEMAP_OUTPUT_DIR", os.path.join(os.path.dirname(__file__), "..", "sitemaps")
+    "SITEMAP_OUTPUT_DIR",
+    os.path.join(
+        os.path.dirname(__file__), "..", "app", "frontend", "public", "sitemaps"
+    ),
 )
 CHUNK_SIZE = int(os.getenv("SITEMAP_MAX_URLS", "49000"))  # below 50k limit
 LASTMOD = datetime.utcnow().date().isoformat()
