@@ -139,15 +139,35 @@ def create_ratings_tables(
         text(
             f"""
             CREATE TEMPORARY TABLE {name}_athlete_adults AS
-            SELECT DISTINCT mp.athlete_id
-            FROM matches m
-            JOIN match_participants mp ON m.id = mp.match_id
-            JOIN athletes a ON a.id = mp.athlete_id
-            JOIN divisions d ON d.id = m.division_id
-            WHERE {date_where}
-            AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
-            AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2)
-            AND d.age IN ({rated_ages_in})
+            WITH match_adults AS (
+                SELECT DISTINCT mp.athlete_id
+                FROM matches m
+                JOIN match_participants mp ON m.id = mp.match_id
+                JOIN athletes a ON a.id = mp.athlete_id
+                JOIN divisions d ON d.id = m.division_id
+                WHERE {date_where}
+                AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
+                AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2)
+                AND d.age IN ({rated_ages_in})
+            ),
+            registration_adults AS (
+                SELECT DISTINCT a.id AS athlete_id
+                FROM registration_link_competitors r
+                JOIN divisions d ON d.id = r.division_id
+                JOIN athletes a ON a.name = r.athlete_name
+                WHERE d.age IN ({rated_ages_in})
+                AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2)
+                AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
+                AND {
+                    "false" if date_where != "true" else "true"
+                }
+            ),
+            combined_adults AS (
+                SELECT * FROM match_adults
+                UNION
+                SELECT * FROM registration_adults
+            )
+            SELECT * FROM combined_adults
             """
         ),
         {
@@ -255,6 +275,37 @@ def create_ratings_tables(
             f"""
             CREATE TEMPORARY TABLE {name} AS
             WITH
+            registration_only_adult_weights AS (
+                SELECT DISTINCT
+                    a.id AS athlete_id,
+                    d.gi,
+                    d.gender,
+                    d.age,
+                    d.belt,
+                    d.weight
+                FROM registration_link_competitors r
+                JOIN divisions d ON d.id = r.division_id
+                JOIN athletes a ON a.name = r.athlete_name
+                WHERE d.age IN ({rated_ages_in})
+                AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2)
+                AND d.weight NOT IN (:OPEN_CLASS, :OPEN_CLASS_LIGHT, :OPEN_CLASS_HEAVY)
+                AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
+                AND {
+                    "false" if date_where != "true" else "true"
+                }
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM matches m2
+                    JOIN match_participants mp2 ON mp2.match_id = m2.id
+                    JOIN divisions d2 ON d2.id = m2.division_id
+                    WHERE mp2.athlete_id = a.id
+                    AND {
+                        "true" if date_where == "true" else date_where.replace("m.", "m2.")
+                    }
+                    AND d2.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2)
+                    AND d2.age IN ({rated_ages_in})
+                )
+            ),
             athlete_weights_no_p4p AS (
                 SELECT DISTINCT
                     mp.athlete_id,
@@ -300,6 +351,9 @@ def create_ratings_tables(
                         )
                     )
                 )
+                UNION
+                SELECT athlete_id, gi, gender, age, belt, weight
+                FROM registration_only_adult_weights
             ), athlete_weights AS (
                 SELECT * FROM athlete_weights_no_p4p
                 UNION ALL
@@ -309,6 +363,9 @@ def create_ratings_tables(
                     UNION
                     SELECT athlete_id, gi, gender, age, belt
                     FROM {name}_athlete_lost_matches
+                    UNION
+                    SELECT athlete_id, gi, gender, age, belt
+                    FROM registration_only_adult_weights
                 ) q
             ), recent_matches AS (
                 SELECT
@@ -318,6 +375,7 @@ def create_ratings_tables(
                     mp.end_match_count,
                     d.gi,
                     d.gender,
+                    d.belt,
                     m.id AS match_id,
                     ROW_NUMBER() OVER (PARTITION BY mp.athlete_id, d.gi, d.gender ORDER BY m.happened_at DESC, m.id) AS rn
                 FROM matches m
@@ -333,7 +391,7 @@ def create_ratings_tables(
                     rm.end_match_count,
                     rm.gender,
                     aw.age,
-                    aw.belt,
+                    rm.belt,
                     rm.gi,
                     aw.weight,
                     rm.happened_at
