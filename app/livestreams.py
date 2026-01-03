@@ -126,7 +126,7 @@ def get_search_name(full_name):
     if full_name in SPECIAL_SEARCH_NAMES:
         return SPECIAL_SEARCH_NAMES[full_name]
     names = name_components(full_name)
-    if len(full_name) > 35:
+    if len(full_name) > 32:
         # use first two names only to avoid cutoff
         return " ".join(names[:2])
     else:
