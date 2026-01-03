@@ -49,7 +49,7 @@ function buildHtml(posts) {
 
   return `<section style="padding:24px;font-family:Arial,Helvetica,sans-serif;">
     <h1 style="font-size:24px;margin:0 0 12px;">IBJJF News</h1>
-    <p style="margin:0 0 12px;font-size:14px;color:#444;">Latest posts from ibjjfrankings.com (cached at build time).</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#444;">Latest News Posts</p>
     <ul style="list-style:disc;padding-left:18px;margin:0;">${items || "<li>No recent posts available.</li>"}</ul>
   </section>`;
 }
