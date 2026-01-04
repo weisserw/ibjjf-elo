@@ -194,10 +194,22 @@ def get_athlete_data(identifier, gi_param=None):
         rating = ranks[0]["rating"]
         highest_belt = ranks[0]["belt"]
     else:
-        # determine highest belt from mathes, registrations, and promotions
+        # determine highest belt from matches, registrations, and promotions
         highest_belt = None
-        if len(elo_history):
-            highest_belt = elo_history[-1]["belt"]
+
+        # need to query both gi and no-gi since belt is independent of gi
+        mp = (
+            db.session.query(Division.belt)
+            .select_from(MatchParticipant)
+            .join(Match)
+            .join(Division)
+            .join(Team)
+            .filter(MatchParticipant.athlete_id == athlete.id)
+            .order_by(Match.happened_at)
+            .first()
+        )
+        if mp:
+            highest_belt = mp.belt
         for reg in registrations:
             if highest_belt is None or belt_order.index(reg.belt) > belt_order.index(
                 highest_belt
