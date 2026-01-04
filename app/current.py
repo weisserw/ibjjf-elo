@@ -248,7 +248,6 @@ def create_ratings_tables(
             AND m.happened_at >= :activity_period
             AND d.gi in ({gi_in})
             AND d.age in ({rated_ages_in})
-            AND m.rated
             AND (
                 (ta.athlete_id IS NOT NULL AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2))
                 OR (ta.athlete_id IS NULL)
