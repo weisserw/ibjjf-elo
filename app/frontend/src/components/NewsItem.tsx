@@ -24,7 +24,7 @@ export default function NewsItem() {
 							{new Date(post.date).toLocaleDateString()} by {post.author.name}
 						</p>
 						<div
-							className="content"
+							className="wordpress content"
 							dangerouslySetInnerHTML={{ __html: post.content }}
 						/>
 					</article>
