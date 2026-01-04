@@ -167,10 +167,6 @@ body {
   margin-right: auto;
 }
 
-.wordpress.content .wp-block-image {
-  display: inline-block;
-}
-
 .wordpress.content::after {
   content: "";
   display: block;
