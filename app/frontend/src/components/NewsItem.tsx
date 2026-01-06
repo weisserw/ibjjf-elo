@@ -21,8 +21,15 @@ export default function NewsItem() {
 					<article className="box mb-5">
 						<h1 className="title is-4">{post.title}</h1>
 						<p className="is-size-7 has-text-grey mb-3">
-							{new Date(post.date).toLocaleDateString()} by {post.author.name}
+							Posted on {new Date(post.date).toLocaleDateString()} by {post.author.name}
 						</p>
+						{
+							Object.values(post.categories).some(cat => cat.name === "IG Story Summaries") && (
+								<p className="is-size-7 has-text-grey mb-5">
+									<em>This article was summarized from <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">IG stories</a> posted by Dan Lukehart</em>
+								</p>
+							)
+						}
 						<div
 							className="wordpress content"
 							dangerouslySetInnerHTML={{ __html: post.content }}

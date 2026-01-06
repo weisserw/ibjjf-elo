@@ -15,6 +15,7 @@ export interface WPPost {
   author: {
     name: string;
   }
+  categories: Record<string, {name: string;}>;
 }
 
 interface CachedPosts {
