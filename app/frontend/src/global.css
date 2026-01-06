@@ -167,6 +167,10 @@ body {
   margin-right: auto;
 }
 
+.wordpress.content .wp-block-gallery figure {
+  display: inline-block;
+}
+
 .wordpress.content::after {
   content: "";
   display: block;
