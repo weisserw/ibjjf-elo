@@ -169,6 +169,12 @@ body {
 
 .wordpress.content .wp-block-gallery figure {
   display: inline-block;
+  margin: 0 5px 5px 0;
+}
+
+.wordpress.content .wp-block-gallery figure img {
+  height: 200px !important;
+  width: auto !important;
 }
 
 .wordpress.content::after {

@@ -17,7 +17,6 @@ def get_news():
     if resp.status_code != 200:
         return jsonify({"error": resp.text})
 
-    print(resp.json())
     return jsonify({"posts": resp.json()["posts"]})
 
 
