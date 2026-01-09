@@ -160,7 +160,7 @@ def top():
         )
         .order_by(
             RegistrationLinkCompetitor.athlete_name,
-            RegistrationLink.event_end_date,
+            RegistrationLink.event_start_date,
             RegistrationLink.name,
         )
         .all()

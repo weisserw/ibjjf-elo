@@ -178,7 +178,7 @@ def get_athlete_data(identifier, gi_param=None):
             RegistrationLink.event_end_date >= datetime.now(),
         )
         .order_by(
-            RegistrationLink.event_end_date,
+            RegistrationLink.event_start_date,
             RegistrationLink.name,
         )
         .all()
