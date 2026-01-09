@@ -197,8 +197,6 @@ def get_athlete_data(identifier, gi_param=None):
         # determine highest belt from matches, registrations, and promotions
         highest_belt = None
 
-        print("Checking matches for highest belt")
-
         # need to query both gi and no-gi since belt is independent of gi
         mp = (
             db.session.query(Division.belt)
@@ -210,7 +208,6 @@ def get_athlete_data(identifier, gi_param=None):
             .order_by(Match.happened_at.desc())
             .first()
         )
-        print(f"Match belt: {mp.belt if mp else 'None'}")
         if mp:
             highest_belt = mp.belt
         for reg in registrations:
