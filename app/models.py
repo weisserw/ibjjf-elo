@@ -7,10 +7,12 @@ from sqlalchemy import (
     Integer,
     DateTime,
     ForeignKey,
+    Date,
     Text,
     Float,
     Index,
     UniqueConstraint,
+    BigInteger,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP, TSVECTOR
@@ -432,3 +434,11 @@ class ManualPromotions(db.Model):
     promoted_at = Column(DateTime, nullable=False)
 
     __table_args__ = (Index("ix_manual_promotions_athlete_id", "athlete_id"),)
+
+
+class NewsViewDaily(db.Model):
+    __tablename__ = "news_views_daily"
+
+    post_id = Column(BigInteger, primary_key=True)
+    day = Column(Date, primary_key=True)
+    views = Column(Integer, nullable=False, default=0)

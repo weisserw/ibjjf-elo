@@ -1,10 +1,17 @@
-
+import { useEffect } from "react";
+import axios from "axios";
 import { useParams, Link } from "react-router-dom";
 import { useSingleNewsPost } from "../useNewsPosts";
 
 export default function NewsItem() {
 	const { id } = useParams<{ id: string }>();
 	const { post, loading, error } = useSingleNewsPost(id || "");
+
+	useEffect(() => {
+		if (id) {
+			axios.post(`/api/news/${id}/view`).catch(() => {});
+    }
+  }, [id]);  
 
 	return (
 		<section className="section">
