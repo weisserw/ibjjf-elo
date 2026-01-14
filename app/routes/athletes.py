@@ -511,7 +511,7 @@ def ratings():
         last_match_belt = rating.belt
 
     if info["id"] and last_match_belt:
-        athlete = Athlete.query.get(info["id"])
+        athlete = db.session.get(Athlete, info["id"])
         if athlete:
             registrations = (
                 db.session.query(Division.belt)
