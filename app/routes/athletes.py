@@ -489,6 +489,7 @@ def ratings():
         "weight": None,
         "belt": None,
     }
+    last_match_belt = None
     for rating in weight_query.order_by(Match.happened_at.desc()).limit(1).all():
         info["weight"] = rating.weight
 
@@ -498,6 +499,60 @@ def ratings():
         info["belt"] = rating.belt
         info["id"] = rating.athlete_id
         info["slug"] = rating.slug
+        last_match_belt = rating.belt
+
+    if info["id"] and last_match_belt:
+        athlete = Athlete.query.get(info["id"])
+        if athlete:
+            registrations = (
+                db.session.query(Division.belt)
+                .select_from(RegistrationLinkCompetitor)
+                .join(
+                    RegistrationLink,
+                    RegistrationLinkCompetitor.registration_link_id
+                    == RegistrationLink.id,
+                )
+                .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
+                .filter(
+                    RegistrationLinkCompetitor.athlete_name == athlete.name,
+                    RegistrationLink.event_end_date >= datetime.now(),
+                )
+                .all()
+            )
+            promotions = (
+                db.session.query(ManualPromotions)
+                .filter(ManualPromotions.athlete_id == info["id"])
+                .all()
+            )
+
+            highest_belt = last_match_belt
+            for reg in registrations:
+                if highest_belt is None or belt_order.index(
+                    reg.belt
+                ) > belt_order.index(highest_belt):
+                    highest_belt = reg.belt
+            for promo in promotions:
+                if highest_belt is None or belt_order.index(
+                    promo.belt
+                ) > belt_order.index(highest_belt):
+                    highest_belt = promo.belt
+
+            if (
+                info["rating"] is not None
+                and highest_belt
+                and highest_belt != last_match_belt
+            ):
+                belt_diff = belt_order.index(highest_belt) - belt_order.index(
+                    last_match_belt
+                )
+                if belt_diff == 1:
+                    if highest_belt == BLACK:
+                        info["rating"] += BLACK_PROMOTION_RATING_BUMP
+                    else:
+                        info["rating"] += COLOR_PROMOTION_RATING_BUMP
+
+            if highest_belt:
+                info["belt"] = highest_belt
 
     return jsonify(info)
 
