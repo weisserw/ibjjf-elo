@@ -63,6 +63,29 @@ def _resolve_athlete(identifier):
         return (athlete, athlete.id) if athlete else (None, None)
 
 
+def _compute_highest_belt(base_belt, registration_belts, promotion_belts):
+    highest_belt = base_belt
+    for belt in registration_belts + promotion_belts:
+        if highest_belt is None or belt_order.index(belt) > belt_order.index(
+            highest_belt
+        ):
+            highest_belt = belt
+    return highest_belt
+
+
+def _apply_promotion_rating_bump(rating, from_belt, to_belt):
+    if rating is None or not from_belt or not to_belt or from_belt == to_belt:
+        return rating
+
+    belt_diff = belt_order.index(to_belt) - belt_order.index(from_belt)
+    if belt_diff == 1:
+        if to_belt == BLACK:
+            return rating + BLACK_PROMOTION_RATING_BUMP
+        return rating + COLOR_PROMOTION_RATING_BUMP
+
+    return rating
+
+
 def get_athlete_data(identifier, gi_param=None):
     athlete, id_uuid = _resolve_athlete(identifier)
     if not athlete:
@@ -210,34 +233,20 @@ def get_athlete_data(identifier, gi_param=None):
         )
         if mp:
             highest_belt = mp.belt
-        for reg in registrations:
-            if highest_belt is None or belt_order.index(reg.belt) > belt_order.index(
-                highest_belt
-            ):
-                highest_belt = reg.belt
-        for promo in promotions:
-            if highest_belt is None or belt_order.index(promo.belt) > belt_order.index(
-                highest_belt
-            ):
-                highest_belt = promo.belt
+        registration_belts = [reg.belt for reg in registrations]
+        promotion_belts = [promo.belt for promo in promotions]
+        highest_belt = _compute_highest_belt(
+            highest_belt, registration_belts, promotion_belts
+        )
 
         # if there are no matches, rating is null
         if len(elo_history) == 0:
             rating = None
         elif highest_belt:
             rating = elo_history[-1]["Rating"]
-
-            if rating is not None and elo_history[-1]["belt"] != highest_belt:
-                # adjust rating based on belt difference, can't do more than one belt here
-                # since we don't know their age, so just leave it alone in that case
-                belt_diff = belt_order.index(highest_belt) - belt_order.index(
-                    elo_history[-1]["belt"]
-                )
-                if belt_diff == 1:
-                    if highest_belt == BLACK:
-                        rating += BLACK_PROMOTION_RATING_BUMP
-                    else:
-                        rating += COLOR_PROMOTION_RATING_BUMP
+            rating = _apply_promotion_rating_bump(
+                rating, elo_history[-1]["belt"], highest_belt
+            )
 
     MedalAlias = aliased(Medal)
     medal_query = (
@@ -525,31 +534,14 @@ def ratings():
                 .all()
             )
 
-            highest_belt = last_match_belt
-            for reg in registrations:
-                if highest_belt is None or belt_order.index(
-                    reg.belt
-                ) > belt_order.index(highest_belt):
-                    highest_belt = reg.belt
-            for promo in promotions:
-                if highest_belt is None or belt_order.index(
-                    promo.belt
-                ) > belt_order.index(highest_belt):
-                    highest_belt = promo.belt
-
-            if (
-                info["rating"] is not None
-                and highest_belt
-                and highest_belt != last_match_belt
-            ):
-                belt_diff = belt_order.index(highest_belt) - belt_order.index(
-                    last_match_belt
-                )
-                if belt_diff == 1:
-                    if highest_belt == BLACK:
-                        info["rating"] += BLACK_PROMOTION_RATING_BUMP
-                    else:
-                        info["rating"] += COLOR_PROMOTION_RATING_BUMP
+            registration_belts = [reg.belt for reg in registrations]
+            promotion_belts = [promo.belt for promo in promotions]
+            highest_belt = _compute_highest_belt(
+                last_match_belt, registration_belts, promotion_belts
+            )
+            info["rating"] = _apply_promotion_rating_bump(
+                info["rating"], last_match_belt, highest_belt
+            )
 
             if highest_belt:
                 info["belt"] = highest_belt
