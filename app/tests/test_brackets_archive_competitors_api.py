@@ -1,40 +1,18 @@
 import os
-import shutil
 import sys
-import tempfile
 import unittest
 from datetime import datetime
 from unittest import mock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import app as app_module
 from constants import ADULT, BLACK, LIGHT, MALE
 from extensions import db
 from models import Athlete, Division, Event, Match, MatchParticipant, Medal, Team
+from test_db import TestDbMixin
 
 
-class BracketsArchiveCompetitorsApiTestCase(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.temp_dir = tempfile.mkdtemp()
-        cls.db_path = os.path.join(cls.temp_dir, "test.db")
-        app_module.app.config.update(
-            TESTING=True,
-            SQLALCHEMY_DATABASE_URI=f"sqlite:///{cls.db_path}",
-            SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        )
-        with app_module.app.app_context():
-            db.drop_all()
-            db.create_all()
-            cls._seed_data()
-
-    @classmethod
-    def tearDownClass(cls):
-        with app_module.app.app_context():
-            db.session.remove()
-            db.drop_all()
-        shutil.rmtree(cls.temp_dir)
+class BracketsArchiveCompetitorsApiTestCase(TestDbMixin, unittest.TestCase):
 
     @classmethod
     def _seed_data(cls):
@@ -121,7 +99,7 @@ class BracketsArchiveCompetitorsApiTestCase(unittest.TestCase):
         db.session.commit()
 
     def setUp(self):
-        self.client = app_module.app.test_client()
+        self.client = self.app_module.app.test_client()
 
     @mock.patch(
         "routes.brackets.get_livestream_link", return_value="https://example.com"
