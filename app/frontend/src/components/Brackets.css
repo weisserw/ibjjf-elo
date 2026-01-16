@@ -88,6 +88,10 @@
 }
 
 @media screen and (max-width: 768px) {
+  .bracket-table > tbody > tr > td:first-child {
+    padding-left: 0;
+    padding-right: 0;
+  }
   .category-flex {
     flex-direction: column;
     align-items: flex-start;
