@@ -112,13 +112,13 @@
     align-items: flex-start;
   }
   .is-visible-mobile-table-cell .name-subinfo .country-flag {
-    margin-top: 0px;
+    margin-top: 0.5px;
   }
 }
 
 @media screen and (max-width: 768px) and (hover: hover) and (pointer: fine) {
   .is-visible-mobile-table-cell .name-subinfo .country-flag {
-    margin-top: 3px;
+    margin-top: 2.5px;
   }
 }
 
