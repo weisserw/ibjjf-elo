@@ -280,7 +280,7 @@ function EloTable() {
                   <th className="has-text-right">#</th>
                   <th className="has-text-right">↑↓</th>
                   <th>{t("Name")}</th>
-                  <th className="is-visible-mobile-table-cell cell-no-side-padding"></th>
+                  <th className="is-visible-mobile-table-cell"></th>
                   <th className="has-text-right">{t("Rating")}</th>
                   <th className="cell-no-padding"></th>
                   <th className="has-text-right">+/-</th>
@@ -320,7 +320,7 @@ function EloTable() {
                           </div>
                         </div>
                       </td>
-                      <td className="is-visible-mobile-table-cell cell-no-side-padding">
+                      <td className="is-visible-mobile-table-cell">
                         <NameInfo instagram_profile={row.instagram_profile}
                                       profile_image_url={row.profile_image_url}
                                       country={row.country}

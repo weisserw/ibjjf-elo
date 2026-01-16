@@ -78,7 +78,7 @@ function EliteTable(props: EliteTableProps) {
                     </div>
                   </div>
                 </td>
-                <td className="is-visible-mobile-table-cell cell-no-side-padding">
+                <td className="is-visible-mobile-table-cell">
                   <NameInfo instagram_profile={e.instagram_profile}
                             profile_image_url={e.profile_image_url}
                             country={e.country} country_note={e.country_note} country_note_pt={e.country_note_pt} />

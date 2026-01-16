@@ -294,7 +294,7 @@ function BracketTable(props: BracketTableProps) {
                           </div>
                         </div>
                       </td>
-                      <td className="is-visible-mobile-table-cell cell-no-side-padding">
+                      <td className="is-visible-mobile-table-cell">
                         <NameInfo instagram_profile={competitor.instagram_profile}
                                   profile_image_url={competitor.profile_image_url}
                                   country={competitor.country} country_note={competitor.country_note} country_note_pt={competitor.country_note_pt}
@@ -312,7 +312,7 @@ function BracketTable(props: BracketTableProps) {
                           </div>
                         </div>
                       </td>
-                      <td className="is-visible-mobile-table-cell cell-no-side-padding">
+                      <td className="is-visible-mobile-table-cell">
                         <NameInfo instagram_profile={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} />
                       </td>
                     </>
