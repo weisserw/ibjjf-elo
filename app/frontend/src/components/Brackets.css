@@ -112,7 +112,7 @@
     align-items: flex-start;
   }
   .is-visible-mobile-table-cell .name-subinfo .country-flag {
-    margin-top: 3px;
+    margin-top: 1px;
   }
 }
 
@@ -128,7 +128,7 @@
 
   .bracket-table th,
   .bracket-table td {
-    padding: 0.35rem 0.5rem;
+    padding: 0.45rem 0.5rem;
   }
 }
 
