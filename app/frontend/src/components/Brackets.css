@@ -100,6 +100,16 @@
   .category-column:not(:first-child), .category-column .average {
     margin-bottom: .75rem;
   }
+  .badge-table-cell .athlete-elite-badge {
+    width: 20px;
+    height: 20px;
+  }
+  .is-visible-mobile-table-cell .name-subinfo {
+    align-items: flex-start;
+  }
+  .is-visible-mobile-table-cell .name-subinfo .country-flag {
+    margin-top: 3px;
+  }
 }
 
 .bracket-table {
