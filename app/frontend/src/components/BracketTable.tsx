@@ -190,7 +190,7 @@ function BracketTable(props: BracketTableProps) {
                 {
                   (sortColumn !== undefined && sortColumn !== 'rating') ?
                     <a href="#" onClick={columnClicked?.bind(null, 'rating')}>#</a> :
-                    <span># ↓</span>
+                    <span className="no-wrap"># ↓</span>
                 }
               </th>
             }

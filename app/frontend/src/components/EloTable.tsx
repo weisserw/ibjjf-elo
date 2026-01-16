@@ -274,7 +274,7 @@ function EloTable() {
         }
         {
           !loading && (
-            <table className="table is-fullwidth table-margin">
+            <table className="table is-fullwidth table-margin elo-table">
               <thead>
                 <tr>
                   <th className="has-text-right">#</th>

@@ -107,6 +107,29 @@
   margin-bottom: 24px;
 }
 
+@media screen and (max-width: 768px) {
+  .bracket-table {
+    font-size: 0.85rem;
+  }
+
+  .bracket-table th,
+  .bracket-table td {
+    padding: 0.35rem 0.5rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .bracket-table {
+    font-size: 0.8rem;
+    line-height: 1.15;
+  }
+
+  .bracket-table th,
+  .bracket-table td {
+    padding: 0.25rem 0.4rem;
+  }
+}
+
 .no-bottom-margin {
   margin-bottom: 0 !important;
 }

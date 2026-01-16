@@ -126,3 +126,26 @@ nav.pagination.pagination-margin {
   align-items: center;
   margin-left: 4px;
 }
+
+@media screen and (max-width: 768px) {
+  .elo-table {
+    font-size: 0.85rem;
+  }
+
+  .elo-table th,
+  .elo-table td {
+    padding: 0.35rem 0.5rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .elo-table {
+    font-size: 0.8rem;
+    line-height: 1.15;
+  }
+
+  .elo-table th,
+  .elo-table td {
+    padding: 0.25rem 0.4rem;
+  }
+}
