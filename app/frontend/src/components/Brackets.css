@@ -126,6 +126,12 @@
   }
 }
 
+.bracket-table .cell-no-bottom-padding {
+  padding-top: 5px !important;
+  padding-bottom: 0 !important;
+  vertical-align: top !important;
+}
+
 .no-bottom-margin {
   margin-bottom: 0 !important;
 }
