@@ -19,6 +19,7 @@ div.card.db-row-card {
 
 .db-row-card .card-content {
   overflow-x: auto;
+  overscroll-behavior-x: none;
 }
 
 .db-row-card div.date-box {

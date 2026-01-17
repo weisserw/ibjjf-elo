@@ -108,18 +108,6 @@
     width: 20px;
     height: 20px;
   }
-  .is-visible-mobile-table-cell .name-subinfo {
-    align-items: flex-start;
-  }
-  .is-visible-mobile-table-cell .name-subinfo .country-flag {
-    margin-top: 0.5px;
-  }
-}
-
-@media screen and (max-width: 768px) and (hover: hover) {
-  .is-visible-mobile-table-cell .name-subinfo .country-flag {
-    margin-top: 2.5px;
-  }
 }
 
 .bracket-table {
