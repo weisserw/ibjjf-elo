@@ -320,7 +320,7 @@ function EloTable() {
                           </div>
                         </div>
                       </td>
-                      <td className="is-visible-mobile-table-cell">
+                      <td className="is-visible-mobile-table-cell cell-no-bottom-padding">
                         <NameInfo instagram_profile={row.instagram_profile}
                                       profile_image_url={row.profile_image_url}
                                       country={row.country}

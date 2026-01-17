@@ -294,7 +294,7 @@ function BracketTable(props: BracketTableProps) {
                           </div>
                         </div>
                       </td>
-                      <td className="is-visible-mobile-table-cell">
+                      <td className="is-visible-mobile-table-cell cell-no-bottom-padding">
                         <NameInfo instagram_profile={competitor.instagram_profile}
                                   profile_image_url={competitor.profile_image_url}
                                   country={competitor.country} country_note={competitor.country_note} country_note_pt={competitor.country_note_pt}

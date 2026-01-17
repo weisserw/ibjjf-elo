@@ -95,6 +95,10 @@ span.clear-filter {
   vertical-align: middle !important;
 }
 
+.cell-no-bottom-padding {
+  padding-bottom: 0 !important;
+}
+
 .elo-bullet {
   margin-left: 4px;
 }
