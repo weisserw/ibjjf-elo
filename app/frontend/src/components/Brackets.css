@@ -138,18 +138,6 @@
   }
 }
 
-@media screen and (max-width: 480px) {
-  .bracket-table {
-    font-size: 0.8rem;
-    line-height: 1.15;
-  }
-
-  .bracket-table th,
-  .bracket-table td {
-    padding: 0.25rem 0.4rem;
-  }
-}
-
 .no-bottom-margin {
   margin-bottom: 0 !important;
 }
