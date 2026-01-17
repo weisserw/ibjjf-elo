@@ -116,12 +116,6 @@
   }
 }
 
-@media screen and (max-width: 768px) and (hover: hover) and (pointer: fine) {
-  .is-visible-mobile-table-cell .name-subinfo .country-flag {
-    margin-top: 2.5px;
-  }
-}
-
 .bracket-table {
   margin-top: 24px;
   margin-bottom: 24px;

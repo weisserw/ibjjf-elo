@@ -58,10 +58,16 @@
   background-color: #ddd;
 }
 
+html {
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
+}
+
 body {
   font-family: 'Noto Sans', 'Helvetica Neue', 'Helvetica', sans-serif;
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' on;
+  overflow-x: hidden;
 }
 
 .has-cursor-pointer {
