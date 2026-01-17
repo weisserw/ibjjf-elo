@@ -160,6 +160,7 @@
 
 .bracket-tree-border {
   overflow: auto;
+  overscroll-behavior: none;
   width: 100%;
   height: 640px;
   border: 1px solid #ccc;

@@ -70,6 +70,10 @@ body {
   overflow-x: hidden;
 }
 
+.table-container {
+  overscroll-behavior-x: none;
+}
+
 .has-cursor-pointer {
   cursor: pointer;
 }
