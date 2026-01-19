@@ -49,7 +49,6 @@ from constants import (
     JUVENILE,
     ADULT,
     NON_ELITE_BELTS,
-    MASTER_PREFIX,
     rated_ages,
     BLACK,
 )
@@ -258,6 +257,7 @@ def get_ratings(
                 result["id"],
                 result["belt"],
                 result["gender"],
+                result["age"],
                 gi,
             )
         )
@@ -281,10 +281,10 @@ def get_ratings(
                     AthleteRating.athlete_id,
                     AthleteRating.belt,
                     AthleteRating.gender,
+                    AthleteRating.age,
                     AthleteRating.gi,
                 ).in_(batch),
                 AthleteRating.percentile <= 0.11,
-                AthleteRating.age.in_(rated_ages),
                 AthleteRating.belt.not_in(NON_ELITE_BELTS),
             )
             .group_by(
@@ -301,7 +301,7 @@ def get_ratings(
                 percentile_rows[row.athlete_id] = []
             percentile_rows[row.athlete_id].append(row)
 
-    # For each athlete, pick the best percentile (lowest) from their valid ages
+    # For each athlete, pick the best percentile (lowest) from their results (they might have multiple weight classes)
     percentiles_by_id = {}
     for result in results:
         if not result.get("id"):
@@ -309,23 +309,9 @@ def get_ratings(
         best_percentile = None
         for row in percentile_rows.get(result["id"], []):
             if (
-                row.belt == result["belt"]
-                and row.gender == result["gender"]
-                and row.gi == gi
-            ):
-                if (
-                    best_percentile is None
-                    or (
-                        row.percentile < best_percentile[0]
-                        and best_percentile[1].startswith(MASTER_PREFIX)
-                        == row.age.startswith(MASTER_PREFIX)
-                    )
-                    or (
-                        not row.age.startswith(MASTER_PREFIX)
-                        and best_percentile[1].startswith(MASTER_PREFIX)
-                    )
-                ) and round(row.percentile * 100) <= 10:
-                    best_percentile = (row.percentile, row.age)
+                best_percentile is None or row.percentile < best_percentile[0]
+            ) and round(row.percentile * 100) <= 10:
+                best_percentile = (row.percentile, row.age)
         percentiles_by_id[result["id"]] = best_percentile
 
     for result in results:
