@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import axios from "axios";
 import { useParams, Link } from "react-router-dom";
 import { useSingleNewsPost } from "../useNewsPosts";
+import { fixNewsTitle } from "../utils";
 
 export default function NewsItem() {
 	const { id } = useParams<{ id: string }>();
@@ -26,7 +27,7 @@ export default function NewsItem() {
 
 				{post && (
 					<article className="box mb-5">
-						<h1 className="title is-4">{post.title}</h1>
+						<h1 className="title is-4">{fixNewsTitle(post.title)}</h1>
 						<p className="is-size-7 has-text-grey mb-3">
 							Posted on {new Date(post.date).toLocaleDateString()} by {post.author.name}
 						</p>

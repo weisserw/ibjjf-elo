@@ -3,6 +3,7 @@ import EloTable from './EloTable';
 import useNewsPosts from '../useNewsPosts';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
+import { fixNewsTitle } from "../utils";
 
 import "./Ratings.css";
 
@@ -32,7 +33,7 @@ function Ratings() {
                     index === 0 && dayjs().diff(dayjs(post.date), 'day') <= 3 &&
                     <span className="new-post-marker">New</span>
                   }
-                  {post.title}
+                  {fixNewsTitle(post.title)}
                 </a>
               </span>
             ))}

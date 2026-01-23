@@ -1,4 +1,5 @@
 import useNewsPosts, { WPPost } from "../useNewsPosts";
+import { fixNewsTitle } from "../utils";
 
 export default function NewsList() {
   const { posts, loading, error } = useNewsPosts();
@@ -32,7 +33,7 @@ export default function NewsList() {
           return (
             <article key={post.slug} className="box mb-5">
               <h2 className="title is-4">
-                <a href={`/news/${post.ID}/${post.slug}`}>{post.title}</a>
+                <a href={`/news/${post.ID}/${post.slug}`}>{fixNewsTitle(post.title)}</a>
               </h2>
 
               <p className="is-size-7 has-text-grey mb-3">

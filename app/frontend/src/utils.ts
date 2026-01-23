@@ -205,3 +205,18 @@ export const badgeForPercentile = (percentile: number | null, belt: string, age:
     return [null, ''];
   }
 };
+
+export const fixNewsTitle = (title: string): string => {
+  // Fix common HTML entity issues in WordPress titles
+  return title
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#8211;/g, '–')
+    .replace(/&#8212;/g, '—')
+    .replace(/&#8216;/g, '‘')
+    .replace(/&#8217;/g, '’')
+    .replace(/&#8220;/g, '“')
+    .replace(/&#8221;/g, '”')
+    .replace(/&#8230;/g, '…');
+}
