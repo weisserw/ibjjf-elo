@@ -1,4 +1,5 @@
 export const countryNames: Record<string, string> = {
+  'ae': 'United Arab Emirates',
   'af': 'Afghanistan',
   'al': 'Albania',
   'am': 'Armenia',
@@ -204,6 +205,7 @@ export const countryNames: Record<string, string> = {
 };
 
 export const countryNamesPt: Record<string, string> = {
+  'ae': 'Emirados Árabes Unidos',
   'af': 'Afeganistão',
   'al': 'Albânia',
   'am': 'Armênia',
