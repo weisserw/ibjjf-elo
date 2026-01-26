@@ -1378,6 +1378,10 @@ def registration_elites():
             ):
                 continue
 
+            weight_lower = parsed["weight"].lower()
+            if "open class" in weight_lower:
+                continue
+
             # competitors for this division
             for competitor in entry["RegistrationCategories"]:
                 team = competitor.get("AcademyTeamName")
