@@ -13,7 +13,7 @@ const OUTPUT_FILE = path.resolve(OUTPUT_DIR, "news.html");
 
 async function fetchNews() {
   const url = new URL(WP_API);
-  url.searchParams.set("per_page", "5");
+  url.searchParams.set("number", "10");
   url.searchParams.set("order", "desc");
   url.searchParams.set("orderby", "date");
   const resp = await fetch(url.toString());

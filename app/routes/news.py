@@ -13,14 +13,19 @@ news_route = Blueprint("news_route", __name__)
 
 @news_route.route("/api/news")
 def get_news():
+    page = request.args.get("page", default=1, type=int)
+    if page < 1:
+        page = 1
     resp = requests.get(
-        WP_API, params={"per_page": 5, "order": "desc", "orderby": "date"}
+        WP_API,
+        params={"number": 10, "order": "desc", "orderby": "date", "page": page},
     )
 
     if resp.status_code != 200:
         return jsonify({"error": resp.text})
 
-    return jsonify({"posts": resp.json()["posts"]})
+    body = resp.json()
+    return jsonify({"posts": body.get("posts", []), "found": body.get("found")})
 
 
 @news_route.route("/api/news/<id>")

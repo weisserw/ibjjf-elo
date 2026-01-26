@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-const CACHE_KEY = "wp_news_cache";
+const CACHE_KEY_PREFIX = "wp_news_cache_page_";
+const CACHE_TIMESTAMP_KEY = "wp_news_cache_timestamp";
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const PER_PAGE = 10;
 
 export interface WPPost {
   ID: number;
@@ -21,34 +23,55 @@ export interface WPPost {
 interface CachedPosts {
   timestamp: number;
   data: WPPost[];
+  found?: number;
 }
 
 interface PostsResponse {
   posts?: WPPost[];
+  found?: number;
   error?: string;
 }
 
-export default function useNewsPosts() {
+export default function useNewsPosts(page = 1) {
   const [posts, setPosts] = useState<WPPost[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState<boolean>(false);
 
   useEffect(() => {
     const loadPosts = async () => {
       try {
-        const cachedRaw = localStorage.getItem(CACHE_KEY);
+        const now = Date.now();
+        const cacheTimestampRaw = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+        const cacheTimestamp = cacheTimestampRaw ? Number(cacheTimestampRaw) : 0;
+        if (!cacheTimestamp || now - cacheTimestamp > CACHE_TTL) {
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(CACHE_KEY_PREFIX)) {
+              localStorage.removeItem(key);
+            }
+          }
+          localStorage.removeItem(CACHE_TIMESTAMP_KEY);
+        }
+
+        const cacheKey = `${CACHE_KEY_PREFIX}${page}`;
+        const cachedRaw = localStorage.getItem(cacheKey);
 
         if (cachedRaw) {
           const cached: CachedPosts = JSON.parse(cachedRaw);
-
-          if (Date.now() - cached.timestamp < CACHE_TTL) {
-            setPosts(cached.data);
-            setLoading(false);
-            return;
-          }
+          setPosts(cached.data);
+          setHasMore(
+            cached.found !== undefined
+              ? page * PER_PAGE < cached.found
+              : cached.data.length === PER_PAGE
+          );
+          setLoading(false);
+          return;
         }
 
-        const res = await axios.get<PostsResponse>("/api/news");
+        const res = await axios.get<PostsResponse>("/api/news", {
+          params: { page }
+        });
 
         if (res.data.error) {
           setError(res.data.error);
@@ -57,13 +80,20 @@ export default function useNewsPosts() {
         }
 
         setPosts(res.data.posts || []);
+        setHasMore(
+          res.data.found !== undefined
+            ? page * PER_PAGE < res.data.found
+            : (res.data.posts || []).length === PER_PAGE
+        );
 
         const cache: CachedPosts = {
           timestamp: Date.now(),
-          data: res.data.posts || []
+          data: res.data.posts || [],
+          found: res.data.found
         };
 
-        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+        localStorage.setItem(cacheKey, JSON.stringify(cache));
+        localStorage.setItem(CACHE_TIMESTAMP_KEY, String(Date.now()));
         setLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An unknown error occurred");
@@ -72,9 +102,9 @@ export default function useNewsPosts() {
     };
 
     loadPosts();
-  }, []);
+  }, [page]);
 
-  return { posts, loading, error };
+  return { posts, loading, error, hasMore };
 }
 
 const SINGLE_POST_CACHE_PREFIX = "wp_news_single_";
@@ -92,20 +122,24 @@ export function useSingleNewsPost(id: string) {
   useEffect(() => {
     // First, check the list cache
     const now = Date.now();
-    const cachedListRaw = localStorage.getItem(CACHE_KEY);
-    if (cachedListRaw) {
-      try {
-        const cachedList: CachedPosts = JSON.parse(cachedListRaw);
-        if (now - cachedList.timestamp < CACHE_TTL) {
-          const found = cachedList.data.find((p) => String(p.ID) === id);
-          if (found) {
-            setPost(found);
-            setLoading(false);
-            setError(null);
-            return;
-          }
+    const cacheTimestampRaw = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+    const cacheTimestamp = cacheTimestampRaw ? Number(cacheTimestampRaw) : 0;
+    if (cacheTimestamp && now - cacheTimestamp < CACHE_TTL) {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(CACHE_KEY_PREFIX)) {
+          try {
+            const cachedList: CachedPosts = JSON.parse(localStorage.getItem(key)!);
+            const found = cachedList.data.find((p) => String(p.ID) === id);
+            if (found) {
+              setPost(found);
+              setLoading(false);
+              setError(null);
+              return;
+            }
+          } catch {}
         }
-      } catch {}
+      }
     }
 
     // Next, check and clean single post cache
