@@ -20,7 +20,9 @@ if [ -z "$output_file" ]; then
   exit 1
 fi
 
-read -p "Press Enter to continue or Ctrl-C to exit..."
+if [ "$IMPORT_NONINTERACTIVE" != "1" ]; then
+  read -p "Press Enter to continue or Ctrl-C to exit..."
+fi
 
 ./scripts/backup_csv.py "$output_file"
 if [ $? -ne 0 ]; then
@@ -28,7 +30,9 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-read -p "Press Enter to continue or Ctrl-C to exit..."
+if [ "$IMPORT_NONINTERACTIVE" != "1" ]; then
+  read -p "Press Enter to continue or Ctrl-C to exit..."
+fi
 
 ./scripts/load_csv.py "$output_file"
 if [ $? -ne 0 ]; then

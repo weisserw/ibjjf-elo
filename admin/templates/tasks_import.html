@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Import Results{% endblock %}
+{% block content %}
+<div class="container mt-6">
+    <div class="columns is-centered">
+        <div class="column is-two-thirds">
+            <div class="box">
+                <h1 class="title is-4">Import Tournament Results</h1>
+                {% if error %}
+                <div class="notification is-danger">{{ error }}</div>
+                {% endif %}
+                <form method="POST">
+                    <div class="field">
+                        <label class="label">Bjjcompsystem List:</label>
+                        <div class="control">
+                            <div class="select is-fullwidth">
+                                <select id="bjjcompsystem_tournament">
+                                    <option value="">Loading tournaments...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="help">Selecting a tournament will auto-fill the fields below.</p>
+                    </div>
+
+                    <div class="field">
+                        <label class="label">Tournament ID</label>
+                        <div class="control">
+                            <input class="input" type="text" name="tournament_id" required>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label class="label">Tournament Name</label>
+                        <div class="control">
+                            <input class="input" type="text" name="tournament_name" required>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <div class="control">
+                            <label class="radio">
+                                <input type="radio" name="gi_mode" value="gi" checked>
+                                Gi
+                            </label>
+                            <label class="radio">
+                                <input type="radio" name="gi_mode" value="nogi">
+                                No-Gi
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label class="checkbox">
+                            <input type="checkbox" name="incomplete">
+                            Tournament incomplete (ignore unfinished matches)
+                        </label>
+                    </div>
+
+                    <div class="field">
+                        <label class="label">Retries</label>
+                        <div class="control">
+                            <input class="input" type="number" name="retries" value="2" min="0">
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label class="checkbox">
+                            <input type="checkbox" name="allow_errors">
+                            Allow errors (do not abort on errors)
+                        </label>
+                    </div>
+
+                    <div class="field is-grouped">
+                        <div class="control">
+                            <button class="button is-primary" type="submit">Start Import</button>
+                        </div>
+                        <div class="control">
+                            <a class="button is-light" href="{{ url_for('tasks_index') }}">View Logs</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        const form = document.querySelector('form');
+        if (!form) {
+            return;
+        }
+        const select = document.getElementById('bjjcompsystem_tournament');
+        const nameInput = form.querySelector('input[name="tournament_name"]');
+        const idInput = form.querySelector('input[name="tournament_id"]');
+        const giInputs = form.querySelectorAll('input[name="gi_mode"]');
+
+        function isNoGiName(name) {
+            const lower = name.toLowerCase();
+            return (
+                lower.includes('no gi') ||
+                lower.includes('no-gi') ||
+                lower.includes('sem kimono')
+            );
+        }
+
+        function getGiMode() {
+            for (const input of giInputs) {
+                if (input.checked) {
+                    return input.value;
+                }
+            }
+            return 'gi';
+        }
+
+        function setGiMode(value) {
+            for (const input of giInputs) {
+                if (input.value === value) {
+                    input.checked = true;
+                }
+            }
+        }
+
+        function populateSelect(tournaments) {
+            if (!select) {
+                return;
+            }
+            select.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select a tournament...';
+            select.appendChild(placeholder);
+
+            tournaments.forEach((t) => {
+                const option = document.createElement('option');
+                option.value = t.id;
+                option.textContent = t.name;
+                select.appendChild(option);
+            });
+        }
+
+        function loadTournaments() {
+            if (!select) {
+                return;
+            }
+            fetch('{{ url_for("bjjcompsystem_tournaments") }}')
+                .then((resp) => resp.json())
+                .then((data) => {
+                    if (!data || !Array.isArray(data.tournaments)) {
+                        throw new Error('Invalid response');
+                    }
+                    populateSelect(data.tournaments);
+                })
+                .catch(() => {
+                    select.innerHTML = '';
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'Unable to load tournaments';
+                    select.appendChild(option);
+                });
+        }
+
+        if (select) {
+            select.addEventListener('change', function () {
+                const selectedOption = select.options[select.selectedIndex];
+                if (!selectedOption || !selectedOption.value) {
+                    return;
+                }
+                if (idInput) {
+                    idInput.value = selectedOption.value;
+                }
+                if (nameInput) {
+                    nameInput.value = selectedOption.textContent.trim();
+                }
+                const nameIsNoGi = isNoGiName(selectedOption.textContent || '');
+                setGiMode(nameIsNoGi ? 'nogi' : 'gi');
+            });
+        }
+
+        loadTournaments();
+
+        form.addEventListener('submit', function (event) {
+            const name = nameInput ? nameInput.value.trim() : '';
+            if (!name) {
+                return;
+            }
+            const nameIsNoGi = isNoGiName(name);
+            const giMode = getGiMode();
+            if (nameIsNoGi && giMode === 'gi') {
+                const ok = window.confirm(
+                    'This tournament name indicates it is no-gi, but you are importing it as gi. Continue?'
+                );
+                if (!ok) {
+                    event.preventDefault();
+                }
+            } else if (!nameIsNoGi && giMode === 'nogi') {
+                const ok = window.confirm(
+                    'This tournament name does not indicate no-gi, but you are importing it as no-gi. Continue?'
+                );
+                if (!ok) {
+                    event.preventDefault();
+                }
+            }
+        });
+    })();
+</script>
+{% endblock %}

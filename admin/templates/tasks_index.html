@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Background Tasks{% endblock %}
+{% block content %}
+<div class="container mt-6">
+    <div class="columns is-centered">
+        <div class="column is-three-quarters">
+            <div class="box">
+                <div class="is-flex is-justify-content-space-between is-align-items-center">
+                    <h1 class="title is-4">Background Tasks</h1>
+                </div>
+                <table class="table is-fullwidth is-striped">
+                    <thead>
+                        <tr>
+                            <th>Created</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Log</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                        <tr>
+                            <td>{{ task.created_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.created_at else '' }}</td>
+                            <td>{{ task.task_type }}</td>
+                            <td>
+                                {% if task.status == 'success' %}
+                                    success
+                                {% elif task.status == 'error' %}
+                                    error{% if task.exit_code is not none %} (code {{ task.exit_code }}){% endif %}
+                                {% elif task.status == 'cancelled' %}
+                                    cancelled
+                                {% elif task.status == 'manual' %}
+                                    finished (manual)
+                                {% else %}
+                                    {{ task.status }}
+                                {% endif %}
+                            </td>
+                            <td><a href="{{ url_for('task_detail', task_id=task.id) }}">View</a></td>
+                            <td>
+                                {% if task.status in ['queued', 'running'] %}
+                                <form method="POST" action="{{ url_for('task_cancel', task_id=task.id) }}">
+                                    <button class="button is-small is-warning" type="submit">Cancel</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5">No background tasks yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="mt-4">
+                    <a class="button is-light" href="{{ url_for('index') }}">Back to Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
