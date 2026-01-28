@@ -42,8 +42,10 @@
                             <th>Started</th>
                             <td id="task-started">{{ task.started_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.started_at else '' }}</td>
                             {% endif %}
-                            <th>Finished</th>
+                            {% if task.finished_at or task.status in ['success', 'error', 'cancelled', 'manual'] %}
+                            <th id="task-finished-label">Finished</th>
                             <td id="task-finished">{{ task.finished_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.finished_at else '' }}</td>
+                            {% endif %}
                         </tr>
                     </table>
 
@@ -87,6 +89,7 @@
         const createdEl = document.getElementById('task-created');
         const startedEl = document.getElementById('task-started');
         const finishedEl = document.getElementById('task-finished');
+        const finishedLabelEl = document.getElementById('task-finished-label');
         let lastLog = logEl ? logEl.textContent : '';
 
         function formatTimestamp(iso) {
@@ -123,7 +126,19 @@
             } else if (createdEl) {
                 createdEl.textContent = created;
             }
-            if (finishedEl) finishedEl.textContent = finished;
+            const isDone = data.status && !['queued', 'running'].includes(data.status);
+            if (isDone) {
+                if (finishedLabelEl && finishedLabelEl.style.display === 'none') {
+                    finishedLabelEl.style.display = '';
+                }
+                if (finishedEl) {
+                    finishedEl.style.display = '';
+                    finishedEl.textContent = finished;
+                }
+            } else {
+                if (finishedLabelEl) finishedLabelEl.style.display = 'none';
+                if (finishedEl) finishedEl.style.display = 'none';
+            }
         }
 
         function updateLog(text) {
