@@ -1,5 +1,6 @@
 import uuid
 import json
+from datetime import datetime
 from sqlalchemy import (
     Column,
     String,
@@ -442,3 +443,27 @@ class NewsViewDaily(db.Model):
     post_id = Column(BigInteger, primary_key=True)
     day = Column(Date, primary_key=True)
     views = Column(Integer, nullable=False, default=0)
+
+
+class BackgroundTask(db.Model):
+    __tablename__ = "background_tasks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_type = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    params_json = Column(Text, nullable=True)
+    log_text = Column(Text, nullable=True)
+    exit_code = Column(Integer, nullable=True)
+    pid = Column(Integer, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    __table_args__ = (
+        Index("ix_background_tasks_created_at", "created_at"),
+        Index("ix_background_tasks_status", "status"),
+        Index("ix_background_tasks_type", "task_type"),
+    )

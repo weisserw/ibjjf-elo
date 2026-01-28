@@ -15,6 +15,7 @@ from pull import headers, pull_tournament
 
 def main():
     try:
+        noninteractive = os.getenv("IMPORT_NONINTERACTIVE") == "1"
         parser = argparse.ArgumentParser(
             description="Pull tournament matches from bjjcompsystem.com"
         )
@@ -59,9 +60,11 @@ def main():
             or "no-gi" in tournament_name_lower
             or "sem kimono" in tournament_name_lower
         ) and args.gi:
-            input(
-                "Warning: This tournament name indicates it is no-gi, but you are importing it as gi. Press Enter to continue or Ctrl-C to abort.\n"
-            )
+            warning = "Warning: This tournament name indicates it is no-gi, but you are importing it as gi."
+            if noninteractive:
+                print(warning)
+            else:
+                input(f"{warning} Press Enter to continue or Ctrl-C to abort.\n")
         elif (
             not (
                 "no gi" in tournament_name_lower
@@ -70,9 +73,11 @@ def main():
             )
             and not args.gi
         ):
-            input(
-                "Warning: The tournament name does not indicate no-gi, but you are importing it as no-gi. Press Enter to continue or Ctrl-C to abort.\n"
-            )
+            warning = "Warning: The tournament name does not indicate no-gi, but you are importing it as no-gi."
+            if noninteractive:
+                print(warning)
+            else:
+                input(f"{warning} Press Enter to continue or Ctrl-C to abort.\n")
 
         urls = [
             (

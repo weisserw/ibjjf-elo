@@ -1,8 +1,16 @@
 import os
 import sys
 import uuid
+import json
+import subprocess
+import threading
+import time
+import traceback
+import signal
+import requests
+from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-from flask import Flask, render_template, redirect, url_for, request, session
+from flask import Flask, render_template, redirect, url_for, request, session, jsonify
 from urllib.parse import urlparse, urlencode, urlunparse
 
 
@@ -17,11 +25,13 @@ from models import (
     Match,
     MatchParticipant,
     FloEventTag,
+    BackgroundTask,
 )
 from normalize import normalize
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "default_secret")
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 # Use same SQLite DB file as main app by default
 default_db_path = os.path.abspath(
@@ -34,6 +44,66 @@ db.init_app(app)
 
 # Admin password
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
+
+
+def _append_task_log(task, text):
+    task.log_text = (task.log_text or "") + text
+
+
+def _run_import_task(task_id, args):
+    with app.app_context():
+        task = BackgroundTask.query.get(task_id)
+        if not task:
+            return
+        task.status = "running"
+        task.started_at = datetime.utcnow()
+        db.session.commit()
+
+        env = os.environ.copy()
+        env["IMPORT_NONINTERACTIVE"] = "1"
+
+        process = subprocess.Popen(
+            ["./import.sh"] + args,
+            cwd=REPO_ROOT,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            start_new_session=True,
+        )
+        task.pid = process.pid
+        db.session.commit()
+
+        buffer = []
+        last_flush = time.time()
+        try:
+            if process.stdout:
+                for line in process.stdout:
+                    buffer.append(line)
+                    if len(buffer) >= 20 or time.time() - last_flush >= 1.0:
+                        _append_task_log(task, "".join(buffer))
+                        db.session.commit()
+                        buffer = []
+                        last_flush = time.time()
+
+            return_code = process.wait()
+            if buffer:
+                _append_task_log(task, "".join(buffer))
+            task.exit_code = return_code
+            task.finished_at = datetime.utcnow()
+            task.status = "success" if return_code == 0 else "error"
+            task.pid = None
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            _append_task_log(task, f"\nUnexpected error: {exc}\n")
+            _append_task_log(task, traceback.format_exc())
+            task.exit_code = -1
+            task.finished_at = datetime.utcnow()
+            task.status = "error"
+            task.pid = None
+            db.session.commit()
 
 
 # Simple authentication
@@ -77,6 +147,166 @@ def logout():
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/api/bjjcompsystem/tournaments")
+def bjjcompsystem_tournaments():
+    url = "https://www.bjjcompsystem.com/"
+    try:
+        response = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=20,
+        )
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        select = soup.find("select", id="tournament_id")
+        if not select:
+            return jsonify({"error": "tournament select not found"}), 502
+        options = []
+        for option in select.find_all("option"):
+            value = (option.get("value") or "").strip()
+            label = option.get_text(strip=True)
+            if value:
+                options.append({"id": value, "name": label})
+        return jsonify({"tournaments": options})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+@app.route("/tasks")
+def tasks_index():
+    tasks = (
+        BackgroundTask.query.order_by(BackgroundTask.created_at.desc()).limit(10).all()
+    )
+    return render_template("tasks_index.html", tasks=tasks)
+
+
+@app.route("/tasks/import", methods=["GET", "POST"])
+def tasks_import():
+    error = None
+    if request.method == "POST":
+        tournament_id = request.form.get("tournament_id", "").strip()
+        tournament_name = request.form.get("tournament_name", "").strip()
+        gi_mode = request.form.get("gi_mode", "gi")
+        retries = request.form.get("retries", "2").strip()
+        allow_errors = request.form.get("allow_errors") == "on"
+        incomplete = request.form.get("incomplete") == "on"
+
+        if not tournament_id or not tournament_name:
+            error = "Tournament ID and Tournament Name are required."
+        else:
+            try:
+                retries_int = max(0, int(retries))
+            except ValueError:
+                error = "Retries must be a number."
+                retries_int = 2
+
+        if not error:
+            args = [
+                tournament_id,
+                tournament_name,
+                "--gi" if gi_mode == "gi" else "--nogi",
+                "--retries",
+                str(retries_int),
+            ]
+            if allow_errors:
+                args.append("--allow-errors")
+            if incomplete:
+                args.append("--incomplete")
+
+            params = {
+                "tournament_id": tournament_id,
+                "tournament_name": tournament_name,
+                "gi_mode": gi_mode,
+                "retries": retries_int,
+                "allow_errors": allow_errors,
+                "incomplete": incomplete,
+            }
+
+            task = BackgroundTask(
+                task_type="import_results",
+                status="queued",
+                params_json=json.dumps(params),
+            )
+            db.session.add(task)
+            db.session.commit()
+
+            thread = threading.Thread(
+                target=_run_import_task, args=(task.id, args), daemon=True
+            )
+            thread.start()
+
+            return redirect(url_for("task_detail", task_id=task.id))
+
+    return render_template("tasks_import.html", error=error)
+
+
+@app.route("/tasks/<task_id>")
+def task_detail(task_id):
+    task = BackgroundTask.query.get(uuid.UUID(task_id))
+    params = {}
+    if task and task.params_json:
+        try:
+            params = json.loads(task.params_json)
+        except json.JSONDecodeError:
+            params = {}
+    return render_template("task_detail.html", task=task, params=params)
+
+
+@app.route("/api/tasks/<task_id>")
+def task_status(task_id):
+    task = BackgroundTask.query.get(uuid.UUID(task_id))
+    if not task:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(
+        {
+            "status": task.status,
+            "exit_code": task.exit_code,
+            "log_text": task.log_text or "",
+            "created_at": task.created_at.isoformat() if task.created_at else None,
+            "started_at": task.started_at.isoformat() if task.started_at else None,
+            "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+        }
+    )
+
+
+@app.route("/tasks/<task_id>/mark_finished", methods=["POST"])
+def task_mark_finished(task_id):
+    task = BackgroundTask.query.get(uuid.UUID(task_id))
+    if task:
+        task.status = "manual"
+        task.finished_at = datetime.utcnow()
+        task.pid = None
+        db.session.commit()
+    return redirect(url_for("task_detail", task_id=task_id))
+
+
+@app.route("/tasks/<task_id>/cancel", methods=["POST"])
+def task_cancel(task_id):
+    task = BackgroundTask.query.get(uuid.UUID(task_id))
+    if not task:
+        return redirect(url_for("tasks_index"))
+
+    if task.status in ["running", "queued"]:
+        pid = task.pid
+        if pid:
+            try:
+                os.killpg(pid, signal.SIGTERM)
+                time.sleep(1.5)
+                os.killpg(pid, 0)
+                os.killpg(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            except Exception as exc:
+                _append_task_log(task, f"\nCancel error: {exc}\n")
+        task.status = "cancelled"
+        task.finished_at = datetime.utcnow()
+        task.exit_code = None
+        task.pid = None
+        db.session.commit()
+
+    return redirect(url_for("task_detail", task_id=task_id))
 
 
 @app.route("/events/upcoming")

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Task Log{% endblock %}
+{% block content %}
+<div class="container mt-6">
+    <div class="columns is-centered">
+        <div class="column is-three-quarters">
+            <div class="box">
+                {% if not task %}
+                    <div class="notification is-danger">Task not found.</div>
+                {% else %}
+                    <div class="is-flex is-justify-content-space-between is-align-items-center">
+                        <h1 class="title is-4">Task Log</h1>
+                        <div>
+                            <a class="button is-light" href="{{ url_for('tasks_index') }}">Back to Logs</a>
+                        </div>
+                    </div>
+
+                    <table class="table is-fullwidth" id="task-metadata">
+                        <tr>
+                            <th>Type</th>
+                            <td id="task-type">{{ task.task_type }}</td>
+                            <th>Status</th>
+                            <td id="task-status">
+                                {% if task.status == 'success' %}
+                                    success
+                                {% elif task.status == 'error' %}
+                                    error{% if task.exit_code is not none %} (code {{ task.exit_code }}){% endif %}
+                                {% elif task.status == 'cancelled' %}
+                                    cancelled
+                                {% elif task.status == 'manual' %}
+                                    finished (manual)
+                                {% else %}
+                                    {{ task.status }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            {% if not task.started_at %}
+                            <th>Created</th>
+                            <td id="task-created">{{ task.created_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.created_at else '' }}</td>
+                            {% else %}
+                            <th>Started</th>
+                            <td id="task-started">{{ task.started_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.started_at else '' }}</td>
+                            {% endif %}
+                            <th>Finished</th>
+                            <td id="task-finished">{{ task.finished_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.finished_at else '' }}</td>
+                        </tr>
+                    </table>
+
+                    {% if params %}
+                    <details class="mt-5">
+                        <summary class="title is-6" style="cursor: pointer;">Parameters</summary>
+                        <table class="table is-fullwidth">
+                            {% for key, value in params.items() %}
+                            <tr>
+                                <th>{{ key }}</th>
+                                <td>{{ value }}</td>
+                            </tr>
+                            {% endfor %}
+                        </table>
+                    </details>
+                    {% endif %}
+
+                    {% if task.status in ['queued', 'running'] %}
+                    <form method="POST" action="{{ url_for('task_cancel', task_id=task.id) }}" class="mb-4">
+                        <button class="button is-danger" type="submit">Cancel Task</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('task_mark_finished', task_id=task.id) }}" class="mb-4">
+                        <button class="button is-warning" type="submit">Mark Finished</button>
+                    </form>
+                    {% endif %}
+
+                    <h2 class="title is-6">Log Output</h2>
+                    <div style="border: 1px solid #dbdbdb; border-radius: 4px; padding: 0.75rem; max-height: 400px; overflow-y: auto;">
+                        <pre id="task-log" style="white-space: pre-wrap; margin: 0;">{{ task.log_text or '' }}</pre>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% if task %}
+<script>
+    (function () {
+        const logEl = document.getElementById('task-log');
+        const statusEl = document.getElementById('task-status');
+        const createdEl = document.getElementById('task-created');
+        const startedEl = document.getElementById('task-started');
+        const finishedEl = document.getElementById('task-finished');
+        let lastLog = logEl ? logEl.textContent : '';
+
+        function formatTimestamp(iso) {
+            if (!iso) return '';
+            const date = new Date(iso);
+            if (Number.isNaN(date.getTime())) return '';
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = months[date.getMonth()];
+            const day = date.getDate();
+            const year = date.getFullYear();
+            let hours = date.getHours();
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            if (hours === 0) hours = 12;
+            return `${month} ${day} ${year} ${hours}:${minutes}${ampm}`;
+        }
+
+        function statusLabel(status, exitCode) {
+            if (status === 'success') return 'success';
+            if (status === 'error') return `error${exitCode !== null ? ' (code ' + exitCode + ')' : ''}`;
+            if (status === 'cancelled') return 'cancelled';
+            if (status === 'manual') return 'finished (manual)';
+            return status || '';
+        }
+
+        function updateMetadata(data) {
+            if (statusEl) statusEl.textContent = statusLabel(data.status, data.exit_code);
+            const created = formatTimestamp(data.created_at);
+            const started = formatTimestamp(data.started_at);
+            const finished = formatTimestamp(data.finished_at);
+            if (startedEl) {
+                startedEl.textContent = started;
+            } else if (createdEl) {
+                createdEl.textContent = created;
+            }
+            if (finishedEl) finishedEl.textContent = finished;
+        }
+
+        function updateLog(text) {
+            if (!logEl) return;
+            if (text !== lastLog) {
+                logEl.textContent = text;
+                lastLog = text;
+                logEl.parentElement.scrollTop = logEl.parentElement.scrollHeight;
+            }
+        }
+
+        function poll() {
+            fetch('{{ url_for("task_status", task_id=task.id) }}')
+                .then((resp) => resp.json())
+                .then((data) => {
+                    if (!data || data.error) {
+                        return;
+                    }
+                    updateMetadata(data);
+                    updateLog(data.log_text || '');
+                    if (data.status && !['queued', 'running'].includes(data.status)) {
+                        clearInterval(timer);
+                    }
+                })
+                .catch(() => {});
+        }
+
+        const timer = setInterval(poll, 1000);
+        poll();
+    })();
+</script>
+{% endif %}
+{% endblock %}
