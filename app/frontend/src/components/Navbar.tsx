@@ -1,7 +1,7 @@
 import { useState, useContext } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import classNames from 'classnames';
-import logoImage from '/src/assets/logo.jpg'
+import logoImage from '/src/assets/logo.png'
 import enIcon from '/src/assets/icon-en.svg';
 import ptIcon from '/src/assets/icon-pt.svg';
 import './Navbar.css';
