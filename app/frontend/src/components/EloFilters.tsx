@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useAppContext } from "../AppContext"
 import { ages, ageYears, juvenileRanks, juvenileRanksValues, adultRanks, adultRanksValues,
   femaleWeights, maleWeights, femaleJuvenileWeightValuesKgs, femaleJuvenileWeightValuesLbs,
@@ -12,6 +12,8 @@ import { ages, ageYears, juvenileRanks, juvenileRanksValues, adultRanks, adultRa
 import classNames from "classnames"
 import { t, type translationKeys } from "../translate"
 import CustomSelect from "./CustomSelect"
+import { countryNames, countryNamesPt } from "../countries"
+import Autosuggest from "react-autosuggest"
 
 import "./EloFilters.css"
 
@@ -23,12 +25,14 @@ function EloFilters() {
     rankingAge: age,
     rankingBelt: belt,
     rankingWeight: weight,
+    rankingCountry: country,
     rankingChanged: changed,
     rankingUpcoming: upcoming,
     setRankingGender: setGender,
     setRankingAge: setAge,
     setRankingBelt: setBelt,
     setRankingWeight: setWeight,
+    setRankingCountry: setCountry,
     setRankingChanged: setChanged,
     setRankingUpcoming: setUpcoming,
   } = useAppContext();
@@ -127,6 +131,100 @@ function EloFilters() {
     }));
   }, [gender, age, language, activeTab]);
 
+  const countryEntries = useMemo(() => {
+    const source = language === 'pt' ? countryNamesPt : countryNames;
+    return Object.entries(source)
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([value, label]) => ({
+        value,
+        label,
+      }));
+  }, [language]);
+
+  const selectedCountryLabel = useMemo(() => {
+    if (!country) {
+      return "";
+    }
+    const source = language === 'pt' ? countryNamesPt : countryNames;
+    return source[country] || "";
+  }, [country, language]);
+
+  const [countryInput, setCountryInput] = useState(selectedCountryLabel);
+  const [countrySuggestions, setCountrySuggestions] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    setCountryInput(selectedCountryLabel);
+  }, [selectedCountryLabel]);
+
+  const onCountryInputChange = (_: React.FormEvent, { newValue }: Autosuggest.ChangeEvent) => {
+    setCountryInput(newValue);
+    if (newValue !== selectedCountryLabel) {
+      setCountry('');
+    }
+  };
+
+  const onCountrySuggestionsFetchRequested = ({ value }: Autosuggest.SuggestionsFetchRequestedParams) => {
+    const search = value.trim().toLowerCase();
+    if (!search) {
+      setCountrySuggestions(countryEntries.slice(0, 50));
+      return;
+    }
+
+    const filtered = countryEntries.filter(entry => entry.label.toLowerCase().includes(search));
+    setCountrySuggestions(filtered.slice(0, 50));
+  };
+
+  const onCountrySuggestionsClearRequested = () => {
+    setCountrySuggestions([]);
+  };
+
+  const getCountrySuggestionValue = (suggestion: { value: string; label: string }) => {
+    return suggestion.label;
+  };
+
+  const onCountrySuggestionSelected = (_: React.FormEvent, data: Autosuggest.SuggestionSelectedEventData<{ value: string; label: string }>) => {
+    setCountry(data.suggestion.value);
+    setCountryInput(data.suggestion.label);
+  };
+
+  const renderCountrySuggestion = (suggestion: { value: string; label: string }) => (
+    <div className="country-suggestion">
+      {suggestion.value ? (
+        <span className={`fi fi-${suggestion.value} country-flag country-suggestion-flag`} />
+      ) : null}
+      <span>{suggestion.label}</span>
+    </div>
+  );
+
+  const renderCountryInput = (inputProps: React.InputHTMLAttributes<HTMLInputElement>) => (
+    <div className="country-input-wrapper">
+      <span
+        className={classNames(
+          "country-flag country-input-flag",
+          country ? `fi fi-${country}` : "country-input-flag-empty"
+        )}
+      />
+      <input
+        {...inputProps}
+        className={classNames(inputProps.className, {
+          "country-input-has-clear": Boolean(countryInput),
+        })}
+      />
+      {countryInput && (
+        <span
+          className="icon is-small country-input-clear"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            setCountry('');
+            setCountryInput('');
+          }}
+        >
+          <i className="fas fa-times"></i>
+        </span>
+      )}
+    </div>
+  );
+
   return (
     <div className="columns is-mobile is-multiline">
       <div className="column is-third-mobile">
@@ -175,14 +273,35 @@ function EloFilters() {
         </div>
       </div>
       <div className="column is-half-mobile">
-        <div className={classNames("field", "checkbox-margin", {"small-mobile-margin": language === 'pt'})}>
+        <div className="field mobile-margin">
+          <label className="label">{t("Country")}</label>
+          <div className="country-autosuggest">
+            <Autosuggest
+              suggestions={countrySuggestions}
+              onSuggestionsFetchRequested={onCountrySuggestionsFetchRequested}
+              onSuggestionsClearRequested={onCountrySuggestionsClearRequested}
+              getSuggestionValue={getCountrySuggestionValue}
+              onSuggestionSelected={onCountrySuggestionSelected}
+              renderSuggestion={renderCountrySuggestion}
+              renderInputComponent={renderCountryInput}
+              inputProps={{
+                value: countryInput,
+                onChange: onCountryInputChange,
+                placeholder: t("Search"),
+              }}
+            />
+          </div>
+        </div>
+      </div>
+      <div className="column is-full">
+        <div className="elo-checkboxes">
           <div className="control">
             <label className="checkbox">
               <input type="checkbox" checked={upcoming} onChange={() => setUpcoming(!upcoming)} />
               &nbsp;{t("Upcoming")}
             </label>
           </div>
-          <div className="control mt-3">
+          <div className="control">
             <label className="checkbox">
               <input type="checkbox" checked={changed} onChange={() => setChanged(!changed)} />
               &nbsp;{t("Changed")}

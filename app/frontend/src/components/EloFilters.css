@@ -13,6 +13,100 @@
   }
 }
 
-.checkbox-margin {
-  margin-top: 4px;
+.country-autosuggest .react-autosuggest__input {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  line-height: normal;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.country-autosuggest .react-autosuggest__input:focus {
+  box-shadow: none;
+}
+
+.country-input-wrapper {
+  position: static;
+  width: 165px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  box-shadow: inset 0 -1px 0 #dbdbdb;
+}
+
+.country-input-wrapper:focus-within {
+  box-shadow: inset 0 -2px 0 #2196f3;
+}
+
+.country-input-flag {
+  flex: 0 0 auto;
+  margin-left: 4px !important;
+  width: 19px;
+  min-width: 19px;
+  max-width: 19px;
+  height: 15px;
+  display: block;
+  pointer-events: none;
+}
+
+.country-input-flag-empty {
+  visibility: hidden;
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  margin-left: 0 !important;
+}
+
+.country-autosuggest .react-autosuggest__input.country-input-has-clear {
+  padding-right: 6px;
+}
+
+.country-input-clear {
+  flex: 0 0 auto;
+  margin-right: 6px;
+  cursor: pointer;
+  color: #7a7a7a;
+}
+
+.country-autosuggest .react-autosuggest__suggestions-container--open {
+  width: 220px;
+}
+
+.country-autosuggest .react-autosuggest__container {
+  width: 165px;
+}
+
+.country-autosuggest .react-autosuggest__suggestion {
+  padding: 8px 12px;
+}
+
+.country-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.country-suggestion-flag {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.elo-checkboxes {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: 10px;
+}
+
+@media (max-width: 1024px) {
+  .elo-checkboxes {
+    margin-left: 16px;
+  }
 }

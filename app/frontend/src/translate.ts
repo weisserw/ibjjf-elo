@@ -11,6 +11,7 @@ const translations = {
     "Age": "Idade",
     "Belt": "Faixa",
     "Weight": "Peso",
+    "Country": "País",
     "Male": "Masculino",
     "Female": "Feminino",
     "Teen": "Infanto Juvenil",
@@ -248,6 +249,7 @@ const translations = {
     "Reason": "Razão",
     "Mat Number": "Número do Tatame",
     "News": "Notícias",
+    "Search": "Pesquisar",
 };
 
 export type translationKeys = keyof typeof translations;

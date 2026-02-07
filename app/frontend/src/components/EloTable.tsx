@@ -47,6 +47,7 @@ function EloTable() {
     rankingAge: age,
     rankingBelt: belt,
     rankingWeight: weight,
+    rankingCountry: country,
     rankingChanged: changed,
     rankingUpcoming: upcoming,
     rankingNameFilter: nameFilter,
@@ -78,6 +79,7 @@ function EloTable() {
         age: age,
         belt: belt,
         weight: weight,
+        country: country,
         changed: changed ? 'true' : 'false',
         upcoming: upcoming ? 'true' : 'false',
         name: nameFilter,
@@ -98,7 +100,7 @@ function EloTable() {
       setLoading(false)
       setReloading(false)
     })
-  }, [gender, age, belt, weight, changed, upcoming, nameFilter, gi, page]);
+  }, [gender, age, belt, weight, country, changed, upcoming, nameFilter, gi, page]);
 
   const getAthleteSuggestions = async ({ value }: { value: string }) => {
     try {

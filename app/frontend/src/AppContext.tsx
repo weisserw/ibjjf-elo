@@ -33,6 +33,8 @@ interface AppContextProps {
   setRankingBelt: (belt: string) => void;
   rankingWeight: string;
   setRankingWeight: (weight: string) => void;
+  rankingCountry: string;
+  setRankingCountry: (country: string) => void;
   rankingChanged: boolean;
   setRankingChanged: (changed: boolean) => void;
   rankingUpcoming: boolean;
@@ -135,6 +137,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [rankingAge, setRankingAge] = useLocalStorage('rankingAge', 'Adult');
   const [rankingBelt, setRankingBelt] = useLocalStorage('rankingBelt', 'BLACK');
   const [rankingWeight, setRankingWeight] = useLocalStorage('rankingWeight', '');
+  const [rankingCountry, setRankingCountry] = useLocalStorage('rankingCountry', '');
   const [rankingChanged, setRankingChanged] = useLocalStorage('rankingChanged', false);
   const [rankingUpcoming, setRankingUpcoming] = useLocalStorage('rankingUpcoming', false);
   const [rankingNameFilter, setRankingNameFilter] = useLocalStorage('rankingNameFilter', '');
@@ -222,6 +225,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setRankingWeight(weight);
   }, []);
 
+  const updateRankingCountry = useCallback((country: string) => {
+    setRankingPage(1);
+    setRankingCountry(country);
+  }, []);
+
   const updateRankingChanged = useCallback((changed: boolean) => {
     setRankingPage(1);
     setRankingChanged(changed);
@@ -252,6 +260,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       rankingAge, setRankingAge: updateRankingAge,
       rankingBelt, setRankingBelt: updateRankingBelt,
       rankingWeight, setRankingWeight: updateRankingWeight,
+      rankingCountry, setRankingCountry: updateRankingCountry,
       rankingChanged, setRankingChanged: updateRankingChanged,
       rankingUpcoming, setRankingUpcoming: updateRankingUpcoming,
       rankingNameFilter, setRankingNameFilter: updateRankingNameFilter,

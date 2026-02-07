@@ -26,6 +26,7 @@ def top():
     belt = request.args.get("belt")
     gi = request.args.get("gi")
     weight = request.args.get("weight") or ""
+    country = request.args.get("country") or ""
     name = request.args.get("name")
     changed = request.args.get("changed")
     upcoming = request.args.get("upcoming")
@@ -75,6 +76,9 @@ def top():
             AthleteRating.weight == weight,
         )
     )
+
+    if country:
+        query = query.filter(func.lower(Athlete.country) == country.lower())
 
     if name:
         exact = name.strip().startswith('"') and name.strip().endswith('"')
