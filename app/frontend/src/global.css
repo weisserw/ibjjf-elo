@@ -192,3 +192,7 @@ body {
   display: block;
   clear: both;
 }
+
+.react-autosuggest__container input, .react-autosuggest__suggestion {
+  font-family: 'Noto Sans', 'Helvetica Neue', 'Helvetica', sans-serif;
+}
