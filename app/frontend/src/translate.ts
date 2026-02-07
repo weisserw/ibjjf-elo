@@ -85,6 +85,7 @@ const translations = {
     "Next": "Próximo",
     "First": "Primeiro",
     "Filters": "Filtros",
+    "More Filters": "Mais Filtros",
     "Athlete": "Atleta",
     "Athlete Name": "Nome do Atleta",
     "Minimum rating": "Rating mínima",
@@ -249,7 +250,6 @@ const translations = {
     "Reason": "Razão",
     "Mat Number": "Número do Tatame",
     "News": "Notícias",
-    "Search": "Pesquisar",
 };
 
 export type translationKeys = keyof typeof translations;

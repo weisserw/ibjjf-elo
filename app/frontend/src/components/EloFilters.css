@@ -34,7 +34,7 @@
 
 .country-input-wrapper {
   position: static;
-  width: 165px;
+  width: 250px;
   height: 40px;
   display: flex;
   align-items: center;
@@ -80,7 +80,7 @@
 }
 
 .country-autosuggest .react-autosuggest__container {
-  width: 165px;
+  width: 250px;
 }
 
 .country-autosuggest .react-autosuggest__suggestion {
@@ -105,8 +105,46 @@
   margin-left: 10px;
 }
 
+.elo-accordion .accordion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding-bottom: 8px;
+}
+
+.elo-accordion .accordion-icon {
+  cursor: pointer;
+}
+
+.elo-accordion .accordion-body {
+  padding-top: 2px;
+}
+
+.elo-more-filters-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.elo-more-filters-row .field {
+  margin-bottom: 0;
+}
+
+.elo-accordion-divider {
+  margin-top: 1px;
+  margin-bottom: 8px;
+}
+
+.elo-accordion .elo-checkboxes {
+  margin-left: 0;
+  align-items: center;
+}
+
 @media (max-width: 1024px) {
-  .elo-checkboxes {
+  .elo-accordion {
     margin-left: 16px;
+    margin-right: 16px;
   }
 }

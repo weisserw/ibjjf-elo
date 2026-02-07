@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react"
+import { useLocalStorage } from "@uidotdev/usehooks";
 import { useAppContext } from "../AppContext"
 import { ages, ageYears, juvenileRanks, juvenileRanksValues, adultRanks, adultRanksValues,
   femaleWeights, maleWeights, femaleJuvenileWeightValuesKgs, femaleJuvenileWeightValuesLbs,
@@ -36,6 +37,8 @@ function EloFilters() {
     setRankingChanged: setChanged,
     setRankingUpcoming: setUpcoming,
   } = useAppContext();
+
+  const [isMoreFiltersOpen, setIsMoreFiltersOpen] = useLocalStorage('eloMoreFiltersOpen', false);
 
   const isJuvenileAge = (age: string) => {
     return age === 'Juvenile'
@@ -225,6 +228,8 @@ function EloFilters() {
     </div>
   );
 
+  const anyMoreFiltersSet = Boolean(country || upcoming || changed);
+
   return (
     <div className="columns is-mobile is-multiline">
       <div className="column is-third-mobile">
@@ -272,41 +277,58 @@ function EloFilters() {
             options={weightOptions} />
         </div>
       </div>
-      <div className="column is-half-mobile">
-        <div className="field mobile-margin">
-          <label className="label">{t("Country")}</label>
-          <div className="country-autosuggest">
-            <Autosuggest
-              suggestions={countrySuggestions}
-              onSuggestionsFetchRequested={onCountrySuggestionsFetchRequested}
-              onSuggestionsClearRequested={onCountrySuggestionsClearRequested}
-              getSuggestionValue={getCountrySuggestionValue}
-              onSuggestionSelected={onCountrySuggestionSelected}
-              renderSuggestion={renderCountrySuggestion}
-              renderInputComponent={renderCountryInput}
-              inputProps={{
-                value: countryInput,
-                onChange: onCountryInputChange,
-                placeholder: t("Search"),
-              }}
-            />
-          </div>
-        </div>
-      </div>
       <div className="column is-full">
-        <div className="elo-checkboxes">
-          <div className="control">
-            <label className="checkbox">
-              <input type="checkbox" checked={upcoming} onChange={() => setUpcoming(!upcoming)} />
-              &nbsp;{t("Upcoming")}
-            </label>
-          </div>
-          <div className="control">
-            <label className="checkbox">
-              <input type="checkbox" checked={changed} onChange={() => setChanged(!changed)} />
-              &nbsp;{t("Changed")}
-            </label>
-          </div>
+        <div className={classNames("elo-accordion", {"open": isMoreFiltersOpen})}>
+          <header className="accordion-header" onClick={() => setIsMoreFiltersOpen(!isMoreFiltersOpen)}>
+            {
+              anyMoreFiltersSet ?
+                <p><strong>{t("More Filters")}</strong></p>
+              :
+                <p>{t("More Filters")}</p>
+            }
+            <span className={`accordion-icon ${isMoreFiltersOpen ? 'is-active' : ''}`}>
+              <i className={`fas fa-angle-${isMoreFiltersOpen ? 'up' : 'down'}`}></i>
+            </span>
+          </header>
+          <hr className="section-divider elo-accordion-divider" />
+          {isMoreFiltersOpen && (
+            <div className="accordion-body">
+              <div className="elo-more-filters-row">
+                <div className="field">
+                  <div className="country-autosuggest">
+                    <Autosuggest
+                      suggestions={countrySuggestions}
+                      onSuggestionsFetchRequested={onCountrySuggestionsFetchRequested}
+                      onSuggestionsClearRequested={onCountrySuggestionsClearRequested}
+                      getSuggestionValue={getCountrySuggestionValue}
+                      onSuggestionSelected={onCountrySuggestionSelected}
+                      renderSuggestion={renderCountrySuggestion}
+                      renderInputComponent={renderCountryInput}
+                      inputProps={{
+                        value: countryInput,
+                        onChange: onCountryInputChange,
+                        placeholder: t("Country"),
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="elo-checkboxes">
+                  <div className="control">
+                    <label className="checkbox">
+                      <input type="checkbox" checked={upcoming} onChange={() => setUpcoming(!upcoming)} />
+                      &nbsp;{t("Upcoming")}
+                    </label>
+                  </div>
+                  <div className="control">
+                    <label className="checkbox">
+                      <input type="checkbox" checked={changed} onChange={() => setChanged(!changed)} />
+                      &nbsp;{t("Changed")}
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
