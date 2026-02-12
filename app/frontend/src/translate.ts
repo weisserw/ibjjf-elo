@@ -250,6 +250,7 @@ const translations = {
     "Reason": "Razão",
     "Mat Number": "Número do Tatame",
     "News": "Notícias",
+    "Store": "Loja",
 };
 
 export type translationKeys = keyof typeof translations;
