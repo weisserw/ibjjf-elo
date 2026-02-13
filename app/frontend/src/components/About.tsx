@@ -23,8 +23,13 @@ function About() {
           <a href="https://github.com/weisserw/ibjjf-elo">GitHub</a>.{' '}
           {t("Ratings may be subject to change as the app is developed and improved.")}
         </p>
-        <p className="content">{t("We host and maintain this app as a free service to the jiu-jitsu community. If you would like to support us, please consider")}{' '}
-          <a href="https://ko-fi.com/ibjjfrankings" target="_blank" rel="noopener noreferrer">{t("donating")}</a>.
+        <p className="content">{t("We host and maintain this app as a free service to the jiu-jitsu community. There are two ways to support this project:")}{' '}
+          {t("(1) Preferred: shop on our")}{' '}
+          <a href="https://shop.ibjjfrankings.com" target="_blank" rel="noopener noreferrer">{t("store page")}</a>
+          {t(", wear our merchandise to help spread the word, or order Will's book to support him directly.")}{' '}
+          {t("(2) If you prefer not to use the store, our")}{' '}
+          <a href="https://ko-fi.com/ibjjfrankings" target="_blank" rel="noopener noreferrer">{t("donation page")}</a>
+          {t(" is still available.")}
         </p>
         <p className="content">{t("If you would like a copy of our source data for research purposes, ")}{' '}
           <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">{t("contact us")}</a>{' '}
