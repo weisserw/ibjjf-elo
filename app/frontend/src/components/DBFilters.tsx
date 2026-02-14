@@ -40,6 +40,7 @@ function Section(props: SectionProps) {
 
 export interface FilterValues {
   athlete_name?: string;
+  team_name?: string;
   event_name?: string;
   gender_male?: boolean;
   gender_female?: boolean;
@@ -117,6 +118,7 @@ function DBFilters() {
 
   const [isOpen, setIsOpen] = useState(true);
   const [athleteName, setAthleteName] = useState(filters.athlete_name || '');
+  const [teamName, setTeamName] = useState(filters.team_name || '');
   const [eventName, setEventName] = useState(filters.event_name || '');
   const [ratingStart, setRatingStart] = useState(filters.rating_start || '');
   const [ratingEnd, setRatingEnd] = useState(filters.rating_end || '');
@@ -170,6 +172,11 @@ function DBFilters() {
       setAthleteName(filters.athlete_name || '');
     }
   }, [filters.athlete_name]);
+  useEffect(() => {
+    if (filters.team_name !== teamName) {
+      setTeamName(filters.team_name || '');
+    }
+  }, [filters.team_name]);
   useEffect(() => {
     if (filters.event_name !== eventName) {
       setEventName(filters.event_name || '');
@@ -229,6 +236,7 @@ function DBFilters() {
                      setIsOpen={(isOpen: boolean) => setOpenFilters({ ...openFilters, athlete: isOpen })}
                      isBold={
                         !!filters.athlete_name ||
+                        !!filters.team_name ||
                         !!filters.rating_start ||
                         !!filters.rating_end
                      }>
@@ -254,6 +262,26 @@ function DBFilters() {
                   <button className="button is-small is-light" onClick={() => {
                     setAthleteName('');
                     onClearProps(['athlete_name']);
+                  }}>{t("Clear")}</button>
+                </div>
+              </div>
+              <div className="field is-grouped">
+                <div className="control is-expanded">
+                  <input
+                    className="input is-small"
+                    type="text"
+                    value={teamName}
+                    placeholder={t("Team Name")}
+                    onChange={(e) => {
+                      setTeamName(e.target.value);
+                      debouncedOnChange('team_name', e.target.value);
+                    }}
+                  />
+                </div>
+                <div className="control">
+                  <button className="button is-small is-light" onClick={() => {
+                    setTeamName('');
+                    onClearProps(['team_name']);
                   }}>{t("Clear")}</button>
                 </div>
               </div>

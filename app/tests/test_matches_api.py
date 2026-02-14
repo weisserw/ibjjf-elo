@@ -24,8 +24,9 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
 
     @classmethod
     def _seed_data(cls):
-        team = Team(name="Test Team", normalized_name="test team")
-        db.session.add(team)
+        team1 = Team(name="Test Team", normalized_name="test team")
+        team2 = Team(name="Another Squad", normalized_name="another squad")
+        db.session.add_all([team1, team2])
 
         event1 = Event(
             name="Test Open",
@@ -102,7 +103,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             MatchParticipant(
                 match_id=match1.id,
                 athlete_id=athlete1.id,
-                team_id=team.id,
+                team_id=team1.id,
                 seed=1,
                 red=True,
                 winner=True,
@@ -114,7 +115,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             MatchParticipant(
                 match_id=match1.id,
                 athlete_id=athlete2.id,
-                team_id=team.id,
+                team_id=team1.id,
                 seed=2,
                 red=False,
                 winner=False,
@@ -126,7 +127,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             MatchParticipant(
                 match_id=match2.id,
                 athlete_id=athlete3.id,
-                team_id=team.id,
+                team_id=team2.id,
                 seed=1,
                 red=True,
                 winner=True,
@@ -138,7 +139,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             MatchParticipant(
                 match_id=match2.id,
                 athlete_id=athlete4.id,
-                team_id=team.id,
+                team_id=team2.id,
                 seed=2,
                 red=False,
                 winner=False,
@@ -181,6 +182,57 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
                 "gi": "true",
                 "event_name": '"Second Open"',
                 "gender_female": "true",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["winner"], "Guest Competitor")
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_team_name_partial(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        response = self.client.get(
+            "/api/matches",
+            query_string={
+                "gi": "true",
+                "team_name": "test",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["winner"], "Test Athlete")
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_team_name_exact(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        response = self.client.get(
+            "/api/matches",
+            query_string={
+                "gi": "true",
+                "team_name": '"Another Squad"',
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["winner"], "Guest Competitor")
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_team_name_or_athlete_name(
+        self, mock_livestreams, _mock_s3
+    ):
+        mock_livestreams.return_value = self._patch_livestreams()
+        response = self.client.get(
+            "/api/matches",
+            query_string={
+                "gi": "true",
+                "athlete_name": "Does Not Exist",
+                "team_name": '"Another Squad"',
             },
         )
         self.assertEqual(response.status_code, 200)

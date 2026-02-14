@@ -88,6 +88,7 @@ const translations = {
     "More Filters": "Mais Filtros",
     "Athlete": "Atleta",
     "Athlete Name": "Nome do Atleta",
+    "Team Name": "Nome da Equipe",
     "Minimum rating": "Rating mínima",
     "Maximum rating": "Rating máxima",
     "Clear": "Limpar",

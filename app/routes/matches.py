@@ -100,6 +100,7 @@ def matches():
     athlete_id = request.args.get("athlete_id")
     athlete_name = request.args.get("athlete_name")
     athlete_name2 = request.args.get("athlete_name2")
+    team_name = request.args.get("team_name")
     event_name = request.args.get("event_name")
     gender_male = request.args.get("gender_male")
     gender_female = request.args.get("gender_female")
@@ -230,11 +231,12 @@ def matches():
         else:
             params["athlete_id"] = athlete_id.replace("-", "")
 
-    def add_athlete_name_filter(f, name, variable):
+    def get_athlete_name_clause(name, variable):
+        clause = ""
         exact = name.strip().startswith('"') and name.strip().endswith('"')
         if exact:
             name = name.strip()[1:-1]
-            f += f"""AND EXISTS (
+            clause = f"""EXISTS (
                 SELECT 1
                 FROM athletes a
                 JOIN match_participants mp ON a.id = mp.athlete_id
@@ -246,7 +248,7 @@ def matches():
         elif os.getenv("DATABASE_URL"):
             # Use full-text search
             search_terms = " & ".join([term + ":*" for term in normalize(name).split()])
-            f += f"""AND EXISTS (
+            clause = f"""EXISTS (
                     SELECT 1
                     FROM athletes a
                     JOIN match_participants mp ON a.id = mp.athlete_id
@@ -259,22 +261,48 @@ def matches():
             params[variable] = search_terms
         else:
             # Fallback to LIKE search
+            like_clauses = []
             for index, name_part in enumerate(normalize(name).split()):
-                f += f"""
-                AND EXISTS (
+                like_clauses.append(f"""EXISTS (
                     SELECT 1
                     FROM athletes a
                     JOIN match_participants mp ON a.id = mp.athlete_id
                     WHERE mp.match_id = m.id
                     AND a.normalized_name LIKE :{variable}_{index}
-                )"""
+                )""")
                 params[f"{variable}_{index}"] = f"%{name_part}%"
-        return f
+            if like_clauses:
+                clause = "(" + " AND ".join(like_clauses) + ")"
+            else:
+                clause = "1=1"
+        return clause
+
+    athlete_team_clauses = []
 
     if athlete_name:
-        filters = add_athlete_name_filter(filters, athlete_name, "athlete_name")
+        athlete_team_clauses.append(get_athlete_name_clause(athlete_name, "athlete_name"))
+    if team_name:
+        operator = "LIKE"
+        exact = team_name.strip().startswith('"') and team_name.strip().endswith('"')
+        if exact:
+            operator = "="
+            team_name = team_name.strip()[1:-1]
+            params["team_name"] = normalize(team_name)
+        else:
+            params["team_name"] = f"%{normalize(team_name)}%"
+        athlete_team_clauses.append(f"""EXISTS (
+            SELECT 1
+            FROM match_participants mp
+            JOIN teams t ON t.id = mp.team_id
+            WHERE mp.match_id = m.id
+            AND t.normalized_name {operator} :team_name
+        )""")
+
+    if athlete_team_clauses:
+        filters += "AND (" + " OR ".join(athlete_team_clauses) + ")\n"
+
     if athlete_name2:
-        filters = add_athlete_name_filter(filters, athlete_name2, "athlete_name2")
+        filters += "AND " + get_athlete_name_clause(athlete_name2, "athlete_name2") + "\n"
 
     if event_name:
         operator = "LIKE"
