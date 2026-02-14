@@ -140,7 +140,7 @@ def teams_awards():
                             WHEN mpi.division_weight LIKE 'Open Class%'
                                  AND mpi.team1_weight_index IS NOT NULL
                                  AND mpi.team2_weight_index IS NOT NULL
-                                 AND mpi.team1_winner = 0 THEN
+                                 AND mpi.team1_winner IS FALSE THEN
                                 CASE
                                     WHEN mpi.team1_weight_index > mpi.team2_weight_index THEN
                                         CASE
@@ -204,7 +204,7 @@ def teams_awards():
                             WHEN mpi.division_weight LIKE 'Open Class%'
                                  AND mpi.team1_weight_index IS NOT NULL
                                  AND mpi.team2_weight_index IS NOT NULL
-                                 AND mpi.team2_winner = 0 THEN
+                                 AND mpi.team2_winner IS FALSE THEN
                                 CASE
                                     WHEN mpi.team2_weight_index > mpi.team1_weight_index THEN
                                         CASE
