@@ -229,8 +229,10 @@ function BracketAwards() {
         <div className="table-container">
           {minWinsRequired !== null && (
             <p className="mt-4 mb-1">
-              Score is calculated as win ratio multiplied by average defeated rating.
-              Teams must have at least {minWinsRequired} wins in this event to appear.
+              {t('Score is calculated as win ratio multiplied by average defeated rating.')}
+              {' '}
+              {t('Teams must have at least')} {minWinsRequired}{' '}
+              {t('wins in this event to qualify.')}
             </p>
           )}
           <table className="table is-fullwidth bracket-table">
