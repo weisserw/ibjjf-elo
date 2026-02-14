@@ -106,7 +106,7 @@ const translations = {
     "Registrations": "Inscrições",
     "Archive": "Arquivo",
     "Team Awards": "Premiação por Equipes",
-    "Search for a past event in our database to view team awards based on match outcomes and opponent rating.": "Pesquise um evento passado no nosso banco de dados para ver a premiação por equipes com base nos resultados das lutas e na rating dos oponentes.",
+    "Search for a past event in our database to view our team rankings based on match outcomes and opponent rating.": "Pesquise um evento passado em nosso banco de dados para ver nossas classificações por equipes com base nos resultados das lutas e na rating dos oponentes.",
     "No team awards found for selected event": "Nenhuma premiação por equipes encontrada para o evento selecionado",
     "Place": "Colocação",
     "Wins": "Vitórias",
