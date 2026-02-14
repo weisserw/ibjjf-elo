@@ -142,12 +142,12 @@ function BracketAwards() {
   const teamClicked = (ev: React.MouseEvent<HTMLAnchorElement>, teamName: string) => {
     ev.preventDefault()
 
-    const newFilters = { ...filters }
-    delete newFilters.athlete_name
-    newFilters.event_name = asExactFilter(eventNameFetch)
-    newFilters.team_name = asExactFilter(teamName)
+    const newFilters = {
+      event_name: asExactFilter(eventNameFetch),
+      team_name: asExactFilter(teamName),
+    }
     setFilters(newFilters)
-    setOpenFilters({ ...openFilters, athlete: true, event: true })
+    setOpenFilters({ division: false, athlete: true, event: true })
     setActiveTab(isGi(eventNameFetch) ? 'Gi' : 'No Gi')
     navigate('/database')
   }
