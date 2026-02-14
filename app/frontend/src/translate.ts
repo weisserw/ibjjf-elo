@@ -95,7 +95,7 @@ const translations = {
     "All": "Todos",
     "Tournament": "Torneio",
     "Tournament Name": "Nome do Torneio",
-    "Search by Tournament Name": "Pesquisar por Nome do Torneio",
+    "Search for any past tournament by name": "Pesquise por qualquer torneio passado pelo nome",
     "Division": "Divisão",
     "Winner": "Vencedor",
     "Loser": "Perdedor",

@@ -198,7 +198,7 @@ function BracketAwards() {
               inputProps={{
                 className: 'input',
                 value: eventName,
-                placeholder: t('Search by Tournament Name'),
+                placeholder: t('Search for any past tournament by name'),
                 onChange: (_: any, { newValue }) => {
                   setEventName(newValue)
                   debouncedSetEventNameFetch(newValue)
