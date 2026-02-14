@@ -26,7 +26,7 @@ interface TeamAwardsResponse {
 
 function BracketAwards() {
   const navigate = useNavigate()
-  const { filters, setFilters, openFilters, setOpenFilters, setActiveTab } =
+  const { setFilters, setOpenFilters, setActiveTab } =
     useAppContext()
 
   const [eventName, setEventName] = useLocalStorage<string>(
