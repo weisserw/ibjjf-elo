@@ -263,13 +263,15 @@ def matches():
             # Fallback to LIKE search
             like_clauses = []
             for index, name_part in enumerate(normalize(name).split()):
-                like_clauses.append(f"""EXISTS (
+                like_clauses.append(
+                    f"""EXISTS (
                     SELECT 1
                     FROM athletes a
                     JOIN match_participants mp ON a.id = mp.athlete_id
                     WHERE mp.match_id = m.id
                     AND a.normalized_name LIKE :{variable}_{index}
-                )""")
+                )"""
+                )
                 params[f"{variable}_{index}"] = f"%{name_part}%"
             if like_clauses:
                 clause = "(" + " AND ".join(like_clauses) + ")"
@@ -280,7 +282,9 @@ def matches():
     athlete_team_clauses = []
 
     if athlete_name:
-        athlete_team_clauses.append(get_athlete_name_clause(athlete_name, "athlete_name"))
+        athlete_team_clauses.append(
+            get_athlete_name_clause(athlete_name, "athlete_name")
+        )
     if team_name:
         operator = "LIKE"
         exact = team_name.strip().startswith('"') and team_name.strip().endswith('"')
@@ -290,19 +294,23 @@ def matches():
             params["team_name"] = normalize(team_name)
         else:
             params["team_name"] = f"%{normalize(team_name)}%"
-        athlete_team_clauses.append(f"""EXISTS (
+        athlete_team_clauses.append(
+            f"""EXISTS (
             SELECT 1
             FROM match_participants mp
             JOIN teams t ON t.id = mp.team_id
             WHERE mp.match_id = m.id
             AND t.normalized_name {operator} :team_name
-        )""")
+        )"""
+        )
 
     if athlete_team_clauses:
         filters += "AND (" + " OR ".join(athlete_team_clauses) + ")\n"
 
     if athlete_name2:
-        filters += "AND " + get_athlete_name_clause(athlete_name2, "athlete_name2") + "\n"
+        filters += (
+            "AND " + get_athlete_name_clause(athlete_name2, "athlete_name2") + "\n"
+        )
 
     if event_name:
         operator = "LIKE"

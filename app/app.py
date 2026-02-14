@@ -12,6 +12,7 @@ from routes.matches import matches_route
 from routes.athletes import athletes_route
 from routes.events import events_route
 from routes.brackets import brackets_route
+from routes.awards import awards_route
 from routes.news import news_route
 
 logger = logging.getLogger("ibjjf")
@@ -77,6 +78,11 @@ def tournaments_archive():
     return render_index_with_snippet(app, "tournaments_archive.html")
 
 
+@app.route("/tournaments/awards")
+def tournaments_awards():
+    return render_index_with_snippet(app, "tournaments_archive.html")
+
+
 @app.route("/news")
 def news():
     return render_index_with_snippet(app, "news.html")
@@ -103,6 +109,7 @@ app.register_blueprint(matches_route)
 app.register_blueprint(athletes_route)
 app.register_blueprint(events_route)
 app.register_blueprint(brackets_route)
+app.register_blueprint(awards_route)
 app.register_blueprint(news_route)
 
 application = app

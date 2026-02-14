@@ -29,6 +29,8 @@ function BracketArchive() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [eventSuggestions, setEventSuggestions] = useState<string[]>([])
+  const [recentEvents, setRecentEvents] = useState<string[]>([])
+  const [recentEventSelection, setRecentEventSelection] = useState('')
 
   const {
     bracketArchiveEventName: eventName,
@@ -72,6 +74,21 @@ function BracketArchive() {
   const debouncedGetEventSuggestions = useCallback(debounce(getEventSuggestions, 300, {trailing: true}), []);
 
   const debouncedSetEventNameFetch = useCallback(debounce(setEventNameFetch, 750, {trailing: true}), []);
+
+  useEffect(() => {
+    const getRecentEvents = async () => {
+      try {
+        const response = await axios.get<string[]>('/api/awards/events/recent', {
+          params: { limit: 10 },
+        })
+        setRecentEvents(response.data)
+      } catch (error) {
+        axiosErrorToast(error)
+      }
+    }
+
+    getRecentEvents()
+  }, [])
 
   const categoryString = (category: Category) => {
     return `${category.belt} / ${category.age} / ${category.gender} / ${category.weight}`
@@ -323,6 +340,38 @@ function BracketArchive() {
     <div className="brackets-content">
       <div>
         <div className="bracket-list">
+          <div className="field bracket-event-name">
+            <label className="label mb-1">{t('Recent tournaments')}:</label>
+            <div className="control is-expanded">
+              <div className="select is-fullwidth">
+                <select
+                  className="is-fullwidth"
+                  disabled={!recentEvents.length}
+                  value={recentEventSelection}
+                  onChange={(e) => {
+                    const selected = e.target.value
+                    setRecentEventSelection(selected)
+                    if (!selected) {
+                      return
+                    }
+                    setEventName(selected)
+                    setEventNameFetch(selected)
+                    setCategories(null)
+                    setCompetitors(null)
+                    setMatches(null)
+                    setRecentEventSelection('')
+                  }}
+                >
+                  <option value="">{t('Choose a tournament')}</option>
+                  {recentEvents.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
           <div className="field position-relative">
             <div className="control is-expanded bracket-event-name">
               <Autosuggest suggestions={eventSuggestions}
@@ -334,7 +383,7 @@ function BracketArchive() {
                               inputProps={{
                               className: "input",
                               value: eventName,
-                              placeholder: t("Tournament Name"),
+                              placeholder: t("Search by Tournament Name"),
                               onChange: (_: any, { newValue }) => {
                                   setEventName(newValue);
                                   debouncedSetEventNameFetch(newValue);
