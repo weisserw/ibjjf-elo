@@ -70,6 +70,7 @@ h1.navbar-item {
 }
 
 .navbar-item.logo img {
+  display: block;
   max-height: 52px;
 }
 
@@ -97,6 +98,10 @@ a.navbar-item.is-active {
 
 /* Override Bulma's 1024px navbar desktop breakpoint and keep collapsed mode until 1155px. */
 @media screen and (max-width: 1154px) {
+  .navbar {
+    position: relative;
+  }
+
   .navbar-burger {
     display: flex;
   }
@@ -107,5 +112,47 @@ a.navbar-item.is-active {
 
   .navbar-menu.is-active {
     display: block;
+  }
+}
+
+/* Between 1024px and 1154px, Bulma desktop styles must be reset to mobile dropdown behavior. */
+@media screen and (min-width: 1024px) and (max-width: 1154px) {
+  .navbar-menu {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    width: 100%;
+    background-color: var(--bulma-navbar-background-color, #fff);
+    box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1);
+    padding: 0.5rem 0;
+    z-index: 1000;
+    pointer-events: auto;
+  }
+
+  .navbar-start,
+  .navbar-end {
+    display: block;
+  }
+
+  .navbar-end {
+    margin-left: 0;
+  }
+
+  .navbar-menu .navbar-item,
+  .navbar-menu .navbar-link {
+    display: block;
+  }
+
+  .desktop-lang-switch {
+    display: none;
+  }
+
+  .navbar-menu .navbar-link.is-active,
+  .navbar-menu a.navbar-item.is-active,
+  .navbar-menu .navbar-link.is-active:not(:focus):not(:hover),
+  .navbar-menu a.navbar-item.is-active:not(:focus):not(:hover) {
+    background-color: #2196f3;
+    color: #fff;
   }
 }
