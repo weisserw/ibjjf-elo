@@ -44,7 +44,7 @@ function Brackets({ tab }: BracketsProps) {
       {
         tab === 'Awards' && (
           <p>
-            {t("Search for a past event in our database to view our team rankings based on match outcomes and opponent rating.")}
+            {t("Search for a past event in our database to view our team rankings based on match outcomes and opponent rating. To encourage competitive participation without pressure, white belts and teens are not included in team rankings.")}
           </p>
         )
       }

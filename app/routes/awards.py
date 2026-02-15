@@ -94,6 +94,7 @@ def teams_awards():
                 JOIN match_participants p2 ON p2.match_id = m.id
                 WHERE e.normalized_name = :event_name
                   AND m.rated = :rated
+                  AND d.belt NOT IN ('WHITE', 'GRAY', 'YELLOW-GREY', 'YELLOW', 'ORANGE', 'GREEN-ORANGE', 'GREEN')
                   AND p1.id < p2.id
                   AND p1.winner != p2.winner
             ),

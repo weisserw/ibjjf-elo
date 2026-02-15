@@ -106,7 +106,7 @@ const translations = {
     "Registrations": "Inscrições",
     "Archive": "Arquivo",
     "Team Awards": "Premiação por Equipes",
-    "Search for a past event in our database to view our team rankings based on match outcomes and opponent rating.": "Pesquise um evento passado em nosso banco de dados para ver nossas classificações por equipes com base nos resultados das lutas e na rating dos oponentes.",
+    "Search for a past event in our database to view our team rankings based on match outcomes and opponent rating. To encourage competitive participation without pressure, white belts and teens are not included in team rankings.": "Pesquise um evento passado em nosso banco de dados para ver nossas classificações por equipes com base nos resultados das lutas e na rating dos oponentes. Para incentivar a participação competitiva sem pressão, faixas brancas e adolescentes não estão incluídos nas classificações por equipes.",
     "Score is calculated as win ratio multiplied by average defeated rating.": "A pontuação é calculada como a taxa de vitória multiplicada pela rating média dos derrotados.",
     "Teams must have at least": "As equipes devem ter pelo menos",
     "wins in this event to qualify.": "vitórias neste evento para se qualificarem.",
