@@ -20,7 +20,7 @@ interface TeamAward {
 
 interface TeamAwardsResponse {
   teams?: TeamAward[]
-  min_wins_required?: number
+  min_competing_athletes_required?: number
   error?: string
 }
 
@@ -43,7 +43,8 @@ function BracketAwards() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [teams, setTeams] = useState<TeamAward[] | null>(null)
-  const [minWinsRequired, setMinWinsRequired] = useState<number | null>(null)
+  const [minCompetingAthletesRequired, setMinCompetingAthletesRequired] =
+    useState<number | null>(null)
 
   const getEventSuggestions = async ({ value }: { value: string }) => {
     try {
@@ -101,15 +102,17 @@ function BracketAwards() {
         if (data.error) {
           setError(data.error)
           setTeams(null)
-          setMinWinsRequired(null)
+          setMinCompetingAthletesRequired(null)
         } else {
           setTeams(data.teams ?? [])
-          setMinWinsRequired(data.min_wins_required ?? null)
+          setMinCompetingAthletesRequired(
+            data.min_competing_athletes_required ?? null
+          )
         }
       } catch (err) {
         axiosErrorToast(err)
         setTeams(null)
-        setMinWinsRequired(null)
+        setMinCompetingAthletesRequired(null)
       } finally {
         setLoading(false)
       }
@@ -214,7 +217,7 @@ function BracketAwards() {
                 setEventName('')
                 setEventNameFetch('')
                 setTeams(null)
-                setMinWinsRequired(null)
+                setMinCompetingAthletesRequired(null)
                 setError(null)
               }}
             >
@@ -227,12 +230,12 @@ function BracketAwards() {
       {error && <div className="notification is-danger mt-4">{error}</div>}
       {!!eventNameFetch && teams !== null && teams.length > 0 && (
         <div className="table-container">
-          {minWinsRequired !== null && (
+          {minCompetingAthletesRequired !== null && (
             <p className="mt-4 mb-1">
               {t('Score is calculated as win ratio multiplied by average defeated rating.')}
               {' '}
-              {t('Teams must have at least')} {minWinsRequired}{' '}
-              {t('wins in this event to qualify.')}
+              {t('Teams must have at least')} {minCompetingAthletesRequired}{' '}
+              {t('competing athletes in this event to qualify.')}
             </p>
           )}
           <table className="table is-fullwidth bracket-table">

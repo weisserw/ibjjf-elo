@@ -53,23 +53,34 @@ def teams_awards():
     if event_name.startswith('"') and event_name.endswith('"'):
         event_name = event_name[1:-1]
 
-    min_wins_required = db.session.execute(
+    min_competing_athletes_required = db.session.execute(
         text(
             """
-            SELECT CAST(COUNT(*) / 100.0 AS INTEGER) + 1 AS min_wins_required
-            FROM matches m
-            JOIN events e ON e.id = m.event_id
-            WHERE e.normalized_name = :event_name
-              AND m.rated = :rated
+            WITH competing_athletes AS (
+                SELECT COUNT(DISTINCT mp.athlete_id) AS total_competing_athletes
+                FROM matches m
+                JOIN events e ON e.id = m.event_id
+                JOIN match_participants mp ON mp.match_id = m.id
+                WHERE e.normalized_name = :event_name
+                  AND m.rated = :rated
+            )
+            SELECT
+                CASE
+                    WHEN total_competing_athletes IS NULL OR total_competing_athletes = 0 THEN 5
+                    WHEN CAST((total_competing_athletes + 99) / 100 AS INTEGER) > 5
+                        THEN CAST((total_competing_athletes + 99) / 100 AS INTEGER)
+                    ELSE 5
+                END AS min_competing_athletes_required
+            FROM competing_athletes
             """
         ),
         {"event_name": normalize(event_name), "rated": True},
     ).scalar()
 
-    if min_wins_required is None:
-        min_wins_required = 5
+    if min_competing_athletes_required is None:
+        min_competing_athletes_required = 5
     else:
-        min_wins_required = max(5, int(min_wins_required))
+        min_competing_athletes_required = int(min_competing_athletes_required)
 
     results = db.session.execute(
         text(
@@ -285,18 +296,30 @@ def teams_awards():
                 FROM match_pairs_adjusted mp
                 JOIN teams t2 ON t2.id = mp.team2_id
             ),
+            team_competing_athletes AS (
+                SELECT
+                    mp.team_id AS team_id,
+                    COUNT(DISTINCT mp.athlete_id) AS competing_athletes
+                FROM matches m
+                JOIN events e ON e.id = m.event_id
+                JOIN match_participants mp ON mp.match_id = m.id
+                WHERE e.normalized_name = :event_name
+                  AND m.rated = :rated
+                GROUP BY mp.team_id
+            ),
             team_aggregates AS (
                 SELECT
-                    team_id,
-                    team_name,
-                    SUM(won) AS wins,
-                    ROUND(100.0 * SUM(won) / COUNT(*), 1) AS win_ratio,
-                    AVG(CASE WHEN won = 1 THEN opponent_rating END) AS avg_defeated_rating,
-                    (1.0 * SUM(won) / COUNT(*))
-                    * COALESCE(AVG(CASE WHEN won = 1 THEN opponent_rating END), 0) AS adjusted_ratio
-                FROM team_results
-                GROUP BY team_id, team_name
-                HAVING SUM(won) >= :min_wins_required
+                    tr.team_id,
+                    tr.team_name,
+                    SUM(tr.won) AS wins,
+                    ROUND(100.0 * SUM(tr.won) / COUNT(*), 1) AS win_ratio,
+                    AVG(CASE WHEN tr.won = 1 THEN tr.opponent_rating END) AS avg_defeated_rating,
+                    (1.0 * SUM(tr.won) / COUNT(*))
+                    * COALESCE(AVG(CASE WHEN tr.won = 1 THEN tr.opponent_rating END), 0) AS adjusted_ratio
+                FROM team_results tr
+                JOIN team_competing_athletes tca ON tca.team_id = tr.team_id
+                WHERE tca.competing_athletes >= :min_competing_athletes_required
+                GROUP BY tr.team_id, tr.team_name
             ),
             ranked_teams AS (
                 SELECT
@@ -329,7 +352,7 @@ def teams_awards():
         {
             "event_name": normalize(event_name),
             "rated": True,
-            "min_wins_required": min_wins_required,
+            "min_competing_athletes_required": min_competing_athletes_required,
         },
     )
 
@@ -351,4 +374,9 @@ def teams_awards():
             }
         )
 
-    return jsonify({"teams": teams, "min_wins_required": int(min_wins_required)})
+    return jsonify(
+        {
+            "teams": teams,
+            "min_competing_athletes_required": int(min_competing_athletes_required),
+        }
+    )

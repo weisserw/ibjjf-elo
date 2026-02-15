@@ -42,6 +42,13 @@ class BracketsArchiveAwardsApiTestCase(TestDbMixin, unittest.TestCase):
         athlete_f = Athlete(name="Athlete F", normalized_name="athlete f", slug="f")
         athlete_g = Athlete(name="Athlete G", normalized_name="athlete g", slug="g")
         athlete_h = Athlete(name="Athlete H", normalized_name="athlete h", slug="h")
+        athlete_i = Athlete(name="Athlete I", normalized_name="athlete i", slug="i")
+        athlete_j = Athlete(name="Athlete J", normalized_name="athlete j", slug="j")
+        athlete_k = Athlete(name="Athlete K", normalized_name="athlete k", slug="k")
+        athlete_l = Athlete(name="Athlete L", normalized_name="athlete l", slug="l")
+        athlete_m = Athlete(name="Athlete M", normalized_name="athlete m", slug="m")
+        athlete_n = Athlete(name="Athlete N", normalized_name="athlete n", slug="n")
+        athlete_o = Athlete(name="Athlete O", normalized_name="athlete o", slug="o")
         db.session.add_all(
             [
                 athlete_a,
@@ -52,9 +59,20 @@ class BracketsArchiveAwardsApiTestCase(TestDbMixin, unittest.TestCase):
                 athlete_f,
                 athlete_g,
                 athlete_h,
+                athlete_i,
+                athlete_j,
+                athlete_k,
+                athlete_l,
+                athlete_m,
+                athlete_n,
+                athlete_o,
             ]
         )
         db.session.flush()
+
+        alpha_athletes = [athlete_a, athlete_e, athlete_g, athlete_i, athlete_j]
+        beta_athletes = [athlete_b, athlete_c, athlete_h, athlete_k, athlete_l]
+        gamma_athletes = [athlete_d, athlete_f, athlete_m, athlete_n, athlete_o]
 
         m1 = Match(
             event_id=event.id,
@@ -231,20 +249,24 @@ class BracketsArchiveAwardsApiTestCase(TestDbMixin, unittest.TestCase):
         # Add 12 more rated matches to reach 5 wins for each team.
         # Pattern per cycle: Alpha beats Beta, Beta beats Gamma, Gamma beats Alpha.
         # This preserves the same ordering and score math as the original fixture.
-        cycle_specs = [
-            (alpha, beta, athlete_a, athlete_b, 1500.0, 1400.0),
-            (beta, gamma, athlete_c, athlete_d, 1450.0, 1300.0),
-            (gamma, alpha, athlete_f, athlete_e, 1320.0, 1520.0),
-        ]
-        for match, spec in zip(rated_matches[4:], cycle_specs * 4):
-            (
-                winner_team,
-                loser_team,
-                winner_athlete,
-                loser_athlete,
-                winner_rating,
-                loser_rating,
-            ) = spec
+        for idx, match in enumerate(rated_matches[4:]):
+            athlete_idx = idx % 5
+            cycle_idx = idx % 3
+            if cycle_idx == 0:
+                winner_team, loser_team = alpha, beta
+                winner_athlete = alpha_athletes[athlete_idx]
+                loser_athlete = beta_athletes[athlete_idx]
+                winner_rating, loser_rating = 1500.0, 1400.0
+            elif cycle_idx == 1:
+                winner_team, loser_team = beta, gamma
+                winner_athlete = beta_athletes[athlete_idx]
+                loser_athlete = gamma_athletes[athlete_idx]
+                winner_rating, loser_rating = 1450.0, 1300.0
+            else:
+                winner_team, loser_team = gamma, alpha
+                winner_athlete = gamma_athletes[athlete_idx]
+                loser_athlete = alpha_athletes[athlete_idx]
+                winner_rating, loser_rating = 1320.0, 1520.0
             participants.append(
                 MatchParticipant(
                     match_id=match.id,
@@ -286,7 +308,7 @@ class BracketsArchiveAwardsApiTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        self.assertEqual(data["min_wins_required"], 5)
+        self.assertEqual(data["min_competing_athletes_required"], 5)
         self.assertEqual(len(data["teams"]), 3)
 
         self.assertEqual(data["teams"][0]["team_name"], "Gamma")
@@ -328,13 +350,18 @@ class BracketsArchiveAwardsApiTestCase(TestDbMixin, unittest.TestCase):
             )
             alpha = db.session.query(Team).filter_by(normalized_name="alpha").first()
             beta = db.session.query(Team).filter_by(normalized_name="beta").first()
-            winner = Athlete(
-                name="Open Winner", normalized_name="open winner", slug="open-winner"
-            )
+            winners = [
+                Athlete(
+                    name=f"Open Winner {idx}",
+                    normalized_name=f"open winner {idx}",
+                    slug=f"open-winner-{idx}",
+                )
+                for idx in range(1, 6)
+            ]
             loser = Athlete(
                 name="Open Loser", normalized_name="open loser", slug="open-loser"
             )
-            db.session.add_all([open_event, open_division, winner, loser])
+            db.session.add_all([open_event, open_division] + winners + [loser])
             db.session.flush()
 
             open_matches = [
@@ -350,7 +377,7 @@ class BracketsArchiveAwardsApiTestCase(TestDbMixin, unittest.TestCase):
             db.session.flush()
 
             open_participants = []
-            for open_match in open_matches:
+            for open_match, winner in zip(open_matches, winners):
                 open_participants.extend(
                     [
                         MatchParticipant(
@@ -391,7 +418,7 @@ class BracketsArchiveAwardsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
 
-        self.assertEqual(data["min_wins_required"], 5)
+        self.assertEqual(data["min_competing_athletes_required"], 5)
         self.assertEqual(len(data["teams"]), 1)
         self.assertEqual(data["teams"][0]["team_name"], "Alpha")
         # BLACK_WEIGHT_HANDICAPS[3] = 132.21 (Light vs Heavy)
