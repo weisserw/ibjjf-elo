@@ -62,19 +62,26 @@ def get_instagram_profile_photo_url(instagram_username):
 def save_instagram_profile_photo_to_s3(
     s3_client, athlete: Athlete, save_photo: bool = True, save_name: bool = True
 ):
-    photo_path = f"{photo_key}/{athlete.id}.jpg"
-
     photo_url, ig_name = get_instagram_profile_photo_url(athlete.instagram_profile)
 
     if save_photo:
         response = requests.get(photo_url)
         if response.status_code != 200:
             raise Exception("Failed to download profile photo")
-        s3_client.put_object(Bucket=bucket_name, Key=photo_path, Body=response.content)
-        log.info(
-            f"Athlete {athlete.name}: Profile photo uploaded to S3 with key: {photo_path}"
+        content_type = (
+            (response.headers.get("Content-Type") or "").split(";")[0].strip()
         )
-        athlete.profile_image_saved_at = datetime.now(timezone.utc)
+        if content_type.lower() != "image/jpeg":
+            raise Exception(
+                f"Unexpected Instagram profile photo content type: {content_type or 'unknown'}"
+            )
+        save_profile_photo_to_s3(
+            s3_client,
+            athlete,
+            response.content,
+            content_type=content_type,
+            validate_image_bytes=False,
+        )
 
     if save_name and not athlete.personal_name:
         athlete.personal_name = ig_name
@@ -82,6 +89,49 @@ def save_instagram_profile_photo_to_s3(
             None if ig_name is None else normalize(ig_name)
         )
         log.info(f"Athlete {athlete.name}: Instagram personal name saved: {ig_name}")
+
+
+def detect_image_content_type(photo_bytes: bytes):
+    if photo_bytes.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    return None
+
+
+def save_profile_photo_to_s3(
+    s3_client,
+    athlete: Athlete,
+    photo_bytes: bytes,
+    content_type: str = None,
+    validate_image_bytes: bool = True,
+):
+    if not photo_bytes:
+        raise ValueError("Profile photo bytes are required")
+
+    photo_path = f"{photo_key}/{athlete.id}.jpg"
+    normalized_content_type = (
+        None if content_type is None else content_type.split(";")[0].strip().lower()
+    )
+
+    if validate_image_bytes:
+        detected_content_type = detect_image_content_type(photo_bytes)
+        if detected_content_type != "image/jpeg":
+            raise ValueError("Invalid profile photo format")
+        final_content_type = detected_content_type
+    else:
+        if normalized_content_type != "image/jpeg":
+            raise ValueError("Profile photo content type must be image/jpeg")
+        final_content_type = normalized_content_type
+
+    s3_client.put_object(
+        Bucket=bucket_name,
+        Key=photo_path,
+        Body=photo_bytes,
+        ContentType=final_content_type,
+    )
+    log.info(
+        f"Athlete {athlete.name}: Profile photo uploaded to S3 with key: {photo_path}"
+    )
+    athlete.profile_image_saved_at = datetime.now(timezone.utc)
 
 
 def get_public_photo_url(s3_client, athlete: Athlete):

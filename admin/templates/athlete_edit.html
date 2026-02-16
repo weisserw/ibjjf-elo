@@ -7,7 +7,24 @@
       <div class="box">
         {% if athlete %}
           <h1 class="title is-4 has-text-centered">{{ athlete.name }}</h1>
-          <form method="post" class="mt-4">
+          <form method="post" enctype="multipart/form-data" class="mt-4">
+            <div class="field">
+              <label class="label">Current Profile Photo</label>
+              {% if photo_url %}
+                <figure class="image is-128x128">
+                  <img src="{{ photo_url }}" alt="Current profile photo for {{ athlete.name }}">
+                </figure>
+              {% else %}
+                <p class="is-size-7 has-text-grey">No profile photo uploaded yet.</p>
+              {% endif %}
+            </div>
+            <div class="field">
+              <label class="label">Upload Profile Photo</label>
+              <div class="control">
+                <input class="input" type="file" name="profile_photo" accept=".jpg,.jpeg,image/jpeg">
+              </div>
+              <p class="help">JPG only. Max 1MB.</p>
+            </div>
             <div class="field">
               <label class="label">Instagram Profile</label>
               <div class="control">
@@ -58,6 +75,9 @@
           </form>
           {% if message %}
             <p class="has-text-success has-text-centered mt-3">{{ message }}</p>
+          {% endif %}
+          {% if error_message %}
+            <p class="has-text-danger has-text-centered mt-3">{{ error_message }}</p>
           {% endif %}
         {% else %}
           <p class="has-text-danger">Athlete not found.</p>

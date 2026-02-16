@@ -28,6 +28,12 @@ from models import (
     BackgroundTask,
 )
 from normalize import normalize
+from photos import (
+    detect_image_content_type,
+    get_public_photo_url,
+    get_s3_client,
+    save_profile_photo_to_s3,
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "default_secret")
@@ -44,6 +50,7 @@ db.init_app(app)
 
 # Admin password
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
+MAX_PROFILE_PHOTO_BYTES = 1 * 1024 * 1024
 
 
 def _append_task_log(task, text):
@@ -566,6 +573,8 @@ def athlete_edit():
     athlete_id = request.args.get("id")
     athlete = None
     message = None
+    error_message = None
+    photo_url = None
     if athlete_id:
         athlete = Athlete.query.get(uuid.UUID(athlete_id))
     if request.method == "POST" and athlete:
@@ -603,9 +612,60 @@ def athlete_edit():
         bjjheroes_link = request.form.get("bjjheroes_link", "").strip()
         athlete.bjjheroes_link = bjjheroes_link if bjjheroes_link else None
 
-        db.session.commit()
-        message = "Athlete info updated."
-    return render_template("athlete_edit.html", athlete=athlete, message=message)
+        uploaded_photo = request.files.get("profile_photo")
+        photo_updated = False
+        if uploaded_photo and uploaded_photo.filename:
+            photo_bytes = uploaded_photo.read()
+            if not photo_bytes:
+                error_message = "Selected photo file is empty."
+            elif len(photo_bytes) > MAX_PROFILE_PHOTO_BYTES:
+                error_message = "Photo is too large. Maximum size is 1MB."
+            else:
+                detected_content_type = detect_image_content_type(photo_bytes)
+                if detected_content_type != "image/jpeg":
+                    error_message = "Invalid photo format. Please upload a JPG image."
+                else:
+                    try:
+                        s3_client = get_s3_client()
+                        save_profile_photo_to_s3(
+                            s3_client,
+                            athlete,
+                            photo_bytes,
+                            content_type=detected_content_type,
+                        )
+                        photo_updated = True
+                    except Exception:
+                        app.logger.exception(
+                            "Failed to upload profile photo for athlete %s", athlete.id
+                        )
+                        error_message = "Failed to upload profile photo."
+
+        if error_message is None:
+            db.session.commit()
+            if photo_updated:
+                message = "Athlete info and profile photo updated."
+            else:
+                message = "Athlete info updated."
+        else:
+            db.session.rollback()
+
+    if athlete and athlete.profile_image_saved_at is not None:
+        try:
+            s3_client = get_s3_client()
+            photo_url = get_public_photo_url(s3_client, athlete)
+        except Exception:
+            app.logger.exception(
+                "Failed to generate profile photo URL for athlete %s", athlete.id
+            )
+            photo_url = None
+
+    return render_template(
+        "athlete_edit.html",
+        athlete=athlete,
+        message=message,
+        error_message=error_message,
+        photo_url=photo_url,
+    )
 
 
 @app.route("/update_all_video_links", methods=["POST"])

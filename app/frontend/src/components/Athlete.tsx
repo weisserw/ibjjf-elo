@@ -518,12 +518,12 @@ function Athlete() {
   return (
     <div className="container athlete-container">
       <div className="box athlete-profile-box">
-        {athlete.instagram_profile && athlete.instagram_profile_photo_url ? (
+        {athlete.instagram_profile_photo_url ? (
           <figure className="image is-128x128" style={{ margin: 0 }}>
             <img
               className="is-rounded athlete-profile-photo"
               src={athlete.instagram_profile_photo_url}
-              alt={athlete.instagram_profile}
+              alt={athlete.instagram_profile || athlete.name}
             />
           </figure>
         ) : (
