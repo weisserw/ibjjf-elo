@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from flask import Flask, render_template, redirect, url_for, request, session, jsonify
 from urllib.parse import urlparse, urlencode, urlunparse
+from sqlalchemy import or_
 
 
 # Ensure app directory is in sys.path for imports
@@ -521,15 +522,22 @@ def athletes():
     search_term = request.args.get("search", "")
     athletes = []
     if search_term:
-        # Case-insensitive search
-        athletes = (
-            Athlete.query.filter(
-                Athlete.normalized_name.ilike(f"%{normalize(search_term)}%")
+        normalized_search = normalize(search_term)
+        tokens = [token for token in normalized_search.split() if token]
+        if tokens:
+            query = Athlete.query
+            for token in tokens:
+                query = query.filter(
+                    or_(
+                        Athlete.normalized_name.ilike(f"%{token}%"),
+                        Athlete.normalized_personal_name.ilike(f"%{token}%"),
+                    )
+                )
+            athletes = (
+                query.order_by(Athlete.personal_name.isnot(None).desc(), Athlete.name)
+                .limit(30)
+                .all()
             )
-            .order_by(Athlete.name)
-            .limit(30)
-            .all()
-        )
     return render_template("athletes.html", search_term=search_term, athletes=athletes)
 
 
