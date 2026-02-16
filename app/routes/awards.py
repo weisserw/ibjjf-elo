@@ -53,7 +53,7 @@ def teams_awards():
     if event_name.startswith('"') and event_name.endswith('"'):
         event_name = event_name[1:-1]
 
-    min_competing_athletes_required = db.session.execute(
+    total_competing_athletes = db.session.execute(
         text(
             """
             SELECT COUNT(DISTINCT mp.athlete_id) AS total_competing_athletes
@@ -67,11 +67,18 @@ def teams_awards():
         {"event_name": normalize(event_name), "rated": True},
     ).scalar()
 
-    if min_competing_athletes_required is None:
+    if total_competing_athletes is None:
         min_competing_athletes_required = 5
     else:
-        pc = min_competing_athletes_required * 0.01
+        pc = total_competing_athletes * 0.01
         min_competing_athletes_required = min(15, max(5, round(pc)))
+
+    limit = 10
+    if total_competing_athletes is not None:
+        if total_competing_athletes < 500:
+            limit = 3
+        elif total_competing_athletes < 1200:
+            limit = 5
 
     results = db.session.execute(
         text(
@@ -292,10 +299,12 @@ def teams_awards():
                     mp.team_id AS team_id,
                     COUNT(DISTINCT mp.athlete_id) AS competing_athletes
                 FROM matches m
+                JOIN divisions d ON d.id = m.division_id
                 JOIN events e ON e.id = m.event_id
                 JOIN match_participants mp ON mp.match_id = m.id
                 WHERE e.normalized_name = :event_name
                   AND m.rated = :rated
+                  AND d.belt NOT IN ('WHITE', 'GRAY', 'YELLOW-GREY', 'YELLOW', 'ORANGE', 'GREEN-ORANGE', 'GREEN')
                 GROUP BY mp.team_id
             ),
             team_aggregates AS (
@@ -336,13 +345,14 @@ def teams_awards():
                 avg_defeated_rating,
                 adjusted_ratio
             FROM ranked_teams
-            WHERE place <= 10
+            WHERE place <= :limit
             ORDER BY place
             """
         ),
         {
             "event_name": normalize(event_name),
             "rated": True,
+            "limit": limit,
             "min_competing_athletes_required": min_competing_athletes_required,
         },
     )
