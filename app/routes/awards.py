@@ -75,7 +75,7 @@ def teams_awards():
 
     limit = 10
     if total_competing_athletes is not None:
-        if total_competing_athletes < 500:
+        if total_competing_athletes < 350:
             limit = 3
         elif total_competing_athletes < 1200:
             limit = 5
