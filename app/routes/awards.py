@@ -56,22 +56,12 @@ def teams_awards():
     min_competing_athletes_required = db.session.execute(
         text(
             """
-            WITH competing_athletes AS (
-                SELECT COUNT(DISTINCT mp.athlete_id) AS total_competing_athletes
-                FROM matches m
-                JOIN events e ON e.id = m.event_id
-                JOIN match_participants mp ON mp.match_id = m.id
-                WHERE e.normalized_name = :event_name
-                  AND m.rated = :rated
-            )
-            SELECT
-                CASE
-                    WHEN total_competing_athletes IS NULL OR total_competing_athletes = 0 THEN 5
-                    WHEN CAST((total_competing_athletes + 99) / 100 AS INTEGER) > 5
-                        THEN CAST((total_competing_athletes + 99) / 100 AS INTEGER)
-                    ELSE 5
-                END AS min_competing_athletes_required
-            FROM competing_athletes
+            SELECT COUNT(DISTINCT mp.athlete_id) AS total_competing_athletes
+            FROM matches m
+            JOIN events e ON e.id = m.event_id
+            JOIN match_participants mp ON mp.match_id = m.id
+            WHERE e.normalized_name = :event_name
+                AND m.rated = :rated
             """
         ),
         {"event_name": normalize(event_name), "rated": True},
@@ -80,7 +70,8 @@ def teams_awards():
     if min_competing_athletes_required is None:
         min_competing_athletes_required = 5
     else:
-        min_competing_athletes_required = int(min_competing_athletes_required)
+        pc = min_competing_athletes_required * 0.01
+        min_competing_athletes_required = min(15, max(5, round(pc)))
 
     results = db.session.execute(
         text(
