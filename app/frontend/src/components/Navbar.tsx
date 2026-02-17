@@ -32,7 +32,7 @@ function Navbar() {
           <img src={logoImage} alt="Logo" />
         </Link>
         <h1 className={classNames("navbar-item", {pt: language === 'pt'})}>
-          {t("IBJJF Elo Rankings")}
+          {t("Unofficial IBJJF Rankings")}
         </h1>
         <a className={classNames("navbar-burger", {"is-active": isMenuActive})}
            onClick={() => setIsMenuActive(!isMenuActive)}>

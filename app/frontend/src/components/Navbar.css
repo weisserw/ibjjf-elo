@@ -49,6 +49,10 @@ h1.navbar-item {
   color: #333;
 }
 
+h1.navbar-item.pt {
+  font-size: 1.18em;
+}
+
 @media screen and (min-width: 1155px) {
   h1.navbar-item {
     margin-right: 80px;
@@ -57,10 +61,10 @@ h1.navbar-item {
 
 @media screen and (max-width: 768px) {
   h1.navbar-item {
-    font-size: 1.3em;
+    font-size: 1.0em;
   }
   h1.navbar-item.pt {
-    font-size: 1em;
+    font-size: .8em;
   }
 }
 
@@ -113,6 +117,7 @@ a.navbar-item.is-active {
   .navbar-menu.is-active {
     display: block;
   }
+
 }
 
 /* Between 1024px and 1154px, Bulma desktop styles must be reset to mobile dropdown behavior. */
