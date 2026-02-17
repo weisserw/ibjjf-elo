@@ -15,7 +15,7 @@
 }
 
 .desktop-lang-switch {
-  display: none;
+  display: none !important;
 }
 
 .mobile-lang-switch {
@@ -32,7 +32,7 @@
 
 @media screen and (min-width: 1155px) {
   .desktop-lang-switch {
-    display: inline-flex;
+    display: inline-flex !important;
     margin-left: 0;
     margin-right: 16px;
   }
@@ -91,12 +91,12 @@ a.navbar-item.is-active {
 }
 
 .mobile-only {
-  display: none;
+  display: none !important;
 }
 
 @media screen and (max-width: 1154px) {
   .mobile-only {
-    display: block;
+    display: block !important;
   }
 }
 
@@ -118,6 +118,9 @@ a.navbar-item.is-active {
     display: block;
   }
 
+  .navbar-end {
+    display: none;
+  }
 }
 
 /* Between 1024px and 1154px, Bulma desktop styles must be reset to mobile dropdown behavior. */
