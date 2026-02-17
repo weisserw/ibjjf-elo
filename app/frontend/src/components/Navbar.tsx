@@ -59,12 +59,6 @@ function Navbar() {
           <Link className={getNavItemClass("/news")} to="/news">
             {t("News")}
           </Link>
-          <a
-            className="navbar-item"
-            href="https://shop.ibjjfrankings.com/"
-          >
-            {t("Store")}
-          </a>
           <Link className={getNavItemClass("/about")} to="/about">
             {t("About")}
           </Link>

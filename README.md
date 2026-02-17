@@ -1,4 +1,4 @@
-# IBJJF Elo Ratings
+# Unofficial IBJJF Elo Ratings
 
 This is the source code for a web app to track matches in IBJJF tournaments and rank athletes with the Elo rating system.
 
