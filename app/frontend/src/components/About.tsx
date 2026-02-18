@@ -56,7 +56,7 @@ function About() {
           </ul>
         </p>
         <p className="content"><strong>{t("Q: Will you support jiu-jitsu competitions other than the IBJJF?")}</strong></p>
-        <p className="content">{t("A: We would like to support other competitions in the future, but we are starting with the IBJJF because it is the largest and most prestigious jiu-jitsu organization in the world.")}</p>
+        <p className="content">{t("A: We have no plans to support other organizations because we believe in supporting the IBJJF's competitive ecosystem. We believe that the IBJJF is currently the best platform for jiu-jitsu competitors to showcase their skills and push the sport forward.")}</p>
         <p className="content"><strong>{t("Q: Why use the Elo system when other skill-based rating systems exist?")}</strong></p>
         <p className="content">{t("A: The main reason we use the Elo system is its simplicity, which makes it easy to understand. This aligns with our goal of keeping our data and processes as transparent as possible.")}</p>
         <p className="content"><strong>{t("Q: I see a problem with one of my match results or my rating. What should I do?")}</strong></p>
