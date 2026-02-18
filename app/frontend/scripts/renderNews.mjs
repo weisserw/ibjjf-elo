@@ -11,17 +11,63 @@ const WP_API =
 const OUTPUT_DIR = path.resolve(__dirname, "..", "..", "seo_snippets");
 const OUTPUT_FILE = path.resolve(OUTPUT_DIR, "news.html");
 
-async function fetchNews() {
-  const url = new URL(WP_API);
-  url.searchParams.set("number", "10");
-  url.searchParams.set("order", "desc");
-  url.searchParams.set("orderby", "date");
-  const resp = await fetch(url.toString());
+function errorDetails(err) {
+  const cause = err?.cause;
+  const causeMsg =
+    cause?.code || cause?.message || (typeof cause === "string" ? cause : "");
+  return causeMsg ? `${err.message} (${causeMsg})` : err.message;
+}
+
+async function fetchJson(url, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const resp = await fetch(url, {
+    signal: controller.signal,
+    headers: { "user-agent": "ibjjfrankings-seo-news/1.0" },
+  });
+  clearTimeout(timeout);
+
   if (!resp.ok) {
     throw new Error(`Failed to fetch news: ${resp.status} ${await resp.text()}`);
   }
-  const body = await resp.json();
-  return body.posts || [];
+  return resp.json();
+}
+
+async function fetchNews() {
+  const wpComUrl = new URL(WP_API);
+  wpComUrl.searchParams.set("number", "10");
+  wpComUrl.searchParams.set("order", "desc");
+  wpComUrl.searchParams.set("orderby", "date");
+
+  const attempts = [];
+
+  try {
+    const body = await fetchJson(wpComUrl.toString());
+    return (body.posts || []).map((post) => ({
+      title: post.title || "Untitled",
+      link: post.URL || "#",
+      date: post.date,
+      excerpt: post.excerpt || "",
+    }));
+  } catch (err) {
+    attempts.push(`wp.com API: ${errorDetails(err)}`);
+  }
+
+  try {
+    const wpJsonUrl =
+      "https://ibjjfrankings.wordpress.com/wp-json/wp/v2/posts?per_page=10&order=desc&orderby=date&_fields=date,link,title,excerpt";
+    const posts = await fetchJson(wpJsonUrl);
+    return (posts || []).map((post) => ({
+      title: post?.title?.rendered || "Untitled",
+      link: post?.link || "#",
+      date: post?.date,
+      excerpt: post?.excerpt?.rendered || "",
+    }));
+  } catch (err) {
+    attempts.push(`wp-json API: ${errorDetails(err)}`);
+  }
+
+  throw new Error(`All news sources failed. ${attempts.join(" | ")}`);
 }
 
 function formatDate(dateStr) {
@@ -36,7 +82,7 @@ function buildHtml(posts) {
   const items = posts
     .map((post) => {
       const title = post.title || "Untitled";
-      const link = post.URL || post.URL || "#";
+      const link = post.link || "#";
       const date = formatDate(post.date);
       const excerpt = (post.excerpt || "").replace(/<[^>]*>?/gm, "").trim();
       return `<li style="margin-bottom:10px;">

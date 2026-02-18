@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Ratings from './components/Ratings';
 import Database from './components/Database';
 import Brackets from './components/Brackets';
+import Awards from './components/Awards';
 import Calculator from './components/Calculator';
 import Athlete from './components/Athlete';
 import About from './components/About';
@@ -69,7 +70,18 @@ function AppShell() {
           <Route path="/tournaments" element={<Brackets tab="Live" />} />
           <Route path="/tournaments/registrations" element={<Brackets tab="Registrations" />} />
           <Route path="/tournaments/archive" element={<Brackets tab="Archive" />} />
-          <Route path="/tournaments/awards" element={<Brackets tab="Awards" />} />
+          <Route path="/tournaments/awards" element={<Navigate to="/awards" replace />} />
+          <Route
+            path="/awards"
+            element={
+              <div className="container pl-2 pr-2">
+                <p>
+                  {t("Search for a past event in our database to view our team rankings based on match outcomes and opponent rating. To encourage competitive participation without pressure, white belts and teens are not included in team rankings.")}
+                </p>
+                <Awards />
+              </div>
+            }
+          />
           <Route path="/calculator" element={<Calculator />} />
           <Route path="/news" element={<News />} />
           <Route path="/news/:id/:slug" element={<NewsItem />} />

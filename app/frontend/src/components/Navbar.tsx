@@ -53,6 +53,9 @@ function Navbar() {
           <Link className={getNavItemClass("/tournaments", true)} to="/tournaments">
             {t("Tournaments")}
           </Link>
+          <Link className={getNavItemClass("/awards")} to="/awards">
+            {t("Awards")}
+          </Link>
           <Link className={getNavItemClass("/calculator")} to="/calculator">
             {t("Calculator")}
           </Link>

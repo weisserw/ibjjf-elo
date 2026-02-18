@@ -3,6 +3,7 @@ const translations = {
     "Ratings": "Ratings",
     "Database": "Banco de Dados",
     "Tournaments": "Torneios",
+    "Awards": "Premiação",
     "Calculator": "Calculadora",
     "About": "Sobre",
     "Gi": "Kimono",

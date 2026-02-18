@@ -2,13 +2,12 @@ import classNames from 'classnames'
 import BracketLive from './BracketLive'
 import BracketRegistration from './BracketRegistration'
 import BracketArchive from './BracketArchive'
-import BracketAwards from './BracketAwards'
 import { t } from '../translate'
 import { useNavigate } from 'react-router-dom'
 
 import "./Brackets.css"
 
-export type Tabs = 'Live' | 'Registrations' | 'Archive' | 'Awards'
+export type Tabs = 'Live' | 'Registrations' | 'Archive'
 
 interface BracketsProps {
   tab?: Tabs
@@ -24,7 +23,6 @@ function Brackets({ tab }: BracketsProps) {
           <li onClick={() => navigate('/tournaments')} className={classNames({"is-active": tab === 'Live'})}><a>{t("Live Brackets")}</a></li>
           <li onClick={() => navigate('/tournaments/registrations')} className={classNames({"is-active": tab === 'Registrations'})}><a>{t("Registrations")}</a></li>
           <li onClick={() => navigate('/tournaments/archive')} className={classNames({"is-active": tab === 'Archive'})}><a>{t("Archive")}</a></li>
-          <li onClick={() => navigate('/tournaments/awards')} className={classNames({"is-active": tab === 'Awards'})}><a>{t("Team Awards")}</a></li>
         </ul>
       </div>
       {
@@ -42,13 +40,6 @@ function Brackets({ tab }: BracketsProps) {
         )
       }
       {
-        tab === 'Awards' && (
-          <p>
-            {t("Search for a past event in our database to view our team rankings based on match outcomes and opponent rating. To encourage competitive participation without pressure, white belts and teens are not included in team rankings.")}
-          </p>
-        )
-      }
-      {
         tab === 'Live' && (
           <BracketLive />
         )
@@ -61,11 +52,6 @@ function Brackets({ tab }: BracketsProps) {
       {
         tab === 'Archive' && (
           <BracketArchive />
-        )
-      }
-      {
-        tab === 'Awards' && (
-          <BracketAwards />
         )
       }
       {

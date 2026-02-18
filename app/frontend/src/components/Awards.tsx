@@ -24,7 +24,7 @@ interface TeamAwardsResponse {
   error?: string
 }
 
-function BracketAwards() {
+function Awards() {
   const navigate = useNavigate()
   const { setFilters, setOpenFilters, setActiveTab } =
     useAppContext()
@@ -278,4 +278,4 @@ function BracketAwards() {
   )
 }
 
-export default BracketAwards
+export default Awards
