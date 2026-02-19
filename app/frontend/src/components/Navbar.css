@@ -65,10 +65,10 @@ h1.navbar-item {
 
 @media screen and (max-width: 768px) {
   h1.navbar-item {
-    font-size: 1.0em;
+    font-size: 0.8em;
   }
   h1.navbar-item.pt {
-    font-size: .8em;
+    font-size: 0.7em;
   }
 }
 
