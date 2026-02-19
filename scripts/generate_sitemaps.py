@@ -10,7 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 from app import app, db  # noqa: E402
 from models import Athlete  # noqa: E402
 
-BASE_URL = os.getenv("SITE_BASE_URL", "https://ibjjfrankings.com").rstrip("/")
+BASE_URL = os.getenv("SITE_BASE_URL", "https://jiujitsu.net").rstrip("/")
 OUTPUT_DIR = os.getenv(
     "SITEMAP_OUTPUT_DIR",
     os.path.join(

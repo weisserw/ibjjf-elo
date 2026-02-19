@@ -2,9 +2,9 @@
 
 This is the source code for a web app to track matches in IBJJF tournaments and rank athletes with the Elo rating system.
 
-The URL for the production app is https://ibjjfrankings.com/
+The URL for the production app is https://jiujitsu.net/
 
-If you wish to contribute to this project, please see the Issues page for a list of outstanding feature requests, or you can [donate](https://ko-fi.com/ibjjfrankings).
+If you wish to contribute to this project, please see the Issues page for a list of outstanding feature requests, or you can [donate](https://ko-fi.com/jiujitsunet).
 
 This app is built with the following technologies:
 

@@ -23,7 +23,7 @@ async function fetchJson(url, timeoutMs = 10000) {
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const resp = await fetch(url, {
     signal: controller.signal,
-    headers: { "user-agent": "ibjjfrankings-seo-news/1.0" },
+    headers: { "user-agent": "jiujitsunet-seo-news/1.0" },
   });
   clearTimeout(timeout);
 
@@ -94,7 +94,7 @@ function buildHtml(posts) {
     .join("");
 
   return `<section style="padding:24px;font-family:Arial,Helvetica,sans-serif;">
-    <h1 style="font-size:24px;margin:0 0 12px;">IBJJF News</h1>
+    <h1 style="font-size:24px;margin:0 0 12px;">JiuJitsu.net News</h1>
     <p style="margin:0 0 12px;font-size:14px;color:#444;">Latest News Posts</p>
     <ul style="list-style:disc;padding-left:18px;margin:0;">${items || "<li>No recent posts available.</li>"}</ul>
   </section>`;
@@ -110,7 +110,7 @@ async function main() {
   } catch (err) {
     console.error("seo:news failed, writing fallback snippet:", err.message);
     const fallback = `<section style="padding:24px;font-family:Arial,Helvetica,sans-serif;">
-      <h1 style="font-size:24px;margin:0 0 12px;">IBJJF News</h1>
+      <h1 style="font-size:24px;margin:0 0 12px;">JiuJitsu.net News</h1>
       <p style="margin:0;font-size:14px;color:#444;">News is temporarily unavailable. Please check back soon.</p>
     </section>`;
     await fs.promises.mkdir(OUTPUT_DIR, { recursive: true });

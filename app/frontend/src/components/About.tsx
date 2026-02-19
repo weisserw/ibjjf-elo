@@ -8,7 +8,7 @@ function About() {
     <section className="section">
       <div className="container">
         <h1 className="title">{t("About This App")}</h1>
-        <p className="content">{t("IBJJFRankings.com ranks competitors and provides a comprehensive database of matches in events run by the")}{' '}
+        <p className="content">{t("JiuJitsu.net ranks competitors and provides a comprehensive database of matches in events run by the")}{' '}
           <a href="https://ibjjf.com/" target="_blank" rel="noopener noreferrer">{t("International Brazilian Jiu-Jitsu Federation")}</a>
           {t(". We are an independant site and are not affiliated with the IBJJF.")}
         </p>
@@ -23,17 +23,12 @@ function About() {
           <a href="https://github.com/weisserw/ibjjf-elo">GitHub</a>.{' '}
           {t("Ratings may be subject to change as the app is developed and improved.")}
         </p>
-        <p className="content">{t("We host and maintain this app as a free service to the jiu-jitsu community. There are two ways to support this project:")}{' '}
-          {t("(1) Preferred: shop on our")}{' '}
-          <a href="https://shop.ibjjfrankings.com" target="_blank" rel="noopener noreferrer">{t("store page")}</a>
-          {t(", wear our merchandise to help spread the word, or order Will's book to support him directly.")}{' '}
-          {t("(2) If you prefer not to use the store, our")}{' '}
-          <a href="https://ko-fi.com/ibjjfrankings" target="_blank" rel="noopener noreferrer">{t("donation page")}</a>
-          {t(" is still available.")}
+       <p className="content">{t("We host and maintain this app as a free service to the jiu-jitsu community. If you would like to support us, please consider")}{' '}
+          <a href="https://ko-fi.com/ibjjfrankings" target="_blank" rel="noopener noreferrer">{t("donating")}</a>.
         </p>
         <p className="content">{t("If you would like a copy of our source data for research purposes, ")}{' '}
           <a href="https://www.instagram.com/ibjjfrankings/" target="_blank" rel="noopener noreferrer">{t("contact us")}</a>{' '}
-          {t("and we'll be happy to help. You have permission to use data or screenshots from this site in articles, blog posts, and other media, but we ask that you credit IBJJFRankings.com. Because of our free and open nature and the work put into this app, we ask that you refrain from using our data for other purposes without asking, especially the custom jiu-jitsu Elo ratings we calculate.")}
+          {t("and we'll be happy to help. You have permission to use data or screenshots from this site in articles, blog posts, and other media, but we ask that you credit JiuJitsu.net. Because of our free and open nature and the work put into this app, we ask that you refrain from using our data for other purposes without asking, especially the custom jiu-jitsu Elo ratings we calculate.")}
         </p>
         <h1 id="disclaimer" className="title">{t("Full Disclaimer")}</h1>
         <p className="content">
