@@ -232,7 +232,7 @@ function EloFilters() {
 
   return (
     <div className="columns is-mobile is-multiline">
-      <div className="column is-third-mobile">
+      <div className="column is-half-mobile">
         <div className="field mobile-margin">
           <label className="label">{t("Gender")}</label>
           <div className="select">
@@ -243,7 +243,7 @@ function EloFilters() {
           </div>
         </div>
       </div>
-      <div className="column is-third-mobile">
+      <div className="column is-half-mobile">
         <div className="field">
           <label className="label">{t("Age")}</label>
           <CustomSelect className="select"
@@ -253,8 +253,8 @@ function EloFilters() {
             options={ageOptions} />
         </div>
       </div>
-      <div className="column is-third-mobile">
-        <div className={classNames("field", {"small-mobile-margin": language === 'pt'})}>
+      <div className="column is-half-mobile">
+        <div className="field mobile-margin">
           <label className="label">{t("Belt")}</label>
           <div className="select">
             <select value={belt} onChange={onBeltChange}>
@@ -268,7 +268,7 @@ function EloFilters() {
         </div>
       </div>
       <div className="column is-half-mobile">
-        <div className="field mobile-margin">
+        <div className="field">
           <label className="label">{t("Weight")}</label>
           <CustomSelect className="select"
             value={weight}
