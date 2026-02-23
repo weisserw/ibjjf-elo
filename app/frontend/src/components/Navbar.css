@@ -22,7 +22,7 @@
   padding: .5rem .75rem;
 }
 
-@media screen and (max-width: 1154px) {
+@media screen and (max-width: 1023px) {
   .custom-navbar-brand {
     display: flex;
     align-items: center;
@@ -30,7 +30,7 @@
   }
 }
 
-@media screen and (min-width: 1155px) {
+@media screen and (min-width: 1024px) {
   .desktop-lang-switch {
     display: inline-flex !important;
     margin-left: 0;
@@ -40,6 +40,7 @@
     display: flex;
     align-items: center;
     margin-left: auto;
+    overflow: visible;
   }
 }
 
@@ -57,18 +58,11 @@ h1.navbar-item {
   margin-right: 0;
 }
 
-@media screen and (min-width: 1155px) {
+@media screen and (min-width: 1024px) {
   h1.navbar-item {
-    margin-right: 30px;
+    margin-right: 60px;
   }
 }
-
-@media screen and (min-width: 1200px) {
-  h1.navbar-item {
-    margin-right: 80px;
-  }
-}
-
 
 @media screen and (max-width: 768px) {
   h1.navbar-item {
@@ -95,9 +89,36 @@ a.navbar-item.is-active {
   color: #fff;
 }
 
-@media screen and (min-width: 1155px) {
+@media screen and (min-width: 1024px) {
   .navbar-link.is-active:not(:focus):not(:hover), a.navbar-item.is-active:not(:focus):not(:hover) {
     background-color: #2196f3;
+    color: #fff;
+  }
+
+  .navbar-link.is-active,
+  .navbar-link.is-active:hover,
+  .navbar-link.is-active:focus {
+    background-color: #2196f3;
+    color: #fff;
+  }
+
+  .navbar-item.has-dropdown.is-hoverable:hover .navbar-link.is-active,
+  .navbar-item.has-dropdown.is-hoverable:focus-within .navbar-link.is-active {
+    background-color: #2196f3;
+    color: #fff;
+  }
+
+  .navbar-dropdown a.navbar-item.is-active,
+  .navbar-dropdown a.navbar-item.is-active:hover,
+  .navbar-dropdown a.navbar-item.is-active:focus,
+  .navbar-item.has-dropdown.is-hoverable:hover .navbar-dropdown a.navbar-item.is-active,
+  .navbar-item.has-dropdown.is-hoverable:focus-within .navbar-dropdown a.navbar-item.is-active {
+    background-color: #2196f3;
+    color: #fff;
+  }
+
+  .desktop-only .navbar-dropdown .navbar-item {
+    font-size: 16px;
   }
 }
 
@@ -105,73 +126,88 @@ a.navbar-item.is-active {
   display: none !important;
 }
 
-@media screen and (max-width: 1154px) {
+.desktop-only {
+  display: none !important;
+}
+
+.navbar-search-wrapper {
+  position: relative;
+  padding: 0 6px;
+}
+
+.navbar-search-trigger {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+.navbar-search-trigger .icon {
+  font-size: 18px;
+}
+
+.navbar-search-popup {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  padding: 10px;
+  border: 1px solid #dbdbdb;
+  border-radius: 6px;
+  background: var(--bulma-navbar-background-color, #fff);
+  box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1);
+  z-index: 1100;
+}
+
+.navbar-search-popup.is-open {
+  display: block;
+}
+
+.navbar-search-popup .react-autosuggest__container {
+  width: 100%;
+}
+
+.navbar-search-popup .react-autosuggest__input {
+  width: 100%;
+  font-size: 16px !important;
+}
+
+.navbar-search-popup .react-autosuggest__suggestions-container--open {
+  width: 100%;
+  top: 36px;
+  z-index: 1101;
+  font-size: 16px !important;
+}
+
+.navbar-search-popup .react-autosuggest__suggestion {
+  font-size: 16px !important;
+}
+
+@media screen and (max-width: 1023px) {
   .mobile-only {
     display: block !important;
   }
-}
 
-/* Override Bulma's 1024px navbar desktop breakpoint and keep collapsed mode until 1155px. */
-@media screen and (max-width: 1154px) {
-  .navbar {
-    position: relative;
+  .mobile-navbar-search-wrapper {
+    padding: 0.25rem 0.75rem;
   }
 
-  .navbar-burger {
-    display: flex;
-  }
-
-  .navbar-menu {
-    display: none;
-  }
-
-  .navbar-menu.is-active {
-    display: block;
-  }
-
-  .navbar-end {
-    display: none;
-  }
-}
-
-/* Between 1024px and 1154px, Bulma desktop styles must be reset to mobile dropdown behavior. */
-@media screen and (min-width: 1024px) and (max-width: 1154px) {
-  .navbar-menu {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
+  .mobile-navbar-search-wrapper .navbar-search-popup {
+    position: static;
     width: 100%;
-    background-color: var(--bulma-navbar-background-color, #fff);
-    box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1);
-    padding: 0.5rem 0;
-    z-index: 1000;
-    pointer-events: auto;
+    max-width: 100%;
+    margin-top: 8px;
+    box-shadow: 0 4px 8px rgba(10, 10, 10, 0.08);
   }
 
-  .navbar-start,
-  .navbar-end {
-    display: block;
+  .mobile-navbar-search-wrapper .react-autosuggest__suggestions-container--open {
+    width: 100%;
   }
+}
 
-  .navbar-end {
-    margin-left: 0;
-  }
-
-  .navbar-menu .navbar-item,
-  .navbar-menu .navbar-link {
-    display: block;
-  }
-
-  .desktop-lang-switch {
-    display: none;
-  }
-
-  .navbar-menu .navbar-link.is-active,
-  .navbar-menu a.navbar-item.is-active,
-  .navbar-menu .navbar-link.is-active:not(:focus):not(:hover),
-  .navbar-menu a.navbar-item.is-active:not(:focus):not(:hover) {
-    background-color: #2196f3;
-    color: #fff;
+@media screen and (min-width: 1024px) {
+  .desktop-only {
+    display: flex !important;
   }
 }

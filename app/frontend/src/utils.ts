@@ -104,6 +104,7 @@ export interface Registration {
 }
 
 export interface AthleteSuggestion {
+  slug?: string | null;
   name: string;
   personal_name: string | null;
 }

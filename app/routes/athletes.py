@@ -560,7 +560,9 @@ def athletes():
         # Use full-text search
         search_terms = [term + ":*" for term in search.split()]
         ts_query = func.to_tsquery("simple", " & ".join(search_terms))
-        query = db.session.query(Athlete.name, Athlete.personal_name).filter(
+        query = db.session.query(
+            Athlete.slug, Athlete.name, Athlete.personal_name
+        ).filter(
             or_(
                 Athlete.normalized_name_tsvector.op("@@")(ts_query),
                 Athlete.normalized_personal_name_tsvector.op("@@")(ts_query),
@@ -568,7 +570,7 @@ def athletes():
         )
     else:
         # Fallback to LIKE search
-        query = db.session.query(Athlete.name, Athlete.personal_name)
+        query = db.session.query(Athlete.slug, Athlete.name, Athlete.personal_name)
         for name_part in search.split():
             query = query.filter(
                 or_(
@@ -637,7 +639,11 @@ def athletes():
     )
 
     response = [
-        {"name": result.name, "personal_name": result.personal_name}
+        {
+            "slug": result.slug,
+            "name": result.name,
+            "personal_name": result.personal_name,
+        }
         for result in results
     ]
 
