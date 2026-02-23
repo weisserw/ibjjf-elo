@@ -273,7 +273,7 @@ def get_weight(
             Division.gi == division.gi,
             Division.gender == division.gender,
             ~Division.weight.startswith(OPEN_CLASS),
-            Match.rated == True,
+            (Match.rated == True) | (MatchParticipant.winner == True),
             MatchParticipant.athlete_id == athlete_id,
             (Match.happened_at < happened_at) | (Match.event_id == event_id),
         )
