@@ -74,6 +74,22 @@ function Navbar() {
     setIsSearchOpen(false);
   }, [activeLink]);
 
+  useEffect(() => {
+    if (!isSearchOpen) {
+      return;
+    }
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      const searchInputs = Array.from(
+        document.querySelectorAll<HTMLInputElement>('.navbar-search-popup.is-open .navbar-search-input')
+      );
+      const visibleInput = searchInputs.find((input) => input.offsetParent !== null);
+      (visibleInput ?? searchInputs[0])?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [isSearchOpen]);
+
   const onAthleteSelected = async (suggestion: AthleteSuggestion) => {
     const slug = suggestion.slug;
     if (slug) {
