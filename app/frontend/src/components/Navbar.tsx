@@ -175,7 +175,16 @@ function Navbar() {
           <Link className={classNames(getNavItemClass("/about"), "mobile-only")} to="/about">
             {t("About")}
           </Link>
-          <div className="navbar-item has-dropdown is-hoverable desktop-only">
+          <Link className={classNames(getNavItemClass("/calculator"), "wide-desktop-only")} to="/calculator">
+            {t("Calculator")}
+          </Link>
+          <Link className={classNames(getNavItemClass("/news"), "wide-desktop-only")} to="/news">
+            {t("News")}
+          </Link>
+          <Link className={classNames(getNavItemClass("/about"), "wide-desktop-only")} to="/about">
+            {t("About")}
+          </Link>
+          <div className="navbar-item has-dropdown is-hoverable desktop-only compact-desktop-only">
             <span
               className={classNames("navbar-link is-arrowless", {
               "is-active": isMoreActive,

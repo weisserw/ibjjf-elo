@@ -130,6 +130,14 @@ a.navbar-item.is-active {
   display: none !important;
 }
 
+.wide-desktop-only {
+  display: none !important;
+}
+
+.compact-desktop-only {
+  display: none !important;
+}
+
 .navbar-search-wrapper {
   position: relative;
   padding: 0 6px;
@@ -209,5 +217,19 @@ a.navbar-item.is-active {
 @media screen and (min-width: 1024px) {
   .desktop-only {
     display: flex !important;
+  }
+
+  .compact-desktop-only {
+    display: flex !important;
+  }
+}
+
+@media screen and (min-width: 1251px) {
+  .wide-desktop-only {
+    display: flex !important;
+  }
+
+  .compact-desktop-only {
+    display: none !important;
   }
 }
