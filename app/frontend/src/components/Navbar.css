@@ -68,9 +68,6 @@ h1.navbar-item {
   h1.navbar-item {
     font-size: 0.85em;
   }
-  h1.navbar-item.pt {
-    font-size: 0.74em;
-  }
 }
 
 .navbar-item.logo {

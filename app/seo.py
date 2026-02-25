@@ -89,8 +89,11 @@ def build_seo_table_html(rows):
 
     rows_html = "\n".join(table_rows)
     return f"""
-    <section id="seo-fallback" aria-label="IBJJF Adult Male Black Belt P4P Rankings" style="padding:24px;font-family:Arial,Helvetica,sans-serif;">
-        <h1 style="font-size:24px;margin:0 0 12px;">IBJJF Adult Male Black Belt P4P Rankings</h1>
+    <section id="seo-fallback" aria-label="Adult Male Black Belt P4P Rankings" style="padding:24px;font-family:Arial,Helvetica,sans-serif;">
+        <h1 style="font-size:24px;margin:0 0 12px;">Adult Male Black Belt P4P Rankings</h1>
+        <p style="margin:0 0 12px;font-size:14px;color:#444;">
+            Not affiliated with the IBJJF.
+        </p>
         <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;">
                 <thead>
