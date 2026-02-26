@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 
 const WP_API =
   "https://public-api.wordpress.com/rest/v1.1/sites/ibjjfrankings.wordpress.com/posts";
+const NEWS_BASE_URL = "https://jiujitsu.net/news";
 const OUTPUT_DIR = path.resolve(__dirname, "..", "..", "seo_snippets");
 const OUTPUT_FILE = path.resolve(OUTPUT_DIR, "news.html");
 
@@ -44,8 +45,9 @@ async function fetchNews() {
   try {
     const body = await fetchJson(wpComUrl.toString());
     return (body.posts || []).map((post) => ({
+      id: post.ID,
+      slug: post.slug,
       title: post.title || "Untitled",
-      link: post.URL || "#",
       date: post.date,
       excerpt: post.excerpt || "",
     }));
@@ -55,11 +57,12 @@ async function fetchNews() {
 
   try {
     const wpJsonUrl =
-      "https://ibjjfrankings.wordpress.com/wp-json/wp/v2/posts?per_page=10&order=desc&orderby=date&_fields=date,link,title,excerpt";
+      "https://ibjjfrankings.wordpress.com/wp-json/wp/v2/posts?per_page=10&order=desc&orderby=date&_fields=id,slug,date,title,excerpt";
     const posts = await fetchJson(wpJsonUrl);
     return (posts || []).map((post) => ({
+      id: post?.id,
+      slug: post?.slug,
       title: post?.title?.rendered || "Untitled",
-      link: post?.link || "#",
       date: post?.date,
       excerpt: post?.excerpt?.rendered || "",
     }));
@@ -78,11 +81,26 @@ function formatDate(dateStr) {
   }
 }
 
+function slugify(text = "") {
+  return text
+    .toLowerCase()
+    .replace(/<[^>]*>?/gm, "")
+    .replace(/&[a-z0-9#]+;/gi, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildArticleLink(id, slug, title) {
+  if (!id) return "#";
+  const safeSlug = slug || slugify(title) || "article";
+  return `${NEWS_BASE_URL}/${id}/${safeSlug}`;
+}
+
 function buildHtml(posts) {
   const items = posts
     .map((post) => {
       const title = post.title || "Untitled";
-      const link = post.link || "#";
+      const link = buildArticleLink(post.id, post.slug, title);
       const date = formatDate(post.date);
       const excerpt = (post.excerpt || "").replace(/<[^>]*>?/gm, "").trim();
       return `<li style="margin-bottom:10px;">
