@@ -124,6 +124,7 @@ function Navbar() {
         setAthleteName('');
         setAthleteSuggestions([]);
         setIsSearchOpen(false);
+        setIsMenuActive(false);
         void onAthleteSelected(suggestion);
       }}
       inputProps={{
