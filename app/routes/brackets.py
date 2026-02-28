@@ -205,6 +205,7 @@ def get_ratings(
                 ),
             )
         )
+        .order_by(Athlete.id)
         .all()
     )
 
