@@ -111,6 +111,8 @@ SPECIAL_SEARCH_NAMES = {
     "Edwin Ocasio": "Ocasio",  # inconsistent, sometimes Junny Ocasio sometimes Edwin Ocasio or Edwin Junny Ocasio
     "Matheus Vetoraci de Menezes": "Matheus Vetoraci",
     "Davi Vetoraci de Menezes": "Davi Vetoraci",
+    "William James Wilson": "Will Wilson",
+    "Victor Hugo Costa Marques": "Victor Hugo",
 }
 
 
