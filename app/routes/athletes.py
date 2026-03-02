@@ -109,6 +109,7 @@ def get_athlete_data(identifier, gi_param=None):
             .join(Team)
             .filter(Division.gi == gi)
             .filter(MatchParticipant.athlete_id == athlete.id)
+            .filter(MatchParticipant.end_rating != 0)
             .order_by(Match.happened_at)
             .all()
         )
