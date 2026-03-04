@@ -173,6 +173,12 @@ function Navbar() {
           <Link className={classNames(getNavItemClass("/news"), "mobile-only")} to="/news">
             {t("News")}
           </Link>
+          <a
+            className="navbar-item mobile-only"
+            href="https://store.jiujitsu.net/"
+          >
+            {t("Store")}
+          </a>
           <Link className={classNames(getNavItemClass("/about"), "mobile-only")} to="/about">
             {t("About")}
           </Link>
@@ -182,6 +188,12 @@ function Navbar() {
           <Link className={classNames(getNavItemClass("/news"), "wide-desktop-only")} to="/news">
             {t("News")}
           </Link>
+          <a
+            className="navbar-item wide-desktop-only"
+            href="https://store.jiujitsu.net/"
+          >
+            {t("Store")}
+          </a>
           <Link className={classNames(getNavItemClass("/about"), "wide-desktop-only")} to="/about">
             {t("About")}
           </Link>
@@ -202,6 +214,12 @@ function Navbar() {
               <Link className={getNavItemClass("/news")} to="/news">
                 {t("News")}
               </Link>
+              <a
+                className="navbar-item"
+                href="https://store.jiujitsu.net/"
+              >
+                {t("Store")}
+              </a>
               <Link className={getNavItemClass("/about")} to="/about">
                 {t("About")}
               </Link>
