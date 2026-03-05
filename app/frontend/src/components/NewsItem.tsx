@@ -34,7 +34,7 @@ export default function NewsItem() {
 						{
 							Object.values(post.categories).some(cat => cat.name === "IG Story Summaries") && (
 								<p className="is-size-7 has-text-grey mb-5">
-									<em>This article was summarized from <a href="https://www.instagram.com/jiujitsunetrankings/" target="_blank" rel="noopener noreferrer">IG stories</a> posted by Dan Lukehart</em>
+									<em>This article was summarized from <a href="https://www.instagram.com/jiujitsunet/" target="_blank" rel="noopener noreferrer">IG stories</a> posted by Dan Lukehart</em>
 								</p>
 							)
 						}

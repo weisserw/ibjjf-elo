@@ -51,4 +51,4 @@ Now you can open the URL that `npm` prints to the terminal to use the app.
 
 6. Scripts are in the `scripts/` directory. The most useful is `load_csv.py`, which loads match data from a CSV file into the database.
 
-7. Please avoid running the `pull_bjjcompsystem.py` script unless you are actively developing it, as we don't want to stress the IBJJF's servers. Instead, if you want to help develop the app and you need sample data, contact us at [jiujitsunetrankings on Instagram](https://www.instagram.com/jiujitsunetrankings/) and we will sort you out.
+7. Please avoid running the `pull_bjjcompsystem.py` script unless you are actively developing it, as we don't want to stress the IBJJF's servers. Instead, if you want to help develop the app and you need sample data, contact us at [jiujitsunet on Instagram](https://www.instagram.com/jiujitsunet/) and we will sort you out.

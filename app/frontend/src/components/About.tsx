@@ -27,7 +27,7 @@ function About() {
           <a href="https://ko-fi.com/jiujitsunet" target="_blank" rel="noopener noreferrer">{t("donating")}</a>.
         </p>
         <p className="content">{t("If you would like a copy of our source data for research purposes, ")}{' '}
-          <a href="https://www.instagram.com/jiujitsunetrankings/" target="_blank" rel="noopener noreferrer">{t("contact us")}</a>{' '}
+          <a href="https://www.instagram.com/jiujitsunet/" target="_blank" rel="noopener noreferrer">{t("contact us")}</a>{' '}
           {t("and we'll be happy to help. You have permission to use data or screenshots from this site in articles, blog posts, and other media, but we ask that you credit JiuJitsu.net. Because of our free and open nature and the work put into this app, we ask that you refrain from using our data for other purposes without asking, especially the custom jiu-jitsu Elo ratings we calculate.")}
         </p>
         <h1 id="disclaimer" className="title">{t("Full Disclaimer")}</h1>
@@ -56,7 +56,7 @@ function About() {
         <p className="content">{t("A: The main reason we use the Elo system is its simplicity, which makes it easy to understand. This aligns with our goal of keeping our data and processes as transparent as possible.")}</p>
         <p className="content"><strong>{t("Q: I see a problem with one of my match results or my rating. What should I do?")}</strong></p>
         <p className="content">{t("A: Please DM")}{' '}
-          <a href="https://www.instagram.com/jiujitsunetrankings/" target="_blank" rel="noopener noreferrer">{t("jiujitsunetrankings on Instagram")}</a>{' '}
+          <a href="https://www.instagram.com/jiujitsunet/" target="_blank" rel="noopener noreferrer">{t("jiujitsunet on Instagram")}</a>{' '}
           {t("and we will investigate the issue and make a fix if one is warranted.")}
         </p>
         <p className="content"><strong>{t("Q: How far back in time does your database go?")}</strong></p>
@@ -69,7 +69,7 @@ function About() {
         <p className="content"><strong>{t("Q: Will my rating get reset when I change my weight, rank or age division?")}</strong></p>
         <p className="content">{t("A: Your rating stays with you regardless of weight, rank, or age. Gi and no-gi are given separate ratings.")}</p>
         <p className="content">{t("We make some adjustments to our scoring algorithm when we detect athletes have changed rank or age divisions. This is intended to keep the ratings of infrequent competitors in line with the overall skill level of their new division. We're happy to answer questions about our methodology or a particular athlete's rating if you")}{' '}
-          <a href="https://www.instagram.com/jiujitsunetrankings/" target="_blank" rel="noopener noreferrer">{t("contact us")}</a>.{' '}
+          <a href="https://www.instagram.com/jiujitsunet/" target="_blank" rel="noopener noreferrer">{t("contact us")}</a>.{' '}
         </p>
         <p className="content"><strong>{t("Q: What about open class?")}</strong></p>
         <p className="content">{t("A: Open class is a special case. In any other weight division, a match is, in theory, a fair test of skill because both competitors are required to make weight. If we rated open class matches the same as any other match, we would introduce bias into the system because the advantage of being a heavier weight would not be accounted for.")}</p>
