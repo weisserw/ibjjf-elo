@@ -181,6 +181,7 @@ def get_athlete_data(identifier, gi_param=None):
     # load registrations and manual promotions
     registrations = (
         db.session.query(
+            RegistrationLinkCompetitor.team_name,
             RegistrationLink.name,
             RegistrationLink.event_start_date,
             RegistrationLink.event_end_date,
@@ -207,6 +208,13 @@ def get_athlete_data(identifier, gi_param=None):
         )
         .all()
     )
+    registration_team_name = next(
+        (row.team_name for row in reversed(registrations) if row.team_name),
+        None,
+    )
+    if registration_team_name:
+        team_name = registration_team_name
+
     promotions = (
         db.session.query(ManualPromotions)
         .filter(ManualPromotions.athlete_id == id_uuid)
