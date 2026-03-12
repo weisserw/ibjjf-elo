@@ -257,6 +257,16 @@ def get_athlete_data(identifier, gi_param=None):
                 rating, elo_history[-1]["belt"], highest_belt
             )
 
+    filtered_registrations = registrations
+    if highest_belt and highest_belt in belt_order:
+        current_belt_index = belt_order.index(highest_belt)
+        filtered_registrations = [
+            reg
+            for reg in registrations
+            if reg.belt in belt_order
+            and belt_order.index(reg.belt) >= current_belt_index
+        ]
+
     MedalAlias = aliased(Medal)
     medal_query = (
         db.session.query(
@@ -348,7 +358,7 @@ def get_athlete_data(identifier, gi_param=None):
         athlete_json["instagram_profile_photo_url"] = photo_url
 
     registrations_list = []
-    for row in registrations:
+    for row in filtered_registrations:
         registrations_list.append(
             {
                 "event_name": row.name,
