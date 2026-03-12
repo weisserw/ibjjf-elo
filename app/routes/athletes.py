@@ -208,13 +208,6 @@ def get_athlete_data(identifier, gi_param=None):
         )
         .all()
     )
-    registration_team_name = next(
-        (row.team_name for row in reversed(registrations) if row.team_name),
-        None,
-    )
-    if registration_team_name:
-        team_name = registration_team_name
-
     promotions = (
         db.session.query(ManualPromotions)
         .filter(ManualPromotions.athlete_id == id_uuid)
@@ -266,6 +259,13 @@ def get_athlete_data(identifier, gi_param=None):
             if reg.belt in belt_order
             and belt_order.index(reg.belt) >= current_belt_index
         ]
+
+    registration_team_name = next(
+        (row.team_name for row in reversed(filtered_registrations) if row.team_name),
+        None,
+    )
+    if registration_team_name:
+        team_name = registration_team_name
 
     MedalAlias = aliased(Medal)
     medal_query = (
