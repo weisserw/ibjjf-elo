@@ -94,6 +94,7 @@ _dupe_prefixes = [
     "CheckMat",
     "Fight Sports",
     "Gracie Barra",
+    "Ns Brotherhood",
     "Ryan Gracie Team",
     "Nova União",
     "ZR Team",
@@ -114,6 +115,7 @@ _dupe_team_names = {
     "GFTeam - Jiu Art": "GF Team",
     "PSLPB Cicero Costha USA": "PSLPB Cicero Costha",
     "Fratres Jiu Jitsu Competition": "Fratres Brazilian Jiu-Jitsu",
+    "Fratres Chile Jiu-Jitsu": "Fratres Brazilian Jiu-Jitsu",
     "DreamArt": "Dream Art",
     "DreamArt Houston": "Dream Art",
     "DreamArt Conroe": "Dream Art",
@@ -122,7 +124,9 @@ _dupe_team_names = {
     "Checkmat Dallas - Keiser Girao": "CheckMat",
     "Marcio Andre Association": "Marcio Andre Jiu-Jitsu",
     "Melqui Galvão Jiu-jitsu": "Melqui Galvão BJJ",
+    "NS Brotherhood International": "Ns Brotherhood",
     "NU/Nova União": "Nova União",
+    "Lotus Club Criciúma / SC": "Lótus Club",
 }
 
 
