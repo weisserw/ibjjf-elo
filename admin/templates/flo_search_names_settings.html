@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Flo Search Names{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='settings_tables.css') }}">
+<div class="container mt-6">
+    <h1 class="title is-4 has-text-centered">Flo Search Names</h1>
+    <div class="notification is-light">
+        These mappings override how athlete names are searched on FloGrappling event pages when building video links.
+        If an athlete name exactly matches <strong>Athlete Name</strong>, the search uses <strong>Search Name</strong> instead.
+        Use <strong>Comment</strong> for context like inconsistent naming on Flo.
+    </div>
+    {% if error %}
+    <div class="notification is-danger">{{ error }}</div>
+    {% endif %}
+
+    <table class="table is-fullwidth">
+        <thead>
+            <tr>
+                <th>Athlete Name (exact)</th>
+                <th>Search Name</th>
+                <th>Comment</th>
+                <th class="has-text-centered">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mapping in mappings %}
+            <tr>
+                <form method="post">
+                    <input type="hidden" name="mapping_id" value="{{ mapping.id }}">
+                    <td><input class="input wide-input" type="text" name="athlete_name" value="{{ mapping.athlete_name }}" required></td>
+                    <td><input class="input medium-input" type="text" name="search_name" value="{{ mapping.search_name }}" required></td>
+                    <td><input class="input wide-input" type="text" name="comment" value="{{ mapping.comment or '' }}"></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="button is-success is-small" type="submit" name="action" value="edit">Save</button>
+                            <button class="button is-danger is-small" type="submit" name="action" value="delete">Delete</button>
+                        </div>
+                    </td>
+                </form>
+            </tr>
+            {% endfor %}
+            <tr>
+                <form method="post">
+                    <td><input class="input wide-input" type="text" name="athlete_name" required></td>
+                    <td><input class="input medium-input" type="text" name="search_name" required></td>
+                    <td><input class="input wide-input" type="text" name="comment"></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="button is-link is-small" type="submit" name="action" value="add">Add</button>
+                        </div>
+                    </td>
+                </form>
+            </tr>
+        </tbody>
+    </table>
+
+    <a class="button is-link is-light mt-4" href="{{ url_for('index') }}">Back to Dashboard</a>
+</div>
+{% endblock %}

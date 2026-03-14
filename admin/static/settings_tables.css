@@ -1,0 +1,19 @@
+.wide-input {
+    width: 100%;
+    min-width: 300px;
+}
+
+.medium-input {
+    width: 260px;
+}
+
+.action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.table td {
+    vertical-align: middle;
+}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Team Name Mappings{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='settings_tables.css') }}">
+<div class="container mt-6">
+    <h1 class="title is-4 has-text-centered">Team Name Mappings</h1>
+    <div class="notification is-light">
+        These mappings normalize team names when building athlete team history.
+        <strong>Name Match</strong> supports glob patterns:
+        use <code>*</code> to match any sequence of characters and <code>?</code> to match one character.
+        Exact mappings are applied first, then glob mappings are evaluated.
+        Example: <code>Fight Sports*</code> maps <code>Fight Sports XYZ</code> to <code>Fight Sports</code>.
+    </div>
+    {% if error %}
+    <div class="notification is-danger">{{ error }}</div>
+    {% endif %}
+
+    <table class="table is-fullwidth">
+        <thead>
+            <tr>
+                <th>Name Match (exact or glob)</th>
+                <th>Mapped Name</th>
+                <th class="has-text-centered">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mapping in mappings %}
+            <tr>
+                <form method="post">
+                    <input type="hidden" name="mapping_id" value="{{ mapping.id }}">
+                    <td><input class="input wide-input" type="text" name="name_match" value="{{ mapping.name_match }}" required></td>
+                    <td><input class="input wide-input" type="text" name="mapped_name" value="{{ mapping.mapped_name }}" required></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="button is-success is-small" type="submit" name="action" value="edit">Save</button>
+                            <button class="button is-danger is-small" type="submit" name="action" value="delete">Delete</button>
+                        </div>
+                    </td>
+                </form>
+            </tr>
+            {% endfor %}
+            <tr>
+                <form method="post">
+                    <td><input class="input wide-input" type="text" name="name_match" required></td>
+                    <td><input class="input wide-input" type="text" name="mapped_name" required></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="button is-link is-small" type="submit" name="action" value="add">Add</button>
+                        </div>
+                    </td>
+                </form>
+            </tr>
+        </tbody>
+    </table>
+
+    <a class="button is-link is-light mt-4" href="{{ url_for('index') }}">Back to Dashboard</a>
+</div>
+{% endblock %}

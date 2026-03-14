@@ -27,6 +27,8 @@ from models import (
     MatchParticipant,
     FloEventTag,
     BackgroundTask,
+    FloSearchName,
+    TeamNameMapping,
 )
 from normalize import normalize
 from photos import (
@@ -513,6 +515,136 @@ def event_livestreams():
         streams=streams,
         error=error,
         flo_tag=flo_tag,
+    )
+
+
+@app.route("/flo-search-names", methods=["GET", "POST"])
+def flo_search_names_settings():
+    error = None
+
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        if action == "add":
+            athlete_name = request.form.get("athlete_name", "").strip()
+            search_name = request.form.get("search_name", "").strip()
+            comment = request.form.get("comment", "").strip() or None
+
+            if not athlete_name or not search_name:
+                error = "Athlete Name and Search Name are required."
+            else:
+                db.session.add(
+                    FloSearchName(
+                        athlete_name=athlete_name,
+                        search_name=search_name,
+                        comment=comment,
+                    )
+                )
+                db.session.commit()
+                return redirect(url_for("flo_search_names_settings"))
+
+        elif action == "edit":
+            mapping_id_raw = request.form.get("mapping_id")
+            athlete_name = request.form.get("athlete_name", "").strip()
+            search_name = request.form.get("search_name", "").strip()
+            comment = request.form.get("comment", "").strip() or None
+
+            if not mapping_id_raw:
+                error = "Missing mapping ID."
+            elif not athlete_name or not search_name:
+                error = "Athlete Name and Search Name are required."
+            else:
+                mapping = FloSearchName.query.get(uuid.UUID(mapping_id_raw))
+                if not mapping:
+                    error = "Mapping not found."
+                else:
+                    mapping.athlete_name = athlete_name
+                    mapping.search_name = search_name
+                    mapping.comment = comment
+                    db.session.commit()
+                    return redirect(url_for("flo_search_names_settings"))
+
+        elif action == "delete":
+            mapping_id_raw = request.form.get("mapping_id")
+            if not mapping_id_raw:
+                error = "Missing mapping ID."
+            else:
+                mapping = FloSearchName.query.get(uuid.UUID(mapping_id_raw))
+                if mapping:
+                    db.session.delete(mapping)
+                    db.session.commit()
+                return redirect(url_for("flo_search_names_settings"))
+
+    mappings = FloSearchName.query.order_by(
+        FloSearchName.athlete_name.asc(),
+        FloSearchName.search_name.asc(),
+    ).all()
+    return render_template(
+        "flo_search_names_settings.html",
+        mappings=mappings,
+        error=error,
+    )
+
+
+@app.route("/team-name-mappings", methods=["GET", "POST"])
+def team_name_mappings_settings():
+    error = None
+
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        if action == "add":
+            name_match = request.form.get("name_match", "").strip()
+            mapped_name = request.form.get("mapped_name", "").strip()
+            if not name_match or not mapped_name:
+                error = "Name Match and Mapped Name are required."
+            else:
+                db.session.add(
+                    TeamNameMapping(
+                        name_match=name_match,
+                        mapped_name=mapped_name,
+                    )
+                )
+                db.session.commit()
+                return redirect(url_for("team_name_mappings_settings"))
+
+        elif action == "edit":
+            mapping_id_raw = request.form.get("mapping_id")
+            name_match = request.form.get("name_match", "").strip()
+            mapped_name = request.form.get("mapped_name", "").strip()
+            if not mapping_id_raw:
+                error = "Missing mapping ID."
+            elif not name_match or not mapped_name:
+                error = "Name Match and Mapped Name are required."
+            else:
+                mapping = TeamNameMapping.query.get(uuid.UUID(mapping_id_raw))
+                if not mapping:
+                    error = "Mapping not found."
+                else:
+                    mapping.name_match = name_match
+                    mapping.mapped_name = mapped_name
+                    db.session.commit()
+                    return redirect(url_for("team_name_mappings_settings"))
+
+        elif action == "delete":
+            mapping_id_raw = request.form.get("mapping_id")
+            if not mapping_id_raw:
+                error = "Missing mapping ID."
+            else:
+                mapping = TeamNameMapping.query.get(uuid.UUID(mapping_id_raw))
+                if mapping:
+                    db.session.delete(mapping)
+                    db.session.commit()
+                return redirect(url_for("team_name_mappings_settings"))
+
+    mappings = TeamNameMapping.query.order_by(
+        TeamNameMapping.name_match.asc(),
+        TeamNameMapping.mapped_name.asc(),
+    ).all()
+    return render_template(
+        "team_name_mappings_settings.html",
+        mappings=mappings,
+        error=error,
     )
 
 

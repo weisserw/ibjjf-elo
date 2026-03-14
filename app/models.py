@@ -467,3 +467,22 @@ class BackgroundTask(db.Model):
         Index("ix_background_tasks_status", "status"),
         Index("ix_background_tasks_type", "task_type"),
     )
+
+
+class FloSearchName(db.Model):
+    __tablename__ = "flo_search_names"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    athlete_name = Column(String, nullable=False)
+    search_name = Column(String, nullable=False)
+    comment = Column(String, nullable=True)
+
+    __table_args__ = (Index("ix_flo_search_names_athlete_name", "athlete_name"),)
+
+
+class TeamNameMapping(db.Model):
+    __tablename__ = "team_name_mappings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name_match = Column(String, nullable=False)
+    mapped_name = Column(String, nullable=False)

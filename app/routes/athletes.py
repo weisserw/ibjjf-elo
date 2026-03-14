@@ -1,4 +1,5 @@
 import os
+from fnmatch import fnmatchcase
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from uuid import UUID
@@ -20,6 +21,7 @@ from models import (
     Medal,
     Event,
     Suspension,
+    TeamNameMapping,
 )
 from normalize import normalize
 from elo import (
@@ -85,63 +87,43 @@ def _clamp_legacy_team_history_date(happened_at):
     return happened_at
 
 
-_dupe_prefixes = [
-    "Alliance",
-    "AOJ",
-    "Ares BJJ",
-    "Atos Jiu-Jitsu",
-    "Brazilian Top Team",
-    "CheckMat",
-    "Fight Sports",
-    "Gracie Barra",
-    "Ns Brotherhood",
-    "Ryan Gracie Team",
-    "Nova União",
-    "ZR Team",
-    "Gracie Humaita",
-]
+def _load_team_name_mappings():
+    rows = db.session.query(
+        TeamNameMapping.name_match,
+        TeamNameMapping.mapped_name,
+    ).all()
+    exact_mappings = {}
+    glob_mappings = []
+
+    for name_match, mapped_name in rows:
+        if any(ch in name_match for ch in "*?["):
+            glob_mappings.append((name_match, mapped_name))
+            continue
+        exact_mappings[name_match] = mapped_name
+
+    # More specific glob patterns win if multiple patterns match.
+    glob_mappings.sort(
+        key=lambda item: len(
+            item[0].replace("*", "").replace("?", "").replace("[", "").replace("]", "")
+        ),
+        reverse=True,
+    )
+    return exact_mappings, glob_mappings
 
 
-_dupe_team_names = {
-    "Atos JJ International": "Atos Jiu-Jitsu",
-    "Atos JJ USA": "Atos Jiu-Jitsu",
-    "Art of Jiu Jitsu": "AOJ",
-    "Art of Jiu-Jitsu": "AOJ",
-    "Caio Terra Association": "Brasa CTA",
-    "Caio Terra Association Brasil": "Brasa CTA",
-    "Brasa Poland": "Brasa CTA",
-    "Cicero Costha Internacional": "PSLPB Cicero Costha",
-    "Cicero Costha Europe": "PSLPB Cicero Costha",
-    "GFTeam - Jiu Art": "GF Team",
-    "PSLPB Cicero Costha USA": "PSLPB Cicero Costha",
-    "Fratres Jiu Jitsu Competition": "Fratres Brazilian Jiu-Jitsu",
-    "Fratres Chile Jiu-Jitsu": "Fratres Brazilian Jiu-Jitsu",
-    "DreamArt": "Dream Art",
-    "DreamArt Houston": "Dream Art",
-    "DreamArt Conroe": "Dream Art",
-    "Guigo BJJ": "Guigo JJ",
-    "Infight JJ": "Infight Jiu-Jitsu",
-    "Checkmat Dallas - Keiser Girao": "CheckMat",
-    "Marcio Andre Association": "Marcio Andre Jiu-Jitsu",
-    "Melqui Galvão Jiu-jitsu": "Melqui Galvão BJJ",
-    "NS Brotherhood International": "Ns Brotherhood",
-    "NU/Nova União": "Nova União",
-    "Lotus Club Criciúma / SC": "Lótus Club",
-}
+def _resolve_dupe_team_name(team_name, exact_mappings, glob_mappings):
+    resolved_team_name = exact_mappings.get(team_name, team_name)
 
-
-def _resolve_dupe_team_name(team_name):
-    resolved_team_name = _dupe_team_names.get(team_name, team_name)
-
-    for prefix in _dupe_prefixes:
-        if resolved_team_name.startswith(prefix):
-            return prefix
+    for pattern, mapped_name in glob_mappings:
+        if fnmatchcase(resolved_team_name, pattern):
+            return mapped_name
 
     return resolved_team_name
 
 
 def _get_athlete_team_history(athlete_id):
     team_events = []
+    exact_mappings, glob_mappings = _load_team_name_mappings()
 
     medal_rows = (
         db.session.query(
@@ -156,7 +138,7 @@ def _get_athlete_team_history(athlete_id):
         team_name = (row.team_name or "").strip()
         if not team_name:
             continue
-        team_name = _resolve_dupe_team_name(team_name)
+        team_name = _resolve_dupe_team_name(team_name, exact_mappings, glob_mappings)
         team_events.append(
             {
                 "date": _clamp_legacy_team_history_date(row.happened_at),
@@ -183,7 +165,7 @@ def _get_athlete_team_history(athlete_id):
         team_name = (row.team_name or "").strip()
         if not team_name:
             continue
-        team_name = _resolve_dupe_team_name(team_name)
+        team_name = _resolve_dupe_team_name(team_name, exact_mappings, glob_mappings)
         team_events.append(
             {
                 "date": _clamp_legacy_team_history_date(row.happened_at),

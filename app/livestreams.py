@@ -3,6 +3,20 @@ from datetime import datetime
 from urllib.parse import quote
 
 
+def _load_special_search_names(session):
+    return {
+        athlete_name: search_name
+        for athlete_name, search_name in session.execute(
+            text(
+                """
+            SELECT athlete_name, search_name
+            FROM flo_search_names
+            """
+            )
+        )
+    }
+
+
 def load_livestream_links(session, event_ids, registrations=False):
     tournament_days = {}
 
@@ -95,25 +109,14 @@ def load_livestream_links(session, event_ids, registrations=False):
             event_id_params,
         )
     }
+    special_search_names = _load_special_search_names(session)
 
     return {
         "tournament_days": tournament_days,
         "live_streams": live_streams,
         "flo_event_tags": flo_event_tags,
+        "special_search_names": special_search_names,
     }
-
-
-SPECIAL_SEARCH_NAMES = {
-    "Andy Tomas Murasaki Pereira": "Andy Murasaki",
-    "Erich Munis dos Santos": "Erich Munis",
-    "Pedro Henrique Pinheiro M. de Souza": "Pedro Machado",
-    "Jackson Nagai Hatchwell Junior": "Jackson Nagai",
-    "Edwin Ocasio": "Ocasio",  # inconsistent, sometimes Junny Ocasio sometimes Edwin Ocasio or Edwin Junny Ocasio
-    "Matheus Vetoraci de Menezes": "Matheus Vetoraci",
-    "Davi Vetoraci de Menezes": "Davi Vetoraci",
-    "William James Wilson": "Will Wilson",
-    "Victor Hugo Costa Marques": "Victor Hugo",
-}
 
 
 def name_components(name):
@@ -126,9 +129,9 @@ def name_components(name):
     ]
 
 
-def get_search_name(full_name):
-    if full_name in SPECIAL_SEARCH_NAMES:
-        return SPECIAL_SEARCH_NAMES[full_name]
+def get_search_name(full_name, special_search_names):
+    if full_name in special_search_names:
+        return special_search_names[full_name]
     names = name_components(full_name)
     if len(full_name) > 32:
         # use first two names only to avoid cutoff
@@ -149,15 +152,18 @@ def get_livestream_link(
     tournament_days = livestream_links["tournament_days"]
     live_streams = livestream_links["live_streams"]
     flo_event_tags = livestream_links["flo_event_tags"]
+    special_search_names = livestream_links.get("special_search_names", {})
 
     if ibjjf_id in flo_event_tags and winner_name and loser_name:
         tag = flo_event_tags[ibjjf_id]
         if winner_name and loser_name:
             winner_last_name = get_search_name(
                 winner_name,
+                special_search_names,
             )
             loser_last_name = get_search_name(
                 loser_name,
+                special_search_names,
             )
             return f"https://www.flograppling.com/events/{tag}/videos?openInBrowser=1&search={quote(winner_last_name)}%20vs%20{quote(loser_last_name)}"
     elif len(live_streams):
