@@ -19,6 +19,7 @@ import { t, translateMulti, type translationKeys } from '../translate'
 import DBPagination from './DBPagination';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
+import 'dayjs/locale/pt';
 import {
   ageToFilter,
   genderToFilter,
@@ -70,6 +71,11 @@ interface Medal {
   happened_at: string;
 }
 
+interface TeamHistoryEntry {
+  date: string;
+  team_name: string;
+}
+
 interface Suspension {
   start_date: string;
   end_date: string;
@@ -83,6 +89,7 @@ interface ResponseData {
   ranks: Rank[];
   registrations: Registration[];
   medals: Medal[];
+  teamHistory: TeamHistoryEntry[];
   suspensions: Suspension[];
 }
 
@@ -195,6 +202,8 @@ function Athlete() {
     language,
     medalCaseOpen,
     setMedalCaseOpen,
+    teamHistoryCaseOpen,
+    setTeamHistoryCaseOpen,
     setBracketArchiveEventName,
     setBracketArchiveEventNameFetch,
     setBracketArchiveSelectedCategory,
@@ -317,6 +326,8 @@ function Athlete() {
       return 0;
     });
   }, [responseData]);
+
+  const teamHistory = responseData?.teamHistory ?? [];
 
   const onFirstPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -454,6 +465,19 @@ function Athlete() {
 
   const removeParens = (str: string) => {
     return str.replace(/\([^)]*\)$/, '');
+  };
+
+  const formatAthleteYearDate = (rawDate: string) => {
+    const parsed = dayjs(rawDate);
+    if (!parsed.isValid()) {
+      return '';
+    }
+
+    if (parsed.month() === 0 && parsed.date() === 1) {
+      return parsed.locale(language).format('YYYY');
+    }
+
+    return parsed.locale(language).format('MMM YYYY');
   };
 
   const isSuspended = useMemo(() => {
@@ -787,6 +811,40 @@ function Athlete() {
                               </a> : <span>{translateMulti(medal.division)}</span>
                             }
                           </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      }
+      {
+        teamHistory.length > 0 && (
+          <div className={classNames("box accordion-box mt-5", {"open": teamHistoryCaseOpen})}>
+            <div className="accordion">
+              <header className="accordion-header" onClick={() => setTeamHistoryCaseOpen(!teamHistoryCaseOpen)}>
+                <p><strong>{t("Team History")}</strong></p>
+                <span className={`accordion-icon ${teamHistoryCaseOpen ? 'is-active' : ''}`}>
+                  <i className={`fas fa-angle-${teamHistoryCaseOpen ? 'up' : 'down'}`}></i>
+                </span>
+              </header>
+              {teamHistoryCaseOpen && (
+                <div className="accordion-body">
+                  <table className="table is-fullwidth">
+                    <thead>
+                      <tr>
+                        <th>{t("Date")}</th>
+                        <th>{t("Team")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teamHistory.map((entry, index) => (
+                        <tr key={index}>
+                          <td>{formatAthleteYearDate(entry.date)}</td>
+                          <td>{entry.team_name}</td>
                         </tr>
                       ))}
                     </tbody>

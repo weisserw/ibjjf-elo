@@ -117,6 +117,8 @@ interface AppContextProps {
   setAthletePage: (page: number) => void;
   medalCaseOpen: boolean;
   setMedalCaseOpen: (open: boolean) => void;
+  teamHistoryCaseOpen: boolean;
+  setTeamHistoryCaseOpen: (open: boolean) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -178,6 +180,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [calcCustomInfo, setCalcCustomInfo] = useState(false)
   const [athletePage, setAthletePage] = useState(1)
   const [medalCaseOpen, setMedalCaseOpen] = useLocalStorage('medalCaseOpen', false);
+  const [teamHistoryCaseOpen, setTeamHistoryCaseOpen] = useLocalStorage('teamHistoryCaseOpen', false);
 
   // Read initial language from localStorage, fallback to 'en'
   const getInitialLanguage = () => {
@@ -302,6 +305,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       language, setLanguage,
       athletePage, setAthletePage,
       medalCaseOpen, setMedalCaseOpen,
+      teamHistoryCaseOpen, setTeamHistoryCaseOpen,
     }}>
       {children}
     </AppContext.Provider>

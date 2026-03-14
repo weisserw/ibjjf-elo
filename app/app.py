@@ -53,9 +53,9 @@ def about():
     return render_index_with_snippet(app, "about.html")
 
 
-@app.route("/calculator")
-def calculator():
-    return render_index_with_snippet(app, "calculator.html")
+@app.route("/research")
+def research():
+    return render_index_with_snippet(app, "research.html")
 
 
 @app.route("/database")

@@ -368,7 +368,7 @@ function BracketLive() {
       setCalcCustomInfo(false);
     }
 
-    navigate('/calculator');
+    navigate('/research');
   }
 
   const belt = selectedCategory ? selectedCategory.split(' / ')[0] : '';

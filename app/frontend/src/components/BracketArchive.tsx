@@ -314,7 +314,7 @@ function BracketArchive() {
       setCalcCustomInfo(false);
     }
 
-    navigate('/calculator');
+    navigate('/research');
   }
 
   const hasMatchNums = useMemo(() => {

@@ -24,7 +24,7 @@ function Navbar() {
   const language = appContext?.language || 'en';
   const setLanguage = appContext?.setLanguage;
   const activeTab = appContext?.activeTab || 'Gi';
-  const isMoreActive = ["/calculator", "/news", "/about"].includes(activeLink);
+  const isMoreActive = ["/research", "/news", "/about"].includes(activeLink);
 
   const getNavItemClass = (path: string, startsWith?: boolean) => classNames("navbar-item", {
     "is-active": startsWith ? activeLink.startsWith(path) : activeLink === path,
@@ -167,8 +167,8 @@ function Navbar() {
           <Link className={getNavItemClass("/awards")} to="/awards">
             {t("Awards")}
           </Link>
-          <Link className={classNames(getNavItemClass("/calculator"), "mobile-only")} to="/calculator">
-            {t("Calculator")}
+          <Link className={classNames(getNavItemClass("/research"), "mobile-only")} to="/research">
+            {t("Research")}
           </Link>
           <Link className={classNames(getNavItemClass("/news"), "mobile-only")} to="/news">
             {t("News")}
@@ -182,8 +182,8 @@ function Navbar() {
           <Link className={classNames(getNavItemClass("/about"), "mobile-only")} to="/about">
             {t("About")}
           </Link>
-          <Link className={classNames(getNavItemClass("/calculator"), "wide-desktop-only")} to="/calculator">
-            {t("Calculator")}
+          <Link className={classNames(getNavItemClass("/research"), "wide-desktop-only")} to="/research">
+            {t("Research")}
           </Link>
           <Link className={classNames(getNavItemClass("/news"), "wide-desktop-only")} to="/news">
             {t("News")}
@@ -208,8 +208,8 @@ function Navbar() {
               ...
             </span>
             <div className="navbar-dropdown">
-              <Link className={getNavItemClass("/calculator")} to="/calculator">
-                {t("Calculator")}
+              <Link className={getNavItemClass("/research")} to="/research">
+                {t("Research")}
               </Link>
               <Link className={getNavItemClass("/news")} to="/news">
                 {t("News")}

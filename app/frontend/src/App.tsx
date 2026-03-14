@@ -5,7 +5,7 @@ import Ratings from './components/Ratings';
 import Database from './components/Database';
 import Brackets from './components/Brackets';
 import Awards from './components/Awards';
-import Calculator from './components/Calculator';
+import Research from './components/Research';
 import Athlete from './components/Athlete';
 import About from './components/About';
 import News from './components/News';
@@ -82,7 +82,7 @@ function AppShell() {
               </div>
             }
           />
-          <Route path="/calculator" element={<Calculator />} />
+          <Route path="/research" element={<Research />} />
           <Route path="/news" element={<News />} />
           <Route path="/news/:id/:slug" element={<NewsItem />} />
           <Route path="/about" element={<About />} />

@@ -23,7 +23,7 @@ LASTMOD = datetime.utcnow().date().isoformat()
 STATIC_PATHS = [
     "/",
     "/about",
-    "/calculator",
+    "/research",
     "/database",
     "/tournaments",
     "/tournaments/registrations",

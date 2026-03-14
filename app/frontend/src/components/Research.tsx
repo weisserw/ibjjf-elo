@@ -4,13 +4,15 @@ import GiTabs from "./GiTabs"
 import Autosuggest from 'react-autosuggest'
 import axios, { AxiosResponse } from 'axios'
 import { debounce } from 'lodash'
+import dayjs from 'dayjs';
+import 'dayjs/locale/pt';
 import { ages } from '../constants'
 import { axiosErrorToast, isHistorical, renderAthleteSuggestion, type DBRow as Row, type DBResults as Results, type AthleteSuggestion } from '../utils'
 import { useAppContext } from '../AppContext'
 import DBTableRows from './DBTableRows'
-import { t, type translationKeys } from '../translate'
+import { language, t, type translationKeys } from '../translate'
 
-import "./Calculator.css"
+import "./Research.css"
 
 const belts = [
   'WHITE',
@@ -57,9 +59,27 @@ interface AthleteRating {
   age: string | null;
   weight: string | null;
   belt: string | null;
+  team_history: TeamHistoryEntry[];
 }
 
-function Calculator() {
+interface TeamHistoryEntry {
+  date: string;
+  team_name: string;
+}
+
+interface TeamInterval {
+  team_name: string;
+  start_date: string;
+  end_date: string | null;
+}
+
+interface TeamOverlap {
+  team_name: string;
+  overlap_start_date: string;
+  overlap_end_date: string | null;
+}
+
+function Research() {
   const [athleteSuggestions1, setAthleteSuggestions1] = useState<AthleteSuggestion[]>([])
   const [athleteSuggestions2, setAthleteSuggestions2] = useState<AthleteSuggestion[]>([])
   const [firstAthleteToFetch, setFirstAthleteToFetch] = useState<string | null>(null)
@@ -315,13 +335,118 @@ function Calculator() {
 
   const hasHistorical = useMemo(() => data.map(row => row.event).some(isHistorical), [data]);
 
+  const possibleTeamOverlaps = useMemo(() => {
+    const buildIntervals = (teamHistory: TeamHistoryEntry[] | undefined): TeamInterval[] => {
+      if (!teamHistory || teamHistory.length === 0) {
+        return [];
+      }
+
+      const chronologicalHistory = [...teamHistory].reverse();
+      const intervals: TeamInterval[] = [];
+
+      for (let idx = 0; idx < chronologicalHistory.length; idx++) {
+        const currentEntry = chronologicalHistory[idx];
+        const nextEntry = chronologicalHistory[idx + 1];
+        intervals.push({
+          team_name: currentEntry.team_name,
+          start_date: currentEntry.date,
+          end_date: nextEntry ? nextEntry.date : null,
+        });
+      }
+
+      return intervals;
+    };
+
+    const firstIntervals = buildIntervals(firstFetchedAthlete?.team_history);
+    const secondIntervals = buildIntervals(secondFetchedAthlete?.team_history);
+    if (firstIntervals.length === 0 || secondIntervals.length === 0) {
+      return [];
+    }
+
+    const overlaps: TeamOverlap[] = [];
+    for (const firstInterval of firstIntervals) {
+      for (const secondInterval of secondIntervals) {
+        if (firstInterval.team_name !== secondInterval.team_name) {
+          continue;
+        }
+
+        const overlapStart =
+          firstInterval.start_date > secondInterval.start_date
+            ? firstInterval.start_date
+            : secondInterval.start_date;
+
+        const overlapEnd = (() => {
+          if (firstInterval.end_date === null && secondInterval.end_date === null) {
+            return null;
+          }
+          if (firstInterval.end_date === null) {
+            return secondInterval.end_date;
+          }
+          if (secondInterval.end_date === null) {
+            return firstInterval.end_date;
+          }
+          return firstInterval.end_date < secondInterval.end_date
+            ? firstInterval.end_date
+            : secondInterval.end_date;
+        })();
+
+        if (overlapEnd !== null && overlapStart > overlapEnd) {
+          continue;
+        }
+
+        overlaps.push({
+          team_name: firstInterval.team_name,
+          overlap_start_date: overlapStart,
+          overlap_end_date: overlapEnd,
+        });
+      }
+    }
+
+    const seen = new Set<string>();
+    const dedupedOverlaps: TeamOverlap[] = [];
+    for (const overlap of overlaps) {
+      const key = `${overlap.team_name}|${overlap.overlap_start_date}|${overlap.overlap_end_date ?? "present"}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      dedupedOverlaps.push(overlap);
+    }
+
+    dedupedOverlaps.sort((a, b) => {
+      if (a.overlap_start_date !== b.overlap_start_date) {
+        return a.overlap_start_date.localeCompare(b.overlap_start_date);
+      }
+      return a.team_name.localeCompare(b.team_name);
+    });
+
+    return dedupedOverlaps;
+  }, [firstFetchedAthlete, secondFetchedAthlete]);
+
+  const formatOverlapDate = (rawDate: string | null) => {
+    if (rawDate === null) {
+      return t("Present");
+    }
+
+    if (rawDate.endsWith("-01-01")) {
+      return rawDate.slice(0, 4);
+    }
+
+    const parsed = dayjs(rawDate);
+    if (!parsed.isValid()) {
+      return rawDate;
+    }
+
+    return parsed.locale(language()).format("MMM YYYY");
+  };
+
   return (
-    <div className="container calculator-container">
+    <div className="container research-container">
       <GiTabs />
       <p>
-        {t("Select two athletes (or manually enter ratings) to see the predicted outcome of a match, potential Elo gain / loss, and match history.")}
+        {t("Select two athletes (or manually enter ratings) to see the predicted outcome of a match, potential Elo gain / loss, team overlaps, and match history.")}
       </p>
-      <div className="calculator-header mt-4 mb-4">
+      <div className="research-header mt-4 mb-4">
         <div className="field">
           <div className="select">
             <select value={calcGender} onChange={e => setCalcGender(e.target.value)}>
@@ -333,7 +458,7 @@ function Calculator() {
       </div>
       <div className="columns">
         <div className="column">
-          <div className="calculator-header">
+          <div className="research-header">
             <div className="field position-relative">
               <label className="label">{t("Search for Athlete")}</label>
               <Autosuggest suggestions={athleteSuggestions1}
@@ -399,7 +524,7 @@ function Calculator() {
             </div>
           </div>
           <div className="column">
-            <div className="calculator-header">
+            <div className="research-header">
               <div className="field">
                 <label className="label">{t("Athlete Rating")}</label>
                 <div className="control">
@@ -549,6 +674,42 @@ function Calculator() {
               </div>
             </div>
             {
+              firstFetchedAthlete?.id && secondFetchedAthlete?.id && possibleTeamOverlaps.length > 0 && (
+                <div className="mb-5">
+                  <p className="has-text-weight-bold mb-1">
+                    {t("Possible Team Overlaps")}:
+                  </p>
+                  <table className="table is-fullwidth">
+                    <thead>
+                      <tr>
+                        <th>{t("Team")}</th>
+                        <th>{t("Start Date")}</th>
+                        <th>{t("End Date")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {
+                        possibleTeamOverlaps.map((overlap, index) => (
+                          <tr key={`${overlap.team_name}-${overlap.overlap_start_date}-${index}`}>
+                            <td>{overlap.team_name}</td>
+                            <td>{formatOverlapDate(overlap.overlap_start_date)}</td>
+                            <td>{formatOverlapDate(overlap.overlap_end_date)}</td>
+                          </tr>
+                        ))
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              )
+            }
+            {
+              (firstFetchedAthlete?.id && secondFetchedAthlete?.id && possibleTeamOverlaps.length === 0) && (
+                  <div className="notification is-info mb-5">
+                    {t("No possible team overlaps found for the selected athletes.")}
+                  </div>
+              )
+            }
+            {
               data && data.length > 0 && (
                 <div>
                   <p className="has-text-weight-bold mb-3">
@@ -582,4 +743,4 @@ function Calculator() {
   )
 }
 
-export default Calculator
+export default Research

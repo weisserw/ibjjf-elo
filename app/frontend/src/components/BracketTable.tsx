@@ -97,7 +97,7 @@ function BracketTable(props: BracketTableProps) {
         setCalcCustomInfo(false);
       }
 
-      navigate('/calculator');
+      navigate('/research');
     }
   };
 

@@ -1,15 +1,15 @@
-.calculator-container {
+.research-container {
   padding: 8px;
 }
 
-.calculator-header {
+.research-header {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   gap: 10px;
 }
 
-.calculator-header .field {
+.research-header .field {
   margin-bottom: 0;
 }
 

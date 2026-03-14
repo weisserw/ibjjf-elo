@@ -31,6 +31,8 @@ from elo import (
     BLACK_PROMOTION_RATING_BUMP,
     COLOR_PROMOTION_RATING_BUMP,
 )
+
+
 from constants import (
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
@@ -71,6 +73,209 @@ def _compute_highest_belt(base_belt, registration_belts, promotion_belts):
         ):
             highest_belt = belt
     return highest_belt
+
+
+def _clamp_legacy_team_history_date(happened_at):
+    if happened_at is None:
+        return None
+
+    if happened_at < datetime(2025, 2, 1):
+        return datetime(happened_at.year, 1, 1)
+
+    return happened_at
+
+
+_dupe_prefixes = [
+    "Alliance",
+    "AOJ",
+    "Ares BJJ",
+    "Atos Jiu-Jitsu",
+    "Brazilian Top Team",
+    "CheckMat",
+    "Fight Sports",
+    "Gracie Barra",
+    "Ryan Gracie Team",
+    "Nova União",
+    "ZR Team",
+    "Gracie Humaita",
+]
+
+
+_dupe_team_names = {
+    "Atos JJ International": "Atos Jiu-Jitsu",
+    "Atos JJ USA": "Atos Jiu-Jitsu",
+    "Art of Jiu Jitsu": "AOJ",
+    "Art of Jiu-Jitsu": "AOJ",
+    "Caio Terra Association": "Brasa CTA",
+    "Caio Terra Association Brasil": "Brasa CTA",
+    "Brasa Poland": "Brasa CTA",
+    "Cicero Costha Internacional": "PSLPB Cicero Costha",
+    "Cicero Costha Europe": "PSLPB Cicero Costha",
+    "GFTeam - Jiu Art": "GF Team",
+    "PSLPB Cicero Costha USA": "PSLPB Cicero Costha",
+    "Fratres Jiu Jitsu Competition": "Fratres Brazilian Jiu-Jitsu",
+    "DreamArt": "Dream Art",
+    "DreamArt Houston": "Dream Art",
+    "DreamArt Conroe": "Dream Art",
+    "Guigo BJJ": "Guigo JJ",
+    "Infight JJ": "Infight Jiu-Jitsu",
+    "Checkmat Dallas - Keiser Girao": "CheckMat",
+    "Marcio Andre Association": "Marcio Andre Jiu-Jitsu",
+    "Melqui Galvão Jiu-jitsu": "Melqui Galvão BJJ",
+    "NU/Nova União": "Nova União",
+}
+
+
+def _resolve_dupe_team_name(team_name):
+    resolved_team_name = _dupe_team_names.get(team_name, team_name)
+
+    for prefix in _dupe_prefixes:
+        if resolved_team_name.startswith(prefix):
+            return prefix
+
+    return resolved_team_name
+
+
+def _get_athlete_team_history(athlete_id):
+    team_events = []
+
+    medal_rows = (
+        db.session.query(
+            Medal.happened_at.label("happened_at"),
+            Team.name.label("team_name"),
+        )
+        .join(Team, Team.id == Medal.team_id)
+        .filter(Medal.athlete_id == athlete_id, Team.name.isnot(None), Team.name != "")
+        .all()
+    )
+    for row in medal_rows:
+        team_name = (row.team_name or "").strip()
+        if not team_name:
+            continue
+        team_name = _resolve_dupe_team_name(team_name)
+        team_events.append(
+            {
+                "date": _clamp_legacy_team_history_date(row.happened_at),
+                "team_name": team_name,
+            }
+        )
+
+    match_rows = (
+        db.session.query(
+            Match.happened_at.label("happened_at"),
+            Team.name.label("team_name"),
+        )
+        .select_from(MatchParticipant)
+        .join(Match, Match.id == MatchParticipant.match_id)
+        .join(Team, Team.id == MatchParticipant.team_id)
+        .filter(
+            MatchParticipant.athlete_id == athlete_id,
+            Team.name.isnot(None),
+            Team.name != "",
+        )
+        .all()
+    )
+    for row in match_rows:
+        team_name = (row.team_name or "").strip()
+        if not team_name:
+            continue
+        team_name = _resolve_dupe_team_name(team_name)
+        team_events.append(
+            {
+                "date": _clamp_legacy_team_history_date(row.happened_at),
+                "team_name": team_name,
+            }
+        )
+
+    sorted_team_events = sorted(
+        team_events,
+        key=lambda row: row["date"],
+    )
+
+    # Group teams by clamped date, preserving first appearance order.
+    teams_by_date = {}
+    ordered_dates = []
+
+    for row in sorted_team_events:
+        event_date = row["date"]
+        if event_date is None:
+            continue
+        date_key = event_date.strftime("%Y-%m-%d")
+        if date_key not in teams_by_date:
+            teams_by_date[date_key] = []
+            ordered_dates.append(date_key)
+        teams_by_date[date_key].append(row["team_name"])
+
+    # Per date bucket, keep all unique teams in original order.
+    unique_teams_by_date = {}
+    for date_key in ordered_dates:
+        seen = set()
+        unique_teams = []
+        for team_name in teams_by_date[date_key]:
+            if team_name in seen:
+                continue
+            seen.add(team_name)
+            unique_teams.append(team_name)
+        unique_teams_by_date[date_key] = unique_teams
+
+    team_set_by_date = {
+        date_key: set(unique_teams_by_date[date_key]) for date_key in ordered_dates
+    }
+
+    def _team_priority(in_prev, in_next):
+        if in_prev and not in_next:
+            return 0
+        if in_prev and in_next:
+            return 0
+        if not in_prev and not in_next:
+            return 1
+        return 2
+
+    # Reorder each date bucket using neighboring date membership as signal.
+    reordered_teams_by_date = {}
+    for idx, date_key in enumerate(ordered_dates):
+        prev_teams = team_set_by_date[ordered_dates[idx - 1]] if idx > 0 else set()
+        next_teams = (
+            team_set_by_date[ordered_dates[idx + 1]]
+            if idx < len(ordered_dates) - 1
+            else set()
+        )
+        unique_teams = unique_teams_by_date[date_key]
+        indexed_teams = list(enumerate(unique_teams))
+        ranked_teams = sorted(
+            indexed_teams,
+            key=lambda item: (
+                _team_priority(
+                    item[1] in prev_teams,
+                    item[1] in next_teams,
+                ),
+                item[0],
+            ),
+        )
+        reordered_teams_by_date[date_key] = [team_name for _, team_name in ranked_teams]
+
+    flattened_history = []
+    for date_key in ordered_dates:
+        for team_name in reordered_teams_by_date[date_key]:
+            flattened_history.append(
+                {
+                    "date": date_key,
+                    "team_name": team_name,
+                }
+            )
+
+    # Only remove adjacent duplicates across the flattened timeline.
+    team_history = []
+    last_team_name = None
+    for row in flattened_history:
+        current_team_name = row["team_name"]
+        if current_team_name == last_team_name:
+            continue
+        team_history.append(row)
+        last_team_name = current_team_name
+
+    team_history.reverse()
+    return team_history
 
 
 def _apply_promotion_rating_bump(rating, from_belt, to_belt):
@@ -381,6 +586,7 @@ def get_athlete_data(identifier, gi_param=None):
         .filter(Suspension.athlete_name == athlete.name)
         .all()
     ]
+    team_history = _get_athlete_team_history(id_uuid)
 
     return {
         "athlete": athlete_json,
@@ -388,6 +594,7 @@ def get_athlete_data(identifier, gi_param=None):
         "ranks": ranks,
         "registrations": registrations_list,
         "medals": medals,
+        "teamHistory": team_history,
         "suspensions": suspensions,
     }
 
@@ -516,6 +723,7 @@ def ratings():
         "age": None,
         "weight": None,
         "belt": None,
+        "team_history": [],
     }
     last_match_belt = None
     for rating in weight_query.order_by(Match.happened_at.desc()).limit(1).all():
@@ -532,6 +740,7 @@ def ratings():
     if info["id"] and last_match_belt:
         athlete = db.session.get(Athlete, info["id"])
         if athlete:
+            info["team_history"] = _get_athlete_team_history(info["id"])
             registrations = (
                 db.session.query(Division.belt)
                 .select_from(RegistrationLinkCompetitor)
@@ -564,6 +773,9 @@ def ratings():
 
             if highest_belt:
                 info["belt"] = highest_belt
+
+    elif info["id"]:
+        info["team_history"] = _get_athlete_team_history(info["id"])
 
     return jsonify(info)
 
