@@ -501,13 +501,16 @@ def get_athlete_data(identifier, gi_param=None):
                     )
                     .exists(),
                 ),
-                and_(  # athletes got 1st place and there is a 2nd place medal awarded in that event/division (for tournaments where we have medals but no matches)
+                and_(  # athletes got 1st place and there is a 2nd OR 3rd place medal awarded in that event/division (for tournaments where we have medals but no matches)
                     Medal.place == 1,
                     db.session.query(MedalAlias)
                     .filter(
                         MedalAlias.event_id == Medal.event_id,
                         MedalAlias.division_id == Medal.division_id,
-                        MedalAlias.place == 2,
+                        or_(
+                            MedalAlias.place == 2,
+                            MedalAlias.place == 3,
+                        ),
                     )
                     .exists(),
                 ),
