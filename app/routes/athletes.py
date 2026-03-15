@@ -772,6 +772,27 @@ def _team_slug_from_name(name):
     return normalized.replace(" ", "-")
 
 
+def _build_team_search_suggestions(search, limit=MAX_RESULTS):
+    team_query = db.session.query(Team.name).filter(
+        Team.name.isnot(None), Team.name != ""
+    )
+    for name_part in search.split():
+        team_query = team_query.filter(Team.normalized_name.like(f"%{name_part}%"))
+
+    exact_mappings, glob_mappings = load_team_name_mappings()
+    canonical_teams = {}
+    for (team_name,) in team_query.order_by(Team.name).limit(limit).all():
+        canonical_name = resolve_dupe_team_name(
+            team_name, exact_mappings, glob_mappings
+        )
+        team_slug = _team_slug_from_name(canonical_name)
+        if not canonical_name or not team_slug:
+            continue
+        canonical_teams[canonical_name] = team_slug
+
+    return [{"name": name, "slug": slug} for name, slug in canonical_teams.items()]
+
+
 def _build_athlete_search_query(search, gi=None, gender=None, allow_teen=False):
     if os.getenv("DATABASE_URL"):
         # Use full-text search
@@ -874,26 +895,9 @@ def navbar_search():
         for row in athlete_rows
     ]
 
-    team_query = db.session.query(Team.name).filter(
-        Team.name.isnot(None), Team.name != ""
-    )
-    for name_part in search.split():
-        team_query = team_query.filter(Team.normalized_name.like(f"%{name_part}%"))
-
-    exact_mappings, glob_mappings = load_team_name_mappings()
-    canonical_teams = {}
-    for (team_name,) in team_query.order_by(Team.name).limit(MAX_RESULTS).all():
-        canonical_name = resolve_dupe_team_name(
-            team_name, exact_mappings, glob_mappings
-        )
-        team_slug = _team_slug_from_name(canonical_name)
-        if not canonical_name or not team_slug:
-            continue
-        canonical_teams[canonical_name] = team_slug
-
     team_suggestions = [
-        {"type": "team", "name": name, "slug": slug}
-        for name, slug in canonical_teams.items()
+        {"type": "team", "name": row["name"], "slug": row["slug"]}
+        for row in _build_team_search_suggestions(search=search)
     ]
 
     response = athlete_suggestions[:NAVBAR_MAX_RESULTS]

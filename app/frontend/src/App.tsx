@@ -4,7 +4,7 @@ import Navbar from './components/Navbar';
 import Ratings from './components/Ratings';
 import Database from './components/Database';
 import Brackets from './components/Brackets';
-import Awards from './components/Awards';
+import Teams from './components/Teams';
 import Research from './components/Research';
 import Athlete from './components/Athlete';
 import Team from './components/Team';
@@ -71,18 +71,8 @@ function AppShell() {
           <Route path="/tournaments" element={<Brackets tab="Live" />} />
           <Route path="/tournaments/registrations" element={<Brackets tab="Registrations" />} />
           <Route path="/tournaments/archive" element={<Brackets tab="Archive" />} />
-          <Route path="/tournaments/awards" element={<Navigate to="/awards" replace />} />
-          <Route
-            path="/awards"
-            element={
-              <div className="container pl-2 pr-2">
-                <p>
-                  {t("Search for a past event in our database to view our team rankings based on match outcomes and opponent rating. To encourage competitive participation without pressure, white belts and teens are not included in team rankings.")}
-                </p>
-                <Awards />
-              </div>
-            }
-          />
+          <Route path="/awards" element={<Navigate to="/teams" replace />} />
+          <Route path="/teams" element={<Teams />} />
           <Route path="/research" element={<Research />} />
           <Route path="/news" element={<News />} />
           <Route path="/news/:id/:slug" element={<NewsItem />} />

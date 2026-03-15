@@ -171,6 +171,22 @@ class NavbarSearchApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), [])
 
+    def test_team_search_returns_canonical_teams_only(self):
+        response = self.client.get(
+            "/api/teams/search", query_string={"search": "alliance"}
+        )
+        self.assertEqual(response.status_code, 200)
+
+        data = response.get_json()
+        self.assertEqual(
+            data, [{"name": "Alliance Jiu Jitsu", "slug": "alliance-jiu-jitsu"}]
+        )
+
+    def test_team_search_empty_query(self):
+        response = self.client.get("/api/teams/search", query_string={"search": ""})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), [])
+
 
 if __name__ == "__main__":
     unittest.main()

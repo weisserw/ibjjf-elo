@@ -1,0 +1,19 @@
+.teams-search-section {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.teams-search-section .react-autosuggest__container {
+  width: 100%;
+}
+
+.teams-search-section .react-autosuggest__input {
+  width: 100%;
+  font-size: 16px !important;
+}
+
+.teams-search-section .react-autosuggest__suggestions-container--open {
+  width: 100%;
+  z-index: 10;
+  font-size: 16px !important;
+}

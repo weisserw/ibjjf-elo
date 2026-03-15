@@ -1,9 +1,10 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from sqlalchemy import case, func
 from datetime import datetime
 from extensions import db
 from constants import NON_ELITE_BELTS, belt_order
 from team_name_mapping import load_team_name_mappings, resolve_dupe_team_name
+from normalize import normalize
 from models import (
     Athlete,
     AthleteRating,
@@ -26,6 +27,41 @@ def _glob_to_sql_like(name_match):
     # Escape LIKE wildcard characters first, then map glob wildcard chars.
     escaped = name_match.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     return escaped.replace("*", "%").replace("?", "_")
+
+
+def _team_slug_from_name(name):
+    normalized = normalize(name)
+    return normalized.replace(" ", "-")
+
+
+def _build_team_search_suggestions(search, limit=50):
+    team_query = db.session.query(Team.name).filter(
+        Team.name.isnot(None), Team.name != ""
+    )
+    for name_part in search.split():
+        team_query = team_query.filter(Team.normalized_name.like(f"%{name_part}%"))
+
+    exact_mappings, glob_mappings = load_team_name_mappings()
+    canonical_teams = {}
+    for (team_name,) in team_query.order_by(Team.name).limit(limit).all():
+        canonical_name = resolve_dupe_team_name(
+            team_name, exact_mappings, glob_mappings
+        )
+        team_slug = _team_slug_from_name(canonical_name)
+        if not canonical_name or not team_slug:
+            continue
+        canonical_teams[canonical_name] = team_slug
+
+    return [{"name": name, "slug": slug} for name, slug in canonical_teams.items()]
+
+
+@teams_route.route("/api/teams/search")
+def team_search():
+    search = normalize(request.args.get("search", ""))
+    if not search:
+        return jsonify([])
+
+    return jsonify(_build_team_search_suggestions(search=search))
 
 
 @teams_route.route("/api/teams/<team_slug>")
