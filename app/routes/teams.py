@@ -110,7 +110,7 @@ def get_team(team_slug):
         .join(best_adult_rating, best_adult_rating.c.athlete_id == Athlete.id)
         .filter(
             best_adult_rating.c.row_num == 1,
-            best_adult_rating.c.percentile <= 0.10,
+            best_adult_rating.c.percentile <= 0.11,
             best_adult_rating.c.belt.notin_(NON_ELITE_BELTS),
         )
         .order_by(
@@ -124,6 +124,8 @@ def get_team(team_slug):
         )
         .all()
     )
+
+    elite_competitors = [e for e in elite_competitors if round(e.percentile) <= 10]
 
     athlete_ids = [competitor.athlete_id for competitor in elite_competitors]
     athlete_names = [competitor.athlete_name for competitor in elite_competitors]
