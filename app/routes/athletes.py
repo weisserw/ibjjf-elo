@@ -48,6 +48,7 @@ from photos import get_s3_client, get_public_photo_url
 athletes_route = Blueprint("athletes_route", __name__)
 
 MAX_RESULTS = 50
+NAVBAR_MAX_RESULTS = 12
 
 
 def _parse_gi_flag(raw_gi):
@@ -741,6 +742,37 @@ def athletes():
     gender = request.args.get("gender")
     allowteen = request.args.get("allow_teen", "")
 
+    query = _build_athlete_search_query(
+        search=search,
+        gi=gi,
+        gender=gender,
+        allow_teen=allowteen.lower() == "true",
+    )
+
+    results = (
+        query.order_by(Athlete.personal_name.isnot(None).desc(), Athlete.name)
+        .limit(MAX_RESULTS)
+        .all()
+    )
+
+    response = [
+        {
+            "slug": result.slug,
+            "name": result.name,
+            "personal_name": result.personal_name,
+        }
+        for result in results
+    ]
+
+    return jsonify(response)
+
+
+def _team_slug_from_name(name):
+    normalized = normalize(name)
+    return normalized.replace(" ", "-")
+
+
+def _build_athlete_search_query(search, gi=None, gender=None, allow_teen=False):
     if os.getenv("DATABASE_URL"):
         # Use full-text search
         search_terms = [term + ":*" for term in search.split()]
@@ -791,7 +823,7 @@ def athletes():
 
         query = query.filter(exists().where(Athlete.id == subquery_gender.c.athlete_id))
 
-    if not (allowteen.lower() == "true"):
+    if not allow_teen:
         # use subquery to remove athletes whose most recent match was in a teen division
         recent_match_subq = (
             db.session.query(Match.happened_at)
@@ -817,19 +849,56 @@ def athletes():
 
         query = query.filter(~teen_recent_match_exists)
 
-    results = (
-        query.order_by(Athlete.personal_name.isnot(None).desc(), Athlete.name)
+    return query
+
+
+@athletes_route.route("/api/navbar-search")
+def navbar_search():
+    search = normalize(request.args.get("search", ""))
+    if not search:
+        return jsonify([])
+
+    athlete_rows = (
+        _build_athlete_search_query(search=search)
+        .order_by(Athlete.personal_name.isnot(None).desc(), Athlete.name)
         .limit(MAX_RESULTS)
         .all()
     )
-
-    response = [
+    athlete_suggestions = [
         {
-            "slug": result.slug,
-            "name": result.name,
-            "personal_name": result.personal_name,
+            "type": "athlete",
+            "slug": row.slug,
+            "name": row.name,
+            "personal_name": row.personal_name,
         }
-        for result in results
+        for row in athlete_rows
     ]
+
+    team_query = db.session.query(Team.name).filter(
+        Team.name.isnot(None), Team.name != ""
+    )
+    for name_part in search.split():
+        team_query = team_query.filter(Team.normalized_name.like(f"%{name_part}%"))
+
+    exact_mappings, glob_mappings = load_team_name_mappings()
+    canonical_teams = {}
+    for (team_name,) in team_query.order_by(Team.name).limit(MAX_RESULTS).all():
+        canonical_name = resolve_dupe_team_name(
+            team_name, exact_mappings, glob_mappings
+        )
+        team_slug = _team_slug_from_name(canonical_name)
+        if not canonical_name or not team_slug:
+            continue
+        canonical_teams[canonical_name] = team_slug
+
+    team_suggestions = [
+        {"type": "team", "name": name, "slug": slug}
+        for name, slug in canonical_teams.items()
+    ]
+
+    response = athlete_suggestions[:NAVBAR_MAX_RESULTS]
+    remaining_slots = NAVBAR_MAX_RESULTS - len(response)
+    if remaining_slots > 0:
+        response.extend(team_suggestions[:remaining_slots])
 
     return jsonify(response)

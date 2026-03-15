@@ -28,10 +28,11 @@ def load_team_name_mappings():
 
 
 def resolve_dupe_team_name(team_name, exact_mappings, glob_mappings):
-    resolved_team_name = exact_mappings.get(team_name, team_name)
+    if team_name in exact_mappings:
+        return exact_mappings[team_name]
 
     for pattern, mapped_name in glob_mappings:
-        if fnmatchcase(resolved_team_name, pattern):
+        if fnmatchcase(team_name, pattern):
             return mapped_name
 
-    return resolved_team_name
+    return team_name

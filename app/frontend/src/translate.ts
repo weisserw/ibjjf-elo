@@ -90,6 +90,7 @@ const translations = {
     "Athlete": "Atleta",
     "Athlete Name": "Nome do Atleta",
     "Find Athlete": "Encontrar Atleta",
+    "Find Athlete or Team": "Encontrar Atleta ou Equipe",
     "Team Name": "Nome da Equipe",
     "Minimum rating": "Rating mínima",
     "Maximum rating": "Rating máxima",

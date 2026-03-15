@@ -12,11 +12,21 @@ import { AppContext } from '../AppContext';
 import { t } from '../translate';
 import { axiosErrorToast, renderAthleteSuggestion, type AthleteSuggestion } from '../utils';
 
+type TeamSuggestion = {
+  type: 'team';
+  name: string;
+  slug: string;
+};
+
+type NavbarSearchSuggestion =
+  | ({ type: 'athlete' } & AthleteSuggestion)
+  | TeamSuggestion;
+
 function Navbar() {
   const [isMenuActive, setIsMenuActive] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [athleteName, setAthleteName] = useState('');
-  const [athleteSuggestions, setAthleteSuggestions] = useState<AthleteSuggestion[]>([]);
+  const [searchValue, setSearchValue] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<NavbarSearchSuggestion[]>([]);
   const location = useLocation();
   const navigate = useNavigate();
   const activeLink = location.pathname;
@@ -35,16 +45,16 @@ function Navbar() {
     if (setLanguage) setLanguage(language === 'en' ? 'pt' : 'en');
   };
 
-  const debouncedGetAthleteSuggestions = useMemo(
+  const debouncedGetSearchSuggestions = useMemo(
     () => debounce(async ({ value }: { value: string }) => {
       if (!value.trim()) {
-        setAthleteSuggestions([]);
+        setSearchSuggestions([]);
         return;
       }
 
       try {
-        const response = await axios.get(`/api/athletes?search=${encodeURIComponent(value)}`);
-        setAthleteSuggestions(response.data);
+        const response = await axios.get(`/api/navbar-search?search=${encodeURIComponent(value)}`);
+        setSearchSuggestions(response.data);
       } catch (error) {
         axiosErrorToast(error);
       }
@@ -54,9 +64,9 @@ function Navbar() {
 
   useEffect(() => {
     return () => {
-      debouncedGetAthleteSuggestions.cancel();
+      debouncedGetSearchSuggestions.cancel();
     };
-  }, [debouncedGetAthleteSuggestions]);
+  }, [debouncedGetSearchSuggestions]);
 
   useEffect(() => {
     const onDocumentMouseDown = (event: MouseEvent) => {
@@ -90,7 +100,12 @@ function Navbar() {
     return () => window.cancelAnimationFrame(animationFrameId);
   }, [isSearchOpen]);
 
-  const onAthleteSelected = async (suggestion: AthleteSuggestion) => {
+  const onSearchSuggestionSelected = async (suggestion: NavbarSearchSuggestion) => {
+    if (suggestion.type === 'team') {
+      navigate(`/team/${encodeURIComponent(suggestion.slug)}`);
+      return;
+    }
+
     const slug = suggestion.slug;
     if (slug) {
       navigate(`/athlete/${encodeURIComponent(slug)}`);
@@ -112,26 +127,40 @@ function Navbar() {
     }
   };
 
+  const renderSearchSuggestion = (suggestion: NavbarSearchSuggestion) => {
+    const label = suggestion.type === 'team'
+      ? suggestion.name
+      : renderAthleteSuggestion(suggestion);
+    const typeLabel = suggestion.type === 'team' ? t('Team') : t('Athlete');
+
+    return (
+      <div className="navbar-search-suggestion">
+        <span>{label}</span>
+        <span className="navbar-search-suggestion-type">{typeLabel}</span>
+      </div>
+    );
+  };
+
   const searchAutosuggest = (
     <Autosuggest
-      suggestions={athleteSuggestions}
-      onSuggestionsFetchRequested={debouncedGetAthleteSuggestions}
-      onSuggestionsClearRequested={() => setAthleteSuggestions([])}
+      suggestions={searchSuggestions}
+      onSuggestionsFetchRequested={debouncedGetSearchSuggestions}
+      onSuggestionsClearRequested={() => setSearchSuggestions([])}
       multiSection={false}
       getSuggestionValue={(suggestion) => suggestion.name}
-      renderSuggestion={renderAthleteSuggestion}
-      onSuggestionSelected={(_event: FormEvent<HTMLElement>, { suggestion }: { suggestion: AthleteSuggestion }) => {
-        setAthleteName('');
-        setAthleteSuggestions([]);
+      renderSuggestion={renderSearchSuggestion}
+      onSuggestionSelected={(_event: FormEvent<HTMLElement>, { suggestion }: { suggestion: NavbarSearchSuggestion }) => {
+        setSearchValue('');
+        setSearchSuggestions([]);
         setIsSearchOpen(false);
         setIsMenuActive(false);
-        void onAthleteSelected(suggestion);
+        void onSearchSuggestionSelected(suggestion);
       }}
       inputProps={{
         className: 'input navbar-search-input',
-        value: athleteName,
-        placeholder: t('Find Athlete'),
-        onChange: (_event: FormEvent<HTMLElement>, { newValue }: { newValue: string }) => setAthleteName(newValue),
+        value: searchValue,
+        placeholder: t('Find Athlete or Team'),
+        onChange: (_event: FormEvent<HTMLElement>, { newValue }: { newValue: string }) => setSearchValue(newValue),
       }}
     />
   );
@@ -228,7 +257,7 @@ function Navbar() {
           <div className="navbar-item mobile-only navbar-search-wrapper mobile-navbar-search-wrapper">
             <button
               className="lang-switch navbar-search-trigger"
-              aria-label="Search athletes"
+              aria-label="Search athletes and teams"
               type="button"
               onClick={() => setIsSearchOpen((value) => !value)}
             >
@@ -256,7 +285,7 @@ function Navbar() {
           <div className="navbar-item desktop-only navbar-search-wrapper">
             <button
               className="lang-switch navbar-search-trigger"
-              aria-label="Search athletes"
+              aria-label="Search athletes and teams"
               type="button"
               onClick={() => setIsSearchOpen((value) => !value)}
             >

@@ -189,6 +189,19 @@ a.navbar-item.is-active {
   font-size: 16px !important;
 }
 
+.navbar-search-suggestion {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.navbar-search-suggestion-type {
+  color: #777;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
 @media screen and (max-width: 1023px) {
   .mobile-only {
     display: block !important;
