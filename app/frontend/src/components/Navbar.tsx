@@ -35,6 +35,7 @@ function Navbar() {
   const setLanguage = appContext?.setLanguage;
   const activeTab = appContext?.activeTab || 'Gi';
   const isMoreActive = ["/research", "/news", "/about"].includes(activeLink);
+  const isRatingsPage = activeLink === '/';
 
   const getNavItemClass = (path: string, startsWith?: boolean) => classNames("navbar-item", {
     "is-active": startsWith ? activeLink.startsWith(path) : activeLink === path,
@@ -254,21 +255,23 @@ function Navbar() {
               </Link>
             </div>
           </div>
-          <div className="navbar-item mobile-only navbar-search-wrapper mobile-navbar-search-wrapper">
-            <button
-              className="lang-switch navbar-search-trigger"
-              aria-label="Search athletes and teams"
-              type="button"
-              onClick={() => setIsSearchOpen((value) => !value)}
-            >
-              <span className="icon">
-                <i className="fas fa-search" aria-hidden="true"></i>
-              </span>
-            </button>
-            <div className={classNames('navbar-search-popup', { 'is-open': isSearchOpen })}>
-              {searchAutosuggest}
+          {!isRatingsPage && (
+            <div className="navbar-item mobile-only navbar-search-wrapper mobile-navbar-search-wrapper">
+              <button
+                className="lang-switch navbar-search-trigger"
+                aria-label="Search athletes and teams"
+                type="button"
+                onClick={() => setIsSearchOpen((value) => !value)}
+              >
+                <span className="icon">
+                  <i className="fas fa-search" aria-hidden="true"></i>
+                </span>
+              </button>
+              <div className={classNames('navbar-search-popup', { 'is-open': isSearchOpen })}>
+                {searchAutosuggest}
+              </div>
             </div>
-          </div>
+          )}
           <button
             className="navbar-item lang-switch mobile-lang-switch mobile-only"
             onClick={handleLanguageSwitch}
@@ -282,21 +285,23 @@ function Navbar() {
           </button>
         </div>
         <div className="navbar-end">
-          <div className="navbar-item desktop-only navbar-search-wrapper">
-            <button
-              className="lang-switch navbar-search-trigger"
-              aria-label="Search athletes and teams"
-              type="button"
-              onClick={() => setIsSearchOpen((value) => !value)}
-            >
-              <span className="icon">
-                <i className="fas fa-search" aria-hidden="true"></i>
-              </span>
-            </button>
-            <div className={classNames('navbar-search-popup', { 'is-open': isSearchOpen })}>
-              {searchAutosuggest}
+          {!isRatingsPage && (
+            <div className="navbar-item desktop-only navbar-search-wrapper">
+              <button
+                className="lang-switch navbar-search-trigger"
+                aria-label="Search athletes and teams"
+                type="button"
+                onClick={() => setIsSearchOpen((value) => !value)}
+              >
+                <span className="icon">
+                  <i className="fas fa-search" aria-hidden="true"></i>
+                </span>
+              </button>
+              <div className={classNames('navbar-search-popup', { 'is-open': isSearchOpen })}>
+                {searchAutosuggest}
+              </div>
             </div>
-          </div>
+          )}
           <button
             className="navbar-item lang-switch desktop-lang-switch"
             onClick={handleLanguageSwitch}

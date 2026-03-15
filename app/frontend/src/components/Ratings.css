@@ -3,7 +3,7 @@
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 32, 128, 0.08);
   padding: 1rem 1.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   border: 1px solid #e3eaf5;
 }
 
@@ -38,4 +38,37 @@
   border-radius: 8px;
   margin-right: 6px;
   vertical-align: middle;
+}
+
+.ratings-search-section {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.ratings-search-section .react-autosuggest__container {
+  width: 100%;
+}
+
+.ratings-search-section .react-autosuggest__input {
+  width: 100%;
+  font-size: 16px !important;
+}
+
+.ratings-search-section .react-autosuggest__suggestions-container--open {
+  width: 100%;
+  z-index: 10;
+  font-size: 16px !important;
+}
+
+.ratings-search-suggestion {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ratings-search-suggestion-type {
+  color: #777;
+  font-size: 12px;
+  text-transform: uppercase;
 }
