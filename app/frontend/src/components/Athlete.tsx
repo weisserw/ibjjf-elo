@@ -1,10 +1,10 @@
 import {useEffect, useState, useMemo, useCallback} from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
 import { axiosErrorToast, getCountryName,
   type Registration, type DBRow as Row, type DBResults as Results,
-  isHistorical, badgeForPercentile, percentileInteger, formatEventDates } from '../utils';
+  isHistorical, badgeForPercentile, percentileInteger, formatEventDates, teamSlugFromName, beltColorEmojis } from '../utils';
 import GiTabs from './GiTabs';
 import { useAppContext } from '../AppContext';
 import igLogoColor from '/src/assets/instagram-color.png';
@@ -151,20 +151,6 @@ const beltColors: Record<string, string> = {
   YELLOW_GREY: "#FFFF00",
   GREY: "#808080",
   WHITE: "#FFFFFF",
-};
-
-const beltColorEmojis: Record<string, string> = {
-  BLACK: "⚫",
-  BROWN: "🟤",
-  PURPLE: "🟣",
-  BLUE: "🔵",
-  GREEN: "🟢",
-  GREEN_ORANGE: "🟢",
-  ORANGE: "🟠",
-  YELLOW: "🟡",
-  YELLOW_GREY: "🟡",
-  GREY: "⚪",
-  WHITE: "⚪",
 };
 
 const beltHasOutline: Record<string, boolean> = {
@@ -844,7 +830,9 @@ function Athlete() {
                       {teamHistory.map((entry, index) => (
                         <tr key={index}>
                           <td>{formatAthleteYearDate(entry.date)}</td>
-                          <td>{entry.team_name}</td>
+                          <td>
+                            <Link to={`/team/${teamSlugFromName(entry.team_name)}`}>{entry.team_name}</Link>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

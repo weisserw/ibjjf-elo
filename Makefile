@@ -1,7 +1,7 @@
 .PHONY: test format
 
 test:
-	python -m unittest discover -s app/tests
+	cd app/tests && python3 -m unittest discover -p 'test_*.py'
 
 format:
 	dev/format_python.sh

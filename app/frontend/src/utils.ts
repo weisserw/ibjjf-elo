@@ -143,6 +143,31 @@ export const isHistorical = (eventName: string) => {
   return !/idade 04 a 15 anos/.test(eventName) && /\([^\)]+\)/.test(eventName);
 }
 
+export const beltColorEmojis: Record<string, string> = {
+  BLACK: "⚫",
+  BROWN: "🟤",
+  PURPLE: "🟣",
+  BLUE: "🔵",
+  GREEN: "🟢",
+  GREEN_ORANGE: "🟢",
+  "GREEN-ORANGE": "🟢",
+  ORANGE: "🟠",
+  YELLOW: "🟡",
+  YELLOW_GREY: "🟡",
+  "YELLOW-GREY": "🟡",
+  GREY: "⚪",
+  WHITE: "⚪",
+};
+
+export const teamSlugFromName = (name: string): string => {
+  const asciiOnly = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  const decoded = asciiOnly.trim().toLowerCase();
+  const onlyLetters = decoded.replace(/[^a-z 0-9]/g, '');
+  const singleSpace = onlyLetters.replace(/\s+/g, ' ');
+
+  return singleSpace.replace(/ /g, '-');
+};
+
 
 export function getCountryName(country: string | null, note: string | null, note_pt: string | null, locale: string): string | undefined {
   if (!country) return undefined;

@@ -1,5 +1,4 @@
 import os
-from fnmatch import fnmatchcase
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from uuid import UUID
@@ -21,9 +20,9 @@ from models import (
     Medal,
     Event,
     Suspension,
-    TeamNameMapping,
 )
 from normalize import normalize
+from team_name_mapping import load_team_name_mappings, resolve_dupe_team_name
 from elo import (
     EloCompetitor,
     AGE_K_FACTOR_MODIFIERS,
@@ -87,43 +86,9 @@ def _clamp_legacy_team_history_date(happened_at):
     return happened_at
 
 
-def _load_team_name_mappings():
-    rows = db.session.query(
-        TeamNameMapping.name_match,
-        TeamNameMapping.mapped_name,
-    ).all()
-    exact_mappings = {}
-    glob_mappings = []
-
-    for name_match, mapped_name in rows:
-        if any(ch in name_match for ch in "*?["):
-            glob_mappings.append((name_match, mapped_name))
-            continue
-        exact_mappings[name_match] = mapped_name
-
-    # More specific glob patterns win if multiple patterns match.
-    glob_mappings.sort(
-        key=lambda item: len(
-            item[0].replace("*", "").replace("?", "").replace("[", "").replace("]", "")
-        ),
-        reverse=True,
-    )
-    return exact_mappings, glob_mappings
-
-
-def _resolve_dupe_team_name(team_name, exact_mappings, glob_mappings):
-    resolved_team_name = exact_mappings.get(team_name, team_name)
-
-    for pattern, mapped_name in glob_mappings:
-        if fnmatchcase(resolved_team_name, pattern):
-            return mapped_name
-
-    return resolved_team_name
-
-
 def _get_athlete_team_history(athlete_id):
     team_events = []
-    exact_mappings, glob_mappings = _load_team_name_mappings()
+    exact_mappings, glob_mappings = load_team_name_mappings()
 
     medal_rows = (
         db.session.query(
@@ -138,7 +103,7 @@ def _get_athlete_team_history(athlete_id):
         team_name = (row.team_name or "").strip()
         if not team_name:
             continue
-        team_name = _resolve_dupe_team_name(team_name, exact_mappings, glob_mappings)
+        team_name = resolve_dupe_team_name(team_name, exact_mappings, glob_mappings)
         team_events.append(
             {
                 "date": _clamp_legacy_team_history_date(row.happened_at),
@@ -165,7 +130,7 @@ def _get_athlete_team_history(athlete_id):
         team_name = (row.team_name or "").strip()
         if not team_name:
             continue
-        team_name = _resolve_dupe_team_name(team_name, exact_mappings, glob_mappings)
+        team_name = resolve_dupe_team_name(team_name, exact_mappings, glob_mappings)
         team_events.append(
             {
                 "date": _clamp_legacy_team_history_date(row.happened_at),

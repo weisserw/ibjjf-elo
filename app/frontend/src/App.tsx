@@ -7,6 +7,7 @@ import Brackets from './components/Brackets';
 import Awards from './components/Awards';
 import Research from './components/Research';
 import Athlete from './components/Athlete';
+import Team from './components/Team';
 import About from './components/About';
 import News from './components/News';
 import NewsItem from './components/NewsItem';
@@ -87,6 +88,7 @@ function AppShell() {
           <Route path="/news/:id/:slug" element={<NewsItem />} />
           <Route path="/about" element={<About />} />
           <Route path="/athlete/:id" element={<Athlete />} />
+          <Route path="/team/:slug" element={<Team />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

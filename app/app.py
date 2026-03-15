@@ -14,6 +14,7 @@ from routes.events import events_route
 from routes.brackets import brackets_route
 from routes.awards import awards_route
 from routes.news import news_route
+from routes.teams import teams_route
 
 logger = logging.getLogger("ibjjf")
 log_level = logging.DEBUG if os.getenv("DEBUG") else logging.INFO
@@ -46,6 +47,11 @@ def index():
 @app.route("/athlete/<athlete_id>")
 def athlete_page(athlete_id):
     return render_athlete_page(app, athlete_id)
+
+
+@app.route("/team/<team_slug>")
+def team_page(team_slug):
+    return render_index_with_fallback(app)
 
 
 @app.route("/about")
@@ -111,6 +117,7 @@ app.register_blueprint(events_route)
 app.register_blueprint(brackets_route)
 app.register_blueprint(awards_route)
 app.register_blueprint(news_route)
+app.register_blueprint(teams_route)
 
 application = app
 
