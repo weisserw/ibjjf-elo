@@ -125,7 +125,7 @@ def get_team(team_slug):
         .all()
     )
 
-    elite_competitors = [e for e in elite_competitors if round(e.percentile) <= 10]
+    elite_competitors = [e for e in elite_competitors if round(e.percentile) <= 0.10]
 
     athlete_ids = [competitor.athlete_id for competitor in elite_competitors]
     athlete_names = [competitor.athlete_name for competitor in elite_competitors]
