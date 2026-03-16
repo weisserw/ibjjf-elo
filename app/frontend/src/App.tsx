@@ -73,6 +73,7 @@ function AppShell() {
           <Route path="/tournaments/archive" element={<Brackets tab="Archive" />} />
           <Route path="/awards" element={<Navigate to="/teams" replace />} />
           <Route path="/teams" element={<Teams />} />
+          <Route path="/calculator" element={<Navigate to="/research" replace />} />
           <Route path="/research" element={<Research />} />
           <Route path="/news" element={<News />} />
           <Route path="/news/:id/:slug" element={<NewsItem />} />
