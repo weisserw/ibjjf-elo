@@ -38,6 +38,11 @@ from constants import (
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
     OPEN_CLASS_LIGHT,
+    ADULT,
+    JUVENILE,
+    JUVENILE_1,
+    JUVENILE_2,
+    MASTER_PREFIX,
     TEEN_1,
     TEEN_2,
     TEEN_3,
@@ -49,6 +54,14 @@ athletes_route = Blueprint("athletes_route", __name__)
 
 MAX_RESULTS = 50
 NAVBAR_MAX_RESULTS = 12
+YOUTH_AGE_DIVISIONS = {
+    TEEN_1,
+    TEEN_2,
+    TEEN_3,
+    JUVENILE,
+    JUVENILE_1,
+    JUVENILE_2,
+}
 
 
 def _parse_gi_flag(raw_gi):
@@ -335,8 +348,18 @@ def get_athlete_data(identifier, gi_param=None):
         )
     ]
 
+    athlete_has_adult_or_master_history = (
+        db.session.query(MatchParticipant.id)
+        .join(Match)
+        .join(Division)
+        .filter(MatchParticipant.athlete_id == athlete.id)
+        .filter(or_(Division.age == ADULT, Division.age.like(f"{MASTER_PREFIX}%")))
+        .first()
+        is not None
+    )
+
     # load registrations and manual promotions
-    registrations = (
+    registrations_query = (
         db.session.query(
             RegistrationLinkCompetitor.team_name,
             RegistrationLink.name,
@@ -359,12 +382,15 @@ def get_athlete_data(identifier, gi_param=None):
             RegistrationLinkCompetitor.athlete_name == athlete.name,
             RegistrationLink.event_end_date >= datetime.now(),
         )
-        .order_by(
-            RegistrationLink.event_start_date,
-            RegistrationLink.name,
-        )
-        .all()
     )
+    if athlete_has_adult_or_master_history:
+        registrations_query = registrations_query.filter(
+            ~Division.age.in_(YOUTH_AGE_DIVISIONS)
+        )
+    registrations = registrations_query.order_by(
+        RegistrationLink.event_start_date,
+        RegistrationLink.name,
+    ).all()
     promotions = (
         db.session.query(ManualPromotions)
         .filter(ManualPromotions.athlete_id == id_uuid)

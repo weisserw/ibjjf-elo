@@ -13,10 +13,32 @@ from models import (
 )
 from photos import get_public_photo_url, get_s3_client
 from normalize import normalize
+from constants import (
+    ADULT,
+    JUVENILE,
+    JUVENILE_1,
+    JUVENILE_2,
+    MASTER_PREFIX,
+    TEEN_1,
+    TEEN_2,
+    TEEN_3,
+)
 
 top_route = Blueprint("top_route", __name__)
 
 RATINGS_PAGE_SIZE = 30
+YOUTH_AGE_DIVISIONS = {
+    TEEN_1,
+    TEEN_2,
+    TEEN_3,
+    JUVENILE,
+    JUVENILE_1,
+    JUVENILE_2,
+}
+
+
+def _is_adult_or_master_age(age):
+    return age == ADULT or age.startswith(MASTER_PREFIX)
 
 
 @top_route.route("/api/top")
@@ -45,6 +67,7 @@ def top():
     gi = gi.lower() == "true"
     changed = changed and changed.lower() == "true"
     upcoming = upcoming and upcoming.lower() == "true"
+    hide_youth_registration_links = _is_adult_or_master_age(age)
 
     s3_client = get_s3_client()
 
@@ -126,8 +149,11 @@ def top():
                 RegistrationLink,
                 RegistrationLinkCompetitor.registration_link_id == RegistrationLink.id,
             )
+            .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
             .filter(RegistrationLink.event_start_date > datetime.now())
         )
+        if hide_youth_registration_links:
+            subquery = subquery.filter(~Division.age.in_(YOUTH_AGE_DIVISIONS))
         query = query.filter(Athlete.id.in_(subquery))
 
     totalCount = query.count()
@@ -162,13 +188,14 @@ def top():
             RegistrationLinkCompetitor.athlete_name.in_(athlete_names),
             RegistrationLink.event_end_date >= datetime.now(),
         )
-        .order_by(
-            RegistrationLinkCompetitor.athlete_name,
-            RegistrationLink.event_start_date,
-            RegistrationLink.name,
-        )
-        .all()
     )
+    if hide_youth_registration_links:
+        reg_link_rows = reg_link_rows.filter(~Division.age.in_(YOUTH_AGE_DIVISIONS))
+    reg_link_rows = reg_link_rows.order_by(
+        RegistrationLinkCompetitor.athlete_name,
+        RegistrationLink.event_start_date,
+        RegistrationLink.name,
+    ).all()
 
     # Map athlete_name to a list of their registration links
     reg_links_by_athlete = {}
