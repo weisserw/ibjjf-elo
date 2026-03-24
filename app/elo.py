@@ -414,7 +414,12 @@ def compute_start_rating(
         current_belt_num - previous_belt_num > 1
         and last_match.end_rating < DEFAULT_RATINGS[division.belt][division.age]
     ) or (current_belt_num != previous_belt_num):
-        if current_belt_num - previous_belt_num > 1:
+        # special case to skip kids belts, if athlete was promoted from white to blue, treat it as a one belt promotion
+        white_to_blue = current_belt_num == belt_order.index(
+            BLUE
+        ) and previous_belt_num == belt_order.index(WHITE)
+
+        if not white_to_blue and current_belt_num - previous_belt_num > 1:
             log.debug(
                 "Athlete was promoted more than one belt and is below default rating, using default rating"
             )

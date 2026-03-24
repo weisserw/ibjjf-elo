@@ -47,6 +47,8 @@ from constants import (
     TEEN_2,
     TEEN_3,
     BLACK,
+    WHITE,
+    BLUE,
 )
 from photos import get_s3_client, get_public_photo_url
 
@@ -244,10 +246,16 @@ def _get_athlete_team_history(athlete_id):
 
 
 def _apply_promotion_rating_bump(rating, from_belt, to_belt):
+    print(
+        f"Applying promotion rating bump: rating={rating}, from_belt={from_belt}, to_belt={to_belt}"
+    )
     if rating is None or not from_belt or not to_belt or from_belt == to_belt:
         return rating
 
-    belt_diff = belt_order.index(to_belt) - belt_order.index(from_belt)
+    if from_belt == WHITE and to_belt == BLUE:
+        belt_diff = 1  # special case to skip kids belts
+    else:
+        belt_diff = belt_order.index(to_belt) - belt_order.index(from_belt)
     if belt_diff == 1:
         if to_belt == BLACK:
             return rating + BLACK_PROMOTION_RATING_BUMP
