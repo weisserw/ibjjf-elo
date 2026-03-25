@@ -5,7 +5,7 @@ import 'dayjs/locale/pt';
 import youtubeLogo from '/src/assets/youtube.png';
 import floLogo from '/src/assets/flo.png';
 import { Tooltip } from 'react-tooltip';
-import { isHistorical, type DBRow as Row } from "../utils";
+import { handleExternalVideoLinkClick, isHistorical, type DBRow as Row } from "../utils";
 import { noMatchStrings } from '../constants';
 import { useAppContext } from '../AppContext';
 import { t, translateMulti, translateMultiSpace, translationKeys } from '../translate';
@@ -144,15 +144,6 @@ function DBTableRows(props: DBTableRowsProps) {
     }
   }
 
-  const onVideoClick = (link: string, e: React.MouseEvent<HTMLAnchorElement>) => {
-    // workaround for flo video links opening in flo app on android
-    if (link.includes('flograppling') && /Android/i.test(navigator.userAgent)) {
-      e.preventDefault();
-      const w = window.open('about:blank', '_blank');
-      if (w) w.location = link;
-    }
-  }
-
   return (
     <>
       <div className="table-container is-hidden-touch">
@@ -187,7 +178,7 @@ function DBTableRows(props: DBTableRowsProps) {
                 <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row.event)})}>
                   <td className="video-link-cell">
                     {(row.videoLink && row.videoLink.toLowerCase() !== 'none' && !noMatch(row)) &&
-                      <a href={row.videoLink} target="_blank" rel="noopener noreferrer" onClick={onVideoClick.bind(null, row.videoLink)}>
+                      <a href={row.videoLink} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, row.videoLink)}>
                         {logoForLink(row.videoLink)}
                       </a>
                     }
@@ -296,7 +287,7 @@ function DBTableRows(props: DBTableRowsProps) {
                 {
                   (row.videoLink && row.videoLink.toLowerCase() !== 'none'  && !noMatch(row)) &&
                   <div className="video-link">
-                    <a href={row.videoLink} target="_blank" rel="noopener noreferrer" onClick={onVideoClick.bind(null, row.videoLink)}>
+                    <a href={row.videoLink} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, row.videoLink)}>
                       {logoForLink(row.videoLink)}
                     </a>
                   </div>

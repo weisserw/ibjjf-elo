@@ -1,4 +1,5 @@
 import dayjs from 'dayjs';
+import type { MouseEvent } from 'react';
 import { toast } from 'bulma-toast';
 import { countryNames, countryNamesPt } from './countries';
 import eliteTier1Badge from '/src/assets/elite-tier1.png';
@@ -41,6 +42,15 @@ export const immatureClass = (matchCount: number | null) => {
     return 'immature'
   } else {
     return ''
+  }
+}
+
+export const handleExternalVideoLinkClick = (link: string, e: MouseEvent<HTMLAnchorElement>) => {
+  // Workaround for Flo links opening in the Flo app on Android.
+  if (link.toLowerCase().includes('flograppling') && typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)) {
+    e.preventDefault();
+    const w = window.open('about:blank', '_blank');
+    if (w) w.location = link;
   }
 }
 

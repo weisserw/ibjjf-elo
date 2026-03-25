@@ -4,7 +4,7 @@ import classNames from 'classnames';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { useAppContext } from '../AppContext';
-import { immatureClass, getCountryName, badgeForPercentile } from '../utils';
+import { immatureClass, getCountryName, badgeForPercentile, handleExternalVideoLinkClick } from '../utils';
 import { noMatchStrings } from '../constants';
 import { Tooltip } from 'react-tooltip';
 import { t, translateMultiSpace } from '../translate';
@@ -92,7 +92,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
             !noMatchStrings.some(s => match.blue_note?.toLowerCase() === s) &&
             (!match.video_link.includes('flograppling') || match.red_loser || match.blue_loser)) &&
           <div className="bracket-tree-match-video-link">
-            <a href={match.video_link} target="_blank" rel="noopener noreferrer">
+            <a href={match.video_link} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, match.video_link)}>
               {logoForLink(match.video_link)}
             </a>
           </div>
