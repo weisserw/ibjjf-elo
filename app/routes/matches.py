@@ -257,8 +257,14 @@ def matches():
                     JOIN match_participants mp ON a.id = mp.athlete_id
                     WHERE mp.match_id = m.id
                     AND (
-                        a.normalized_name_tsvector @@ to_tsquery('simple', :{variable})
-                        OR a.normalized_personal_name_tsvector @@ to_tsquery('simple', :{variable})
+                        (a.hide_full_name IS TRUE AND a.normalized_personal_name_tsvector @@ to_tsquery('simple', :{variable}))
+                        OR (
+                            a.hide_full_name IS NOT TRUE
+                            AND (
+                                a.normalized_name_tsvector @@ to_tsquery('simple', :{variable})
+                                OR a.normalized_personal_name_tsvector @@ to_tsquery('simple', :{variable})
+                            )
+                        )
                     )
                 )"""
             params[variable] = search_terms
@@ -272,7 +278,16 @@ def matches():
                     FROM athletes a
                     JOIN match_participants mp ON a.id = mp.athlete_id
                     WHERE mp.match_id = m.id
-                    AND a.normalized_name LIKE :{variable}_{index}
+                    AND (
+                        (a.hide_full_name IS TRUE AND a.normalized_personal_name LIKE :{variable}_{index})
+                        OR (
+                            a.hide_full_name IS NOT TRUE
+                            AND (
+                                a.normalized_name LIKE :{variable}_{index}
+                                OR a.normalized_personal_name LIKE :{variable}_{index}
+                            )
+                        )
+                    )
                 )"""
                 )
                 params[f"{variable}_{index}"] = f"%{name_part}%"

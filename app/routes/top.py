@@ -127,8 +127,21 @@ def top():
                 ts_query = func.to_tsquery("simple", " & ".join(search_terms))
                 query = query.filter(
                     or_(
-                        Athlete.normalized_name_tsvector.op("@@")(ts_query),
-                        Athlete.normalized_personal_name_tsvector.op("@@")(ts_query),
+                        and_(
+                            Athlete.hide_full_name.is_(True),
+                            Athlete.normalized_personal_name_tsvector.op("@@")(
+                                ts_query
+                            ),
+                        ),
+                        and_(
+                            Athlete.hide_full_name.isnot(True),
+                            or_(
+                                Athlete.normalized_name_tsvector.op("@@")(ts_query),
+                                Athlete.normalized_personal_name_tsvector.op("@@")(
+                                    ts_query
+                                ),
+                            ),
+                        ),
                     )
                 )
             else:
@@ -136,8 +149,19 @@ def top():
                 for name_part in normalize(name).split():
                     query = query.filter(
                         or_(
-                            Athlete.normalized_name.like(f"%{name_part}%"),
-                            Athlete.normalized_personal_name.like(f"%{name_part}%"),
+                            and_(
+                                Athlete.hide_full_name.is_(True),
+                                Athlete.normalized_personal_name.like(f"%{name_part}%"),
+                            ),
+                            and_(
+                                Athlete.hide_full_name.isnot(True),
+                                or_(
+                                    Athlete.normalized_name.like(f"%{name_part}%"),
+                                    Athlete.normalized_personal_name.like(
+                                        f"%{name_part}%"
+                                    ),
+                                ),
+                            ),
                         )
                     )
 

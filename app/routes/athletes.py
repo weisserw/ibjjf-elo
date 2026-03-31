@@ -872,8 +872,17 @@ def _build_athlete_search_query(search, gi=None, gender=None, allow_teen=False):
             Athlete.hide_full_name,
         ).filter(
             or_(
-                Athlete.normalized_name_tsvector.op("@@")(ts_query),
-                Athlete.normalized_personal_name_tsvector.op("@@")(ts_query),
+                and_(
+                    Athlete.hide_full_name.is_(True),
+                    Athlete.normalized_personal_name_tsvector.op("@@")(ts_query),
+                ),
+                and_(
+                    Athlete.hide_full_name.isnot(True),
+                    or_(
+                        Athlete.normalized_name_tsvector.op("@@")(ts_query),
+                        Athlete.normalized_personal_name_tsvector.op("@@")(ts_query),
+                    ),
+                ),
             )
         )
     else:
@@ -887,8 +896,17 @@ def _build_athlete_search_query(search, gi=None, gender=None, allow_teen=False):
         for name_part in search.split():
             query = query.filter(
                 or_(
-                    Athlete.normalized_name.like(f"%{name_part}%"),
-                    Athlete.normalized_personal_name.like(f"%{name_part}%"),
+                    and_(
+                        Athlete.hide_full_name.is_(True),
+                        Athlete.normalized_personal_name.like(f"%{name_part}%"),
+                    ),
+                    and_(
+                        Athlete.hide_full_name.isnot(True),
+                        or_(
+                            Athlete.normalized_name.like(f"%{name_part}%"),
+                            Athlete.normalized_personal_name.like(f"%{name_part}%"),
+                        ),
+                    ),
                 )
             )
 
