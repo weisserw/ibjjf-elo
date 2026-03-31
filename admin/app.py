@@ -752,6 +752,8 @@ def athlete_edit():
         bjjheroes_link = request.form.get("bjjheroes_link", "").strip()
         athlete.bjjheroes_link = bjjheroes_link if bjjheroes_link else None
 
+        athlete.hide_full_name = request.form.get("hide_full_name") == "on"
+
         uploaded_photo = request.files.get("profile_photo")
         photo_updated = False
         if uploaded_photo and uploaded_photo.filename:

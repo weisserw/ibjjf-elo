@@ -3,7 +3,7 @@ import math
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from extensions import db
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from models import (
     AthleteRating,
     Athlete,
@@ -107,7 +107,19 @@ def top():
         exact = name.strip().startswith('"') and name.strip().endswith('"')
         if exact:
             name = name.strip()[1:-1]
-            query = query.filter(Athlete.normalized_name == normalize(name))
+            normalized_name = normalize(name)
+            query = query.filter(
+                or_(
+                    and_(
+                        Athlete.hide_full_name.is_(True),
+                        Athlete.normalized_personal_name == normalized_name,
+                    ),
+                    and_(
+                        Athlete.hide_full_name.isnot(True),
+                        Athlete.normalized_name == normalized_name,
+                    ),
+                )
+            )
         else:
             if os.getenv("DATABASE_URL"):
                 # Use full-text search

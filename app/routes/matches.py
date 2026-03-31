@@ -241,7 +241,10 @@ def matches():
                 FROM athletes a
                 JOIN match_participants mp ON a.id = mp.athlete_id
                 WHERE mp.match_id = m.id
-                AND a.normalized_name = :{variable}
+                AND (
+                    (a.hide_full_name IS TRUE AND a.normalized_personal_name = :{variable})
+                    OR (a.hide_full_name IS NOT TRUE AND a.normalized_name = :{variable})
+                )
             )
             """
             params[variable] = normalize(name)

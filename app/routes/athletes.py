@@ -66,6 +66,20 @@ YOUTH_AGE_DIVISIONS = {
 }
 
 
+def _serialize_athlete_suggestion(row):
+    if row.hide_full_name and row.personal_name:
+        return {
+            "slug": row.slug,
+            "name": row.personal_name,
+            "personal_name": None,
+        }
+    return {
+        "slug": row.slug,
+        "name": row.name,
+        "personal_name": row.personal_name,
+    }
+
+
 def _parse_gi_flag(raw_gi):
     if raw_gi is None:
         return True
@@ -546,6 +560,10 @@ def get_athlete_data(identifier, gi_param=None):
         "rating": rating,
     }
 
+    if athlete.hide_full_name and athlete.personal_name:
+        athlete_json["name"] = athlete.personal_name
+        athlete_json["personal_name"] = None
+
     if athlete.profile_image_saved_at is not None:
         s3_client = get_s3_client()
         photo_url = get_public_photo_url(s3_client, athlete)
@@ -680,7 +698,18 @@ def ratings():
         .join(Match)
         .join(Division)
         .join(Athlete)
-        .filter(Athlete.normalized_name == name)
+        .filter(
+            or_(
+                and_(
+                    Athlete.hide_full_name.is_(True),
+                    Athlete.normalized_personal_name == name,
+                ),
+                and_(
+                    Athlete.hide_full_name.isnot(True),
+                    Athlete.normalized_name == name,
+                ),
+            )
+        )
         .filter(Division.gi == gi)
         .filter(Division.age != TEEN_1)
         .filter(Division.age != TEEN_2)
@@ -695,7 +724,18 @@ def ratings():
         .join(Match)
         .join(Division)
         .join(Athlete)
-        .filter(Athlete.normalized_name == name)
+        .filter(
+            or_(
+                and_(
+                    Athlete.hide_full_name.is_(True),
+                    Athlete.normalized_personal_name == name,
+                ),
+                and_(
+                    Athlete.hide_full_name.isnot(True),
+                    Athlete.normalized_name == name,
+                ),
+            )
+        )
         .filter(Division.gi == gi)
         .filter(Division.weight != OPEN_CLASS)
         .filter(Division.weight != OPEN_CLASS_HEAVY)
@@ -789,14 +829,7 @@ def athletes():
         .all()
     )
 
-    response = [
-        {
-            "slug": result.slug,
-            "name": result.name,
-            "personal_name": result.personal_name,
-        }
-        for result in results
-    ]
+    response = [_serialize_athlete_suggestion(result) for result in results]
 
     return jsonify(response)
 
@@ -833,7 +866,10 @@ def _build_athlete_search_query(search, gi=None, gender=None, allow_teen=False):
         search_terms = [term + ":*" for term in search.split()]
         ts_query = func.to_tsquery("simple", " & ".join(search_terms))
         query = db.session.query(
-            Athlete.slug, Athlete.name, Athlete.personal_name
+            Athlete.slug,
+            Athlete.name,
+            Athlete.personal_name,
+            Athlete.hide_full_name,
         ).filter(
             or_(
                 Athlete.normalized_name_tsvector.op("@@")(ts_query),
@@ -842,7 +878,12 @@ def _build_athlete_search_query(search, gi=None, gender=None, allow_teen=False):
         )
     else:
         # Fallback to LIKE search
-        query = db.session.query(Athlete.slug, Athlete.name, Athlete.personal_name)
+        query = db.session.query(
+            Athlete.slug,
+            Athlete.name,
+            Athlete.personal_name,
+            Athlete.hide_full_name,
+        )
         for name_part in search.split():
             query = query.filter(
                 or_(
@@ -922,9 +963,7 @@ def navbar_search():
     athlete_suggestions = [
         {
             "type": "athlete",
-            "slug": row.slug,
-            "name": row.name,
-            "personal_name": row.personal_name,
+            **_serialize_athlete_suggestion(row),
         }
         for row in athlete_rows
     ]

@@ -67,6 +67,12 @@
                 <input class="input" type="text" name="country_note_pt" placeholder="e.g., possui dupla cidadania" value="{{ athlete.country_note_pt or '' }}">
               </div>
             </div>
+            <div class="field">
+              <label class="checkbox">
+                <input type="checkbox" name="hide_full_name" {% if athlete.hide_full_name %}checked{% endif %}>
+                Hide athlete full name on site
+              </label>
+            </div>
             <div class="field is-grouped is-grouped-centered">
               <div class="control">
                 <button class="button is-primary" type="submit">Save</button>
