@@ -117,6 +117,7 @@ const translations = {
     "Countries": "Países",
     "Score is calculated as win ratio multiplied by average defeated rating.": "A pontuação é calculada como a taxa de vitória multiplicada pela rating média dos derrotados.",
     "Teams must have at least": "As equipes devem ter pelo menos",
+    "Countries must have at least": "Os países devem ter pelo menos",
     "wins in this event to qualify.": "vitórias neste evento para se qualificarem.",
     "competing athletes in this event to qualify.": "atletas competindo neste evento para se qualificarem.",
     "No team awards found for selected event": "Nenhuma premiação por equipes encontrada para o evento selecionado",

@@ -360,7 +360,7 @@ function Teams() {
               <p className="mt-4 mb-1">
                 {t('Score is calculated as win ratio multiplied by average defeated rating.')}
                 {' '}
-                {t('Teams must have at least')} {minCompetingAthletesRequired}{' '}
+                {teamsGroupBy === 'country' ? t('Countries must have at least') : t('Teams must have at least')} {minCompetingAthletesRequired}{' '}
                 {t('competing athletes in this event to qualify.')}
               </p>
             )}
