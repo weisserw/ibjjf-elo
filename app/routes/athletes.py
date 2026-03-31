@@ -260,9 +260,6 @@ def _get_athlete_team_history(athlete_id):
 
 
 def _apply_promotion_rating_bump(rating, from_belt, to_belt):
-    print(
-        f"Applying promotion rating bump: rating={rating}, from_belt={from_belt}, to_belt={to_belt}"
-    )
     if rating is None or not from_belt or not to_belt or from_belt == to_belt:
         return rating
 

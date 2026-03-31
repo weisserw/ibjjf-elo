@@ -46,12 +46,39 @@ def recent_award_events():
 @awards_route.route("/api/awards/teams")
 def teams_awards():
     event_name = request.args.get("event_name")
+    group_by = request.args.get("group_by", "team")
 
     if not event_name:
         return jsonify({"error": "Missing parameter"}), 400
 
+    if group_by not in ("team", "country"):
+        return jsonify({"error": "Invalid group_by parameter"}), 400
+
     if event_name.startswith('"') and event_name.endswith('"'):
         event_name = event_name[1:-1]
+
+    if group_by == "country":
+        group_id_expr_team1 = "NULLIF(LOWER(SUBSTR(TRIM(a1.country), 1, 2)), '')"
+        group_id_expr_team2 = "NULLIF(LOWER(SUBSTR(TRIM(a2.country), 1, 2)), '')"
+        group_name_expr_team1 = "NULLIF(LOWER(SUBSTR(TRIM(a1.country), 1, 2)), '')"
+        group_name_expr_team2 = "NULLIF(LOWER(SUBSTR(TRIM(a2.country), 1, 2)), '')"
+        group_join_clause = "JOIN athletes a ON a.id = mp.athlete_id"
+        group_id_expr_competing = "NULLIF(LOWER(SUBSTR(TRIM(a.country), 1, 2)), '')"
+        extra_match_pair_joins = """
+                JOIN athletes a1 ON a1.id = p1.athlete_id
+                JOIN athletes a2 ON a2.id = p2.athlete_id
+        """
+    else:
+        group_id_expr_team1 = "p1.team_id"
+        group_id_expr_team2 = "p2.team_id"
+        group_name_expr_team1 = "t1.name"
+        group_name_expr_team2 = "t2.name"
+        group_join_clause = "JOIN teams t ON t.id = mp.team_id"
+        group_id_expr_competing = "mp.team_id"
+        extra_match_pair_joins = """
+                JOIN teams t1 ON t1.id = p1.team_id
+                JOIN teams t2 ON t2.id = p2.team_id
+        """
 
     total_competing_athletes = db.session.execute(
         text(
@@ -86,8 +113,10 @@ def teams_awards():
             WITH match_pairs AS (
                 SELECT
                     m.id AS match_id,
-                    p1.team_id AS team1_id,
-                    p2.team_id AS team2_id,
+                    {group_id_expr_team1} AS team1_id,
+                    {group_id_expr_team2} AS team2_id,
+                    {group_name_expr_team1} AS team1_name,
+                    {group_name_expr_team2} AS team2_name,
                     p1.winner AS team1_winner,
                     p2.winner AS team2_winner,
                     p1.start_rating AS team1_rating,
@@ -101,6 +130,7 @@ def teams_awards():
                 JOIN divisions d ON d.id = m.division_id
                 JOIN match_participants p1 ON p1.match_id = m.id
                 JOIN match_participants p2 ON p2.match_id = m.id
+                {extra_match_pair_joins}
                 WHERE e.normalized_name = :event_name
                   AND m.rated = :rated
                   AND d.belt NOT IN ('WHITE', 'GRAY', 'YELLOW-GREY', 'YELLOW', 'ORANGE', 'GREEN-ORANGE', 'GREEN')
@@ -141,6 +171,8 @@ def teams_awards():
                     mpi.match_id,
                     mpi.team1_id,
                     mpi.team2_id,
+                    mpi.team1_name,
+                    mpi.team2_name,
                     mpi.team1_winner,
                     mpi.team2_winner,
                     mpi.team1_rating,
@@ -278,34 +310,36 @@ def teams_awards():
             team_results AS (
                 SELECT
                     mp.team1_id AS team_id,
-                    t1.name AS team_name,
+                    mp.team1_name AS team_name,
                     CASE WHEN mp.team1_winner THEN 1 ELSE 0 END AS won,
                     mp.team2_adjusted_rating AS opponent_rating
                 FROM match_pairs_adjusted mp
-                JOIN teams t1 ON t1.id = mp.team1_id
+                WHERE mp.team1_id IS NOT NULL
 
                 UNION ALL
 
                 SELECT
                     mp.team2_id AS team_id,
-                    t2.name AS team_name,
+                    mp.team2_name AS team_name,
                     CASE WHEN mp.team2_winner THEN 1 ELSE 0 END AS won,
                     mp.team1_adjusted_rating AS opponent_rating
                 FROM match_pairs_adjusted mp
-                JOIN teams t2 ON t2.id = mp.team2_id
+                WHERE mp.team2_id IS NOT NULL
             ),
             team_competing_athletes AS (
                 SELECT
-                    mp.team_id AS team_id,
+                    {group_id_expr_competing} AS team_id,
                     COUNT(DISTINCT mp.athlete_id) AS competing_athletes
                 FROM matches m
                 JOIN divisions d ON d.id = m.division_id
                 JOIN events e ON e.id = m.event_id
                 JOIN match_participants mp ON mp.match_id = m.id
+                {group_join_clause}
                 WHERE e.normalized_name = :event_name
                   AND m.rated = :rated
                   AND d.belt NOT IN ('WHITE', 'GRAY', 'YELLOW-GREY', 'YELLOW', 'ORANGE', 'GREEN-ORANGE', 'GREEN')
-                GROUP BY mp.team_id
+                  AND {group_id_expr_competing} IS NOT NULL
+                GROUP BY {group_id_expr_competing}
             ),
             team_aggregates AS (
                 SELECT
@@ -347,7 +381,15 @@ def teams_awards():
             FROM ranked_teams
             WHERE place <= :limit
             ORDER BY place
-            """
+            """.format(
+                group_id_expr_team1=group_id_expr_team1,
+                group_id_expr_team2=group_id_expr_team2,
+                group_name_expr_team1=group_name_expr_team1,
+                group_name_expr_team2=group_name_expr_team2,
+                group_join_clause=group_join_clause,
+                group_id_expr_competing=group_id_expr_competing,
+                extra_match_pair_joins=extra_match_pair_joins,
+            )
         ),
         {
             "event_name": normalize(event_name),

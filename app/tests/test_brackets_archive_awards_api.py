@@ -73,6 +73,12 @@ class BracketsArchiveAwardsApiTestCase(TestDbMixin, unittest.TestCase):
         alpha_athletes = [athlete_a, athlete_e, athlete_g, athlete_i, athlete_j]
         beta_athletes = [athlete_b, athlete_c, athlete_h, athlete_k, athlete_l]
         gamma_athletes = [athlete_d, athlete_f, athlete_m, athlete_n, athlete_o]
+        for athlete in alpha_athletes:
+            athlete.country = "us"
+        for athlete in beta_athletes:
+            athlete.country = "br"
+        for athlete in gamma_athletes:
+            athlete.country = "fr"
 
         m1 = Match(
             event_id=event.id,
@@ -331,6 +337,31 @@ class BracketsArchiveAwardsApiTestCase(TestDbMixin, unittest.TestCase):
     def test_archive_awards_missing_param(self):
         response = self.client.get("/api/awards/teams")
         self.assertEqual(response.status_code, 400)
+
+    def test_archive_awards_grouped_by_country(self):
+        response = self.client.get(
+            "/api/awards/teams",
+            query_string={"event_name": '"Awards Event"', "group_by": "country"},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data["min_competing_athletes_required"], 5)
+        self.assertEqual(len(data["teams"]), 3)
+
+        self.assertEqual(data["teams"][0]["team_name"], "fr")
+        self.assertEqual(data["teams"][0]["place"], 1)
+        self.assertEqual(data["teams"][0]["wins"], 5)
+        self.assertAlmostEqual(data["teams"][0]["adjusted_ratio"], 760.0)
+
+        self.assertEqual(data["teams"][1]["team_name"], "us")
+        self.assertEqual(data["teams"][1]["place"], 2)
+        self.assertEqual(data["teams"][1]["wins"], 5)
+        self.assertAlmostEqual(data["teams"][1]["adjusted_ratio"], 700.0)
+
+        self.assertEqual(data["teams"][2]["team_name"], "br")
+        self.assertEqual(data["teams"][2]["place"], 3)
+        self.assertEqual(data["teams"][2]["wins"], 5)
+        self.assertAlmostEqual(data["teams"][2]["adjusted_ratio"], 650.0)
 
     def test_archive_awards_open_class_rating_adjustment(self):
         with self.app_module.app.app_context():

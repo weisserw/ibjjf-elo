@@ -17,3 +17,35 @@
   z-index: 10;
   font-size: 16px !important;
 }
+
+.teams-mode-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.teams-country-flag {
+  margin-right: 8px;
+}
+
+.teams-mode-buttons {
+  margin-bottom: 0 !important;
+}
+
+.teams-mode-buttons .teams-mode-button {
+  font-size: 14px;
+  line-height: 1.1;
+  padding: 0.2em 1em;
+  min-height: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.teams-mode-loader.loader {
+  width: 1em;
+  height: 1em;
+  border-width: 2px;
+  margin-top: 0;
+  align-self: center;
+}

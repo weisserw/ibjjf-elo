@@ -1,13 +1,15 @@
-import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type FormEvent } from 'react'
 import axios from 'axios'
 import Autosuggest from 'react-autosuggest'
 import debounce from 'lodash/debounce'
 import { useLocalStorage } from '@uidotdev/usehooks'
 import { axiosErrorToast } from '../utils'
 import { t } from '../translate'
+import { countryNames, countryNamesPt } from '../countries'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import { isGi } from './BracketUtils'
+import '/node_modules/flag-icons/css/flag-icons.min.css'
 import './Teams.css'
 
 interface TeamAward {
@@ -32,7 +34,7 @@ type TeamSearchSuggestion = {
 
 function Teams() {
   const navigate = useNavigate()
-  const { setFilters, setOpenFilters, setActiveTab } =
+  const { language, setFilters, setOpenFilters, setActiveTab } =
     useAppContext()
   const [searchValue, setSearchValue] = useState('')
   const [searchSuggestions, setSearchSuggestions] = useState<TeamSearchSuggestion[]>([])
@@ -51,8 +53,18 @@ function Teams() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [teams, setTeams] = useState<TeamAward[] | null>(null)
+  const [groupByStored, setGroupByStored] = useLocalStorage<string>(
+    'bracketAwardsGroupBy',
+    'team'
+  )
+  const groupBy: 'team' | 'country' = groupByStored === 'country' ? 'country' : 'team'
+  const setGroupBy = (value: 'team' | 'country') => {
+    setGroupByStored(value)
+  }
+  const [teamsGroupBy, setTeamsGroupBy] = useState<'team' | 'country'>('team')
   const [minCompetingAthletesRequired, setMinCompetingAthletesRequired] =
     useState<number | null>(null)
+  const awardsRequestId = useRef(0)
 
   const getEventSuggestions = async ({ value }: { value: string }) => {
     try {
@@ -122,6 +134,8 @@ function Teams() {
     }
 
     const getAwards = async () => {
+      const requestId = ++awardsRequestId.current
+      const requestedGroupBy = groupBy
       setLoading(true)
       setError(null)
       try {
@@ -130,30 +144,36 @@ function Teams() {
           {
             params: {
               event_name: eventNameFetch,
+              group_by: requestedGroupBy,
             },
           }
         )
+        if (requestId !== awardsRequestId.current) {
+          return
+        }
         if (data.error) {
           setError(data.error)
-          setTeams(null)
-          setMinCompetingAthletesRequired(null)
         } else {
           setTeams(data.teams ?? [])
+          setTeamsGroupBy(requestedGroupBy)
           setMinCompetingAthletesRequired(
             data.min_competing_athletes_required ?? null
           )
         }
       } catch (err) {
+        if (requestId !== awardsRequestId.current) {
+          return
+        }
         axiosErrorToast(err)
-        setTeams(null)
-        setMinCompetingAthletesRequired(null)
       } finally {
-        setLoading(false)
+        if (requestId === awardsRequestId.current) {
+          setLoading(false)
+        }
       }
     }
 
     getAwards()
-  }, [eventNameFetch])
+  }, [eventNameFetch, groupBy])
 
   const placeDisplay = (place: number) => {
     if (place === 1) {
@@ -191,6 +211,14 @@ function Teams() {
 
   const onSearchSuggestionSelected = (suggestion: TeamSearchSuggestion) => {
     navigate(`/team/${encodeURIComponent(suggestion.slug)}`)
+  }
+
+  const countryDisplayName = (countryCode: string) => {
+    const key = countryCode.trim().toLowerCase().substring(0, 2)
+    if (language === 'pt') {
+      return countryNamesPt[key] || countryCode
+    }
+    return countryNames[key] || countryCode
   }
 
   return (
@@ -304,6 +332,25 @@ function Teams() {
               </span>
             )}
           </div>
+          <div className="teams-mode-switcher">
+            <div className="buttons has-addons is-toggle no-wrap teams-mode-buttons">
+              <button
+                className={`button teams-mode-button ${groupBy === 'team' ? 'is-link is-light is-selected' : ''}`}
+                onClick={() => setGroupBy('team')}
+                type="button"
+              >
+                {t('Teams')}
+              </button>
+              <button
+                className={`button teams-mode-button ${groupBy === 'country' ? 'is-link is-light is-selected' : ''}`}
+                onClick={() => setGroupBy('country')}
+                type="button"
+              >
+                {t('Countries')}
+              </button>
+            </div>
+            {loading && <span className="loader teams-mode-loader" aria-hidden="true"></span>}
+          </div>
         </div>
         {loading && <div className="bracket-loader loader mt-4"></div>}
         {error && <div className="notification is-danger mt-4">{error}</div>}
@@ -321,7 +368,7 @@ function Teams() {
               <thead>
                 <tr>
                   <th className="has-text-centered">{t('Place')}</th>
-                  <th>{t('Team')}</th>
+                  <th>{teamsGroupBy === 'country' ? t('Country') : t('Team')}</th>
                   <th className="has-text-right">{t('Wins')}</th>
                   <th className="has-text-right">{t('Win Ratio')}</th>
                   <th className="has-text-right">{t('Average Defeated Rating')}</th>
@@ -333,9 +380,16 @@ function Teams() {
                   <tr key={`${team.place}-${team.team_name}`}>
                     <td className="has-text-centered">{placeDisplay(team.place)}</td>
                     <td>
-                      <a href="#" onClick={(ev) => teamClicked(ev, team.team_name)}>
-                        {team.team_name}
-                      </a>
+                      {teamsGroupBy === 'country' ? (
+                        <span>
+                          <span className={`fi fi-${team.team_name.trim().toLowerCase().substring(0, 2)} teams-country-flag`} />
+                          {countryDisplayName(team.team_name)}
+                        </span>
+                      ) : (
+                        <a href="#" onClick={(ev) => teamClicked(ev, team.team_name)}>
+                          {team.team_name}
+                        </a>
+                      )}
                     </td>
                     <td className="has-text-right">{team.wins}</td>
                     <td className="has-text-right">{team.win_ratio.toFixed(1)}%</td>
