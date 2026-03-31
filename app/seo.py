@@ -50,6 +50,7 @@ def fetch_default_rankings(limit=DEFAULT_SEO_LIMIT):
             AthleteRating.rating,
             Athlete.name,
             Athlete.personal_name,
+            Athlete.hide_full_name,
             Athlete.slug,
             Athlete.country,
         )
@@ -74,7 +75,11 @@ def build_seo_table_html(rows):
     """
     table_rows = []
     for row in rows:
-        name = html.escape(row.personal_name or row.name or "")
+        if row.hide_full_name:
+            display_name = row.personal_name or ""
+        else:
+            display_name = row.personal_name or row.name or ""
+        name = html.escape(display_name)
         slug = html.escape(row.slug or "")
         country = html.escape(row.country or "")
         rating = f"{round(row.rating)}" if row.rating is not None else "–"
@@ -194,7 +199,6 @@ def build_athlete_html(payload: dict):
         <p style="margin:0 0 12px;font-size:14px;color:#444;">
             Rating: {_maybe_number(athlete.get("rating"))} | Belt: {_esc(athlete.get("belt") or "")} | Team: {_esc(athlete.get("team_name") or "")} | Country: {_esc(athlete.get("country") or "")}
         </p>
-        <p style="margin:0 0 12px;font-size:14px;color:#444;">Slug: {_esc(athlete.get("slug") or athlete.get("id") or "")}</p>
         <h2 style="font-size:18px;margin:12px 0 6px;">Ranks</h2>
         <ul style="margin:0 0 12px 18px;font-size:14px;">{rank_rows or "<li>No ranks available</li>"}</ul>
         <h2 style="font-size:18px;margin:12px 0 6px;">Registrations</h2>
