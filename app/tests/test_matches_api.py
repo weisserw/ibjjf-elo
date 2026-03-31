@@ -61,21 +61,25 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             name="Test Athlete",
             normalized_name="test athlete",
             slug="test-athlete",
+            country="us",
         )
         athlete2 = Athlete(
             name="Other Fighter",
             normalized_name="other fighter",
             slug="other-fighter",
+            country="us",
         )
         athlete3 = Athlete(
             name="Guest Competitor",
             normalized_name="guest competitor",
             slug="guest-competitor",
+            country="br",
         )
         athlete4 = Athlete(
             name="Another Opponent",
             normalized_name="another opponent",
             slug="another-opponent",
+            country="br",
         )
         db.session.add_all([athlete1, athlete2, athlete3, athlete4])
         db.session.flush()
@@ -233,6 +237,22 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
                 "gi": "true",
                 "athlete_name": "Does Not Exist",
                 "team_name": '"Another Squad"',
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["winner"], "Guest Competitor")
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_country(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        response = self.client.get(
+            "/api/matches",
+            query_string={
+                "gi": "true",
+                "country": "br",
             },
         )
         self.assertEqual(response.status_code, 200)

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import debounce from 'lodash/debounce';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
@@ -7,6 +7,7 @@ import axios from 'axios';
 import { useAppContext } from '../AppContext';
 import { axiosErrorToast, renderAthleteSuggestion, type AthleteSuggestion } from '../utils';
 import { t, type translationKeys } from '../translate';
+import { countryNames, countryNamesPt } from '../countries';
 
 import './DBFilters.css';
 
@@ -41,6 +42,7 @@ function Section(props: SectionProps) {
 export interface FilterValues {
   athlete_name?: string;
   team_name?: string;
+  country?: string;
   event_name?: string;
   gender_male?: boolean;
   gender_female?: boolean;
@@ -112,6 +114,7 @@ function DBFilters() {
     activeTab,
     openFilters,
     setOpenFilters,
+    language,
   } = useAppContext();
 
   const gi = activeTab === 'Gi';
@@ -124,6 +127,7 @@ function DBFilters() {
   const [ratingEnd, setRatingEnd] = useState(filters.rating_end || '');
   const [athleteSuggestions, setAthleteSuggestions] = useState<AthleteSuggestion[]>([]);
   const [eventSuggestions, setEventSuggestions] = useState<string[]>([]);
+  const [countrySuggestions, setCountrySuggestions] = useState<{ value: string; label: string }[]>([]);
 
   const anyFiltersSet = Object.values(filters).some(value => value !== undefined);
 
@@ -193,6 +197,95 @@ function DBFilters() {
     }
   }, [filters.rating_end]);
 
+  const countryEntries = useMemo(() => {
+    const source = language === 'pt' ? countryNamesPt : countryNames;
+    return Object.entries(source)
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([value, label]) => ({
+        value,
+        label,
+      }));
+  }, [language]);
+
+  const selectedCountryLabel = useMemo(() => {
+    if (!filters.country) {
+      return '';
+    }
+    const source = language === 'pt' ? countryNamesPt : countryNames;
+    return source[filters.country] || '';
+  }, [filters.country, language]);
+
+  const [countryInput, setCountryInput] = useState(selectedCountryLabel);
+
+  useEffect(() => {
+    setCountryInput(selectedCountryLabel);
+  }, [selectedCountryLabel]);
+
+  const onCountryInputChange = (_: React.FormEvent, { newValue }: Autosuggest.ChangeEvent) => {
+    setCountryInput(newValue);
+    if (newValue !== selectedCountryLabel) {
+      onClearProps(['country']);
+    }
+  };
+
+  const onCountrySuggestionsFetchRequested = ({ value }: Autosuggest.SuggestionsFetchRequestedParams) => {
+    const search = value.trim().toLowerCase();
+    if (!search) {
+      setCountrySuggestions(countryEntries.slice(0, 50));
+      return;
+    }
+
+    const filtered = countryEntries.filter(entry => entry.label.toLowerCase().includes(search));
+    setCountrySuggestions(filtered.slice(0, 50));
+  };
+
+  const onCountrySuggestionsClearRequested = () => {
+    setCountrySuggestions([]);
+  };
+
+  const onCountrySuggestionSelected = (_: React.FormEvent, data: Autosuggest.SuggestionSelectedEventData<{ value: string; label: string }>) => {
+    onChange('country', data.suggestion.value);
+    setCountryInput(data.suggestion.label);
+  };
+
+  const renderCountrySuggestion = (suggestion: { value: string; label: string }) => (
+    <div className="country-suggestion">
+      {suggestion.value ? (
+        <span className={`fi fi-${suggestion.value} country-flag country-suggestion-flag`} />
+      ) : null}
+      <span>{suggestion.label}</span>
+    </div>
+  );
+
+  const renderCountryInput = (inputProps: React.InputHTMLAttributes<HTMLInputElement>) => (
+    <div className="country-input-wrapper">
+      <span
+        className={classNames(
+          'country-flag country-input-flag',
+          filters.country ? `fi fi-${filters.country}` : 'country-input-flag-empty'
+        )}
+      />
+      <input
+        {...inputProps}
+        className={classNames(inputProps.className, {
+          'country-input-has-clear': Boolean(countryInput),
+        })}
+      />
+      {countryInput && (
+        <span
+          className="icon is-small country-input-clear"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            onClearProps(['country']);
+            setCountryInput('');
+          }}
+        >
+          <i className="fas fa-times"></i>
+        </span>
+      )}
+    </div>
+  );
+
   const getAthleteSuggestions = async ({ value }: { value: string }) => {
     try {
       const response = await axios.get(`/api/athletes?allowteen=true&search=${encodeURIComponent(value)}`);
@@ -237,6 +330,7 @@ function DBFilters() {
                      isBold={
                         !!filters.athlete_name ||
                         !!filters.team_name ||
+                        !!filters.country ||
                         !!filters.rating_start ||
                         !!filters.rating_end
                      }>
@@ -282,6 +376,33 @@ function DBFilters() {
                   <button className="button is-small is-light" onClick={() => {
                     setTeamName('');
                     onClearProps(['team_name']);
+                  }}>{t("Clear")}</button>
+                </div>
+              </div>
+              <div className="field is-grouped">
+                <div className="control is-expanded">
+                  <div className="db-country-autosuggest">
+                    <Autosuggest
+                      suggestions={countrySuggestions}
+                      onSuggestionsFetchRequested={onCountrySuggestionsFetchRequested}
+                      onSuggestionsClearRequested={onCountrySuggestionsClearRequested}
+                      getSuggestionValue={(suggestion) => suggestion.label}
+                      onSuggestionSelected={onCountrySuggestionSelected}
+                      renderSuggestion={renderCountrySuggestion}
+                      renderInputComponent={renderCountryInput}
+                      inputProps={{
+                        className: 'input is-small',
+                        value: countryInput,
+                        placeholder: t('Country'),
+                        onChange: onCountryInputChange,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="control">
+                  <button className="button is-small is-light" onClick={() => {
+                    onClearProps(['country']);
+                    setCountryInput('');
                   }}>{t("Clear")}</button>
                 </div>
               </div>

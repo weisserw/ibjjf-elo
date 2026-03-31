@@ -101,6 +101,7 @@ def matches():
     athlete_name = request.args.get("athlete_name")
     athlete_name2 = request.args.get("athlete_name2")
     team_name = request.args.get("team_name")
+    country = request.args.get("country")
     event_name = request.args.get("event_name")
     gender_male = request.args.get("gender_male")
     gender_female = request.args.get("gender_female")
@@ -321,6 +322,19 @@ def matches():
             AND t.normalized_name {operator} :team_name
         )"""
         )
+
+    if country:
+        country = country.strip().lower()[:2]
+        athlete_team_clauses.append(
+            """EXISTS (
+            SELECT 1
+            FROM match_participants mp
+            JOIN athletes a ON a.id = mp.athlete_id
+            WHERE mp.match_id = m.id
+            AND LOWER(SUBSTR(TRIM(a.country), 1, 2)) = :country
+        )"""
+        )
+        params["country"] = country
 
     if athlete_team_clauses:
         filters += "AND (" + " OR ".join(athlete_team_clauses) + ")\n"

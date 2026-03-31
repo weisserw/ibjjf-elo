@@ -72,3 +72,78 @@
 .mat-number-input {
   width: 100px;
 }
+
+.db-country-autosuggest .react-autosuggest__input {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 30px;
+  line-height: normal;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.db-country-autosuggest .react-autosuggest__input:focus {
+  box-shadow: none;
+}
+
+.db-country-autosuggest .country-input-wrapper {
+  position: static;
+  width: 240px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  box-shadow: inset 0 -1px 0 #dbdbdb;
+}
+
+.db-country-autosuggest .country-input-wrapper:focus-within {
+  box-shadow: inset 0 -2px 0 #2196f3;
+}
+
+.db-country-autosuggest .country-input-flag {
+  flex: 0 0 auto;
+  margin-left: 4px !important;
+  margin-right: 6px;
+  width: 19px;
+  min-width: 19px;
+  max-width: 19px;
+  height: 15px;
+  display: block;
+  pointer-events: none;
+}
+
+.db-country-autosuggest .country-input-flag-empty {
+  visibility: hidden;
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  margin-left: 0 !important;
+}
+
+.db-country-autosuggest .react-autosuggest__input.country-input-has-clear {
+  padding-right: 6px;
+}
+
+.db-country-autosuggest .country-input-clear {
+  flex: 0 0 auto;
+  margin-right: 6px;
+  cursor: pointer;
+  color: #7a7a7a;
+}
+
+.db-country-autosuggest .react-autosuggest__suggestions-container--open {
+  width: 220px;
+}
+
+.db-country-autosuggest .react-autosuggest__container {
+  width: 240px;
+}
+
+.db-country-autosuggest .react-autosuggest__suggestion {
+  padding: 8px 12px;
+}

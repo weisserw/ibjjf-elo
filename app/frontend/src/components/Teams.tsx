@@ -209,6 +209,20 @@ function Teams() {
     navigate('/database')
   }
 
+  const countryClicked = (ev: React.MouseEvent<HTMLAnchorElement>, countryCode: string) => {
+    ev.preventDefault()
+
+    const normalizedCountry = countryCode.trim().toLowerCase().substring(0, 2)
+    const newFilters = {
+      event_name: asExactFilter(eventNameFetch),
+      country: normalizedCountry,
+    }
+    setFilters(newFilters)
+    setOpenFilters({ division: false, athlete: true, event: true })
+    setActiveTab(isGi(eventNameFetch) ? 'Gi' : 'No Gi')
+    navigate('/database')
+  }
+
   const onSearchSuggestionSelected = (suggestion: TeamSearchSuggestion) => {
     navigate(`/team/${encodeURIComponent(suggestion.slug)}`)
   }
@@ -381,10 +395,10 @@ function Teams() {
                     <td className="has-text-centered">{placeDisplay(team.place)}</td>
                     <td>
                       {teamsGroupBy === 'country' ? (
-                        <span>
+                        <a href="#" onClick={(ev) => countryClicked(ev, team.team_name)}>
                           <span className={`fi fi-${team.team_name.trim().toLowerCase().substring(0, 2)} teams-country-flag`} />
                           {countryDisplayName(team.team_name)}
-                        </span>
+                        </a>
                       ) : (
                         <a href="#" onClick={(ev) => teamClicked(ev, team.team_name)}>
                           {team.team_name}
