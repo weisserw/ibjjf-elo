@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import GiTabs from "./GiTabs"
 import Autosuggest from 'react-autosuggest'
 import axios, { AxiosResponse } from 'axios'
@@ -7,7 +7,7 @@ import { debounce } from 'lodash'
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { ages } from '../constants'
-import { axiosErrorToast, isHistorical, renderAthleteSuggestion, type DBRow as Row, type DBResults as Results, type AthleteSuggestion } from '../utils'
+import { axiosErrorToast, isHistorical, renderAthleteSuggestion, teamSlugFromName, type DBRow as Row, type DBResults as Results, type AthleteSuggestion } from '../utils'
 import { useAppContext } from '../AppContext'
 import DBTableRows from './DBTableRows'
 import { language, t, type translationKeys } from '../translate'
@@ -691,7 +691,7 @@ function Research() {
                       {
                         possibleTeamOverlaps.map((overlap, index) => (
                           <tr key={`${overlap.team_name}-${overlap.overlap_start_date}-${index}`}>
-                            <td>{overlap.team_name}</td>
+                            <td><Link to={`/team/${teamSlugFromName(overlap.team_name)}`}>{overlap.team_name}</Link></td>
                             <td>{formatOverlapDate(overlap.overlap_start_date)}</td>
                             <td>{formatOverlapDate(overlap.overlap_end_date)}</td>
                           </tr>
