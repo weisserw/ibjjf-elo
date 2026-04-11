@@ -51,6 +51,12 @@ from constants import (
     NON_ELITE_BELTS,
     rated_ages,
     BLACK,
+    TEEN_1,
+    TEEN_2,
+    TEEN_3,
+    JUVENILE_1,
+    JUVENILE_2,
+    MASTER_PREFIX,
 )
 from elo import (
     compute_start_rating,
@@ -177,6 +183,15 @@ def get_ratings(
     s3_client,
     elite_only=False,
 ):
+    youth_age_divisions = {
+        TEEN_1,
+        TEEN_2,
+        TEEN_3,
+        JUVENILE,
+        JUVENILE_1,
+        JUVENILE_2,
+    }
+
     athlete_results = (
         db.session.query(
             Athlete.id,
@@ -214,7 +229,77 @@ def get_ratings(
 
     for athlete in athlete_results:
         athletes_by_id[athlete.ibjjf_id] = athlete
-        athletes_by_name[athlete.normalized_name] = athlete
+        athletes_by_name.setdefault(athlete.normalized_name, []).append(athlete)
+
+    athlete_ids = [athlete.id for athlete in athlete_results]
+    highest_belt_index_by_athlete_id = {}
+    athlete_has_adult_or_master_history = {}
+
+    if athlete_ids:
+        belt_rows = (
+            db.session.query(AthleteRating.athlete_id, AthleteRating.belt)
+            .filter(AthleteRating.athlete_id.in_(athlete_ids))
+            .all()
+        )
+        for row in belt_rows:
+            if row.belt not in belt_order:
+                continue
+            belt_index = belt_order.index(row.belt)
+            current_index = highest_belt_index_by_athlete_id.get(row.athlete_id)
+            if current_index is None or belt_index > current_index:
+                highest_belt_index_by_athlete_id[row.athlete_id] = belt_index
+
+        match_belt_rows = (
+            db.session.query(MatchParticipant.athlete_id, Division.belt)
+            .select_from(MatchParticipant)
+            .join(Match, MatchParticipant.match_id == Match.id)
+            .join(Division, Match.division_id == Division.id)
+            .filter(MatchParticipant.athlete_id.in_(athlete_ids))
+            .all()
+        )
+        for row in match_belt_rows:
+            if row.belt not in belt_order:
+                continue
+            belt_index = belt_order.index(row.belt)
+            current_index = highest_belt_index_by_athlete_id.get(row.athlete_id)
+            if current_index is None or belt_index > current_index:
+                highest_belt_index_by_athlete_id[row.athlete_id] = belt_index
+
+        adult_master_rows = (
+            db.session.query(MatchParticipant.athlete_id)
+            .select_from(MatchParticipant)
+            .join(Match, MatchParticipant.match_id == Match.id)
+            .join(Division, Match.division_id == Division.id)
+            .filter(
+                MatchParticipant.athlete_id.in_(athlete_ids),
+                or_(Division.age == ADULT, Division.age.like(f"{MASTER_PREFIX}%")),
+            )
+            .distinct()
+            .all()
+        )
+        athlete_has_adult_or_master_history = {
+            row.athlete_id: True for row in adult_master_rows
+        }
+
+    def is_compatible_registration_match(result, athlete):
+        result_belt = result.get("belt")
+        if result_belt in belt_order:
+            result_belt_index = belt_order.index(result_belt)
+            athlete_belt_index = highest_belt_index_by_athlete_id.get(athlete.id)
+            if (
+                athlete_belt_index is not None
+                and athlete_belt_index > result_belt_index
+            ):
+                return False
+
+        result_age = result.get("age")
+        if (
+            result_age in youth_age_divisions
+            and athlete_has_adult_or_master_history.get(athlete.id, False)
+        ):
+            return False
+
+        return True
 
     for result in results:
         if result["ibjjf_id"] is not None and result["ibjjf_id"] in athletes_by_id:
@@ -233,20 +318,25 @@ def get_ratings(
             result["country_note"] = athlete.country_note
             result["country_note_pt"] = athlete.country_note_pt
         elif normalize(result["name"]) in athletes_by_name:
-            athlete = athletes_by_name[normalize(result["name"])]
-            if result["ibjjf_id"] is None or athlete.ibjjf_id is None:
-                result["id"] = athlete.id
-            result["slug"] = athlete.slug
-            result["instagram_profile"] = athlete.instagram_profile
-            result["personal_name"] = athlete.personal_name
-            result["profile_image_url"] = (
-                get_public_photo_url(s3_client, athlete)
-                if athlete.profile_image_saved_at
-                else None
-            )
-            result["country"] = athlete.country
-            result["country_note"] = athlete.country_note
-            result["country_note_pt"] = athlete.country_note_pt
+            matched_athlete = None
+            for athlete in athletes_by_name[normalize(result["name"])]:
+                if is_compatible_registration_match(result, athlete):
+                    matched_athlete = athlete
+                    break
+            if matched_athlete:
+                if result["ibjjf_id"] is None or matched_athlete.ibjjf_id is None:
+                    result["id"] = matched_athlete.id
+                result["slug"] = matched_athlete.slug
+                result["instagram_profile"] = matched_athlete.instagram_profile
+                result["personal_name"] = matched_athlete.personal_name
+                result["profile_image_url"] = (
+                    get_public_photo_url(s3_client, matched_athlete)
+                    if matched_athlete.profile_image_saved_at
+                    else None
+                )
+                result["country"] = matched_athlete.country
+                result["country_note"] = matched_athlete.country_note
+                result["country_note_pt"] = matched_athlete.country_note_pt
 
     # Build all valid (athlete_id, age, belt, gender, gi) combinations
     athlete_keys = []
