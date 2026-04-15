@@ -798,6 +798,7 @@ function Athlete() {
               </header>
               {medalCaseOpen && (
                 <div className="accordion-body">
+                  <Tooltip id="athlete-medal-suspension-tooltip" className="tooltip-normal" />
                   <table className="table is-fullwidth medal-case-table">
                     <tbody>
                       {sortedMedals.map((medal, index) => (
@@ -811,6 +812,15 @@ function Athlete() {
                             <div className="medal-event">
                               <span>{medalEmoji(medal)}</span>
                               <span className={classNames({'is-major': isMajor(medal.event_name), 'is-worlds': isWorlds(medal.event_name)})}>{removeParens(medal.event_name)}</span>
+                              {isMedalDuringSuspension(medal) && (
+                                <span
+                                  className="has-cursor-pointer medal-suspension-asterisk"
+                                  data-tooltip-id="athlete-medal-suspension-tooltip"
+                                  data-tooltip-content={t("Medal forfeited: athlete was suspended for anti-doping violation")}
+                                >
+                                  <strong>*</strong>
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="medal-division-cell">

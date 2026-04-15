@@ -204,6 +204,10 @@
   text-decoration: line-through;
 }
 
+.medal-suspension-asterisk {
+  margin-left: 2px;
+}
+
 .is-major {
   font-weight: 600;
 }
