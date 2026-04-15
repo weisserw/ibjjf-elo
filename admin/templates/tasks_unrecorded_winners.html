@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block title %}Unrecorded Match Winners{% endblock %}
+{% block content %}
+<div class="container mt-6">
+    <div class="columns is-centered">
+        <div class="column is-four-fifths">
+            <div class="box">
+                <div class="is-flex is-justify-content-space-between is-align-items-center">
+                    <h1 class="title is-4">Unrecorded Match Winners</h1>
+                    <a class="button is-light" href="{{ url_for('tasks_index') }}">View Logs</a>
+                </div>
+
+                <div class="field has-addons">
+                    <div class="control is-expanded">
+                        <input id="event-search-input" class="input" type="text" placeholder="Search tournament name">
+                    </div>
+                    <div class="control">
+                        <button id="event-search-button" class="button is-link" type="button">Search</button>
+                    </div>
+                </div>
+
+                <div id="event-search-feedback" class="mb-3"></div>
+                <div id="event-search-results"></div>
+
+                <hr>
+
+                <div class="field">
+                    <label class="checkbox">
+                        <input id="recompute-rank-checkbox" type="checkbox">
+                        Regenerate ranking board after winner is set
+                    </label>
+                    <p class="help">When enabled, the background task will also run recompute ratings with <code>--rank-only</code>.</p>
+                </div>
+
+                <div id="selected-event" class="mb-3"></div>
+                <div id="matches-container"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const input = document.getElementById('event-search-input');
+        const searchButton = document.getElementById('event-search-button');
+        const feedbackEl = document.getElementById('event-search-feedback');
+        const resultsEl = document.getElementById('event-search-results');
+        const selectedEventEl = document.getElementById('selected-event');
+        const matchesContainer = document.getElementById('matches-container');
+        const recomputeCheckbox = document.getElementById('recompute-rank-checkbox');
+
+        let selectedEvent = null;
+
+        function setFeedback(text, isError) {
+            if (!text) {
+                feedbackEl.innerHTML = '';
+                return;
+            }
+            feedbackEl.innerHTML = '<div class="notification ' + (isError ? 'is-danger' : 'is-info is-light') + '">' + text + '</div>';
+        }
+
+        function formatDate(iso) {
+            if (!iso) return '';
+            const parsed = new Date(iso);
+            if (Number.isNaN(parsed.getTime())) return iso;
+            return parsed.toLocaleString();
+        }
+
+        function renderSearchResults(events) {
+            resultsEl.innerHTML = '';
+            if (!events.length) {
+                setFeedback('No tournaments found.', false);
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'table is-fullwidth is-striped';
+            table.innerHTML =
+                '<thead><tr><th>Name</th><th>IBJJF ID</th><th></th></tr></thead>' +
+                '<tbody>' +
+                events.map(function (event) {
+                    const ibjjfId = event.ibjjf_id || '';
+                    return (
+                        '<tr>' +
+                        '<td>' + event.name + '</td>' +
+                        '<td>' + ibjjfId + '</td>' +
+                        '<td><button class="button is-small is-link is-light event-select-button" type="button" data-event-id="' + event.id + '" data-event-name="' + event.name + '" data-event-ibjjf-id="' + ibjjfId + '">Select</button></td>' +
+                        '</tr>'
+                    );
+                }).join('') +
+                '</tbody>';
+            resultsEl.appendChild(table);
+            setFeedback('Select a tournament to load unrecorded matches.', false);
+
+            const buttons = resultsEl.querySelectorAll('.event-select-button');
+            buttons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    selectedEvent = {
+                        id: button.getAttribute('data-event-id'),
+                        name: button.getAttribute('data-event-name'),
+                        ibjjf_id: button.getAttribute('data-event-ibjjf-id')
+                    };
+                    loadUnrecordedMatches(selectedEvent.id);
+                });
+            });
+        }
+
+        function renderSelectedEvent(event) {
+            if (!event) {
+                selectedEventEl.innerHTML = '';
+                return;
+            }
+            const ibjjfId = event.ibjjf_id ? ' (IBJJF ID: ' + event.ibjjf_id + ')' : '';
+            selectedEventEl.innerHTML = '<h2 class="title is-5">Selected Tournament: ' + event.name + ibjjfId + '</h2>';
+        }
+
+        function renderMatches(matches) {
+            matchesContainer.innerHTML = '';
+            if (!matches.length) {
+                matchesContainer.innerHTML = '<div class="notification is-warning is-light">No unrecorded matches found for this tournament.</div>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'table is-fullwidth is-striped';
+            table.innerHTML =
+                '<thead>' +
+                '<tr>' +
+                '<th>Date</th>' +
+                '<th>Division</th>' +
+                '<th>Competitors</th>' +
+                '<th>Actions</th>' +
+                '</tr>' +
+                '</thead>' +
+                '<tbody>' +
+                matches.map(function (match) {
+                    const division = match.division.age + ' / ' + match.division.gender + ' / ' + match.division.belt + ' / ' + match.division.weight + ' / ' + (match.division.gi ? 'Gi' : 'No-Gi');
+                    const competitors = match.participants.map(function (p) {
+                        return p.athlete_name;
+                    }).join(' vs ');
+                    const buttons = match.participants.map(function (p) {
+                        return (
+                            '<button class="button is-small is-link winner-button mr-1 mb-1" type="button" data-match-id="' + match.id + '" data-winner-id="' + p.athlete_id + '" data-winner-name="' + p.athlete_name + '">' +
+                            'Set ' + p.athlete_name + ' Winner' +
+                            '</button>'
+                        );
+                    }).join('');
+
+                    return (
+                        '<tr>' +
+                        '<td>' + formatDate(match.happened_at) + '</td>' +
+                        '<td>' + division + '</td>' +
+                        '<td>' + competitors + '</td>' +
+                        '<td>' + buttons + '</td>' +
+                        '</tr>'
+                    );
+                }).join('') +
+                '</tbody>';
+            matchesContainer.appendChild(table);
+
+            const winnerButtons = matchesContainer.querySelectorAll('.winner-button');
+            winnerButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    if (!selectedEvent) {
+                        return;
+                    }
+                    const matchId = button.getAttribute('data-match-id');
+                    const winnerId = button.getAttribute('data-winner-id');
+                    const winnerName = button.getAttribute('data-winner-name');
+                    const ok = window.confirm('Start background task to set ' + winnerName + ' as winner?');
+                    if (!ok) {
+                        return;
+                    }
+
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '{{ url_for("set_unrecorded_match_winner") }}';
+
+                    const eventInput = document.createElement('input');
+                    eventInput.type = 'hidden';
+                    eventInput.name = 'event_id';
+                    eventInput.value = selectedEvent.id;
+                    form.appendChild(eventInput);
+
+                    const matchInput = document.createElement('input');
+                    matchInput.type = 'hidden';
+                    matchInput.name = 'match_id';
+                    matchInput.value = matchId;
+                    form.appendChild(matchInput);
+
+                    const winnerInput = document.createElement('input');
+                    winnerInput.type = 'hidden';
+                    winnerInput.name = 'winner_id';
+                    winnerInput.value = winnerId;
+                    form.appendChild(winnerInput);
+
+                    const recomputeInput = document.createElement('input');
+                    recomputeInput.type = 'hidden';
+                    recomputeInput.name = 'recompute_rank';
+                    recomputeInput.value = recomputeCheckbox && recomputeCheckbox.checked ? 'on' : '';
+                    form.appendChild(recomputeInput);
+
+                    document.body.appendChild(form);
+                    form.submit();
+                });
+            });
+        }
+
+        function loadUnrecordedMatches(eventId) {
+            setFeedback('Loading unrecorded matches...', false);
+            fetch('{{ url_for("event_unrecorded_matches", event_id="EVENT_ID_PLACEHOLDER") }}'.replace('EVENT_ID_PLACEHOLDER', eventId))
+                .then(function (resp) {
+                    if (!resp.ok) {
+                        throw new Error('Failed to load matches');
+                    }
+                    return resp.json();
+                })
+                .then(function (data) {
+                    selectedEvent = data.event;
+                    renderSelectedEvent(data.event);
+                    renderMatches(Array.isArray(data.matches) ? data.matches : []);
+                    setFeedback('', false);
+                })
+                .catch(function () {
+                    renderSelectedEvent(null);
+                    matchesContainer.innerHTML = '';
+                    setFeedback('Unable to load unrecorded matches for this tournament.', true);
+                });
+        }
+
+        function searchEvents() {
+            const q = input.value.trim();
+            if (!q) {
+                setFeedback('Enter a tournament name to search.', true);
+                return;
+            }
+            setFeedback('Searching tournaments...', false);
+            resultsEl.innerHTML = '';
+            fetch('{{ url_for("events_search") }}?q=' + encodeURIComponent(q))
+                .then(function (resp) {
+                    if (!resp.ok) {
+                        throw new Error('Search failed');
+                    }
+                    return resp.json();
+                })
+                .then(function (data) {
+                    const events = Array.isArray(data.events) ? data.events : [];
+                    renderSearchResults(events);
+                })
+                .catch(function () {
+                    resultsEl.innerHTML = '';
+                    setFeedback('Unable to search tournaments right now.', true);
+                });
+        }
+
+        searchButton.addEventListener('click', searchEvents);
+        input.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                searchEvents();
+            }
+        });
+    })();
+</script>
+{% endblock %}
