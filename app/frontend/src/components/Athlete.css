@@ -200,6 +200,10 @@
   gap: 8px;
 }
 
+.medal-during-suspension td {
+  text-decoration: line-through;
+}
+
 .is-major {
   font-weight: 600;
 }

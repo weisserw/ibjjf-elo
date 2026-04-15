@@ -475,13 +475,36 @@ function Athlete() {
     });
   }, [responseData]);
 
+  const isMedalDuringSuspension = useCallback((medal: Medal) => {
+    if (!responseData) return false;
+
+    const medalDate = dayjs(medal.happened_at);
+    if (!medalDate.isValid()) {
+      return false;
+    }
+
+    return responseData.suspensions.some((suspension) => {
+      const startDate = dayjs(suspension.start_date);
+      const endDate = dayjs(suspension.end_date);
+
+      if (!startDate.isValid() || !endDate.isValid()) {
+        return false;
+      }
+
+      return (
+        (medalDate.isSame(startDate, 'day') || medalDate.isAfter(startDate, 'day')) &&
+        (medalDate.isSame(endDate, 'day') || medalDate.isBefore(endDate, 'day'))
+      );
+    });
+  }, [responseData]);
+
   if (!responseData) {
     return <div className="loader"></div>;
   }
 
   const athlete = responseData.athlete;
 
-  const sortedMedals = responseData.medals.sort((a, b) => {
+  const sortedMedals = [...responseData.medals].sort((a, b) => {
     const aDivisionParts = a.division.split(' / ');
     const bDivisionParts = b.division.split(' / ');
 
@@ -778,7 +801,7 @@ function Athlete() {
                   <table className="table is-fullwidth medal-case-table">
                     <tbody>
                       {sortedMedals.map((medal, index) => (
-                        <tr key={index}>
+                        <tr key={index} className={classNames({ 'medal-during-suspension': isMedalDuringSuspension(medal) })}>
                           <td className="medal-place-cell cell-no-padding">
                             {medal.place === 1 && '🥇'}
                             {medal.place === 2 && '🥈'}
