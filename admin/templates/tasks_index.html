@@ -7,11 +7,31 @@
             <div class="box">
                 <div class="is-flex is-justify-content-space-between is-align-items-center">
                     <h1 class="title is-4">Background Tasks</h1>
+                    <form method="GET" action="{{ url_for('tasks_index') }}">
+                        <div class="field has-addons">
+                            <div class="control">
+                                <div class="select is-small">
+                                    <select name="task_type" onchange="this.form.submit()">
+                                        <option value="all" {% if selected_task_type == 'all' %}selected{% endif %}>All types</option>
+                                        {% for task_type in task_types %}
+                                        <option value="{{ task_type }}" {% if selected_task_type == task_type %}selected{% endif %}>
+                                            {{ task_type }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="control">
+                                <button class="button is-small is-light" type="submit">Filter</button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
                 <table class="table is-fullwidth is-striped">
                     <thead>
                         <tr>
                             <th>Created</th>
+                            <th>Event</th>
                             <th>Type</th>
                             <th>Status</th>
                             <th>Log</th>
@@ -22,6 +42,7 @@
                         {% for task in tasks %}
                         <tr>
                             <td>{{ task.created_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.created_at else '' }}</td>
+                            <td>{{ task_event_names.get(task.id) or '' }}</td>
                             <td>{{ task.task_type }}</td>
                             <td>
                                 {% if task.status == 'success' %}
@@ -47,11 +68,26 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5">No background tasks yet.</td>
+                            <td colspan="6">No background tasks yet.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+                <nav class="pagination is-small mt-4" role="navigation" aria-label="pagination">
+                    {% if page > 1 %}
+                    <a class="pagination-previous" href="{{ url_for('tasks_index', page=page - 1, task_type=selected_task_type) }}">Previous</a>
+                    {% else %}
+                    <a class="pagination-previous" disabled>Previous</a>
+                    {% endif %}
+                    {% if page < total_pages %}
+                    <a class="pagination-next" href="{{ url_for('tasks_index', page=page + 1, task_type=selected_task_type) }}">Next</a>
+                    {% else %}
+                    <a class="pagination-next" disabled>Next</a>
+                    {% endif %}
+                    <ul class="pagination-list">
+                        <li><span class="pagination-link is-current">Page {{ page }} of {{ total_pages }}</span></li>
+                    </ul>
+                </nav>
                 <div class="mt-4">
                     <a class="button is-light" href="{{ url_for('index') }}">Back to Dashboard</a>
                 </div>

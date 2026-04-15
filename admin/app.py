@@ -267,10 +267,57 @@ def bjjcompsystem_tournaments():
 
 @app.route("/tasks")
 def tasks_index():
+    per_page = 10
+    page = request.args.get("page", 1, type=int)
+    selected_task_type = (request.args.get("task_type") or "all").strip()
+
+    task_types = [
+        row[0]
+        for row in db.session.query(BackgroundTask.task_type)
+        .distinct()
+        .order_by(BackgroundTask.task_type)
+        .all()
+        if row[0]
+    ]
+
+    task_query = BackgroundTask.query
+    if selected_task_type != "all":
+        task_query = task_query.filter(BackgroundTask.task_type == selected_task_type)
+
+    total_tasks = task_query.count()
+    total_pages = max(1, (total_tasks + per_page - 1) // per_page)
+    page = min(max(page, 1), total_pages)
+
     tasks = (
-        BackgroundTask.query.order_by(BackgroundTask.created_at.desc()).limit(10).all()
+        task_query.order_by(BackgroundTask.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
     )
-    return render_template("tasks_index.html", tasks=tasks)
+
+    task_event_names = {}
+    for task in tasks:
+        event_name = None
+        if task.params_json:
+            try:
+                params = json.loads(task.params_json)
+                if isinstance(params, dict):
+                    event_name = params.get("event_name") or params.get(
+                        "tournament_name"
+                    )
+            except json.JSONDecodeError:
+                pass
+        task_event_names[task.id] = event_name
+
+    return render_template(
+        "tasks_index.html",
+        tasks=tasks,
+        task_event_names=task_event_names,
+        page=page,
+        total_pages=total_pages,
+        selected_task_type=selected_task_type,
+        task_types=task_types,
+    )
 
 
 @app.route("/tasks/unrecorded_winners")
