@@ -149,7 +149,7 @@ def get_bracket_page(link, newer_than):
         return page.html
 
     session = requests.Session()
-    response = session.get(link, timeout=10)
+    response = session.get(link, timeout=20)
 
     if response.status_code != 200:
         raise Exception(
