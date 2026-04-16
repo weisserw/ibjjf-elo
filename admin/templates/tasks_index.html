@@ -41,7 +41,11 @@
                     <tbody>
                         {% for task in tasks %}
                         <tr>
-                            <td>{{ task.created_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.created_at else '' }}</td>
+                            <td>
+                                <span class="local-datetime" data-iso="{{ task.created_at.isoformat() if task.created_at else '' }}">
+                                    {{ task.created_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.created_at else '' }}
+                                </span>
+                            </td>
                             <td>{{ task_event_names.get(task.id) or '' }}</td>
                             <td>{{ task.task_type }}</td>
                             <td>
@@ -95,4 +99,32 @@
         </div>
     </div>
 </div>
+<script>
+    (function () {
+        function formatTimestamp(iso) {
+            if (!iso) return '';
+            const utcIso = /[zZ]|[+-]\d{2}:\d{2}$/.test(iso) ? iso : `${iso}Z`;
+            const date = new Date(utcIso);
+            if (Number.isNaN(date.getTime())) return '';
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = months[date.getMonth()];
+            const day = date.getDate();
+            const year = date.getFullYear();
+            let hours = date.getHours();
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            if (hours === 0) hours = 12;
+            return `${month} ${day} ${year} ${hours}:${minutes}${ampm}`;
+        }
+
+        const elements = document.querySelectorAll('.local-datetime[data-iso]');
+        elements.forEach((el) => {
+            const value = formatTimestamp(el.dataset.iso || '');
+            if (value) {
+                el.textContent = value;
+            }
+        });
+    })();
+</script>
 {% endblock %}

@@ -37,14 +37,14 @@
                         <tr>
                             {% if not task.started_at %}
                             <th>Created</th>
-                            <td id="task-created">{{ task.created_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.created_at else '' }}</td>
+                            <td id="task-created" class="local-datetime" data-iso="{{ task.created_at.isoformat() if task.created_at else '' }}">{{ task.created_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.created_at else '' }}</td>
                             {% else %}
                             <th>Started</th>
-                            <td id="task-started">{{ task.started_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.started_at else '' }}</td>
+                            <td id="task-started" class="local-datetime" data-iso="{{ task.started_at.isoformat() if task.started_at else '' }}">{{ task.started_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.started_at else '' }}</td>
                             {% endif %}
                             {% if task.finished_at or task.status in ['success', 'error', 'cancelled', 'manual'] %}
                             <th id="task-finished-label">Finished</th>
-                            <td id="task-finished">{{ task.finished_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.finished_at else '' }}</td>
+                            <td id="task-finished" class="local-datetime" data-iso="{{ task.finished_at.isoformat() if task.finished_at else '' }}">{{ task.finished_at.strftime('%b %d %Y %I:%M%p')|replace(' 0', ' ') if task.finished_at else '' }}</td>
                             {% endif %}
                         </tr>
                     </table>
@@ -94,7 +94,8 @@
 
         function formatTimestamp(iso) {
             if (!iso) return '';
-            const date = new Date(iso);
+            const utcIso = /[zZ]|[+-]\d{2}:\d{2}$/.test(iso) ? iso : `${iso}Z`;
+            const date = new Date(utcIso);
             if (Number.isNaN(date.getTime())) return '';
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             const month = months[date.getMonth()];
@@ -107,6 +108,14 @@
             if (hours === 0) hours = 12;
             return `${month} ${day} ${year} ${hours}:${minutes}${ampm}`;
         }
+
+        const localDateEls = document.querySelectorAll('.local-datetime[data-iso]');
+        localDateEls.forEach((el) => {
+            const value = formatTimestamp(el.dataset.iso || '');
+            if (value) {
+                el.textContent = value;
+            }
+        });
 
         function statusLabel(status, exitCode) {
             if (status === 'success') return 'success';

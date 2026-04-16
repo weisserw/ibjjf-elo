@@ -9,7 +9,7 @@ import traceback
 import signal
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, redirect, url_for, request, session, jsonify
 from urllib.parse import urlparse, urlencode, urlunparse
 from sqlalchemy import or_
@@ -59,6 +59,12 @@ MAX_PROFILE_PHOTO_BYTES = 1 * 1024 * 1024
 
 def _append_task_log(task, text):
     task.log_text = (task.log_text or "") + text
+
+
+def _utc_iso(dt):
+    if not dt:
+        return None
+    return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _run_import_task(task_id, args):
@@ -150,7 +156,7 @@ def _run_logged_process(task, cmd, env=None):
     return return_code
 
 
-def _run_set_winner_task(task_id, args, recompute_rank, gi_mode):
+def _run_set_winner_task(task_id, args):
     with app.app_context():
         task = BackgroundTask.query.get(task_id)
         if not task:
@@ -167,19 +173,44 @@ def _run_set_winner_task(task_id, args, recompute_rank, gi_mode):
                 task, set_winner_cmd, env=os.environ.copy()
             )
 
-            if return_code == 0 and recompute_rank:
-                rank_flag = "--gi" if gi_mode == "gi" else "--nogi"
-                recompute_cmd = [
-                    "python3",
-                    "scripts/recompute_ratings.py",
-                    "--rank-only",
-                    rank_flag,
-                ]
-                _append_task_log(task, f"\n$ {' '.join(recompute_cmd)}\n")
-                db.session.commit()
-                return_code = _run_logged_process(
-                    task, recompute_cmd, env=os.environ.copy()
-                )
+            task.exit_code = return_code
+            task.finished_at = datetime.utcnow()
+            task.status = "success" if return_code == 0 else "error"
+            task.pid = None
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            _append_task_log(task, f"\nUnexpected error: {exc}\n")
+            _append_task_log(task, traceback.format_exc())
+            task.exit_code = -1
+            task.finished_at = datetime.utcnow()
+            task.status = "error"
+            task.pid = None
+            db.session.commit()
+
+
+def _run_recompute_ranks_task(task_id, gi_mode):
+    with app.app_context():
+        task = BackgroundTask.query.get(task_id)
+        if not task:
+            return
+        task.status = "running"
+        task.started_at = datetime.utcnow()
+        db.session.commit()
+
+        try:
+            rank_flag = "--gi" if gi_mode == "gi" else "--nogi"
+            recompute_cmd = [
+                "python3",
+                "scripts/recompute_ratings.py",
+                "--rank-only",
+                rank_flag,
+            ]
+            _append_task_log(task, f"$ {' '.join(recompute_cmd)}\n")
+            db.session.commit()
+            return_code = _run_logged_process(
+                task, recompute_cmd, env=os.environ.copy()
+            )
 
             task.exit_code = return_code
             task.finished_at = datetime.utcnow()
@@ -271,7 +302,8 @@ def tasks_index():
     page = request.args.get("page", 1, type=int)
     selected_task_type = (request.args.get("task_type") or "all").strip()
 
-    task_types = [
+    default_task_types = ["import_results", "set_match_winner", "recompute_ranks"]
+    db_task_types = [
         row[0]
         for row in db.session.query(BackgroundTask.task_type)
         .distinct()
@@ -279,6 +311,7 @@ def tasks_index():
         .all()
         if row[0]
     ]
+    task_types = sorted(set(default_task_types + db_task_types))
 
     task_query = BackgroundTask.query
     if selected_task_type != "all":
@@ -328,27 +361,47 @@ def tasks_unrecorded_winners():
 @app.route("/api/events/search")
 def events_search():
     query = request.args.get("q", "").strip()
-    if not query:
-        return jsonify({"events": []})
+    page = request.args.get("page", 1, type=int)
+    per_page = 15
+    if not page or page < 1:
+        page = 1
 
-    normalized_search = normalize(query)
-    tokens = [token for token in normalized_search.split() if token]
-    if not tokens:
-        return jsonify({"events": []})
-
-    unrecorded_subquery = db.session.query(MatchParticipant.match_id).filter(
-        MatchParticipant.note.ilike(f"%{WINNER_NOT_RECORDED}%")
+    unrecorded_counts_subquery = (
+        db.session.query(
+            Match.event_id.label("event_id"),
+            db.func.count(db.distinct(Match.id)).label("unrecorded_match_count"),
+        )
+        .join(MatchParticipant, MatchParticipant.match_id == Match.id)
+        .filter(MatchParticipant.note.ilike(f"%{WINNER_NOT_RECORDED}%"))
+        .group_by(Match.event_id)
+        .subquery()
     )
 
-    event_query = Event.query.filter(
-        db.session.query(Match.id)
-        .filter(Match.event_id == Event.id)
-        .filter(Match.id.in_(unrecorded_subquery))
-        .exists()
+    event_query = db.session.query(
+        Event, unrecorded_counts_subquery.c.unrecorded_match_count
+    ).join(
+        unrecorded_counts_subquery, unrecorded_counts_subquery.c.event_id == Event.id
     )
-    for token in tokens:
-        event_query = event_query.filter(Event.normalized_name.ilike(f"%{token}%"))
-    events = event_query.order_by(Event.name).limit(30).all()
+
+    if query:
+        normalized_search = normalize(query)
+        tokens = [token for token in normalized_search.split() if token]
+        for token in tokens:
+            event_query = event_query.filter(Event.normalized_name.ilike(f"%{token}%"))
+
+    total_results = event_query.count()
+    total_pages = max(1, (total_results + per_page - 1) // per_page)
+    page = min(page, total_pages)
+
+    events = (
+        event_query.order_by(
+            unrecorded_counts_subquery.c.unrecorded_match_count.desc(),
+            Event.name.asc(),
+        )
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
 
     return jsonify(
         {
@@ -357,9 +410,14 @@ def events_search():
                     "id": str(event.id),
                     "name": event.name,
                     "ibjjf_id": event.ibjjf_id,
+                    "unrecorded_match_count": int(unrecorded_match_count or 0),
                 }
-                for event in events
-            ]
+                for event, unrecorded_match_count in events
+            ],
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "total_results": total_results,
         }
     )
 
@@ -434,21 +492,20 @@ def set_unrecorded_match_winner():
     event_id_raw = request.form.get("event_id", "").strip()
     match_id_raw = request.form.get("match_id", "").strip()
     winner_id_raw = request.form.get("winner_id", "").strip()
-    recompute_rank = request.form.get("recompute_rank") == "on"
 
     if not event_id_raw or not match_id_raw or not winner_id_raw:
-        return redirect(url_for("tasks_unrecorded_winners"))
+        return jsonify({"error": "Missing event, match, or winner ID."}), 400
 
     try:
         event_id = uuid.UUID(event_id_raw)
         match_id = uuid.UUID(match_id_raw)
         winner_id = uuid.UUID(winner_id_raw)
     except ValueError:
-        return redirect(url_for("tasks_unrecorded_winners"))
+        return jsonify({"error": "Invalid UUID supplied."}), 400
 
     match = Match.query.get(match_id)
     if not match or match.event_id != event_id:
-        return redirect(url_for("tasks_unrecorded_winners"))
+        return jsonify({"error": "Match not found for the selected event."}), 404
 
     participants = list(match.participants)
     winner_participant = None
@@ -457,22 +514,19 @@ def set_unrecorded_match_winner():
             winner_participant = participant
             break
     if not winner_participant:
-        return redirect(url_for("tasks_unrecorded_winners"))
+        return jsonify({"error": "Winner is not a participant in this match."}), 400
 
     if not any(
         WINNER_NOT_RECORDED in (participant.note or "") for participant in participants
     ):
-        return redirect(url_for("tasks_unrecorded_winners"))
+        return jsonify({"error": "This match no longer has an unrecorded winner."}), 400
 
-    gi_mode = "gi" if match.division.gi else "nogi"
     params = {
         "event_id": str(match.event_id),
         "event_name": match.event.name,
         "match_id": str(match.id),
         "winner_athlete_id": str(winner_participant.athlete_id),
         "winner_athlete_name": winner_participant.athlete.name,
-        "recompute_rank": recompute_rank,
-        "gi_mode": gi_mode,
     }
 
     task = BackgroundTask(
@@ -485,17 +539,53 @@ def set_unrecorded_match_winner():
 
     thread = threading.Thread(
         target=_run_set_winner_task,
-        args=(
-            task.id,
-            [str(winner_participant.athlete_id), str(match.id)],
-            recompute_rank,
-            gi_mode,
-        ),
+        args=(task.id, [str(winner_participant.athlete_id), str(match.id)]),
         daemon=True,
     )
     thread.start()
 
-    return redirect(url_for("task_detail", task_id=task.id))
+    return jsonify(
+        {
+            "task_id": str(task.id),
+            "task_type": task.task_type,
+            "message": f"Created set winner task for {winner_participant.athlete.name}.",
+        }
+    )
+
+
+@app.route("/tasks/unrecorded_winners/recompute_ranks", methods=["POST"])
+def recompute_ranks():
+    gi_mode = (request.form.get("gi_mode") or "").strip().lower()
+    if gi_mode not in ["gi", "nogi"]:
+        return redirect(url_for("tasks_unrecorded_winners"))
+
+    event_id_raw = (request.form.get("event_id") or "").strip()
+    event_name = (request.form.get("event_name") or "").strip()
+    params = {
+        "gi_mode": gi_mode,
+    }
+
+    if event_name:
+        params["event_name"] = event_name
+    if event_id_raw:
+        params["event_id"] = event_id_raw
+
+    task = BackgroundTask(
+        task_type="recompute_ranks",
+        status="queued",
+        params_json=json.dumps(params),
+    )
+    db.session.add(task)
+    db.session.commit()
+
+    thread = threading.Thread(
+        target=_run_recompute_ranks_task,
+        args=(task.id, gi_mode),
+        daemon=True,
+    )
+    thread.start()
+
+    return redirect(url_for("tasks_index"))
 
 
 @app.route("/tasks/import", methods=["GET", "POST"])
@@ -580,9 +670,9 @@ def task_status(task_id):
             "status": task.status,
             "exit_code": task.exit_code,
             "log_text": task.log_text or "",
-            "created_at": task.created_at.isoformat() if task.created_at else None,
-            "started_at": task.started_at.isoformat() if task.started_at else None,
-            "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+            "created_at": _utc_iso(task.created_at),
+            "started_at": _utc_iso(task.started_at),
+            "finished_at": _utc_iso(task.finished_at),
         }
     )
 

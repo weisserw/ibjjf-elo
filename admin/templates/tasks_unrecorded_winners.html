@@ -12,7 +12,7 @@
 
                 <div class="field has-addons">
                     <div class="control is-expanded">
-                        <input id="event-search-input" class="input" type="text" placeholder="Search tournament name">
+                        <input id="event-search-input" class="input" type="text" placeholder="Search tournament name or leave empty to list all" value="">
                     </div>
                     <div class="control">
                         <button id="event-search-button" class="button is-link" type="button">Search</button>
@@ -24,13 +24,24 @@
 
                 <hr>
 
-                <div class="field">
-                    <label class="checkbox">
-                        <input id="recompute-rank-checkbox" type="checkbox" checked>
-                        <strong>Regenerate ranking board after winner is set</strong>
-                    </label>
-                    <p class="help">Regenerating the ranking board takes longer; only enable for the final match if fixing more than one match</p>
-                </div>
+                <form id="recompute-ranks-form" method="POST" action="{{ url_for('recompute_ranks') }}" class="mb-4">
+                    <input type="hidden" name="event_id" id="recompute-event-id" value="">
+                    <input type="hidden" name="event_name" id="recompute-event-name" value="">
+                    <div class="field is-grouped is-align-items-center">
+                        <div class="control">
+                            <div class="select">
+                                <select id="recompute-gi-mode" name="gi_mode">
+                                    <option value="gi">Gi</option>
+                                    <option value="nogi">No-Gi</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="control">
+                            <button id="recompute-ranks-button" class="button is-warning" type="submit">Regenerate Ranking Board</button>
+                        </div>
+                    </div>
+                    <p class="help">Regenerate the ranking board after making match winner changes.</p>
+                </form>
 
                 <div id="selected-event" class="mb-3"></div>
                 <div id="matches-container"></div>
@@ -47,9 +58,31 @@
         const resultsEl = document.getElementById('event-search-results');
         const selectedEventEl = document.getElementById('selected-event');
         const matchesContainer = document.getElementById('matches-container');
-        const recomputeCheckbox = document.getElementById('recompute-rank-checkbox');
+        const recomputeForm = document.getElementById('recompute-ranks-form');
+        const recomputeEventIdInput = document.getElementById('recompute-event-id');
+        const recomputeEventNameInput = document.getElementById('recompute-event-name');
+        const recomputeGiModeSelect = document.getElementById('recompute-gi-mode');
 
         let selectedEvent = null;
+
+        function showToast(message, isError) {
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.position = 'fixed';
+            toast.style.top = '1rem';
+            toast.style.right = '1rem';
+            toast.style.zIndex = '9999';
+            toast.style.padding = '0.75rem 1rem';
+            toast.style.borderRadius = '6px';
+            toast.style.color = '#fff';
+            toast.style.fontWeight = '600';
+            toast.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+            toast.style.background = isError ? '#d9534f' : '#23a559';
+            document.body.appendChild(toast);
+            window.setTimeout(function () {
+                toast.remove();
+            }, 2500);
+        }
 
         function setFeedback(text, isError) {
             if (!text) {
@@ -66,7 +99,15 @@
             return parsed.toLocaleString();
         }
 
-        function renderSearchResults(events) {
+        function inferGiModeFromEventName(name) {
+            const value = (name || '').toLowerCase();
+            if (value.includes('no-gi') || value.includes('no gi') || value.includes('sem kimono')) {
+                return 'nogi';
+            }
+            return 'gi';
+        }
+
+        function renderSearchResults(events, page, totalPages, totalResults) {
             resultsEl.innerHTML = '';
             if (!events.length) {
                 setFeedback('No tournaments found.', false);
@@ -76,14 +117,16 @@
             const table = document.createElement('table');
             table.className = 'table is-fullwidth is-striped';
             table.innerHTML =
-                '<thead><tr><th>Name</th><th>IBJJF ID</th><th></th></tr></thead>' +
+                '<thead><tr><th>Name</th><th>IBJJF ID</th><th>Unrecorded Matches</th><th></th></tr></thead>' +
                 '<tbody>' +
                 events.map(function (event) {
                     const ibjjfId = event.ibjjf_id || '';
+                    const unrecordedCount = Number(event.unrecorded_match_count || 0);
                     return (
                         '<tr>' +
                         '<td>' + event.name + '</td>' +
                         '<td>' + ibjjfId + '</td>' +
+                        '<td>' + unrecordedCount + '</td>' +
                         '<td><button class="button is-small is-link is-light event-select-button" type="button" data-event-id="' + event.id + '" data-event-name="' + event.name + '" data-event-ibjjf-id="' + ibjjfId + '">Select</button></td>' +
                         '</tr>'
                     );
@@ -103,15 +146,67 @@
                     loadUnrecordedMatches(selectedEvent.id);
                 });
             });
+
+            const pagination = document.createElement('nav');
+            pagination.className = 'pagination is-small mt-3';
+            pagination.setAttribute('role', 'navigation');
+            pagination.setAttribute('aria-label', 'search results pagination');
+
+            const prev = document.createElement('a');
+            prev.className = 'pagination-previous';
+            prev.textContent = 'Previous';
+            if (page <= 1) {
+                prev.setAttribute('disabled', 'disabled');
+            } else {
+                prev.href = '#';
+                prev.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    searchEvents(page - 1);
+                });
+            }
+
+            const next = document.createElement('a');
+            next.className = 'pagination-next';
+            next.textContent = 'Next';
+            if (page >= totalPages) {
+                next.setAttribute('disabled', 'disabled');
+            } else {
+                next.href = '#';
+                next.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    searchEvents(page + 1);
+                });
+            }
+
+            const list = document.createElement('ul');
+            list.className = 'pagination-list';
+            const item = document.createElement('li');
+            const label = document.createElement('span');
+            label.className = 'pagination-link is-current';
+            label.textContent = 'Page ' + page + ' of ' + totalPages + ' (' + totalResults + ' tournaments)';
+            item.appendChild(label);
+            list.appendChild(item);
+
+            pagination.appendChild(prev);
+            pagination.appendChild(next);
+            pagination.appendChild(list);
+            resultsEl.appendChild(pagination);
         }
 
         function renderSelectedEvent(event) {
             if (!event) {
                 selectedEventEl.innerHTML = '';
+                if (recomputeEventIdInput) recomputeEventIdInput.value = '';
+                if (recomputeEventNameInput) recomputeEventNameInput.value = '';
                 return;
             }
             const ibjjfId = event.ibjjf_id ? ' (IBJJF ID: ' + event.ibjjf_id + ')' : '';
             selectedEventEl.innerHTML = '<h2 class="title is-5">Selected Tournament: ' + event.name + ibjjfId + '</h2>';
+            if (recomputeEventIdInput) recomputeEventIdInput.value = event.id || '';
+            if (recomputeEventNameInput) recomputeEventNameInput.value = event.name || '';
+            if (recomputeGiModeSelect) {
+                recomputeGiModeSelect.value = inferGiModeFromEventName(event.name);
+            }
         }
 
         function renderMatches(matches) {
@@ -172,36 +267,31 @@
                         return;
                     }
 
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = '{{ url_for("set_unrecorded_match_winner") }}';
+                    const body = new URLSearchParams();
+                    body.set('event_id', selectedEvent.id);
+                    body.set('match_id', matchId);
+                    body.set('winner_id', winnerId);
 
-                    const eventInput = document.createElement('input');
-                    eventInput.type = 'hidden';
-                    eventInput.name = 'event_id';
-                    eventInput.value = selectedEvent.id;
-                    form.appendChild(eventInput);
-
-                    const matchInput = document.createElement('input');
-                    matchInput.type = 'hidden';
-                    matchInput.name = 'match_id';
-                    matchInput.value = matchId;
-                    form.appendChild(matchInput);
-
-                    const winnerInput = document.createElement('input');
-                    winnerInput.type = 'hidden';
-                    winnerInput.name = 'winner_id';
-                    winnerInput.value = winnerId;
-                    form.appendChild(winnerInput);
-
-                    const recomputeInput = document.createElement('input');
-                    recomputeInput.type = 'hidden';
-                    recomputeInput.name = 'recompute_rank';
-                    recomputeInput.value = recomputeCheckbox && recomputeCheckbox.checked ? 'on' : '';
-                    form.appendChild(recomputeInput);
-
-                    document.body.appendChild(form);
-                    form.submit();
+                    fetch('{{ url_for("set_unrecorded_match_winner") }}', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                        body: body.toString()
+                    })
+                        .then(function (resp) {
+                            return resp.json().then(function (data) {
+                                return { ok: resp.ok, data: data };
+                            });
+                        })
+                        .then(function (result) {
+                            if (!result.ok) {
+                                throw new Error((result.data && result.data.error) || 'Failed to create set winner task.');
+                            }
+                            showToast((result.data && result.data.message) || 'Set winner task created.', false);
+                            loadUnrecordedMatches(selectedEvent.id);
+                        })
+                        .catch(function (err) {
+                            showToast(err.message || 'Failed to create set winner task.', true);
+                        });
                 });
             });
         }
@@ -228,15 +318,12 @@
                 });
         }
 
-        function searchEvents() {
+        function searchEvents(page) {
+            const nextPage = page || 1;
             const q = input.value.trim();
-            if (!q) {
-                setFeedback('Enter a tournament name to search.', true);
-                return;
-            }
             setFeedback('Searching tournaments...', false);
             resultsEl.innerHTML = '';
-            fetch('{{ url_for("events_search") }}?q=' + encodeURIComponent(q))
+            fetch('{{ url_for("events_search") }}?q=' + encodeURIComponent(q) + '&page=' + encodeURIComponent(nextPage))
                 .then(function (resp) {
                     if (!resp.ok) {
                         throw new Error('Search failed');
@@ -245,7 +332,10 @@
                 })
                 .then(function (data) {
                     const events = Array.isArray(data.events) ? data.events : [];
-                    renderSearchResults(events);
+                    const resultPage = Number(data.page || 1);
+                    const totalPages = Number(data.total_pages || 1);
+                    const totalResults = Number(data.total_results || 0);
+                    renderSearchResults(events, resultPage, totalPages, totalResults);
                 })
                 .catch(function () {
                     resultsEl.innerHTML = '';
@@ -260,6 +350,17 @@
                 searchEvents();
             }
         });
+
+        if (recomputeForm) {
+            recomputeForm.addEventListener('submit', function (event) {
+                const modeEl = document.getElementById('recompute-gi-mode');
+                const modeLabel = modeEl ? modeEl.options[modeEl.selectedIndex].text : 'selected mode';
+                const ok = window.confirm('Start regenerate ranking board task for ' + modeLabel + '?');
+                if (!ok) {
+                    event.preventDefault();
+                }
+            });
+        }
     })();
 </script>
 {% endblock %}
