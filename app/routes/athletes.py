@@ -806,6 +806,122 @@ def ratings():
     return jsonify(info)
 
 
+def _set_non_blank_field(payload, key, value):
+    if value is None:
+        return
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return
+    payload[key] = value
+
+
+def _event_is_no_gi(event_name):
+    normalized_name = (event_name or "").lower()
+    return (
+        "no-gi" in normalized_name
+        or "no gi" in normalized_name
+        or "sem kimono" in normalized_name
+    )
+
+
+@athletes_route.route("/api/athletes/batch", methods=["POST"])
+def athletes_batch():
+    event_ibjjf_id = (request.args.get("event_id") or "").strip()
+    if not event_ibjjf_id:
+        return jsonify({"error": "Missing event_id parameter"}), 400
+
+    event = Event.query.filter_by(ibjjf_id=event_ibjjf_id).first()
+    if event is None:
+        return jsonify({"error": "Event not found"}), 404
+
+    event_is_gi = not _event_is_no_gi(event.name)
+
+    ibjjf_ids_payload = request.get_json(silent=True)
+    if not isinstance(ibjjf_ids_payload, list):
+        return jsonify({"error": "Expected a JSON array of ibjjf_id strings"}), 400
+    if not all(isinstance(ibjjf_id, str) for ibjjf_id in ibjjf_ids_payload):
+        return jsonify({"error": "Expected a JSON array of ibjjf_id strings"}), 400
+
+    requested_ibjjf_ids = []
+    seen_ids = set()
+    for ibjjf_id in ibjjf_ids_payload:
+        normalized_id = ibjjf_id.strip()
+        if not normalized_id or normalized_id in seen_ids:
+            continue
+        seen_ids.add(normalized_id)
+        requested_ibjjf_ids.append(normalized_id)
+
+    if not requested_ibjjf_ids:
+        return jsonify([]), 200
+
+    latest_ratings_subquery = (
+        db.session.query(
+            AthleteRating.athlete_id.label("athlete_id"),
+            AthleteRating.rating.label("rating"),
+            AthleteRating.match_count.label("match_count"),
+            func.row_number()
+            .over(
+                partition_by=AthleteRating.athlete_id,
+                order_by=(AthleteRating.id.desc(),),
+            )
+            .label("row_num"),
+        )
+        .filter(AthleteRating.gi == event_is_gi)
+        .subquery()
+    )
+
+    rows = (
+        db.session.query(
+            Athlete,
+            latest_ratings_subquery.c.rating.label("current_rating"),
+            latest_ratings_subquery.c.match_count.label("match_count"),
+        )
+        .join(
+            latest_ratings_subquery,
+            Athlete.id == latest_ratings_subquery.c.athlete_id,
+        )
+        .filter(
+            Athlete.ibjjf_id.in_(requested_ibjjf_ids),
+            latest_ratings_subquery.c.row_num == 1,
+        )
+        .all()
+    )
+    athletes_by_ibjjf_id = {
+        athlete.ibjjf_id: (athlete, current_rating, match_count)
+        for athlete, current_rating, match_count in rows
+    }
+
+    response = []
+    for ibjjf_id in requested_ibjjf_ids:
+        found = athletes_by_ibjjf_id.get(ibjjf_id)
+        if not found:
+            continue
+
+        athlete, current_rating, match_count = found
+
+        athlete_json = {}
+        _set_non_blank_field(athlete_json, "ibjjf_id", athlete.ibjjf_id)
+
+        personal_name = (athlete.personal_name or "").strip()
+        if personal_name:
+            athlete_json["name"] = personal_name
+        elif athlete.hide_full_name is not True:
+            _set_non_blank_field(athlete_json, "name", athlete.name)
+
+        athlete_json["rating"] = int(round(current_rating))
+        athlete_json["provisional"] = match_count <= RATING_VERY_IMMATURE_COUNT
+
+        _set_non_blank_field(athlete_json, "slug", athlete.slug)
+        _set_non_blank_field(
+            athlete_json, "instagram_profile", athlete.instagram_profile
+        )
+        _set_non_blank_field(athlete_json, "country", athlete.country)
+        response.append(athlete_json)
+
+    return jsonify(response), 200
+
+
 @athletes_route.route("/api/athletes")
 def athletes():
     search = normalize(request.args.get("search", ""))
