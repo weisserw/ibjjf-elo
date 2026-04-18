@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useCallback, ReactNode } from 'react';
+import { createContext, useState, useContext, useCallback, ReactNode, useRef } from 'react';
 import { useLocalStorage } from '@uidotdev/usehooks';
 import type { FilterValues, OpenFilters } from './components/DBFilters';
 import type { TabName } from './components/GiTabs';
@@ -131,7 +131,47 @@ export const useAppContext = () => {
   return context;
 };
 
+function applyArchiveDeepLinkOverrides() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (window.location.pathname !== '/tournaments/archive') {
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const eventName = (params.get('event_name') || '').trim();
+  const category = (params.get('category') || '').trim();
+  let applied = false;
+
+  if (eventName) {
+    const eventValue = JSON.stringify(eventName);
+    window.localStorage.setItem('bracketArchiveEventName', eventValue);
+    window.localStorage.setItem('bracketArchiveEventNameFetch', eventValue);
+    applied = true;
+  }
+
+  if (category) {
+    window.localStorage.setItem(
+      'bracketArchiveSelectedCategory',
+      JSON.stringify(category)
+    );
+    applied = true;
+  }
+
+  if (applied) {
+    const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+    window.history.replaceState(window.history.state, '', cleanUrl);
+  }
+}
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
+  const archiveDeepLinkAppliedRef = useRef(false);
+  if (!archiveDeepLinkAppliedRef.current) {
+    archiveDeepLinkAppliedRef.current = true;
+    applyArchiveDeepLinkOverrides();
+  }
+
   const [filters, setFilters] = useLocalStorage<FilterValues>('filters', {});
   const [openFilters, setOpenFilters] = useLocalStorage<OpenFilters>('openFilters', { athlete: true, event: false, division: false });
   const [activeTab, setActiveTab] = useLocalStorage<TabName>('activeTab', 'Gi');

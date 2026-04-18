@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import { useAppContext } from '../AppContext'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree from './BracketTree'
 import Autosuggest from 'react-autosuggest'
@@ -31,8 +31,6 @@ function BracketArchive() {
   const [eventSuggestions, setEventSuggestions] = useState<string[]>([])
   const [recentEvents, setRecentEvents] = useState<string[]>([])
   const [recentEventSelection, setRecentEventSelection] = useState('')
-  const deepLinkCategoryRef = useRef<string | null>(null)
-  const deepLinkEventRef = useRef<string | null>(null)
 
   const {
     bracketArchiveEventName: eventName,
@@ -63,7 +61,6 @@ function BracketArchive() {
   } = useAppContext()
 
   const navigate = useNavigate()
-  const location = useLocation()
 
   const getEventSuggestions = async ({ value }: { value: string }) => {
     try {
@@ -92,45 +89,6 @@ function BracketArchive() {
 
     getRecentEvents()
   }, [])
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search)
-    const deepLinkEventName = (params.get('event_name') || '').trim()
-    const deepLinkCategory = (params.get('category') || '').trim()
-
-    if (!deepLinkEventName && !deepLinkCategory) {
-      return
-    }
-
-    if (deepLinkEventName) {
-      deepLinkEventRef.current = deepLinkEventName
-      setEventName(deepLinkEventName)
-      setEventNameFetch(deepLinkEventName)
-      setCategories(null)
-      setCompetitors(null)
-      setMatches(null)
-      setEventTotal(null)
-      setRecentEventSelection('')
-    }
-
-    if (deepLinkCategory) {
-      deepLinkCategoryRef.current = deepLinkCategory
-      setSelectedCategory(deepLinkCategory)
-    }
-
-    navigate('/tournaments/archive', { replace: true })
-  }, [
-    location.search,
-    navigate,
-    setCategories,
-    setCompetitors,
-    setEventName,
-    setEventNameFetch,
-    setEventTotal,
-    setMatches,
-    setRecentEventSelection,
-    setSelectedCategory,
-  ])
 
   const categoryString = (category: Category) => {
     return `${category.belt} / ${category.age} / ${category.gender} / ${category.weight}`
@@ -170,19 +128,11 @@ function BracketArchive() {
         setEventTotal(data.total)
         setError(null)
 
-        const keepDeepLinkCategory =
-          deepLinkCategoryRef.current &&
-          deepLinkEventRef.current &&
-          eventNameFetch === deepLinkEventRef.current
-        const preferredCategory =
-          keepDeepLinkCategory ? deepLinkCategoryRef.current : selectedCategory
-        const category = data.categories.find(c => categoryString(c) === preferredCategory)
+        const category = data.categories.find(c => categoryString(c) === selectedCategory)
 
         if (category) {
           setSelectedCategory(categoryString(category))
         } else {
-          deepLinkCategoryRef.current = null
-          deepLinkEventRef.current = null
           let selected: string | null = null
           // select adult / black / male / middle by default
           for (const category of data.categories) {
@@ -290,28 +240,6 @@ function BracketArchive() {
       viewBracket()
     }
   }, [categories, selectedCategory])
-
-  useEffect(() => {
-    const deepLinkCategory = deepLinkCategoryRef.current
-    const deepLinkEvent = deepLinkEventRef.current
-    if (!deepLinkCategory || !deepLinkEvent || !eventNameFetch || !categories) {
-      return
-    }
-    if (eventNameFetch !== deepLinkEvent) {
-      deepLinkCategoryRef.current = null
-      deepLinkEventRef.current = null
-      return
-    }
-    const exists = categories.some(c => categoryString(c) === deepLinkCategory)
-    if (!exists) {
-      deepLinkCategoryRef.current = null
-      deepLinkEventRef.current = null
-      return
-    }
-    if (selectedCategory !== deepLinkCategory) {
-      setSelectedCategory(deepLinkCategory)
-    }
-  }, [categories, eventNameFetch, selectedCategory, setSelectedCategory])
 
   const showRatings = useMemo(() => {
     if (selectedCategory && categories) {
@@ -422,8 +350,6 @@ function BracketArchive() {
                   value={recentEventSelection}
                   onChange={(e) => {
                     const selected = e.target.value
-                    deepLinkCategoryRef.current = null
-                    deepLinkEventRef.current = null
                     setRecentEventSelection(selected)
                     if (!selected) {
                       return
@@ -470,8 +396,6 @@ function BracketArchive() {
             {
               eventName && (
                 <span className="icon is-small clear-filter" onClick={() => {
-                  deepLinkCategoryRef.current = null
-                  deepLinkEventRef.current = null
                   setEventName('')
                   setEventNameFetch('')
                   setCategories(null);
@@ -498,11 +422,7 @@ function BracketArchive() {
                     <div className="column column-padding is-vcentered">
                       <div className="field">
                         <div className="select">
-                          <select className="select" value={selectedCategory ?? ''} onChange={e => {
-                            deepLinkCategoryRef.current = null
-                            deepLinkEventRef.current = null
-                            setSelectedCategory(e.target.value);
-                          }}>
+                          <select className="select" value={selectedCategory ?? ''} onChange={e => {setSelectedCategory(e.target.value); }}>
                             {
                               categories.map(category => (
                                 <option key={categoryString(category)} value={categoryString(category)}>{translateMulti(categoryString(category))}</option>
