@@ -16,6 +16,8 @@ from ratings import recompute_all_ratings
 from elo import WINNER_NOT_RECORDED
 from photos import get_s3_client, bucket_name
 
+NO_SHOW_NOTE = "Disqualified by no show"
+
 
 def download_updated_matches_file(s3_client, file_name):
     file_path = os.path.join(os.getcwd(), file_name)
@@ -48,12 +50,24 @@ def upload_updated_matches_file(s3_client, file_path, file_name):
         raise
 
 
+def clean_participant_note(note):
+    value = (note or "").replace(WINNER_NOT_RECORDED, "")
+    value = re.sub(r",\s*$", "", value)
+    value = re.sub(r"^,\s*", "", value)
+    return value.strip()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Fix match winner and update ratings for matches not recorded by the IBJJF"
     )
     parser.add_argument("athlete_id", type=str, help="Athlete ID to set as winner")
     parser.add_argument("match_id", type=str, help="Match ID to fix")
+    parser.add_argument(
+        "--loser-no-show",
+        action="store_true",
+        help="Mark loser as disqualified by no show and keep match unrated",
+    )
     args = parser.parse_args()
 
     if not args.match_id or not args.athlete_id:
@@ -114,22 +128,22 @@ if __name__ == "__main__":
         athlete_1_name = match.participants[0].athlete.name
         athlete_2_name = match.participants[1].athlete.name
 
+        action_text = "setting as no-show disqualification result" if args.loser_no_show else "setting as rated result"
         print(
             f"Updating match that occurred on {match.happened_at.isoformat()} between "
             f"{athlete_1_name} and {athlete_2_name}, "
-            f"setting {winner.name} as the winner."
+            f"{action_text} with {winner.name} as the winner."
         )
 
-        match.rated = True
+        match.rated = not args.loser_no_show
         for participant in participants:
-            if participant.athlete_id == winner.id:
-                participant.winner = True
+            is_winner = participant.athlete_id == winner.id
+            participant.winner = is_winner
+            cleaned_note = clean_participant_note(participant.note)
+            if args.loser_no_show and not is_winner:
+                participant.note = NO_SHOW_NOTE
             else:
-                participant.winner = False
-            participant.note = participant.note.replace(WINNER_NOT_RECORDED, "")
-            # remove any dangling commas with regex
-            participant.note = re.sub(r",\s*$", "", participant.note)
-            participant.note = re.sub(r"^,\s*", "", participant.note)
+                participant.note = cleaned_note
             participant.rating_note = ""
 
         # save the match to the db
@@ -138,21 +152,25 @@ if __name__ == "__main__":
             db.session.add(participant)
         db.session.commit()
 
-        ids = set([str(participant.athlete_id) for participant in participants])
-        for athlete_id in ids:
-            print("Recomputing ratings for", athlete_id)
-            recompute_all_ratings(
-                db,
-                gi,
-                gender,
-                happened_at,
-                score=True,
-                rerank=False,
-                athlete_id=athlete_id,
-            )
+        if args.loser_no_show:
+            print("Skipping rating recomputation because match is marked as unrated.")
+        else:
+            ids = set([str(participant.athlete_id) for participant in participants])
+            for athlete_id in ids:
+                print("Recomputing ratings for", athlete_id)
+                recompute_all_ratings(
+                    db,
+                    gi,
+                    gender,
+                    happened_at,
+                    score=True,
+                    rerank=False,
+                    athlete_id=athlete_id,
+                )
 
         with open(file_path, "a", newline="") as csvfile:
             writer = csv.writer(csvfile)
+            action_name = "set_winner_no_show" if args.loser_no_show else "set_winner"
             writer.writerow(
                 [
                     match.event.ibjjf_id,
@@ -162,7 +180,7 @@ if __name__ == "__main__":
                     "Gi" if gi else "No-Gi",
                     f"{age} / {gender} / {belt} / {weight}",
                     happened_at.isoformat(),
-                    "set_winner",
+                    action_name,
                     winner.ibjjf_id,
                     winner.name,
                 ]
@@ -172,4 +190,7 @@ if __name__ == "__main__":
 
         db.session.commit()
 
-        print("Match and ratings updated. Don't forget to regenerate ranking board.")
+        if args.loser_no_show:
+            print("Match updated as no-show disqualification (unrated).")
+        else:
+            print("Match and ratings updated. Don't forget to regenerate ranking board.")

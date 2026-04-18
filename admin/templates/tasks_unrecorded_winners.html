@@ -50,6 +50,27 @@
     </div>
 </div>
 
+<div id="set-winner-modal" class="modal">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+        <header class="modal-card-head">
+            <p class="modal-card-title">Set Match Winner</p>
+            <button id="set-winner-modal-close" class="delete" aria-label="close" type="button"></button>
+        </header>
+        <section class="modal-card-body">
+            <p id="set-winner-modal-message" class="mb-4"></p>
+            <label class="checkbox">
+                <input id="set-winner-loser-no-show" type="checkbox">
+                Loser was disqualified by no show (keep this match unrated)
+            </label>
+        </section>
+        <footer class="modal-card-foot">
+            <button id="set-winner-modal-confirm" class="button is-link" type="button">Start Task</button>
+            <button id="set-winner-modal-cancel" class="button" type="button">Cancel</button>
+        </footer>
+    </div>
+</div>
+
 <script>
     (function () {
         const input = document.getElementById('event-search-input');
@@ -62,8 +83,16 @@
         const recomputeEventIdInput = document.getElementById('recompute-event-id');
         const recomputeEventNameInput = document.getElementById('recompute-event-name');
         const recomputeGiModeSelect = document.getElementById('recompute-gi-mode');
+        const archiveBaseUrl = {{ archive_base_url|tojson }};
+        const winnerModal = document.getElementById('set-winner-modal');
+        const winnerModalMessage = document.getElementById('set-winner-modal-message');
+        const winnerModalNoShow = document.getElementById('set-winner-loser-no-show');
+        const winnerModalClose = document.getElementById('set-winner-modal-close');
+        const winnerModalCancel = document.getElementById('set-winner-modal-cancel');
+        const winnerModalConfirm = document.getElementById('set-winner-modal-confirm');
 
         let selectedEvent = null;
+        let winnerModalResolve = null;
 
         function showToast(message, isError) {
             const toast = document.createElement('div');
@@ -106,6 +135,61 @@
             }
             return 'gi';
         }
+
+        function openWinnerModal(winnerName) {
+            if (!winnerModal || !winnerModalMessage || !winnerModalNoShow) {
+                return Promise.resolve(null);
+            }
+            winnerModalMessage.textContent = 'Start background task to set ' + winnerName + ' as winner?';
+            winnerModalNoShow.checked = false;
+            winnerModal.classList.add('is-active');
+            return new Promise(function (resolve) {
+                winnerModalResolve = resolve;
+            });
+        }
+
+        function closeWinnerModal(result) {
+            if (!winnerModal) {
+                return;
+            }
+            winnerModal.classList.remove('is-active');
+            if (winnerModalResolve) {
+                const resolve = winnerModalResolve;
+                winnerModalResolve = null;
+                resolve(result);
+            }
+        }
+
+        if (winnerModal) {
+            const modalBackground = winnerModal.querySelector('.modal-background');
+            if (modalBackground) {
+                modalBackground.addEventListener('click', function () {
+                    closeWinnerModal(null);
+                });
+            }
+        }
+        if (winnerModalClose) {
+            winnerModalClose.addEventListener('click', function () {
+                closeWinnerModal(null);
+            });
+        }
+        if (winnerModalCancel) {
+            winnerModalCancel.addEventListener('click', function () {
+                closeWinnerModal(null);
+            });
+        }
+        if (winnerModalConfirm) {
+            winnerModalConfirm.addEventListener('click', function () {
+                closeWinnerModal({
+                    loserNoShow: winnerModalNoShow && winnerModalNoShow.checked
+                });
+            });
+        }
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && winnerModal && winnerModal.classList.contains('is-active')) {
+                closeWinnerModal(null);
+            }
+        });
 
         function renderSearchResults(events, page, totalPages, totalResults) {
             resultsEl.innerHTML = '';
@@ -229,7 +313,11 @@
                 '</thead>' +
                 '<tbody>' +
                 matches.map(function (match) {
-                    const division = match.division.age + ' / ' + match.division.gender + ' / ' + match.division.belt + ' / ' + match.division.weight + ' / ' + (match.division.gi ? 'Gi' : 'No-Gi');
+                    const division = match.division.age + ' / ' + match.division.gender + ' / ' + match.division.belt + ' / ' + match.division.weight;
+                    const archiveCategory = match.division.belt + ' / ' + match.division.age + ' / ' + match.division.gender + ' / ' + match.division.weight;
+                    const archiveEventName = match.event_name || (selectedEvent && selectedEvent.name) || '';
+                    const archiveUrl = archiveBaseUrl + '/tournaments/archive?event_name=' + encodeURIComponent(archiveEventName) + '&category=' + encodeURIComponent(archiveCategory);
+                    const divisionCell = '<a href="' + archiveUrl + '" target="_blank" rel="noopener noreferrer">' + division + '</a>';
                     const competitors = match.participants.map(function (p) {
                         return p.athlete_name;
                     }).join(' vs ');
@@ -244,7 +332,7 @@
                     return (
                         '<tr>' +
                         '<td>' + formatDate(match.happened_at) + '</td>' +
-                        '<td>' + division + '</td>' +
+                        '<td>' + divisionCell + '</td>' +
                         '<td>' + competitors + '</td>' +
                         '<td>' + buttons + '</td>' +
                         '</tr>'
@@ -262,36 +350,38 @@
                     const matchId = button.getAttribute('data-match-id');
                     const winnerId = button.getAttribute('data-winner-id');
                     const winnerName = button.getAttribute('data-winner-name');
-                    const ok = window.confirm('Start background task to set ' + winnerName + ' as winner?');
-                    if (!ok) {
-                        return;
-                    }
+                    openWinnerModal(winnerName).then(function (selection) {
+                        if (!selection) {
+                            return;
+                        }
 
-                    const body = new URLSearchParams();
-                    body.set('event_id', selectedEvent.id);
-                    body.set('match_id', matchId);
-                    body.set('winner_id', winnerId);
+                        const body = new URLSearchParams();
+                        body.set('event_id', selectedEvent.id);
+                        body.set('match_id', matchId);
+                        body.set('winner_id', winnerId);
+                        body.set('loser_no_show', selection.loserNoShow ? 'true' : 'false');
 
-                    fetch('{{ url_for("set_unrecorded_match_winner") }}', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-                        body: body.toString()
-                    })
-                        .then(function (resp) {
-                            return resp.json().then(function (data) {
-                                return { ok: resp.ok, data: data };
+                        fetch('{{ url_for("set_unrecorded_match_winner") }}', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                            body: body.toString()
+                        })
+                            .then(function (resp) {
+                                return resp.json().then(function (data) {
+                                    return { ok: resp.ok, data: data };
+                                });
+                            })
+                            .then(function (result) {
+                                if (!result.ok) {
+                                    throw new Error((result.data && result.data.error) || 'Failed to create set winner task.');
+                                }
+                                showToast((result.data && result.data.message) || 'Set winner task created.', false);
+                                loadUnrecordedMatches(selectedEvent.id);
+                            })
+                            .catch(function (err) {
+                                showToast(err.message || 'Failed to create set winner task.', true);
                             });
-                        })
-                        .then(function (result) {
-                            if (!result.ok) {
-                                throw new Error((result.data && result.data.error) || 'Failed to create set winner task.');
-                            }
-                            showToast((result.data && result.data.message) || 'Set winner task created.', false);
-                            loadUnrecordedMatches(selectedEvent.id);
-                        })
-                        .catch(function (err) {
-                            showToast(err.message || 'Failed to create set winner task.', true);
-                        });
+                    });
                 });
             });
         }

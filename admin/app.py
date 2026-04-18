@@ -355,7 +355,14 @@ def tasks_index():
 
 @app.route("/tasks/unrecorded_winners")
 def tasks_unrecorded_winners():
-    return render_template("tasks_unrecorded_winners.html")
+    archive_base_url = (
+        "https://jiujitsu.net"
+        if os.getenv("DATABASE_URL")
+        else "http://localhost:5173"
+    )
+    return render_template(
+        "tasks_unrecorded_winners.html", archive_base_url=archive_base_url
+    )
 
 
 @app.route("/api/events/search")
@@ -492,6 +499,8 @@ def set_unrecorded_match_winner():
     event_id_raw = request.form.get("event_id", "").strip()
     match_id_raw = request.form.get("match_id", "").strip()
     winner_id_raw = request.form.get("winner_id", "").strip()
+    loser_no_show_raw = request.form.get("loser_no_show", "").strip().lower()
+    loser_no_show = loser_no_show_raw in ["1", "true", "yes", "on"]
 
     if not event_id_raw or not match_id_raw or not winner_id_raw:
         return jsonify({"error": "Missing event, match, or winner ID."}), 400
@@ -527,6 +536,7 @@ def set_unrecorded_match_winner():
         "match_id": str(match.id),
         "winner_athlete_id": str(winner_participant.athlete_id),
         "winner_athlete_name": winner_participant.athlete.name,
+        "loser_no_show": loser_no_show,
     }
 
     task = BackgroundTask(
@@ -537,9 +547,13 @@ def set_unrecorded_match_winner():
     db.session.add(task)
     db.session.commit()
 
+    task_args = [str(winner_participant.athlete_id), str(match.id)]
+    if loser_no_show:
+        task_args.append("--loser-no-show")
+
     thread = threading.Thread(
         target=_run_set_winner_task,
-        args=(task.id, [str(winner_participant.athlete_id), str(match.id)]),
+        args=(task.id, task_args),
         daemon=True,
     )
     thread.start()
@@ -548,7 +562,11 @@ def set_unrecorded_match_winner():
         {
             "task_id": str(task.id),
             "task_type": task.task_type,
-            "message": f"Created set winner task for {winner_participant.athlete.name}.",
+            "message": (
+                f"Created set winner task for {winner_participant.athlete.name}."
+                if not loser_no_show
+                else f"Created no-show disqualification task for {winner_participant.athlete.name}."
+            ),
         }
     )
 
