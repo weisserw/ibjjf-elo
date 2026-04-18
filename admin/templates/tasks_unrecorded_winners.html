@@ -313,10 +313,9 @@
                 '</thead>' +
                 '<tbody>' +
                 matches.map(function (match) {
-                    const division = match.division.age + ' / ' + match.division.gender + ' / ' + match.division.belt + ' / ' + match.division.weight;
-                    const archiveCategory = match.division.belt + ' / ' + match.division.age + ' / ' + match.division.gender + ' / ' + match.division.weight;
+                    const division = match.division.belt + ' / ' + match.division.age + ' / ' + match.division.gender + ' / ' + match.division.weight;
                     const archiveEventName = match.event_name || (selectedEvent && selectedEvent.name) || '';
-                    const archiveUrl = archiveBaseUrl + '/tournaments/archive?event_name=' + encodeURIComponent(archiveEventName) + '&category=' + encodeURIComponent(archiveCategory);
+                    const archiveUrl = archiveBaseUrl + '/tournaments/archive?event_name=' + encodeURIComponent(archiveEventName) + '&category=' + encodeURIComponent(division);
                     const divisionCell = '<a href="' + archiveUrl + '" target="_blank" rel="noopener noreferrer">' + division + '</a>';
                     const competitors = match.participants.map(function (p) {
                         return p.athlete_name;

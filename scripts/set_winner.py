@@ -128,7 +128,11 @@ if __name__ == "__main__":
         athlete_1_name = match.participants[0].athlete.name
         athlete_2_name = match.participants[1].athlete.name
 
-        action_text = "setting as no-show disqualification result" if args.loser_no_show else "setting as rated result"
+        action_text = (
+            "setting as no-show disqualification result"
+            if args.loser_no_show
+            else "setting as rated result"
+        )
         print(
             f"Updating match that occurred on {match.happened_at.isoformat()} between "
             f"{athlete_1_name} and {athlete_2_name}, "
@@ -193,4 +197,6 @@ if __name__ == "__main__":
         if args.loser_no_show:
             print("Match updated as no-show disqualification (unrated).")
         else:
-            print("Match and ratings updated. Don't forget to regenerate ranking board.")
+            print(
+                "Match and ratings updated. Don't forget to regenerate ranking board."
+            )

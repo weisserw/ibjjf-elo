@@ -356,9 +356,7 @@ def tasks_index():
 @app.route("/tasks/unrecorded_winners")
 def tasks_unrecorded_winners():
     archive_base_url = (
-        "https://jiujitsu.net"
-        if os.getenv("DATABASE_URL")
-        else "http://localhost:5173"
+        "https://jiujitsu.net" if os.getenv("DATABASE_URL") else "http://localhost:5173"
     )
     return render_template(
         "tasks_unrecorded_winners.html", archive_base_url=archive_base_url
