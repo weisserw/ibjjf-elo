@@ -656,7 +656,7 @@ function Athlete() {
         responseData.suspensions.length > 0 && (
           <div>
             <p className="has-text-weight-bold mb-3">
-              {t("Anti-Doping Violations")}:
+              {t("Anti-Doping Suspensions")}:
             </p>
             <table className="table athlete-suspension-table mb-2">
               <thead>
