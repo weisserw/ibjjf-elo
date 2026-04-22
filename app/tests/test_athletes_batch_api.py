@@ -215,8 +215,22 @@ class AthletesBatchApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertNotIn("name", third)
         self.assertEqual(third["country"], "BR")
 
-    def test_batch_lookup_requires_event_id_and_json_array_of_strings(self):
+    def test_batch_lookup_without_event_id_returns_gi_and_no_gi_ratings(self):
         response = self.client.post("/api/athletes/batch", json=["A1"])
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["ibjjf_id"], "A1")
+        self.assertEqual(data[0]["rating"], 1600.0)
+        self.assertEqual(data[0]["nogi-rating"], 1510.0)
+        self.assertEqual(data[0]["provisional"], False)
+
+    def test_batch_lookup_requires_json_array_of_strings(self):
+        response = self.client.post(
+            "/api/athletes/batch",
+            json={"ids": ["A1"]},
+        )
         self.assertEqual(response.status_code, 400)
 
         response = self.client.post(

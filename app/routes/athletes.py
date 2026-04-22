@@ -828,26 +828,25 @@ def _event_is_no_gi(event_name):
 @athletes_route.route("/api/athletes/batch", methods=["POST"])
 def athletes_batch():
     event_ibjjf_id = (request.args.get("event_id") or "").strip()
-    if not event_ibjjf_id:
-        return jsonify({"error": "Missing event_id parameter"}), 400
+    event_is_gi = None
+    if event_ibjjf_id:
+        event_name_row = (
+            db.session.query(RegistrationLink.name)
+            .filter(RegistrationLink.event_id == event_ibjjf_id)
+            .order_by(RegistrationLink.updated_at.desc())
+            .first()
+        )
 
-    event_name_row = (
-        db.session.query(RegistrationLink.name)
-        .filter(RegistrationLink.event_id == event_ibjjf_id)
-        .order_by(RegistrationLink.updated_at.desc())
-        .first()
-    )
+        event_name = None
+        if event_name_row and (event_name_row.name or "").strip():
+            event_name = event_name_row.name
+        else:
+            event = Event.query.filter_by(ibjjf_id=event_ibjjf_id).first()
+            if event is None:
+                return jsonify({"error": "Event not found"}), 404
+            event_name = event.name
 
-    event_name = None
-    if event_name_row and (event_name_row.name or "").strip():
-        event_name = event_name_row.name
-    else:
-        event = Event.query.filter_by(ibjjf_id=event_ibjjf_id).first()
-        if event is None:
-            return jsonify({"error": "Event not found"}), 404
-        event_name = event.name
-
-    event_is_gi = not _event_is_no_gi(event_name)
+        event_is_gi = not _event_is_no_gi(event_name)
 
     ibjjf_ids_payload = request.get_json(silent=True)
     if not isinstance(ibjjf_ids_payload, list):
@@ -867,50 +866,61 @@ def athletes_batch():
     if not requested_ibjjf_ids:
         return jsonify([]), 200
 
-    latest_ratings_subquery = (
-        db.session.query(
-            AthleteRating.athlete_id.label("athlete_id"),
-            AthleteRating.rating.label("rating"),
-            AthleteRating.match_count.label("match_count"),
-            func.row_number()
-            .over(
-                partition_by=AthleteRating.athlete_id,
-                order_by=(AthleteRating.id.desc(),),
-            )
-            .label("row_num"),
-        )
-        .filter(AthleteRating.gi == event_is_gi)
-        .subquery()
-    )
+    athletes = Athlete.query.filter(Athlete.ibjjf_id.in_(requested_ibjjf_ids)).all()
+    athletes_by_ibjjf_id = {athlete.ibjjf_id: athlete for athlete in athletes}
 
-    rows = (
-        db.session.query(
-            Athlete,
-            latest_ratings_subquery.c.rating.label("current_rating"),
-            latest_ratings_subquery.c.match_count.label("match_count"),
+    def _latest_ratings_by_ibjjf_id(gi_value):
+        latest_ratings_subquery = (
+            db.session.query(
+                AthleteRating.athlete_id.label("athlete_id"),
+                AthleteRating.rating.label("rating"),
+                AthleteRating.match_count.label("match_count"),
+                func.row_number()
+                .over(
+                    partition_by=AthleteRating.athlete_id,
+                    order_by=(AthleteRating.id.desc(),),
+                )
+                .label("row_num"),
+            )
+            .filter(AthleteRating.gi == gi_value)
+            .subquery()
         )
-        .join(
-            latest_ratings_subquery,
-            Athlete.id == latest_ratings_subquery.c.athlete_id,
+
+        rows = (
+            db.session.query(
+                Athlete.ibjjf_id,
+                latest_ratings_subquery.c.rating.label("current_rating"),
+                latest_ratings_subquery.c.match_count.label("match_count"),
+            )
+            .join(
+                latest_ratings_subquery,
+                Athlete.id == latest_ratings_subquery.c.athlete_id,
+            )
+            .filter(
+                Athlete.ibjjf_id.in_(requested_ibjjf_ids),
+                latest_ratings_subquery.c.row_num == 1,
+            )
+            .all()
         )
-        .filter(
-            Athlete.ibjjf_id.in_(requested_ibjjf_ids),
-            latest_ratings_subquery.c.row_num == 1,
-        )
-        .all()
-    )
-    athletes_by_ibjjf_id = {
-        athlete.ibjjf_id: (athlete, current_rating, match_count)
-        for athlete, current_rating, match_count in rows
-    }
+        return {
+            ibjjf_id: (current_rating, match_count)
+            for ibjjf_id, current_rating, match_count in rows
+        }
+
+    selected_ratings_by_ibjjf_id = {}
+    gi_ratings_by_ibjjf_id = {}
+    nogi_ratings_by_ibjjf_id = {}
+    if event_is_gi is None:
+        gi_ratings_by_ibjjf_id = _latest_ratings_by_ibjjf_id(True)
+        nogi_ratings_by_ibjjf_id = _latest_ratings_by_ibjjf_id(False)
+    else:
+        selected_ratings_by_ibjjf_id = _latest_ratings_by_ibjjf_id(event_is_gi)
 
     response = []
     for ibjjf_id in requested_ibjjf_ids:
-        found = athletes_by_ibjjf_id.get(ibjjf_id)
-        if not found:
+        athlete = athletes_by_ibjjf_id.get(ibjjf_id)
+        if athlete is None:
             continue
-
-        athlete, current_rating, match_count = found
 
         athlete_json = {}
         _set_non_blank_field(athlete_json, "ibjjf_id", athlete.ibjjf_id)
@@ -921,8 +931,35 @@ def athletes_batch():
         elif athlete.hide_full_name is not True:
             _set_non_blank_field(athlete_json, "name", athlete.name)
 
-        athlete_json["rating"] = int(round(current_rating))
-        athlete_json["provisional"] = match_count <= RATING_VERY_IMMATURE_COUNT
+        if event_is_gi is None:
+            gi_rating = gi_ratings_by_ibjjf_id.get(ibjjf_id)
+            nogi_rating = nogi_ratings_by_ibjjf_id.get(ibjjf_id)
+            if gi_rating is None and nogi_rating is None:
+                continue
+
+            gi_current_rating = gi_rating[0] if gi_rating else None
+            nogi_current_rating = nogi_rating[0] if nogi_rating else None
+            athlete_json["rating"] = (
+                int(round(gi_current_rating)) if gi_current_rating is not None else None
+            )
+            athlete_json["nogi_rating"] = (
+                int(round(nogi_current_rating))
+                if nogi_current_rating is not None
+                else None
+            )
+
+            match_count = (
+                gi_rating[1] if gi_rating else (nogi_rating[1] if nogi_rating else 0)
+            )
+            athlete_json["provisional"] = match_count <= RATING_VERY_IMMATURE_COUNT
+        else:
+            selected_rating = selected_ratings_by_ibjjf_id.get(ibjjf_id)
+            if selected_rating is None:
+                continue
+
+            current_rating, match_count = selected_rating
+            athlete_json["rating"] = int(round(current_rating))
+            athlete_json["provisional"] = match_count <= RATING_VERY_IMMATURE_COUNT
 
         _set_non_blank_field(athlete_json, "slug", athlete.slug)
         _set_non_blank_field(
