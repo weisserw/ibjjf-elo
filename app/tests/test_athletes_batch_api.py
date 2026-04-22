@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from constants import ADULT, BLACK, LIGHT, MALE
 from elo import RATING_VERY_IMMATURE_COUNT
 from extensions import db
-from models import Athlete, AthleteRating, Event
+from models import Athlete, AthleteRating, Event, RegistrationLink
 from test_db import TestDbMixin
 
 
@@ -30,7 +30,17 @@ class AthletesBatchApiTestCase(TestDbMixin, unittest.TestCase):
             ibjjf_id="E2",
             medals_only=False,
         )
-        db.session.add_all([gi_event, no_gi_event])
+        registration_only_event = RegistrationLink(
+            name="Batch Registration No-Gi Open",
+            event_id="REG_ONLY",
+            normalized_name="batch registration no-gi open",
+            updated_at=datetime(2024, 5, 1, 10, 0, 0),
+            link="https://example.com/reg-only",
+            hidden=False,
+            event_start_date=datetime(2024, 5, 10, 10, 0, 0),
+            event_end_date=datetime(2024, 5, 11, 10, 0, 0),
+        )
+        db.session.add_all([gi_event, no_gi_event, registration_only_event])
 
         athlete_one = Athlete(
             ibjjf_id="A1",
@@ -166,6 +176,21 @@ class AthletesBatchApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(second["slug"], "athlete-two")
         self.assertNotIn("instagram_profile", second)
         self.assertNotIn("country", second)
+
+    def test_batch_lookup_uses_registration_link_event_name_when_event_missing(self):
+        response = self.client.post(
+            "/api/athletes/batch",
+            query_string={"event_id": "REG_ONLY"},
+            json=["A1", "B2", "C3"],
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+
+        self.assertEqual([row["ibjjf_id"] for row in data], ["A1", "B2"])
+        self.assertEqual(data[0]["rating"], 1510.0)
+        self.assertEqual(data[0]["provisional"], True)
+        self.assertEqual(data[1]["rating"], 1300.0)
+        self.assertEqual(data[1]["provisional"], True)
 
     def test_batch_lookup_uses_gi_event_name_and_hides_full_name_without_personal_name(
         self,

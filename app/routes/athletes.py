@@ -831,11 +831,23 @@ def athletes_batch():
     if not event_ibjjf_id:
         return jsonify({"error": "Missing event_id parameter"}), 400
 
-    event = Event.query.filter_by(ibjjf_id=event_ibjjf_id).first()
-    if event is None:
-        return jsonify({"error": "Event not found"}), 404
+    event_name_row = (
+        db.session.query(RegistrationLink.name)
+        .filter(RegistrationLink.event_id == event_ibjjf_id)
+        .order_by(RegistrationLink.updated_at.desc())
+        .first()
+    )
 
-    event_is_gi = not _event_is_no_gi(event.name)
+    event_name = None
+    if event_name_row and (event_name_row.name or "").strip():
+        event_name = event_name_row.name
+    else:
+        event = Event.query.filter_by(ibjjf_id=event_ibjjf_id).first()
+        if event is None:
+            return jsonify({"error": "Event not found"}), 404
+        event_name = event.name
+
+    event_is_gi = not _event_is_no_gi(event_name)
 
     ibjjf_ids_payload = request.get_json(silent=True)
     if not isinstance(ibjjf_ids_payload, list):
