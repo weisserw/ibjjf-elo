@@ -274,7 +274,8 @@ def _apply_promotion_rating_bump(rating, from_belt, to_belt, age):
         return rating + COLOR_PROMOTION_RATING_BUMP
 
     # return default rating for rank / age
-    return DEFAULT_RATINGS.get((to_belt, None), {}).get(age, rating)
+    ret = DEFAULT_RATINGS.get(to_belt, {}).get(age, rating)
+    return ret
 
 
 def get_athlete_data(identifier, gi_param=None):
