@@ -31,6 +31,7 @@ from elo import (
     belt_order,
     BLACK_PROMOTION_RATING_BUMP,
     COLOR_PROMOTION_RATING_BUMP,
+    DEFAULT_RATINGS,
 )
 
 
@@ -259,7 +260,7 @@ def _get_athlete_team_history(athlete_id):
     return team_history
 
 
-def _apply_promotion_rating_bump(rating, from_belt, to_belt):
+def _apply_promotion_rating_bump(rating, from_belt, to_belt, age):
     if rating is None or not from_belt or not to_belt or from_belt == to_belt:
         return rating
 
@@ -272,7 +273,8 @@ def _apply_promotion_rating_bump(rating, from_belt, to_belt):
             return rating + BLACK_PROMOTION_RATING_BUMP
         return rating + COLOR_PROMOTION_RATING_BUMP
 
-    return rating
+    # return default rating for rank / age
+    return DEFAULT_RATINGS.get((to_belt, None), {}).get(age, rating)
 
 
 def get_athlete_data(identifier, gi_param=None):
@@ -449,7 +451,7 @@ def get_athlete_data(identifier, gi_param=None):
         elif highest_belt:
             rating = elo_history[-1]["Rating"]
             rating = _apply_promotion_rating_bump(
-                rating, elo_history[-1]["belt"], highest_belt
+                rating, elo_history[-1]["belt"], highest_belt, elo_history[-1]["age"]
             )
 
     filtered_registrations = registrations
@@ -752,6 +754,7 @@ def ratings():
         "team_history": [],
     }
     last_match_belt = None
+    last_match_age = None
     for rating in weight_query.order_by(Match.happened_at.desc()).limit(1).all():
         info["weight"] = rating.weight
 
@@ -762,8 +765,9 @@ def ratings():
         info["id"] = rating.athlete_id
         info["slug"] = rating.slug
         last_match_belt = rating.belt
+        last_match_age = rating.age
 
-    if info["id"] and last_match_belt:
+    if info["id"] and last_match_belt and last_match_age:
         athlete = db.session.get(Athlete, info["id"])
         if athlete:
             info["team_history"] = _get_athlete_team_history(info["id"])
@@ -794,7 +798,7 @@ def ratings():
                 last_match_belt, registration_belts, promotion_belts
             )
             info["rating"] = _apply_promotion_rating_bump(
-                info["rating"], last_match_belt, highest_belt
+                info["rating"], last_match_belt, highest_belt, last_match_age
             )
 
             if highest_belt:
@@ -907,14 +911,165 @@ def athletes_batch():
             for ibjjf_id, current_rating, match_count in rows
         }
 
+    def _fallback_latest_match_ratings_by_ibjjf_id(missing_ibjjf_ids, gi_value):
+        if not missing_ibjjf_ids:
+            return {}
+
+        missing_athletes = [
+            athletes_by_ibjjf_id[ibjjf_id]
+            for ibjjf_id in missing_ibjjf_ids
+            if ibjjf_id in athletes_by_ibjjf_id
+        ]
+        if not missing_athletes:
+            return {}
+
+        athlete_ids = [athlete.id for athlete in missing_athletes]
+        now = datetime.now()
+
+        registration_rows = (
+            db.session.query(
+                Athlete.id.label("athlete_id"),
+                Division.belt.label("belt"),
+            )
+            .select_from(Athlete)
+            .join(
+                RegistrationLinkCompetitor,
+                RegistrationLinkCompetitor.athlete_name == Athlete.name,
+            )
+            .join(
+                RegistrationLink,
+                RegistrationLinkCompetitor.registration_link_id == RegistrationLink.id,
+            )
+            .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
+            .filter(
+                Athlete.id.in_(athlete_ids),
+                RegistrationLink.event_end_date >= now,
+            )
+            .all()
+        )
+        registration_belts_by_athlete_id = {}
+        for row in registration_rows:
+            registration_belts_by_athlete_id.setdefault(row.athlete_id, []).append(
+                row.belt
+            )
+
+        promotion_rows = (
+            db.session.query(
+                ManualPromotions.athlete_id.label("athlete_id"),
+                ManualPromotions.belt.label("belt"),
+            )
+            .filter(ManualPromotions.athlete_id.in_(athlete_ids))
+            .all()
+        )
+        promotion_belts_by_athlete_id = {}
+        for row in promotion_rows:
+            promotion_belts_by_athlete_id.setdefault(row.athlete_id, []).append(
+                row.belt
+            )
+
+        latest_matches_subquery = (
+            db.session.query(
+                MatchParticipant.athlete_id.label("athlete_id"),
+                Athlete.ibjjf_id.label("ibjjf_id"),
+                MatchParticipant.end_rating.label("end_rating"),
+                MatchParticipant.end_match_count.label("end_match_count"),
+                Division.belt.label("last_match_belt"),
+                Division.age.label("last_match_age"),
+                func.row_number()
+                .over(
+                    partition_by=MatchParticipant.athlete_id,
+                    order_by=(Match.happened_at.desc(), MatchParticipant.id.desc()),
+                )
+                .label("row_num"),
+            )
+            .select_from(MatchParticipant)
+            .join(Match, Match.id == MatchParticipant.match_id)
+            .join(Division, Division.id == Match.division_id)
+            .join(Athlete, Athlete.id == MatchParticipant.athlete_id)
+            .filter(
+                MatchParticipant.athlete_id.in_(athlete_ids),
+                Division.gi == gi_value,
+                Division.age != TEEN_1,
+                Division.age != TEEN_2,
+                Division.age != TEEN_3,
+            )
+            .subquery()
+        )
+
+        rows = (
+            db.session.query(
+                latest_matches_subquery.c.athlete_id,
+                latest_matches_subquery.c.ibjjf_id,
+                latest_matches_subquery.c.end_rating,
+                latest_matches_subquery.c.end_match_count,
+                latest_matches_subquery.c.last_match_belt,
+                latest_matches_subquery.c.last_match_age,
+            )
+            .filter(latest_matches_subquery.c.row_num == 1)
+            .all()
+        )
+
+        fallback_ratings_by_ibjjf_id = {}
+        for row in rows:
+            registration_belts = registration_belts_by_athlete_id.get(
+                row.athlete_id, []
+            )
+            promotion_belts = promotion_belts_by_athlete_id.get(row.athlete_id, [])
+            highest_belt = _compute_highest_belt(
+                row.last_match_belt,
+                registration_belts,
+                promotion_belts,
+            )
+            bumped_rating = _apply_promotion_rating_bump(
+                row.end_rating,
+                row.last_match_belt,
+                highest_belt,
+                row.last_match_age,
+            )
+            fallback_ratings_by_ibjjf_id[row.ibjjf_id] = (
+                bumped_rating,
+                row.end_match_count,
+            )
+
+        return fallback_ratings_by_ibjjf_id
+
     selected_ratings_by_ibjjf_id = {}
     gi_ratings_by_ibjjf_id = {}
     nogi_ratings_by_ibjjf_id = {}
     if event_is_gi is None:
         gi_ratings_by_ibjjf_id = _latest_ratings_by_ibjjf_id(True)
         nogi_ratings_by_ibjjf_id = _latest_ratings_by_ibjjf_id(False)
+        missing_gi_ids = [
+            ibjjf_id
+            for ibjjf_id in requested_ibjjf_ids
+            if ibjjf_id in athletes_by_ibjjf_id
+            and ibjjf_id not in gi_ratings_by_ibjjf_id
+        ]
+        missing_nogi_ids = [
+            ibjjf_id
+            for ibjjf_id in requested_ibjjf_ids
+            if ibjjf_id in athletes_by_ibjjf_id
+            and ibjjf_id not in nogi_ratings_by_ibjjf_id
+        ]
+        gi_ratings_by_ibjjf_id.update(
+            _fallback_latest_match_ratings_by_ibjjf_id(missing_gi_ids, True)
+        )
+        nogi_ratings_by_ibjjf_id.update(
+            _fallback_latest_match_ratings_by_ibjjf_id(missing_nogi_ids, False)
+        )
     else:
         selected_ratings_by_ibjjf_id = _latest_ratings_by_ibjjf_id(event_is_gi)
+        missing_selected_ids = [
+            ibjjf_id
+            for ibjjf_id in requested_ibjjf_ids
+            if ibjjf_id in athletes_by_ibjjf_id
+            and ibjjf_id not in selected_ratings_by_ibjjf_id
+        ]
+        selected_ratings_by_ibjjf_id.update(
+            _fallback_latest_match_ratings_by_ibjjf_id(
+                missing_selected_ids, event_is_gi
+            )
+        )
 
     response = []
     for ibjjf_id in requested_ibjjf_ids:
@@ -942,7 +1097,7 @@ def athletes_batch():
             athlete_json["rating"] = (
                 int(round(gi_current_rating)) if gi_current_rating is not None else None
             )
-            athlete_json["nogi_rating"] = (
+            athlete_json["nogi-rating"] = (
                 int(round(nogi_current_rating))
                 if nogi_current_rating is not None
                 else None

@@ -5,10 +5,20 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from constants import ADULT, BLACK, LIGHT, MALE
-from elo import RATING_VERY_IMMATURE_COUNT
+from constants import ADULT, BLACK, BROWN, LIGHT, MALE
+from elo import BLACK_PROMOTION_RATING_BUMP, RATING_VERY_IMMATURE_COUNT
 from extensions import db
-from models import Athlete, AthleteRating, Event, RegistrationLink
+from models import (
+    Athlete,
+    AthleteRating,
+    Division,
+    Event,
+    Match,
+    MatchParticipant,
+    RegistrationLink,
+    RegistrationLinkCompetitor,
+    Team,
+)
 from test_db import TestDbMixin
 
 
@@ -71,7 +81,14 @@ class AthletesBatchApiTestCase(TestDbMixin, unittest.TestCase):
             slug="athlete-three",
             country="BR",
         )
-        db.session.add_all([athlete_one, athlete_two, athlete_three])
+        athlete_four = Athlete(
+            ibjjf_id="D4",
+            name="Athlete Four",
+            normalized_name="athlete four",
+            hide_full_name=False,
+            slug="athlete-four",
+        )
+        db.session.add_all([athlete_one, athlete_two, athlete_three, athlete_four])
         db.session.flush()
 
         ratings = [
@@ -145,6 +162,95 @@ class AthletesBatchApiTestCase(TestDbMixin, unittest.TestCase):
             ),
         ]
         db.session.add_all(ratings)
+
+        team = Team(name="Batch Team", normalized_name="batch team")
+        gi_brown_division = Division(
+            gi=True,
+            gender=MALE,
+            age=ADULT,
+            belt=BROWN,
+            weight=LIGHT,
+        )
+        nogi_brown_division = Division(
+            gi=False,
+            gender=MALE,
+            age=ADULT,
+            belt=BROWN,
+            weight=LIGHT,
+        )
+        registration_black_division = Division(
+            gi=True,
+            gender=MALE,
+            age=ADULT,
+            belt=BLACK,
+            weight=LIGHT,
+        )
+        db.session.add_all(
+            [team, gi_brown_division, nogi_brown_division, registration_black_division]
+        )
+        db.session.flush()
+
+        gi_match = Match(
+            event_id=gi_event.id,
+            division_id=gi_brown_division.id,
+            happened_at=datetime(2024, 6, 1, 10, 0, 0),
+            rated=True,
+        )
+        nogi_match = Match(
+            event_id=no_gi_event.id,
+            division_id=nogi_brown_division.id,
+            happened_at=datetime(2024, 7, 1, 10, 0, 0),
+            rated=True,
+        )
+        db.session.add_all([gi_match, nogi_match])
+        db.session.flush()
+
+        gi_participant = MatchParticipant(
+            match_id=gi_match.id,
+            athlete_id=athlete_four.id,
+            team_id=team.id,
+            seed=1,
+            red=True,
+            winner=True,
+            start_rating=1500.0,
+            end_rating=1520.0,
+            start_match_count=1,
+            end_match_count=2,
+        )
+        nogi_participant = MatchParticipant(
+            match_id=nogi_match.id,
+            athlete_id=athlete_four.id,
+            team_id=team.id,
+            seed=1,
+            red=True,
+            winner=True,
+            start_rating=1490.0,
+            end_rating=1510.0,
+            start_match_count=2,
+            end_match_count=3,
+        )
+        db.session.add_all([gi_participant, nogi_participant])
+
+        future_registration = RegistrationLink(
+            name="Future Batch Open",
+            event_id="FUTURE_EVENT",
+            normalized_name="future batch open",
+            updated_at=datetime(2024, 8, 1, 10, 0, 0),
+            link="https://example.com/future-batch",
+            hidden=False,
+            event_start_date=datetime(2099, 1, 10, 10, 0, 0),
+            event_end_date=datetime(2099, 1, 11, 10, 0, 0),
+        )
+        db.session.add(future_registration)
+        db.session.flush()
+
+        future_registration_competitor = RegistrationLinkCompetitor(
+            registration_link_id=future_registration.id,
+            athlete_name=athlete_four.name,
+            team_name=team.name,
+            division_id=registration_black_division.id,
+        )
+        db.session.add(future_registration_competitor)
         db.session.commit()
 
     def setUp(self):
@@ -225,6 +331,31 @@ class AthletesBatchApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(data[0]["rating"], 1600.0)
         self.assertEqual(data[0]["nogi-rating"], 1510.0)
         self.assertEqual(data[0]["provisional"], False)
+
+    def test_batch_lookup_falls_back_to_latest_match_and_applies_promotion_bump(self):
+        response = self.client.post(
+            "/api/athletes/batch",
+            query_string={"event_id": "E1"},
+            json=["D4"],
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["ibjjf_id"], "D4")
+        self.assertEqual(data[0]["rating"], 1520.0 + BLACK_PROMOTION_RATING_BUMP)
+        self.assertEqual(data[0]["provisional"], True)
+
+    def test_batch_lookup_without_event_id_uses_fallback_for_gi_and_no_gi(self):
+        response = self.client.post("/api/athletes/batch", json=["D4"])
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["ibjjf_id"], "D4")
+        self.assertEqual(data[0]["rating"], 1520.0 + BLACK_PROMOTION_RATING_BUMP)
+        self.assertEqual(data[0]["nogi-rating"], 1510.0 + BLACK_PROMOTION_RATING_BUMP)
+        self.assertEqual(data[0]["provisional"], True)
 
     def test_batch_lookup_requires_json_array_of_strings(self):
         response = self.client.post(
