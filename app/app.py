@@ -27,6 +27,9 @@ formatter = logging.Formatter(
 )
 ch.setFormatter(formatter)
 
+CORS_ALLOWED_ORIGINS = {"https://www.bjjcompsystem.com"}
+CORS_ALLOWED_METHODS = "GET, POST"
+
 # Add the handler to the logger
 logger.addHandler(ch)
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="/")
@@ -107,6 +110,22 @@ def add_cache_control_headers(response):
         )
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+
+    if request.path.startswith("/api/"):
+        origin = request.headers.get("Origin")
+        if origin in CORS_ALLOWED_ORIGINS:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Methods"] = CORS_ALLOWED_METHODS
+            vary = response.headers.get("Vary")
+            if vary:
+                if "Origin" not in vary:
+                    response.headers["Vary"] = f"{vary}, Origin"
+            else:
+                response.headers["Vary"] = "Origin"
+            requested_headers = request.headers.get("Access-Control-Request-Headers")
+            response.headers["Access-Control-Allow-Headers"] = (
+                requested_headers if requested_headers else "Content-Type"
+            )
     return response
 
 
