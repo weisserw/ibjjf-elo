@@ -302,7 +302,9 @@ const translations = {
     "Our site links to a third-party Chrome extension that adds our ratings to the IBJJF's \"Order of Fights\" page. This extension is meant as a convenience for users, its use should not be taken as an endorsement of our ratings by the IBJJF.": "Nosso site vincula a uma extensão de terceiros para Chrome que adiciona nossas ratings à página \"Ordem de Lutas\" da IBJJF. Esta extensão é destinada como uma conveniência para os usuários, seu uso não deve ser interpretado como um endosso de nossas ratings pela IBJJF.",
     "New:": "Novo:",
     "Try this": "Tente isso",
-    "which adds our ratings and profile links to the IBJJF's \"Order of Fights\" page.": "que adiciona nossas ratings e links de perfil à página \"Ordem de Lutas\" da IBJJF.",
+    "which adds our ratings and profile links to the IBJJF's \"Order of Fights\" page": "que adiciona nossas ratings e links de perfil à página \"Ordem de Lutas\" da IBJJF",
+    "see ": "veja ",
+    "disclaimer": "isenção de responsabilidade",
 };
 
 export type translationKeys = keyof typeof translations;

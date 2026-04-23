@@ -37,7 +37,9 @@ function Brackets({ tab }: BracketsProps) {
           <p className="mt-4">
             <b>{t("New:")}</b>
             {' '}
-            {t("Try this")}{' '}<a href="https://chromewebstore.google.com/detail/jiujitsunet-athlete-links/hjfemdlponamddjinbbagcklaingabjk" target="_blank" rel="nofollow noreferrer">Chrome extension</a>{' '}{t("which adds our ratings and profile links to the IBJJF's \"Order of Fights\" page.")}
+            {t("Try this")}{' '}<a href="https://chromewebstore.google.com/detail/jiujitsunet-athlete-links/hjfemdlponamddjinbbagcklaingabjk" target="_blank" rel="nofollow noreferrer">Chrome extension</a>{' '}{t("which adds our ratings and profile links to the IBJJF's \"Order of Fights\" page")}
+            {' '}
+            ({t("see ")}<Link to="/about#disclaimer">{t("disclaimer")}</Link>).
           </p>
         )
       }
