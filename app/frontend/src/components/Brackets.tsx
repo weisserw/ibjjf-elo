@@ -3,7 +3,7 @@ import BracketLive from './BracketLive'
 import BracketRegistration from './BracketRegistration'
 import BracketArchive from './BracketArchive'
 import { t } from '../translate'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import "./Brackets.css"
 
@@ -29,6 +29,15 @@ function Brackets({ tab }: BracketsProps) {
         tab === 'Live' && (
           <p>
             {t("This tool imports brackets from")}{' '}<a href="https://bjjcompsystem.com/" target="_blank" rel="nofollow noreferrer">bjjcompsystem.com</a>{' '}{t("and displays the current ratings of the competitors. Brackets are typically posted 1-2 days before an event starts.")}
+          </p>
+        )
+      }
+      {
+        tab === 'Live' && (
+          <p className="mt-4">
+            <b>{t("New:")}</b>
+            {' '}
+            {t("Try this")}{' '}<a href="https://chromewebstore.google.com/detail/jiujitsunet-athlete-links/hjfemdlponamddjinbbagcklaingabjk" target="_blank" rel="nofollow noreferrer">Chrome extension</a>{' '}{t("which adds our ratings and profile links to the IBJJF's \"Order of Fights\" page.")}
           </p>
         )
       }

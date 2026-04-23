@@ -42,6 +42,9 @@ function About() {
         <p className="content">
           {t("Please do not interpret these results as official IBJJF rankings, and do not confuse this site with the official IBJJF organization or its official platforms.")}
         </p>
+        <p className="content">
+          {t("Our site links to a third-party Chrome extension that adds our ratings to the IBJJF's \"Order of Fights\" page. This extension is meant as a convenience for users, its use should not be taken as an endorsement of our ratings by the IBJJF.")}
+        </p>
         <h1 className="title">{t("FAQ")}</h1>
         <p className="content"><strong>{t("Q: Why do we need an IBJJF ranking app when the IBJJF has its own ranking system?")}</strong></p>
         <p className="content">{t("A: There are two primary reasons why this site exists:")}
