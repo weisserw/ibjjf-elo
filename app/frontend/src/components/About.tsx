@@ -93,7 +93,7 @@ function About() {
           </ul>
         </p>
         <p className="content"><strong>{t("Q: Why aren't some of my medals showing on my profile?")}</strong></p>
-        <p className="content">{t("A: The \"Earned Medals\" section only includes medals from matches where the athlete won a match, not just participated. Also, while effort was made to collect historical medal data, events before April 2025 may be incomplete. If you have an earned medal that is missing, please contact us on Instagram to have it added.")}</p>
+        <p className="content">{t("A: The \"Earned Medals\" section only includes medals from matches where the athlete won a match, not just participated. However, we do display all medals that occurred before we began collecting match data in December 2024. Older medal data may be incomplete; you have an earned medal that is missing, please contact us on Instagram to have it added.")}</p>
       </div>
     </section>
   );

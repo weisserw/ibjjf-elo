@@ -4,7 +4,6 @@ from flask import Blueprint, request, jsonify
 from uuid import UUID
 from sqlalchemy import and_, func, or_
 from sqlalchemy.sql import exists
-from sqlalchemy.orm import aliased
 from extensions import db
 from models import (
     Athlete,
@@ -472,7 +471,6 @@ def get_athlete_data(identifier, gi_param=None):
     if registration_team_name:
         team_name = registration_team_name
 
-    MedalAlias = aliased(Medal)
     medal_query = (
         db.session.query(
             Medal.place,
@@ -505,29 +503,8 @@ def get_athlete_data(identifier, gi_param=None):
                     )
                     .exists(),
                 ),
-                and_(  # athletes got 2nd place and there is a 3rd place medal awarded in that event/division (for tournaments where we have medals but no matches)
-                    Medal.place == 2,
-                    db.session.query(MedalAlias)
-                    .filter(
-                        MedalAlias.event_id == Medal.event_id,
-                        MedalAlias.division_id == Medal.division_id,
-                        MedalAlias.place == 3,
-                    )
-                    .exists(),
-                ),
-                and_(  # athletes got 1st place and there is a 2nd OR 3rd place medal awarded in that event/division (for tournaments where we have medals but no matches)
-                    Medal.place == 1,
-                    db.session.query(MedalAlias)
-                    .filter(
-                        MedalAlias.event_id == Medal.event_id,
-                        MedalAlias.division_id == Medal.division_id,
-                        or_(
-                            MedalAlias.place == 2,
-                            MedalAlias.place == 3,
-                        ),
-                    )
-                    .exists(),
-                ),
+                # Medal occurred before historical cutoff (December 1, 2024)
+                Medal.happened_at < datetime(2024, 12, 1),
             )
         )
     )
