@@ -80,6 +80,7 @@ export interface FilterValues {
   mat_number?: number;
   rating_start?: number;
   rating_end?: number;
+  elite_only?: boolean;
 }
 
 export type FilterKeys = keyof FilterValues;
@@ -332,7 +333,8 @@ function DBFilters() {
                         !!filters.team_name ||
                         !!filters.country ||
                         !!filters.rating_start ||
-                        !!filters.rating_end
+                        !!filters.rating_end ||
+                        !!filters.elite_only
                      }>
               <div className="field is-grouped">
                 <div className="control is-expanded">
@@ -380,7 +382,7 @@ function DBFilters() {
                 </div>
               </div>
               <div className="field is-grouped">
-                <div className="control is-expanded">
+                <div className="control">
                   <div className="db-country-autosuggest">
                     <Autosuggest
                       suggestions={countrySuggestions}
@@ -439,6 +441,14 @@ function DBFilters() {
                     onClearProps(['rating_start', 'rating_end']);
                   }}>{t("Clear")}</button>
                 </div>
+                <label className="checkbox checkbox-filter">
+                  <input
+                    type="checkbox"
+                    checked={!!filters.elite_only}
+                    onChange={(e) => onChange('elite_only', e.target.checked)}
+                  />
+                  {t("Elite Only")}
+                </label>
               </div>
             </Section>
             <Section title={t("Tournament")}

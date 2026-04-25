@@ -17,9 +17,12 @@ from constants import (
     MASTER_6,
     MASTER_7,
     JUVENILE,
+    JUVENILE_1,
+    JUVENILE_2,
     TEEN_1,
     TEEN_2,
     TEEN_3,
+    NON_ELITE_BELTS,
     GREY,
     YELLOW,
     YELLOW_GREY,
@@ -45,6 +48,7 @@ from constants import (
     OPEN_CLASS_HEAVY,
 )
 from models import Athlete, MatchParticipant, Division, Match, Event
+from elo import RATING_VERY_IMMATURE_COUNT
 from photos import get_public_photo_url, get_s3_client
 from normalize import normalize
 from livestreams import load_livestream_links, get_livestream_link
@@ -139,6 +143,7 @@ def matches():
     mat_number = request.args.get("mat_number")
     rating_start = request.args.get("rating_start")
     rating_end = request.args.get("rating_end")
+    elite_only = request.args.get("elite_only")
     page = request.args.get("page") or 1
 
     if gi is None:
@@ -215,6 +220,8 @@ def matches():
         weight_ultra_heavy = weight_ultra_heavy.lower() == "true"
     if weight_open_class:
         weight_open_class = weight_open_class.lower() == "true"
+    if elite_only:
+        elite_only = elite_only.lower() == "true"
 
     params = {"gi": gi}
 
@@ -338,6 +345,36 @@ def matches():
 
     if athlete_team_clauses:
         filters += "AND (" + " OR ".join(athlete_team_clauses) + ")\n"
+
+    if elite_only:
+        non_elite_belt_params = {
+            f"non_elite_belt_{index}": belt
+            for index, belt in enumerate(sorted(NON_ELITE_BELTS))
+        }
+        filters += f"""AND EXISTS (
+            SELECT 1
+            FROM match_participants mp
+            JOIN athlete_ratings ar ON ar.athlete_id = mp.athlete_id
+            WHERE mp.match_id = m.id
+            AND ar.gi = :gi
+            AND ar.rank IS NOT NULL
+            AND ar.match_count > :elite_min_match_count
+            AND ar.percentile IS NOT NULL
+            AND ROUND(ar.percentile * 100) <= 10
+            AND ar.age IN (:elite_age_adult, :elite_age_juvenile, :elite_age_juvenile_1, :elite_age_juvenile_2)
+            AND ar.belt NOT IN ({", ".join(f":{key}" for key in non_elite_belt_params)})
+        )
+        """
+        params.update(
+            {
+                "elite_min_match_count": RATING_VERY_IMMATURE_COUNT,
+                "elite_age_adult": ADULT,
+                "elite_age_juvenile": JUVENILE,
+                "elite_age_juvenile_1": JUVENILE_1,
+                "elite_age_juvenile_2": JUVENILE_2,
+                **non_elite_belt_params,
+            }
+        )
 
     if athlete_name2:
         filters += (

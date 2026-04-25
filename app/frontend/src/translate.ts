@@ -13,6 +13,7 @@ const translations = {
     "Belt": "Faixa",
     "Weight": "Peso",
     "Country": "País",
+    "Elite Only": "Somente Elite",
     "Male": "Masculino",
     "Female": "Feminino",
     "Teen": "Infanto Juvenil",

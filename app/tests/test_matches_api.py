@@ -14,9 +14,18 @@ from constants import (
     LIGHT,
     LIGHT_FEATHER,
     MALE,
+    MASTER_1,
 )
 from extensions import db
-from models import Athlete, Division, Event, Match, MatchParticipant, Team
+from models import (
+    Athlete,
+    AthleteRating,
+    Division,
+    Event,
+    Match,
+    MatchParticipant,
+    Team,
+)
 from test_db import TestDbMixin
 
 
@@ -154,6 +163,49 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             ),
         ]
         db.session.add_all(participants)
+
+        ratings = [
+            AthleteRating(
+                athlete_id=athlete1.id,
+                gender=MALE,
+                age=ADULT,
+                belt=BLACK,
+                gi=True,
+                weight=LIGHT,
+                rating=1500.0,
+                match_happened_at=datetime(2024, 1, 1, 12, 0, 0),
+                rank=1,
+                percentile=0.104,
+                match_count=5,
+            ),
+            AthleteRating(
+                athlete_id=athlete3.id,
+                gender=FEMALE,
+                age=MASTER_1,
+                belt=BLUE,
+                gi=True,
+                weight=LIGHT_FEATHER,
+                rating=1300.0,
+                match_happened_at=datetime(2024, 1, 2, 12, 0, 0),
+                rank=1,
+                percentile=0.01,
+                match_count=5,
+            ),
+            AthleteRating(
+                athlete_id=athlete4.id,
+                gender=FEMALE,
+                age=ADULT,
+                belt=BLUE,
+                gi=True,
+                weight=LIGHT_FEATHER,
+                rating=1290.0,
+                match_happened_at=datetime(2024, 1, 2, 12, 0, 0),
+                rank=2,
+                percentile=0.105,
+                match_count=5,
+            ),
+        ]
+        db.session.add_all(ratings)
         db.session.commit()
 
     def setUp(self):
@@ -271,6 +323,22 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
                 "rating_start": "1500",
                 "date_start": "2024-01-01",
                 "date_end": "2024-01-01T23:59:59",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["winner"], "Test Athlete")
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_elite_only(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        response = self.client.get(
+            "/api/matches",
+            query_string={
+                "gi": "true",
+                "elite_only": "true",
             },
         )
         self.assertEqual(response.status_code, 200)
