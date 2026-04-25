@@ -266,7 +266,10 @@ def get_livestream_link(
                             )
 
                             if not flo_event_tags.get(ibjjf_id):
-                                link += "&t=" + str(time_offset_seconds) + "s"
+                                if "?" in link:
+                                    link += "&t=" + str(time_offset_seconds) + "s"
+                                else:
+                                    link += "#t=" + str(time_offset_seconds) + "s"
 
                             if hide_all:
                                 return None
