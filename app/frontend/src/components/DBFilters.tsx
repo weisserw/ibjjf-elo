@@ -441,7 +441,7 @@ function DBFilters() {
                     onClearProps(['rating_start', 'rating_end']);
                   }}>{t("Clear")}</button>
                 </div>
-                <label className="checkbox checkbox-filter">
+                <label className="checkbox checkbox-filter rating-range-elite-only">
                   <input
                     type="checkbox"
                     checked={!!filters.elite_only}

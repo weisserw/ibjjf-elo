@@ -65,6 +65,15 @@
   align-items: center;
 }
 
+.rating-range {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.rating-range-elite-only {
+  white-space: nowrap;
+}
+
 .date-input, .rating-input {
   width: 105px;
 }
@@ -146,4 +155,11 @@
 
 .db-country-autosuggest .react-autosuggest__suggestion {
   padding: 8px 12px;
+}
+
+@media screen and (max-width: 768px) {
+  .rating-range-elite-only {
+    flex: 0 0 100%;
+    width: 100%;
+  }
 }
