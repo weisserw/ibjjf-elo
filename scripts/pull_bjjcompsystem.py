@@ -49,6 +49,11 @@ def main():
             action="store_true",
             help="Tournament is incomplete; ignore unfinished matches (default: False)",
         )
+        parser.add_argument(
+            "--slow-mode",
+            action="store_true",
+            help="Sleep 5 seconds after reading each bracket page (default: False)",
+        )
 
         args = parser.parse_args()
 
@@ -108,6 +113,7 @@ def main():
                 raise_on_error=not args.allow_errors,
                 retries=args.retries,
                 incomplete=args.incomplete,
+                slow_mode=args.slow_mode,
             )
         print(f"Wrote data to {output_file}")
     except Exception as e:

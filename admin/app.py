@@ -614,6 +614,7 @@ def tasks_import():
         retries = request.form.get("retries", "2").strip()
         allow_errors = request.form.get("allow_errors") == "on"
         incomplete = request.form.get("incomplete") == "on"
+        slow_mode = request.form.get("slow_mode") == "on"
 
         if not tournament_id or not tournament_name:
             error = "Tournament ID and Tournament Name are required."
@@ -636,6 +637,8 @@ def tasks_import():
                 args.append("--allow-errors")
             if incomplete:
                 args.append("--incomplete")
+            if slow_mode:
+                args.append("--slow-mode")
 
             params = {
                 "tournament_id": tournament_id,
@@ -644,6 +647,7 @@ def tasks_import():
                 "retries": retries_int,
                 "allow_errors": allow_errors,
                 "incomplete": incomplete,
+                "slow_mode": slow_mode,
             }
 
             task = BackgroundTask(

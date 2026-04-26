@@ -6,6 +6,8 @@ from bs4 import BeautifulSoup
 import re
 from elo import WINNER_NOT_RECORDED
 
+SLOW_MODE_DELAY_SECONDS = 5
+
 
 class InternalServerError(Exception):
     """Custom exception for handling internal server errors."""
@@ -213,6 +215,7 @@ def pull_tournament(
     raise_on_error=True,
     retries=None,
     incomplete=False,
+    slow_mode=False,
 ):
     total_matches = 0
     total_defaults = 0
@@ -262,6 +265,12 @@ def pull_tournament(
 
             categoryurl = f"{base_url}{link}"
             response = rate_limit_get(s, categoryurl, limit, retries)
+            if slow_mode:
+                print(
+                    f"Slow mode enabled; sleeping {SLOW_MODE_DELAY_SECONDS} seconds",
+                    flush=True,
+                )
+                time.sleep(SLOW_MODE_DELAY_SECONDS)
             if response.status_code != 200:
                 if raise_on_error:
                     raise Exception(
