@@ -418,10 +418,23 @@ def get_athlete_data(identifier, gi_param=None):
         .all()
     )
 
+    def filter_registrations(r, belt):
+        if belt and belt in belt_order:
+            current_belt_index = belt_order.index(belt)
+            return [
+                reg
+                for reg in r
+                if reg.belt in belt_order
+                and belt_order.index(reg.belt) >= current_belt_index
+            ]
+        return r
+
     # if they have ranks, use the belt and rating from there
     if len(ranks):
         rating = ranks[0]["rating"]
         highest_belt = ranks[0]["belt"]
+
+        filtered_registrations = filter_registrations(registrations, highest_belt)
     else:
         # determine highest belt from matches, registrations, and promotions
         highest_belt = None
@@ -454,22 +467,18 @@ def get_athlete_data(identifier, gi_param=None):
                 rating, elo_history[-1]["belt"], highest_belt, elo_history[-1]["age"]
             )
 
-    filtered_registrations = registrations
-    if highest_belt and highest_belt in belt_order:
-        current_belt_index = belt_order.index(highest_belt)
-        filtered_registrations = [
-            reg
-            for reg in registrations
-            if reg.belt in belt_order
-            and belt_order.index(reg.belt) >= current_belt_index
-        ]
+        filtered_registrations = filter_registrations(registrations, highest_belt)
 
-    registration_team_name = next(
-        (row.team_name for row in reversed(filtered_registrations) if row.team_name),
-        None,
-    )
-    if registration_team_name:
-        team_name = registration_team_name
+        registration_team_name = next(
+            (
+                row.team_name
+                for row in reversed(filtered_registrations)
+                if row.team_name
+            ),
+            None,
+        )
+        if registration_team_name:
+            team_name = registration_team_name
 
     medal_query = (
         db.session.query(
