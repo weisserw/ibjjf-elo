@@ -379,6 +379,20 @@ class FloEventTag(db.Model):
     __table_args__ = (Index("ix_flo_event_tags_event_id", "event_id"),)
 
 
+class FloMatLink(db.Model):
+    __tablename__ = "flo_mat_links"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(String, nullable=False)
+    mat_number = Column(Integer, nullable=False)
+    link = Column(String, nullable=False)
+
+    __table_args__ = (
+        Index("ix_flo_mat_links_event_id", "event_id"),
+        Index("ix_flo_mat_links_event_mat", "event_id", "mat_number", unique=True),
+    )
+
+
 class RegistrationLinkCompetitor(db.Model):
     __tablename__ = "registration_link_competitors"
 

@@ -69,6 +69,47 @@
             </tbody>
         </table>
     </form>
+    <h2 class="title is-5 mt-5">Flo Per-Mat Links</h2>
+    <form method="post">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Mat</th>
+                    <th>Flo URL</th>
+                    <th class="has-text-centered">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fml in flo_mat_links %}
+                <tr>
+                    <form method="post">
+                        <input type="hidden" name="flo_mat_link_id" value="{{ fml.id }}">
+                        <td><input class="input num-input" type="number" name="flo_mat_number" value="{{ fml.mat_number }}" min="1" required></td>
+                        <td><input class="input url-input" type="url" name="flo_mat_link" value="{{ fml.link }}" required></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="button is-success is-small" type="submit" name="action" value="edit_flo_mat_link">Save</button>
+                                <button class="button is-danger is-small" type="submit" name="action" value="delete_flo_mat_link">Delete</button>
+                            </div>
+                        </td>
+                    </form>
+                </tr>
+                {% endfor %}
+                <tr>
+                    <form method="post">
+                        <input type="hidden" name="action" value="add_flo_mat_link">
+                        <td><input class="input num-input" type="number" name="flo_mat_number" min="1" required></td>
+                        <td><input class="input url-input" type="url" name="flo_mat_link" required></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="button is-link is-small" type="submit">Add</button>
+                            </div>
+                        </td>
+                    </form>
+                </tr>
+            </tbody>
+        </table>
+    </form>
     <form method="post">
         <input type="hidden" name="action" value="update_flo_tag">
         <div class="field has-addons">

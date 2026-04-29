@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, redirect, url_for, request, session, jsonify
 from urllib.parse import urlparse, urlencode, urlunparse
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 
 
 # Ensure app directory is in sys.path for imports
@@ -26,6 +27,7 @@ from models import (
     Match,
     MatchParticipant,
     FloEventTag,
+    FloMatLink,
     BackgroundTask,
     FloSearchName,
     TeamNameMapping,
@@ -787,6 +789,12 @@ def event_livestreams():
     if len(flo_event_tags) > 0:
         flo_tag = flo_event_tags[0].tag
 
+    flo_mat_links = (
+        FloMatLink.query.filter(FloMatLink.event_id == event_id)
+        .order_by(FloMatLink.mat_number)
+        .all()
+    )
+
     if request.method == "POST":
         action = request.form.get("action")
         day_number = request.form.get("day_number", type=int)
@@ -911,6 +919,52 @@ def event_livestreams():
                         db.session.delete(event_tag)
             db.session.commit()
             return redirect(url_for("event_livestreams", id=event_id, name=name))
+        elif action in (
+            "add_flo_mat_link",
+            "edit_flo_mat_link",
+            "delete_flo_mat_link",
+        ):
+            flo_mat_link_id = request.form.get("flo_mat_link_id")
+            flo_mat_number = request.form.get("flo_mat_number", type=int)
+            flo_mat_link_url = request.form.get("flo_mat_link", "").strip()
+
+            if action == "delete_flo_mat_link":
+                if flo_mat_link_id:
+                    fml = FloMatLink.query.get(uuid.UUID(flo_mat_link_id))
+                    if fml:
+                        db.session.delete(fml)
+                        db.session.commit()
+                return redirect(url_for("event_livestreams", id=event_id, name=name))
+
+            if not flo_mat_number or flo_mat_number < 1 or not flo_mat_link_url:
+                error = "Mat number and URL are required for Flo per-mat links."
+            else:
+                try:
+                    if action == "add_flo_mat_link":
+                        new_fml = FloMatLink(
+                            event_id=event_id,
+                            mat_number=flo_mat_number,
+                            link=flo_mat_link_url,
+                        )
+                        db.session.add(new_fml)
+                        db.session.commit()
+                        return redirect(
+                            url_for("event_livestreams", id=event_id, name=name)
+                        )
+                    else:
+                        fml = FloMatLink.query.get(uuid.UUID(flo_mat_link_id))
+                        if fml:
+                            fml.mat_number = flo_mat_number
+                            fml.link = flo_mat_link_url
+                            db.session.commit()
+                        return redirect(
+                            url_for("event_livestreams", id=event_id, name=name)
+                        )
+                except IntegrityError:
+                    db.session.rollback()
+                    error = (
+                        f"A Flo per-mat link already exists for mat {flo_mat_number}."
+                    )
 
         streams = (
             LiveStream.query.filter(LiveStream.event_id == event_id)
@@ -923,6 +977,11 @@ def event_livestreams():
             )
             .all()
         )
+        flo_mat_links = (
+            FloMatLink.query.filter(FloMatLink.event_id == event_id)
+            .order_by(FloMatLink.mat_number)
+            .all()
+        )
 
     return render_template(
         "event_livestreams.html",
@@ -931,6 +990,7 @@ def event_livestreams():
         streams=streams,
         error=error,
         flo_tag=flo_tag,
+        flo_mat_links=flo_mat_links,
     )
 
 

@@ -105,7 +105,14 @@ export interface CategoriesResponse {
 
 export type MatNumberString = string
 
-export type MatLink = Record<MatNumberString, string>
+export type MatLinkType = 'youtube' | 'flo'
+
+export interface MatLinkEntry {
+  link: string
+  type: MatLinkType
+}
+
+export type MatLink = Record<MatNumberString, MatLinkEntry>
 
 export type TournamentDate = string
 

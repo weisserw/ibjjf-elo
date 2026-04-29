@@ -19,6 +19,7 @@ def _load_special_search_names(session):
 
 def load_livestream_links(session, event_ids, registrations=False):
     tournament_days = {}
+    tournament_end_days = {}
 
     # Build parameterized IN clause for event_ids
     event_id_params = {f"eid_{i}": eid for i, eid in enumerate(event_ids)}
@@ -28,18 +29,23 @@ def load_livestream_links(session, event_ids, registrations=False):
         event_results = session.execute(
             text(
                 f"""
-            SELECT r.event_id, r.event_start_date
+            SELECT r.event_id, r.event_start_date, r.event_end_date
             FROM registration_links r
             WHERE r.event_id IN ({event_id_placeholders})
             """
             ),
             event_id_params,
         )
-        for ibjjf_id, start_date in event_results:
+        for ibjjf_id, start_date, end_date in event_results:
             start_date_date = start_date
             if isinstance(start_date, str):
                 start_date_date = datetime.fromisoformat(start_date)
             tournament_days[ibjjf_id] = start_date_date.date()
+            if end_date is not None:
+                end_date_date = end_date
+                if isinstance(end_date, str):
+                    end_date_date = datetime.fromisoformat(end_date)
+                tournament_end_days[ibjjf_id] = end_date_date.date()
     else:
         event_results = session.execute(
             text(
@@ -109,12 +115,28 @@ def load_livestream_links(session, event_ids, registrations=False):
             event_id_params,
         )
     }
+
+    flo_mat_links = {}
+    for ev_id, mat_number, link in session.execute(
+        text(
+            f"""
+        SELECT event_id, mat_number, link
+        FROM flo_mat_links
+        WHERE event_id IN ({event_id_placeholders})
+        """
+        ),
+        event_id_params,
+    ):
+        flo_mat_links[(ev_id, mat_number)] = link
+
     special_search_names = _load_special_search_names(session)
 
     return {
         "tournament_days": tournament_days,
+        "tournament_end_days": tournament_end_days,
         "live_streams": live_streams,
         "flo_event_tags": flo_event_tags,
+        "flo_mat_links": flo_mat_links,
         "special_search_names": special_search_names,
     }
 

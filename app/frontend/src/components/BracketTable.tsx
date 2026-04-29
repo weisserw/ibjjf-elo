@@ -5,7 +5,7 @@ import dayjs from 'dayjs'
 import { useAppContext } from '../AppContext'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Competitor, MatLinks } from './BracketUtils'
+import type { Competitor, MatLinks, MatLinkEntry } from './BracketUtils'
 import { Tooltip } from 'react-tooltip';
 import { t } from '../translate'
 import NameInfo from './NameInfo'
@@ -144,7 +144,7 @@ function BracketTable(props: BracketTableProps) {
     return selectedAthletes.length !== 2 || selectedAthletes.filter(a => props.calculateEnabled(a)).length !== 2
   };
 
-  const getMatLink = (where: string, when: string, matLinks: MatLinks | null | undefined): string | null => {
+  const getMatLink = (where: string, when: string, matLinks: MatLinks | null | undefined): MatLinkEntry | null => {
     if (!matLinks) {
       return null;
     }
@@ -158,11 +158,11 @@ function BracketTable(props: BracketTableProps) {
     const whereParts = where.split(/\s+/);
     const matNumberString = whereParts[whereParts.length - 1];
 
-    return matLinkEntry[matNumberString] ?? null; 
+    return matLinkEntry[matNumberString] ?? null;
   }
 
-  const logoForLink = (link: string) => {
-    if (link.includes('flograppling')) {
+  const logoForMatLink = (entry: MatLinkEntry) => {
+    if (entry.type === 'flo') {
       return <img src={floLogo} alt="Match Link" style={{width: '14px', height: '14px', maxWidth: '14px', marginLeft: '2px'}} />
     } else {
       return <img src={youtubeLogo} alt="Mat Link" style={{width: '20px', height: '20px', maxWidth: '20px', maxHeight: '20px'}} />
@@ -247,7 +247,7 @@ function BracketTable(props: BracketTableProps) {
           {
             competitors?.map(competitor => {
               const [badge, badgeDesc] = badgeForPercentile(competitor.percentile, belt, competitor.percentile_age);
-              const matLink = (competitor.next_where && competitor.next_when) ? getMatLink(competitor.next_where, competitor.next_when, props.matLinks) ?? '' : '' ;
+              const matLink = (competitor.next_where && competitor.next_when) ? getMatLink(competitor.next_where, competitor.next_when, props.matLinks) : null;
               
               return (
               <tr key={competitor.name}>
@@ -332,8 +332,8 @@ function BracketTable(props: BracketTableProps) {
                       }
                       {
                       (competitor.next_where && competitor.next_when && matLink) &&
-                        <a href={matLink} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, matLink)}>
-                          {logoForLink(matLink)}
+                        <a href={matLink.link} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, matLink.link)}>
+                          {logoForMatLink(matLink)}
                         </a>
                       }
                     </div>
