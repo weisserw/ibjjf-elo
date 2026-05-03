@@ -292,6 +292,7 @@ const translations = {
     "Reason": "Razão",
     "Mat Number": "Número do Tatame",
     "News": "Notícias",
+    "Latest News:": "Últimas Notícias:",
     "Store": "Loja",
     "This site is not affiliated, endorsed by, or associated with the International Brazilian Jiu-Jitsu Federation.": "Este site não é afiliado, endossado ou associado à Federação Internacional de Jiu-Jitsu Brasileiro.",
     "While we only rank athletes who compete in the International Brazilian Jiu-Jitsu Federation, this site is not affiliated, endorsed by, or associated with the IBJJF.": "Embora classifiquemos apenas atletas que competem na Federação Internacional de Jiu-Jitsu Brasileiro, este site não é afiliado, endossado ou associado à IBJJF.",

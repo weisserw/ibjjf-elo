@@ -107,7 +107,7 @@ function Ratings() {
     <div className="container">
       {!loading && !error && posts.length > 0 &&
         <section className="news-section">
-          <span className="news-badge">Latest News:</span>
+          <span className="news-badge">{t('Latest News:')}</span>
           <div className="news-posts">
             {posts.slice(0, 3).map((post, index) => (
               <span key={post.ID}>
