@@ -1904,24 +1904,47 @@ def parse_match(match, weight):
     }
 
 
+def is_finished_match(match):
+    # one winner, one loser, match did happen
+    return (
+        (match["red_loser"] and not match["blue_loser"])
+        or (not match["red_loser"] and match["blue_loser"])
+    ) and not match_didnt_happen(match["red_note"], match["blue_note"])
+
+
 def dq_earlier_matches(matches):
+    # if an athlete has a match marked as DQ or DNS, mark all their earlier matches as DQ/DNS if none have a result
     for i in range(len(matches)):
         match = matches[i]
 
         if match_didnt_happen(match["red_note"], match["red_note"]):
-            for j in range(i):
-                earlier_match = matches[j]
-                if earlier_match["red_id"] == match["red_id"]:
-                    earlier_match["red_note"] = match["red_note"]
-                elif earlier_match["blue_id"] == match["red_id"]:
-                    earlier_match["blue_note"] = match["red_note"]
+            earlier_indices = [
+                j
+                for j in range(i)
+                if matches[j]["red_id"] == match["red_id"]
+                or matches[j]["blue_id"] == match["red_id"]
+            ]
+            if all(not is_finished_match(matches[j]) for j in earlier_indices):
+                for j in earlier_indices:
+                    earlier_match = matches[j]
+                    if earlier_match["red_id"] == match["red_id"]:
+                        earlier_match["red_note"] = match["red_note"]
+                    elif earlier_match["blue_id"] == match["red_id"]:
+                        earlier_match["blue_note"] = match["red_note"]
         if match_didnt_happen(match["blue_note"], match["blue_note"]):
-            for j in range(i):
-                earlier_match = matches[j]
-                if earlier_match["red_id"] == match["blue_id"]:
-                    earlier_match["red_note"] = match["blue_note"]
-                elif earlier_match["blue_id"] == match["blue_id"]:
-                    earlier_match["blue_note"] = match["blue_note"]
+            earlier_indices = [
+                j
+                for j in range(i)
+                if matches[j]["red_id"] == match["blue_id"]
+                or matches[j]["blue_id"] == match["blue_id"]
+            ]
+            if all(not is_finished_match(matches[j]) for j in earlier_indices):
+                for j in earlier_indices:
+                    earlier_match = matches[j]
+                    if earlier_match["red_id"] == match["blue_id"]:
+                        earlier_match["red_note"] = match["blue_note"]
+                    elif earlier_match["blue_id"] == match["blue_id"]:
+                        earlier_match["blue_note"] = match["blue_note"]
 
 
 def update_live_ratings_thread(gi, results, division_id, last_match_whens):
