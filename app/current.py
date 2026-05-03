@@ -311,7 +311,6 @@ def create_ratings_tables(
                     d.gi,
                     d.gender,
                     d.age,
-                    d.belt,
                     d.weight
                 FROM match_participants mp
                 JOIN matches m ON m.id = mp.match_id
@@ -351,19 +350,19 @@ def create_ratings_tables(
                     )
                 )
                 UNION
-                SELECT athlete_id, gi, gender, age, belt, weight
+                SELECT athlete_id, gi, gender, age, weight
                 FROM registration_only_adult_weights
             ), athlete_weights AS (
                 SELECT * FROM athlete_weights_no_p4p
                 UNION ALL
-                SELECT athlete_id, gi, gender, age, belt, '' AS weight FROM (
-                    SELECT athlete_id, gi, gender, age, belt
+                SELECT athlete_id, gi, gender, age, '' AS weight FROM (
+                    SELECT athlete_id, gi, gender, age
                     FROM {name}_athlete_won_matches
                     UNION
-                    SELECT athlete_id, gi, gender, age, belt
+                    SELECT athlete_id, gi, gender, age
                     FROM {name}_athlete_lost_matches
                     UNION
-                    SELECT athlete_id, gi, gender, age, belt
+                    SELECT athlete_id, gi, gender, age
                     FROM registration_only_adult_weights
                 ) q
             ), recent_matches AS (
