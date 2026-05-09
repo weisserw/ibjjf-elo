@@ -68,7 +68,7 @@ span.clear-filter {
 
 .plain-bullet {
   display: inline-block;
-  background-color: hsl(var(--bulma-light-h),var(--bulma-light-s),var(--bulma-light-l));
+  background-color: #aaa;
   width: 10px;
   height: 10px;
   border-radius: 50%;
