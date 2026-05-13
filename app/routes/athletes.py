@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from uuid import UUID
 from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import aliased
 from sqlalchemy.sql import exists
 from extensions import db
 from models import (
@@ -31,6 +32,7 @@ from elo import (
     BLACK_PROMOTION_RATING_BUMP,
     COLOR_PROMOTION_RATING_BUMP,
     DEFAULT_RATINGS,
+    no_match_strings,
 )
 
 
@@ -277,6 +279,32 @@ def _apply_promotion_rating_bump(rating, from_belt, to_belt, age):
     return ret
 
 
+def _won_real_match_exists():
+    # Correlated EXISTS: athlete won a match in the medal's event/division
+    # where neither participant was marked as a no-show / withdraw / overweight.
+    mp_winner = aliased(MatchParticipant)
+    mp_no_show = aliased(MatchParticipant)
+    return (
+        db.session.query(Match)
+        .join(mp_winner, mp_winner.match_id == Match.id)
+        .filter(
+            Match.event_id == Medal.event_id,
+            Match.division_id == Medal.division_id,
+            mp_winner.athlete_id == Medal.athlete_id,
+            mp_winner.winner == True,
+            ~(
+                db.session.query(mp_no_show)
+                .filter(
+                    mp_no_show.match_id == Match.id,
+                    or_(*[mp_no_show.note.contains(s) for s in no_match_strings]),
+                )
+                .exists()
+            ),
+        )
+        .exists()
+    )
+
+
 def get_athlete_data(identifier, gi_param=None):
     athlete, id_uuid = _resolve_athlete(identifier)
     if not athlete:
@@ -499,19 +527,7 @@ def get_athlete_data(identifier, gi_param=None):
         .filter(Division.gi == gi)
         .filter(
             or_(  # OR conditions for valid medals
-                and_(  # athletes won a match in the same event/division they got a medal in
-                    db.session.query(Match)
-                    .join(MatchParticipant)
-                    .filter(
-                        Match.event_id == Medal.event_id,
-                        Match.division_id == Medal.division_id,
-                        Match.rated == True,
-                        MatchParticipant.match_id == Match.id,
-                        MatchParticipant.athlete_id == Medal.athlete_id,
-                        MatchParticipant.winner == True,
-                    )
-                    .exists(),
-                ),
+                _won_real_match_exists(),
                 # Medal occurred before historical cutoff (December 1, 2024)
                 Medal.happened_at < datetime(2024, 12, 1),
             )

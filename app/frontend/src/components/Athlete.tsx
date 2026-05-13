@@ -877,7 +877,7 @@ function Athlete() {
         )
       }
       {
-        parsedEloHistory.length === 0 && (
+        matchData.length === 0 && (
           <div className="notification mt-4">
             {t("No matches found")}
           </div>
