@@ -456,12 +456,27 @@ def _past_worlds_year_groups(patterns, today):
     return result
 
 
-def _adult_black_belt_seeding(athlete_ids, gi, today):
+def _title_weight_filter(weight):
+    """SQLAlchemy clause restricting ``Division.weight`` for black-belt title
+    queries. Regular divisions match only their exact weight; open-class
+    divisions match any of the three open-class variants (so a competitor in
+    Open Class Heavy gets credit for an Open Class gold, etc.).
+    """
+    if weight in SEEDING_OPEN_CLASS_WEIGHTS:
+        return Division.weight.in_(list(SEEDING_OPEN_CLASS_WEIGHTS))
+    return Division.weight == weight
+
+
+def _adult_black_belt_seeding(athlete_ids, divdata, gi, today):
     """Compute the six adult-black-belt-only seeding flags per athlete.
 
     Returns ``{athlete_id: {field: value, ...}}``; only athletes who have at
     least one of the flags set appear in the dict. Athletes not present in
     the result should keep the default values initialized by the caller.
+
+    World-title checks are scoped to the current division's weight class —
+    regular weights match exactly, open-class divisions match any open-class
+    variant.
 
     Fields:
       - ``world_champion_recent`` — gold at any of the 3 most-recent past Worlds.
@@ -486,7 +501,9 @@ def _adult_black_belt_seeding(athlete_ids, gi, today):
     year_to_rank = {y: i for i, y in enumerate(sorted_years)}
     eid_to_year = {eid: y for y, (eids, _) in year_groups.items() for eid in eids}
 
-    # Black-belt adult golds at *any* past Worlds.
+    weight_filter = _title_weight_filter(divdata["weight"])
+
+    # Black-belt adult golds at *any* past Worlds, in the current weight class.
     black_rows = (
         db.session.query(Medal.athlete_id, Medal.event_id)
         .join(Division, Medal.division_id == Division.id)
@@ -497,11 +514,13 @@ def _adult_black_belt_seeding(athlete_ids, gi, today):
             Division.gi == gi,
             Division.age == ADULT,
             Division.belt == BLACK,
+            weight_filter,
         )
         .all()
     )
 
-    # Brown-belt adult golds *only* at the single most-recent past Worlds.
+    # Brown-belt adult golds *only* at the single most-recent past Worlds,
+    # in the current weight class.
     previous_event_ids = year_groups[sorted_years[0]][0]
     brown_winners = {
         r.athlete_id
@@ -515,6 +534,7 @@ def _adult_black_belt_seeding(athlete_ids, gi, today):
                 Division.gi == gi,
                 Division.age == ADULT,
                 Division.belt == BROWN,
+                weight_filter,
             )
             .all()
         )
@@ -557,6 +577,10 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
     Returns ``{athlete_id: {field: value, ...}}``. Athletes not in the
     result keep the default values initialized by the caller.
 
+    All title checks are scoped to the current division's weight class —
+    regular weights match exactly, open-class divisions match any open-class
+    variant.
+
     Fields (all booleans, indicating an *ever* black-belt Worlds title):
       - ``adult_world_champion`` — gold at any past adult Worlds.
       - ``master_K_world_champion`` for K = 1 .. current master level —
@@ -571,6 +595,7 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
 
     levels = _master_levels_up_to(divdata["age"])
     relevant_master_ages = [age for _, age in levels]
+    weight_filter = _title_weight_filter(divdata["weight"])
 
     # Past adult Worlds events (for the "adult_world_champion" check).
     adult_year_groups = _past_worlds_year_groups(_adult_worlds_patterns(gi), today)
@@ -592,6 +617,7 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
                     Division.gi == gi,
                     Division.age == ADULT,
                     Division.belt == BLACK,
+                    weight_filter,
                 )
                 .all()
             )
@@ -616,6 +642,7 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
                 Division.gi == gi,
                 Division.age.in_(relevant_master_ages),
                 Division.belt == BLACK,
+                weight_filter,
             )
             .all()
         ):
@@ -845,7 +872,7 @@ def add_seeding_data(rows, divdata, gi, now=None):
             )
 
     if is_adult_black:
-        bb_data = _adult_black_belt_seeding(athlete_ids, gi, now)
+        bb_data = _adult_black_belt_seeding(athlete_ids, divdata, gi, now)
     elif is_master_black:
         bb_data = _master_black_belt_seeding(athlete_ids, divdata, gi, now)
     else:

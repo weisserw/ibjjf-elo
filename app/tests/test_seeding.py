@@ -699,6 +699,86 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         row = self._seed_and_run(seed, _divdata(belt=BLACK), gi=True)
         self.assertFalse(row["previous_brown_world_champion"])
 
+    def test_adult_black_belt_title_in_different_weight_does_not_count(self):
+        # Gold at Worlds 2025 in HEAVY shouldn't satisfy a LIGHT tournament's
+        # world-champion flags.
+        def seed(t):
+            a = t._make_athlete("bb-wrong-weight")
+            t._add_medal(a, t.worlds_2025, place=1, weight=HEAVY)
+            return a
+
+        row = self._seed_and_run(seed, _divdata(belt=BLACK, weight=LIGHT), gi=True)
+        self.assertFalse(row["world_champion_recent"])
+        self.assertIsNone(row["last_world_title_year"])
+        self.assertFalse(row["former_world_champion"])
+
+    def test_adult_black_belt_brown_title_in_different_weight_does_not_count(self):
+        # Brown gold in HEAVY at the most-recent past Worlds should NOT trigger
+        # ``previous_brown_world_champion`` for a LIGHT division.
+        def seed(t):
+            a = t._make_athlete("bb-prev-brown-wrong-weight")
+            t._add_medal(a, t.worlds_2025, place=1, belt=BROWN, weight=HEAVY)
+            return a
+
+        row = self._seed_and_run(seed, _divdata(belt=BLACK, weight=LIGHT), gi=True)
+        self.assertFalse(row["previous_brown_world_champion"])
+
+    def test_adult_black_belt_open_class_division_uses_open_class_titles(self):
+        # An Open Class tournament should credit an Open Class Worlds gold,
+        # but NOT a regular-weight (LIGHT) gold.
+        def seed(t):
+            with_open = t._make_athlete("bb-open-with-title")
+            with_light = t._make_athlete("bb-open-light-title")
+            t._add_medal(with_open, t.worlds_2025, place=1, weight=OPEN_CLASS)
+            t._add_medal(with_light, t.worlds_2025, place=1, weight=LIGHT)
+            return [with_open, with_light]
+
+        rows = self._seed_and_run(
+            seed, _divdata(belt=BLACK, weight=OPEN_CLASS), gi=True
+        )
+        self.assertTrue(rows[0]["world_champion_recent"])
+        self.assertFalse(rows[1]["world_champion_recent"])
+
+    def test_adult_black_belt_open_class_variants_count_for_open_class(self):
+        # Open Class Heavy at Worlds counts for an Open Class division.
+        def seed(t):
+            a = t._make_athlete("bb-open-heavy")
+            t._add_medal(a, t.worlds_2025, place=1, weight=OPEN_CLASS_HEAVY)
+            return a
+
+        row = self._seed_and_run(
+            seed, _divdata(belt=BLACK, weight=OPEN_CLASS), gi=True
+        )
+        self.assertTrue(row["world_champion_recent"])
+
+    def test_master_black_belt_title_in_different_weight_does_not_count(self):
+        # Master 3 gold in HEAVY at Master Worlds shouldn't satisfy a LIGHT
+        # Master 3 tournament's ``master_3_world_champion``.
+        def seed(t):
+            a = t._make_athlete("mb-wrong-weight")
+            t._add_medal(
+                a, t.master_worlds_2024, place=1, age=MASTER_3, weight=HEAVY
+            )
+            return a
+
+        row = self._seed_and_run(
+            seed, _divdata(age=MASTER_3, belt=BLACK, weight=LIGHT), gi=True
+        )
+        self.assertFalse(row["master_3_world_champion"])
+
+    def test_master_black_belt_adult_title_in_different_weight_does_not_count(self):
+        # Adult black gold in HEAVY shouldn't satisfy a LIGHT Master 1
+        # tournament's ``adult_world_champion``.
+        def seed(t):
+            a = t._make_athlete("mb-adult-wrong-weight")
+            t._add_medal(a, t.worlds_2025, place=1, weight=HEAVY)
+            return a
+
+        row = self._seed_and_run(
+            seed, _divdata(age=MASTER_1, belt=BLACK, weight=LIGHT), gi=True
+        )
+        self.assertFalse(row["adult_world_champion"])
+
     def test_non_adult_black_belt_tournament_skips_fields(self):
         # An Adult brown belt tournament should not get the black-belt-only
         # fields — they should be absent from the row entirely.
