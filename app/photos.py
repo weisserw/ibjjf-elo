@@ -71,7 +71,7 @@ def save_instagram_profile_photo_to_s3(
         content_type = (
             (response.headers.get("Content-Type") or "").split(";")[0].strip()
         )
-        if content_type.lower() != "image/jpeg":
+        if content_type.lower() not in ("image/jpeg", "image/png"):
             raise Exception(
                 f"Unexpected Instagram profile photo content type: {content_type or 'unknown'}"
             )
@@ -94,6 +94,8 @@ def save_instagram_profile_photo_to_s3(
 def detect_image_content_type(photo_bytes: bytes):
     if photo_bytes.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
+    if photo_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
     return None
 
 
@@ -112,14 +114,18 @@ def save_profile_photo_to_s3(
         None if content_type is None else content_type.split(";")[0].strip().lower()
     )
 
+    allowed_content_types = ("image/jpeg", "image/png")
+
     if validate_image_bytes:
         detected_content_type = detect_image_content_type(photo_bytes)
-        if detected_content_type != "image/jpeg":
+        if detected_content_type not in allowed_content_types:
             raise ValueError("Invalid profile photo format")
         final_content_type = detected_content_type
     else:
-        if normalized_content_type != "image/jpeg":
-            raise ValueError("Profile photo content type must be image/jpeg")
+        if normalized_content_type not in allowed_content_types:
+            raise ValueError(
+                "Profile photo content type must be image/jpeg or image/png"
+            )
         final_content_type = normalized_content_type
 
     s3_client.put_object(

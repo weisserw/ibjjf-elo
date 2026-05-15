@@ -1,0 +1,881 @@
+"""IBJJF seeding-points calculator.
+
+Given the registration list for a single division, populates each row with
+seeding-related fields (currently: ``points`` and ``open_class_points``)
+according to the IBJJF's per-category, per-season, per-star, per-weight
+points scheme.
+
+The public entry point is :func:`add_seeding_data`.
+"""
+import math
+import re
+from datetime import datetime
+
+from sqlalchemy.sql import func, or_
+
+from extensions import db
+from models import Medal, Match, Division, Event
+from constants import (
+    ADULT,
+    BLACK,
+    BROWN,
+    JUVENILE,
+    JUVENILE_1,
+    JUVENILE_2,
+    MASTER_1,
+    MASTER_2,
+    MASTER_3,
+    MASTER_4,
+    MASTER_5,
+    MASTER_6,
+    MASTER_7,
+    OPEN_CLASS,
+    OPEN_CLASS_HEAVY,
+    OPEN_CLASS_LIGHT,
+    weight_class_order,
+)
+
+
+SEEDING_ADULT_AGES = frozenset([ADULT])
+# Juvenile, Juvenile 1, and Juvenile 2 share a points pool that does NOT
+# carry into adult.
+SEEDING_JUVENILE_AGES = frozenset([JUVENILE, JUVENILE_1, JUVENILE_2])
+# Ordered young -> old; masters count their own level and every level below it,
+# plus adult (but not juvenile).
+SEEDING_MASTER_AGES_ORDERED = (
+    MASTER_1, MASTER_2, MASTER_3, MASTER_4, MASTER_5, MASTER_6, MASTER_7,
+)
+SEEDING_MASTER_AGES = frozenset(SEEDING_MASTER_AGES_ORDERED)
+
+# Normal weight classes in order (Rooster -> Ultra Heavy) and the open-class set.
+SEEDING_NORMAL_WEIGHTS_ORDERED = tuple(weight_class_order)
+SEEDING_OPEN_CLASS_WEIGHTS = frozenset(
+    [OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY]
+)
+
+# Base names of the "Worlds" event whose start date defines each category's
+# season boundaries. A season *begins at* the start of Worlds: a medal earned
+# on the first day of Worlds 2025 is in the 2025-2026 season; one earned the
+# day before falls in the previous season.
+WORLDS_BASE_ADULT_GI = "World IBJJF Jiu-Jitsu Championship"
+WORLDS_BASE_MASTERS_GI = "World Master IBJJF Jiu-Jitsu Championship"
+WORLDS_BASE_NOGI = "World IBJJF Jiu-Jitsu No-Gi Championship"
+
+# Historical-Worlds patterns, including legacy naming used in events before
+# the 2022 rebrand ("World Jiu-Jitsu IBJJF Championship YYYY"). Used by the
+# black-belt-specific seeding queries that need to look at ANY past Worlds,
+# not just those inside the regular 3-season window.
+WORLDS_BASES_ADULT_GI = (
+    WORLDS_BASE_ADULT_GI,
+    "World Jiu-Jitsu IBJJF Championship",
+)
+WORLDS_BASES_ADULT_NOGI = (
+    WORLDS_BASE_NOGI,
+    "World Jiu-Jitsu No-Gi IBJJF Championship",
+)
+# Gi Master Worlds is a *separate* event from gi adult Worlds. In no-gi
+# there is no separate Master Worlds; master divisions are hosted inside
+# the regular no-gi Worlds event — so no-gi master-title lookups use
+# ``WORLDS_BASES_ADULT_NOGI`` filtered by ``Division.age``.
+WORLDS_BASES_MASTERS_GI = (
+    WORLDS_BASE_MASTERS_GI,
+    "World Master Jiu-Jitsu IBJJF Championship",
+)
+
+# Grand Slam event bases per category, in calendar order
+# (Euros, Pans, Brasileiros, Worlds). The current Grand Slam "season" is
+# the most recent edition of each; multipliers (3x/2x/1x) apply per event
+# type based on recency within that type, independent of the regular season.
+GRAND_SLAM_BASES_ADULT_GI = (
+    "European IBJJF Jiu-Jitsu Championship",
+    "Pan IBJJF Jiu-Jitsu Championship",
+    "Campeonato Brasileiro de Jiu-Jitsu",
+    "World IBJJF Jiu-Jitsu Championship",
+)
+GRAND_SLAM_BASES_MASTERS_GI = (
+    "European IBJJF Jiu-Jitsu Championship",
+    "Pan IBJJF Jiu-Jitsu Championship",
+    "Campeonato Brasileiro de Jiu-Jitsu",
+    "World Master IBJJF Jiu-Jitsu Championship",
+)
+GRAND_SLAM_BASES_NOGI = (
+    "European IBJJF Jiu-Jitsu No-Gi Championship",
+    "Pan IBJJF Jiu-Jitsu No-Gi Championship",
+    "Campeonato Brasileiro de Jiu-Jitsu Sem Kimono",
+    "World IBJJF Jiu-Jitsu No-Gi Championship",
+)
+
+# Per-place base values. Normal-weight medals use the smaller scale,
+# open-class medals get a larger scale (and a flat 1.0 weight multiplier).
+_WEIGHT_PLACE_POINTS = {1: 9, 2: 3, 3: 1}
+_OPEN_PLACE_POINTS = {1: 13.5, 2: 4.5, 3: 1.5}
+_VALID_MEDAL_PLACES = list(_WEIGHT_PLACE_POINTS.keys())
+
+# How many recent calendar years to scan when locating event-year groups
+# (Worlds editions / Grand Slam editions). 4 covers any "today" point in
+# the year because at most the 3 most-recent past Worlds can span 4
+# calendar years (e.g. the day before this year's Worlds, we still need
+# 3 years back).
+_EVENT_YEAR_LOOKBACK = 4
+
+
+def _normalize_event_name(name):
+    """Match key for an Event.name. Lowercases, removes any parenthetical
+    groups (source markers like ' (Flo)', ' (BJJHeroes)', ' (Archive)' and
+    sub-event qualifiers like ' (Juvenil, Adulto e Master)'), and collapses
+    runs of whitespace.
+    """
+    name = re.sub(r"\s*\([^)]*\)\s*", " ", name)
+    return re.sub(r"\s+", " ", name).strip().lower()
+
+
+def _event_base(normalized_name):
+    """Strip the trailing 4-digit year from a normalized event name, so
+    ``'world ibjjf jiu-jitsu championship 2024'`` becomes
+    ``'world ibjjf jiu-jitsu championship'``. Used as the year-agnostic key
+    for star-rating lookups so a single dict entry covers every edition of
+    the same tournament.
+    """
+    return re.sub(r"\s+\d{4}\s*$", "", normalized_name).strip()
+
+
+def _build_star_table(entries):
+    """Given ``(base_name, stars)`` entries, return a year-agnostic
+    ``{normalized_base: stars}`` dict — lookups should strip the year from
+    the medal's normalized event name first via :func:`_event_base`.
+    """
+    return {_normalize_event_name(base): stars for base, stars in entries}
+
+
+# Adult/Juvenile gi star tournaments. Base names are the *current* (post-2022)
+# event-name forms from the events table, without year suffix and without any
+# trailing source-marker parenthetical.
+_ADULT_GI_TOURNAMENTS = [
+    ("World IBJJF Jiu-Jitsu Championship", 7),
+    ("European IBJJF Jiu-Jitsu Championship", 4),
+    ("Pan IBJJF Jiu-Jitsu Championship", 4),
+    ("Campeonato Brasileiro de Jiu-Jitsu", 4),
+    ("Asian Jiu-Jitsu IBJJF Championship", 3),
+    ("American National IBJJF Jiu-Jitsu Championship", 2),
+    # BJJ Pro is multi-city; each city is its own event in the DB.
+    ("Curitiba BJJ Pro IBJJF Championship", 2),
+    ("Rio BJJ Pro IBJJF Championship", 2),
+    ("São Paulo BJJ Pro IBJJF Championship", 2),
+    ("Pan Pacific IBJJF Jiu-Jitsu Championship", 2),
+    ("South American Jiu-Jitsu IBJJF Championship", 2),
+    ("Jiu-Jitsu CON International", 2),
+]
+STAR_RATINGS_ADULT_GI = _build_star_table(_ADULT_GI_TOURNAMENTS)
+
+# Masters gi: adult gi minus World, plus World Master.
+_MASTERS_GI_TOURNAMENTS = [
+    (name, stars)
+    for name, stars in _ADULT_GI_TOURNAMENTS
+    if name != "World IBJJF Jiu-Jitsu Championship"
+] + [("World Master IBJJF Jiu-Jitsu Championship", 7)]
+STAR_RATINGS_MASTERS_GI = _build_star_table(_MASTERS_GI_TOURNAMENTS)
+
+_NOGI_TOURNAMENTS = [
+    ("World IBJJF Jiu-Jitsu No-Gi Championship", 7),
+    ("European IBJJF Jiu-Jitsu No-Gi Championship", 4),
+    ("Pan IBJJF Jiu-Jitsu No-Gi Championship", 4),
+    ("Campeonato Brasileiro de Jiu-Jitsu Sem Kimono", 4),
+    ("American National IBJJF Jiu-Jitsu No-Gi Championship", 2),
+    ("Pan Pacific IBJJF Jiu-Jitsu No-Gi Championship", 2),
+    ("South American Jiu-Jitsu IBJJF No-Gi Championship", 2),
+    ("Jiu-Jitsu CON No-Gi International", 2),
+]
+STAR_RATINGS_NOGI = _build_star_table(_NOGI_TOURNAMENTS)
+
+DEFAULT_STAR_RATING = 1
+
+
+def _star_table_for_division(division_age, gi):
+    """Pick the star table that applies to a medal won in a given division.
+
+    Driven by the *medal's* division, not the tournament's: a master
+    competing for seeding gets x7 for an adult-Worlds gold because it was
+    won in an adult division (and there are no master divisions at adult
+    Worlds).
+    """
+    if not gi:
+        return STAR_RATINGS_NOGI
+    if division_age in SEEDING_MASTER_AGES:
+        return STAR_RATINGS_MASTERS_GI
+    return STAR_RATINGS_ADULT_GI
+
+
+def _seeding_category(age, gi):
+    """Return the set of division ages whose medals contribute to this
+    tournament's seeding pool, or None if the age has no defined category.
+
+    Each (age, gi) bucket has its own pool of point-eligible medals.
+    Season boundaries are handled separately in :func:`_recent_seasons`.
+    """
+    if age in SEEDING_ADULT_AGES:
+        return SEEDING_ADULT_AGES
+    if age in SEEDING_JUVENILE_AGES:
+        return SEEDING_JUVENILE_AGES
+    if age in SEEDING_MASTER_AGES:
+        # Masters carry forward: adult medals plus every master level up to
+        # and including their own (Master 1 -> Adult+M1; Master 3 -> Adult+M1+M2+M3).
+        # Juvenile medals do not fold into masters.
+        idx = SEEDING_MASTER_AGES_ORDERED.index(age)
+        return SEEDING_ADULT_AGES | frozenset(
+            SEEDING_MASTER_AGES_ORDERED[: idx + 1]
+        )
+    return None
+
+
+def _worlds_base_name(age, gi):
+    """The base name of the Worlds event whose start dates anchor the season
+    boundaries for this tournament's category.
+    """
+    if not gi:
+        return WORLDS_BASE_NOGI
+    if age in SEEDING_MASTER_AGES:
+        return WORLDS_BASE_MASTERS_GI
+    return WORLDS_BASE_ADULT_GI
+
+
+def _weight_multipliers(tournament_weight):
+    """Return {medal_weight: multiplier} for the *normal* weight classes that
+    contribute points to this tournament. Open-class medals are tallied
+    separately and are not included here.
+
+    - Normal-weight tournament: 100% from the same weight, 50% from the
+      adjacent (one above, one below) weights.
+    - Open-class tournament: 100% from every normal weight class.
+    """
+    if tournament_weight in SEEDING_OPEN_CLASS_WEIGHTS:
+        return {w: 1.0 for w in SEEDING_NORMAL_WEIGHTS_ORDERED}
+    if tournament_weight not in SEEDING_NORMAL_WEIGHTS_ORDERED:
+        return {}
+    idx = SEEDING_NORMAL_WEIGHTS_ORDERED.index(tournament_weight)
+    multipliers = {tournament_weight: 1.0}
+    if idx > 0:
+        multipliers[SEEDING_NORMAL_WEIGHTS_ORDERED[idx - 1]] = 0.5
+    if idx + 1 < len(SEEDING_NORMAL_WEIGHTS_ORDERED):
+        multipliers[SEEDING_NORMAL_WEIGHTS_ORDERED[idx + 1]] = 0.5
+    return multipliers
+
+
+def _event_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
+    """For events whose normalized name matches ``{base} {year}`` for some
+    `year` in the lookback window ending at ``today.year``, group them by
+    year and return ``{year: (event_ids, earliest_start_datetime)}`` for
+    years that have started (at least one matching event with a recorded
+    start <= today).
+
+    Duplicate source records that collide on the same (base, year) — e.g.
+    ``Campeonato Brasileiro de Jiu-Jitsu 2023`` vs.
+    ``Campeonato Brasileiro de Jiu-Jitsu (Juvenil, Adulto e Master) 2023 (Flo)``
+    — collapse into a single year-group, so they don't consume multiple
+    rolling-window slots.
+    """
+    years = range(today.year - lookback + 1, today.year + 1)
+    candidate_by_norm = {
+        _normalize_event_name(f"{base} {year}"): year for year in years
+    }
+    candidate_events = (
+        db.session.query(Event.id, Event.name)
+        .filter(Event.name.like(f"{base}%"))
+        .all()
+    )
+    events_by_year = {}
+    for e in candidate_events:
+        year = candidate_by_norm.get(_normalize_event_name(e.name))
+        if year is not None:
+            events_by_year.setdefault(year, []).append(e.id)
+    if not events_by_year:
+        return {}
+
+    all_ids = [eid for eids in events_by_year.values() for eid in eids]
+    # Earliest match per event = the day that edition started. Aggregation
+    # collapses to one row per event (no cartesian product despite many
+    # matches per event).
+    start_rows = (
+        db.session.query(
+            Match.event_id,
+            func.min(Match.happened_at).label("start"),
+        )
+        .filter(Match.event_id.in_(all_ids))
+        .group_by(Match.event_id)
+        .all()
+    )
+    eid_to_start = {r.event_id: r.start for r in start_rows if r.start is not None}
+
+    result = {}
+    for year, eids in events_by_year.items():
+        starts_in_year = [
+            eid_to_start[eid]
+            for eid in eids
+            if eid in eid_to_start and eid_to_start[eid] <= today
+        ]
+        if not starts_in_year:
+            continue
+        result[year] = (eids, min(starts_in_year))
+    return result
+
+
+def _recent_seasons(age, gi, today, n=3):
+    """Return (start, end) datetime pairs for the n most recent seasons,
+    using the actual start date of the relevant Worlds event as each season
+    boundary. A season begins at midnight of the day Worlds starts: a medal
+    earned on that day is in the new season; one earned the day before is in
+    the previous season.
+
+    seasons[0] is the in-progress / most recent season; seasons[-1] is the
+    oldest. The end of the in-progress season is left open (a far-future
+    sentinel) since the next Worlds hasn't happened yet. Returns ``[]`` if
+    no usable Worlds events are found in the DB.
+    """
+    year_groups = _event_year_groups(_worlds_base_name(age, gi), today)
+    if not year_groups:
+        return []
+
+    sorted_years = sorted(year_groups.keys(), reverse=True)[:n]
+    starts = [
+        year_groups[y][1].replace(hour=0, minute=0, second=0, microsecond=0)
+        for y in sorted_years
+    ]
+
+    far_future = datetime(9999, 12, 31)
+    seasons = []
+    next_start = far_future
+    for s in starts:
+        seasons.append((s, next_start))
+        next_start = s
+    return seasons
+
+
+def _grand_slam_bases(age, gi):
+    """The four Grand Slam event base names that apply to this category."""
+    if not gi:
+        return GRAND_SLAM_BASES_NOGI
+    if age in SEEDING_MASTER_AGES:
+        return GRAND_SLAM_BASES_MASTERS_GI
+    return GRAND_SLAM_BASES_ADULT_GI
+
+
+def _grand_slam_event_multipliers(age, gi, today, n=3):
+    """For each of the four Grand Slam events, find the n most recent
+    year-editions whose start <= today and assign multipliers
+    3x / 2x / 1x by recency *within that event type* — this is the IBJJF's
+    rolling Grand Slam season ("After Pans occurs, the season includes
+    [...] upcoming Pans; once Brazilian Nationals occurs, the season
+    updates to include [...] subsequent Brazilian Nationals").
+
+    All event_ids matching a given (base, year) candidate share the same
+    multiplier so duplicate source records don't take up extra slots.
+    Returns ``{event_id: multiplier}``.
+    """
+    result = {}
+    for base in _grand_slam_bases(age, gi):
+        year_groups = _event_year_groups(base, today)
+        if not year_groups:
+            continue
+        sorted_years = sorted(year_groups.keys(), reverse=True)[:n]
+        for i, year in enumerate(sorted_years):
+            mult = n - i  # 3x, 2x, 1x
+            for eid in year_groups[year][0]:
+                result[eid] = mult
+    return result
+
+
+def _adult_worlds_patterns(gi):
+    """Naming patterns for the Worlds event that hosts adult-division titles
+    in this gi/no-gi context."""
+    return WORLDS_BASES_ADULT_GI if gi else WORLDS_BASES_ADULT_NOGI
+
+
+def _master_worlds_patterns(gi):
+    """Naming patterns for the Worlds event that hosts master-division
+    titles. Gi has a dedicated Master Worlds; no-gi hosts master divisions
+    inside the regular no-gi Worlds event.
+    """
+    return WORLDS_BASES_MASTERS_GI if gi else WORLDS_BASES_ADULT_NOGI
+
+
+def _past_worlds_year_groups(patterns, today):
+    """Return ``{year: (event_ids, earliest_start_datetime)}`` for *every*
+    past Worlds edition whose name matches one of the given patterns —
+    both the 2022+ naming and the pre-2022 legacy naming, when those are
+    included in ``patterns``.
+
+    Unlike :func:`_event_year_groups`, this has no lookback window: it
+    walks the events table for any year matching any base pattern, so the
+    caller can answer "did this athlete ever win a Worlds?" without a
+    recency cap.
+    """
+    valid_bases = {_normalize_event_name(p) for p in patterns}
+
+    candidate_events = (
+        db.session.query(Event.id, Event.name)
+        .filter(or_(*[Event.name.like(f"{p} %") for p in patterns]))
+        .all()
+    )
+
+    events_by_year = {}
+    year_re = re.compile(r"\s(\d{4})$")
+    for e in candidate_events:
+        norm = _normalize_event_name(e.name)
+        if _event_base(norm) not in valid_bases:
+            continue
+        m = year_re.search(norm)
+        if not m:
+            continue
+        events_by_year.setdefault(int(m.group(1)), []).append(e.id)
+    if not events_by_year:
+        return {}
+
+    all_ids = [eid for eids in events_by_year.values() for eid in eids]
+    start_rows = (
+        db.session.query(
+            Match.event_id,
+            func.min(Match.happened_at).label("start"),
+        )
+        .filter(Match.event_id.in_(all_ids))
+        .group_by(Match.event_id)
+        .all()
+    )
+    eid_to_start = {r.event_id: r.start for r in start_rows if r.start is not None}
+
+    result = {}
+    for year, eids in events_by_year.items():
+        starts_in_year = [
+            eid_to_start[eid]
+            for eid in eids
+            if eid in eid_to_start and eid_to_start[eid] <= today
+        ]
+        if not starts_in_year:
+            continue
+        result[year] = (eids, min(starts_in_year))
+    return result
+
+
+def _adult_black_belt_seeding(athlete_ids, gi, today):
+    """Compute the six adult-black-belt-only seeding flags per athlete.
+
+    Returns ``{athlete_id: {field: value, ...}}``; only athletes who have at
+    least one of the flags set appear in the dict. Athletes not present in
+    the result should keep the default values initialized by the caller.
+
+    Fields:
+      - ``world_champion_recent`` — gold at any of the 3 most-recent past Worlds.
+      - ``world_champion_4_years_ago`` — gold at the 4th most-recent past Worlds.
+      - ``world_champion_5_years_ago`` — gold at the 5th most-recent past Worlds.
+      - ``last_world_title_year`` — year of the athlete's most-recent Worlds gold (any year).
+      - ``former_world_champion`` — has any Worlds gold (any year).
+      - ``previous_brown_world_champion`` — gold at the single most-recent past
+        Worlds in the **brown belt** adult division.
+    """
+    if not athlete_ids:
+        return {}
+
+    year_groups = _past_worlds_year_groups(_adult_worlds_patterns(gi), today)
+    if not year_groups:
+        return {}
+
+    # Recency rank by year: 0 = most recent past Worlds.
+    sorted_years = sorted(year_groups.keys(), reverse=True)
+    year_to_rank = {y: i for i, y in enumerate(sorted_years)}
+    eid_to_year = {
+        eid: y for y, (eids, _) in year_groups.items() for eid in eids
+    }
+
+    # Black-belt adult golds at *any* past Worlds.
+    black_rows = (
+        db.session.query(Medal.athlete_id, Medal.event_id)
+        .join(Division, Medal.division_id == Division.id)
+        .filter(
+            Medal.athlete_id.in_(athlete_ids),
+            Medal.event_id.in_(list(eid_to_year.keys())),
+            Medal.place == 1,
+            Division.gi == gi,
+            Division.age == ADULT,
+            Division.belt == BLACK,
+        )
+        .all()
+    )
+
+    # Brown-belt adult golds *only* at the single most-recent past Worlds.
+    previous_event_ids = year_groups[sorted_years[0]][0]
+    brown_winners = {
+        r.athlete_id
+        for r in (
+            db.session.query(Medal.athlete_id)
+            .join(Division, Medal.division_id == Division.id)
+            .filter(
+                Medal.athlete_id.in_(athlete_ids),
+                Medal.event_id.in_(previous_event_ids),
+                Medal.place == 1,
+                Division.gi == gi,
+                Division.age == ADULT,
+                Division.belt == BROWN,
+            )
+            .all()
+        )
+    }
+
+    years_won_by_athlete = {}
+    for r in black_rows:
+        years_won_by_athlete.setdefault(r.athlete_id, set()).add(
+            eid_to_year[r.event_id]
+        )
+
+    result = {}
+    affected = set(years_won_by_athlete) | brown_winners
+    for aid in affected:
+        years_won = years_won_by_athlete.get(aid, set())
+        ranks_won = {year_to_rank[y] for y in years_won}
+        result[aid] = {
+            "world_champion_recent": bool(ranks_won & {0, 1, 2}),
+            "last_world_title_year": max(years_won) if years_won else None,
+            "world_champion_4_years_ago": 3 in ranks_won,
+            "world_champion_5_years_ago": 4 in ranks_won,
+            "former_world_champion": bool(years_won),
+            "previous_brown_world_champion": aid in brown_winners,
+        }
+    return result
+
+
+def _master_levels_up_to(master_age):
+    """For a master tournament age, return ``[(level_num, master_age), ...]``
+    for levels 1 .. current. e.g. for Master 3:
+    ``[(1, Master 1), (2, Master 2), (3, Master 3)]``.
+    """
+    idx = SEEDING_MASTER_AGES_ORDERED.index(master_age)
+    return [
+        (i + 1, SEEDING_MASTER_AGES_ORDERED[i]) for i in range(idx + 1)
+    ]
+
+
+def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
+    """Compute master-black-belt-only seeding flags per athlete.
+
+    Returns ``{athlete_id: {field: value, ...}}``. Athletes not in the
+    result keep the default values initialized by the caller.
+
+    Fields (all booleans, indicating an *ever* black-belt Worlds title):
+      - ``adult_world_champion`` — gold at any past adult Worlds.
+      - ``master_K_world_champion`` for K = 1 .. current master level —
+        gold at any past Master Worlds in the Master K division.
+
+    Gi master tournaments look up master titles at the dedicated Master
+    Worlds event. No-gi master tournaments look up master titles at the
+    regular no-gi Worlds event (master divisions are hosted inline).
+    """
+    if not athlete_ids:
+        return {}
+
+    levels = _master_levels_up_to(divdata["age"])
+    relevant_master_ages = [age for _, age in levels]
+
+    # Past adult Worlds events (for the "adult_world_champion" check).
+    adult_year_groups = _past_worlds_year_groups(
+        _adult_worlds_patterns(gi), today
+    )
+    adult_event_ids = [
+        eid for _, (eids, _) in adult_year_groups.items() for eid in eids
+    ]
+
+    adult_champs = set()
+    if adult_event_ids:
+        adult_champs = {
+            r.athlete_id
+            for r in (
+                db.session.query(Medal.athlete_id)
+                .join(Division, Medal.division_id == Division.id)
+                .filter(
+                    Medal.athlete_id.in_(athlete_ids),
+                    Medal.event_id.in_(adult_event_ids),
+                    Medal.place == 1,
+                    Division.gi == gi,
+                    Division.age == ADULT,
+                    Division.belt == BLACK,
+                )
+                .all()
+            )
+        }
+
+    # Past master Worlds events (different from adult Worlds in gi; same
+    # event in no-gi).
+    master_year_groups = _past_worlds_year_groups(
+        _master_worlds_patterns(gi), today
+    )
+    master_event_ids = [
+        eid for _, (eids, _) in master_year_groups.items() for eid in eids
+    ]
+
+    master_champs_by_age = {}
+    if master_event_ids:
+        for r in (
+            db.session.query(Medal.athlete_id, Division.age)
+            .join(Division, Medal.division_id == Division.id)
+            .filter(
+                Medal.athlete_id.in_(athlete_ids),
+                Medal.event_id.in_(master_event_ids),
+                Medal.place == 1,
+                Division.gi == gi,
+                Division.age.in_(relevant_master_ages),
+                Division.belt == BLACK,
+            )
+            .all()
+        ):
+            master_champs_by_age.setdefault(r.age, set()).add(r.athlete_id)
+
+    affected = set(adult_champs)
+    for ids in master_champs_by_age.values():
+        affected |= ids
+
+    result = {}
+    for aid in affected:
+        info = {"adult_world_champion": aid in adult_champs}
+        for level_num, master_age in levels:
+            info[f"master_{level_num}_world_champion"] = aid in (
+                master_champs_by_age.get(master_age, set())
+            )
+        result[aid] = info
+    return result
+
+
+def _score_medal(
+    weight_acc,
+    open_acc,
+    athlete_id,
+    place,
+    weight,
+    event_name,
+    division_age,
+    gi,
+    season_mult,
+    weight_multipliers,
+):
+    """Apply place / star / weight / season multipliers to a single medal
+    and add the resulting point value to either the weight-points or the
+    open-class-points accumulator dict, in-place.
+    """
+    star_table = _star_table_for_division(division_age, gi)
+    star_mult = star_table.get(
+        _event_base(_normalize_event_name(event_name)), DEFAULT_STAR_RATING
+    )
+    if weight in SEEDING_OPEN_CLASS_WEIGHTS:
+        open_acc[athlete_id] = (
+            open_acc.get(athlete_id, 0)
+            + _OPEN_PLACE_POINTS[place] * season_mult * star_mult
+        )
+    else:
+        weight_mult = weight_multipliers.get(weight, 0.0)
+        if weight_mult:
+            weight_acc[athlete_id] = (
+                weight_acc.get(athlete_id, 0)
+                + _WEIGHT_PLACE_POINTS[place]
+                * season_mult
+                * weight_mult
+                * star_mult
+            )
+
+
+def add_seeding_data(rows, divdata, gi, now=None):
+    """Compute IBJJF seeding criteria for each competitor and attach to the row.
+
+    Currently populates:
+      - points: weight-class medal points from the 3 most recent seasons of
+        the same gi/age category as this tournament. Base values 9 / 3 / 1
+        for 1st / 2nd / 3rd, with season multipliers 3x / 2x / 1x, weight
+        multipliers (1.0 same weight, 0.5 adjacent for normal-weight
+        tournaments; 1.0 every normal weight for open-class tournaments),
+        and per-event star ratings (looked up against the medal's own
+        division so adult-division medals carried into masters seeding use
+        the adult star table).
+      - open_class_points: medal points from open-class divisions
+        (Open Class, Open Class Light, Open Class Heavy), base values
+        13.5 / 4.5 / 1.5 with the same season and star multipliers and a
+        flat 1.0 weight multiplier.
+      - grand_slam_points / grand_slam_open_class_points: same scoring as
+        above but restricted to medals from Grand Slam events (Euros, Pans,
+        Brasileiros, Worlds). The Grand Slam season multiplier is
+        independent of the regular season: each of the four Grand Slam
+        event types has its own rolling 3x / 2x / 1x window based on the
+        recency of that specific event.
+
+    Only for Adult / BLACK belt tournaments, also populates six
+    black-belt-specific flags (see :func:`_adult_black_belt_seeding`):
+    ``world_champion_recent``, ``last_world_title_year``,
+    ``world_champion_4_years_ago``, ``world_champion_5_years_ago``,
+    ``former_world_champion``, ``previous_brown_world_champion``.
+
+    Only for Master 1..7 / BLACK belt tournaments, also populates
+    ``adult_world_champion`` plus one ``master_K_world_champion`` flag for
+    each level K = 1 .. current master level (see
+    :func:`_master_black_belt_seeding`).
+
+    ``now`` is the reference date used for season-window construction;
+    defaults to ``datetime.now()``. Tests can pass a fixed datetime to make
+    season rollover deterministic.
+
+    Final values are floored to integers.
+    """
+    for row in rows:
+        row["points"] = 0
+        row["open_class_points"] = 0
+        row["grand_slam_points"] = 0
+        row["grand_slam_open_class_points"] = 0
+
+    is_adult_black = (
+        divdata.get("age") == ADULT and divdata.get("belt") == BLACK
+    )
+    is_master_black = (
+        divdata.get("age") in SEEDING_MASTER_AGES
+        and divdata.get("belt") == BLACK
+    )
+    master_levels = (
+        _master_levels_up_to(divdata["age"]) if is_master_black else []
+    )
+
+    if is_adult_black:
+        for row in rows:
+            row["world_champion_recent"] = False
+            row["last_world_title_year"] = None
+            row["world_champion_4_years_ago"] = False
+            row["world_champion_5_years_ago"] = False
+            row["former_world_champion"] = False
+            row["previous_brown_world_champion"] = False
+    elif is_master_black:
+        for row in rows:
+            row["adult_world_champion"] = False
+            for level_num, _ in master_levels:
+                row[f"master_{level_num}_world_champion"] = False
+
+    athlete_ids = list({row["id"] for row in rows if row.get("id")})
+    if not athlete_ids:
+        return
+
+    age_filter = _seeding_category(divdata["age"], gi)
+    if age_filter is None:
+        return
+
+    weight_multipliers = _weight_multipliers(divdata["weight"])
+    weight_filter = list(weight_multipliers.keys()) + list(SEEDING_OPEN_CLASS_WEIGHTS)
+    if not weight_filter:
+        return
+
+    if now is None:
+        now = datetime.now()
+    seasons = _recent_seasons(divdata["age"], gi, now, n=3)
+    gs_multipliers = _grand_slam_event_multipliers(divdata["age"], gi, now, n=3)
+
+    points_by_athlete = {}
+    open_by_athlete = {}
+    gs_points_by_athlete = {}
+    gs_open_by_athlete = {}
+
+    common_filters = (
+        Medal.athlete_id.in_(athlete_ids),
+        Medal.place.in_(_VALID_MEDAL_PLACES),
+        Division.gi == gi,
+        Division.belt == divdata["belt"],
+        Division.age.in_(age_filter),
+        Division.weight.in_(weight_filter),
+    )
+
+    # Regular points: medals inside the rolling-Worlds-anchored season window.
+    if seasons:
+        earliest_start = seasons[-1][0]
+        latest_end = seasons[0][1]
+        n_seasons = len(seasons)
+        medal_rows = (
+            db.session.query(
+                Medal.athlete_id,
+                Medal.place,
+                Medal.happened_at,
+                Division.age,
+                Division.weight,
+                Event.name.label("event_name"),
+            )
+            .join(Division, Medal.division_id == Division.id)
+            .join(Event, Medal.event_id == Event.id)
+            .filter(
+                *common_filters,
+                Medal.happened_at >= earliest_start,
+                Medal.happened_at < latest_end,
+            )
+            .all()
+        )
+        for r in medal_rows:
+            for i, (start, end) in enumerate(seasons):
+                if start <= r.happened_at < end:
+                    season_mult = n_seasons - i  # 3x, 2x, 1x
+                    _score_medal(
+                        points_by_athlete,
+                        open_by_athlete,
+                        r.athlete_id,
+                        r.place,
+                        r.weight,
+                        r.event_name,
+                        r.age,
+                        gi,
+                        season_mult,
+                        weight_multipliers,
+                    )
+                    break
+
+    # Grand Slam points: medals at the most recent n editions of each Grand
+    # Slam event, multipliers driven by per-event-type recency (not by the
+    # regular season window).
+    if gs_multipliers:
+        gs_medal_rows = (
+            db.session.query(
+                Medal.athlete_id,
+                Medal.place,
+                Medal.event_id,
+                Division.age,
+                Division.weight,
+                Event.name.label("event_name"),
+            )
+            .join(Division, Medal.division_id == Division.id)
+            .join(Event, Medal.event_id == Event.id)
+            .filter(
+                *common_filters,
+                Medal.event_id.in_(list(gs_multipliers.keys())),
+            )
+            .all()
+        )
+        for r in gs_medal_rows:
+            _score_medal(
+                gs_points_by_athlete,
+                gs_open_by_athlete,
+                r.athlete_id,
+                r.place,
+                r.weight,
+                r.event_name,
+                r.age,
+                gi,
+                gs_multipliers[r.event_id],
+                weight_multipliers,
+            )
+
+    if is_adult_black:
+        bb_data = _adult_black_belt_seeding(athlete_ids, gi, now)
+    elif is_master_black:
+        bb_data = _master_black_belt_seeding(athlete_ids, divdata, gi, now)
+    else:
+        bb_data = {}
+
+    for row in rows:
+        aid = row.get("id")
+        if aid is None:
+            continue
+        if aid in points_by_athlete:
+            row["points"] = math.floor(points_by_athlete[aid])
+        if aid in open_by_athlete:
+            row["open_class_points"] = math.floor(open_by_athlete[aid])
+        if aid in gs_points_by_athlete:
+            row["grand_slam_points"] = math.floor(gs_points_by_athlete[aid])
+        if aid in gs_open_by_athlete:
+            row["grand_slam_open_class_points"] = math.floor(
+                gs_open_by_athlete[aid]
+            )
+        if aid in bb_data:
+            row.update(bb_data[aid])

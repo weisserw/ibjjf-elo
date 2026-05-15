@@ -68,6 +68,7 @@ from elo import (
     CLOSEOUT_NOTE,
 )
 from photos import get_s3_client, get_public_photo_url
+from seeding import add_seeding_data
 
 log = logging.getLogger("ibjjf")
 
@@ -1402,6 +1403,8 @@ def registration_competitors():
         False,
         s3_client,
     )
+
+    add_seeding_data(rows, divdata, gi)
 
     return jsonify({"competitors": rows})
 
