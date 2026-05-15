@@ -26,6 +26,25 @@ export interface Competitor {
   next_where: string | null
   next_when: string | null
   medal?: string
+  est_seed?: number | null
+  points?: number
+  open_class_points?: number
+  grand_slam_points?: number
+  grand_slam_open_class_points?: number
+  world_champion_recent?: boolean
+  last_world_title_year?: number | null
+  world_champion_4_years_ago?: boolean
+  world_champion_5_years_ago?: boolean
+  previous_brown_world_champion?: boolean
+  former_world_champion?: boolean
+  adult_world_champion?: boolean
+  master_1_world_champion?: boolean
+  master_2_world_champion?: boolean
+  master_3_world_champion?: boolean
+  master_4_world_champion?: boolean
+  master_5_world_champion?: boolean
+  master_6_world_champion?: boolean
+  master_7_world_champion?: boolean
 }
 
 export interface Match {
@@ -83,9 +102,16 @@ export interface Match {
   blue_percentile_age: string | null
 }
 
+export interface SideSwap {
+  name_a: string
+  name_b: string
+}
+
 export interface CompetitorsResponse {
   error?: string
   competitors?: Competitor[]
+  side_swaps?: SideSwap[]
+  side_swap_bailout?: string | null
 }
 
 

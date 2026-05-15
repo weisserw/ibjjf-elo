@@ -81,6 +81,8 @@ interface AppContextProps {
   setBracketRegistrationSelectedUpcomingLink: (link: string) => void;
   bracketRegistrationViewMode: 'all' | 'elites';
   setBracketRegistrationViewMode: (mode: 'all' | 'elites') => void;
+  bracketRegistrationSortColumn: BracketSortColumn;
+  setBracketRegistrationSortColumn: (column: BracketSortColumn) => void;
   bracketArchiveEventName: string;
   setBracketArchiveEventName: (name: string) => void;
   bracketArchiveEventNameFetch: string;
@@ -203,6 +205,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketRegistrationUpcomingLinks, setBracketRegistrationUpcomingLinks] = useState<BracketRegistrationUpcomingLink[]>([])
   const [bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink] = useLocalStorage<string>('bracketRegistrationSelectedUpcomingLink', '')
   const [bracketRegistrationViewMode, setBracketRegistrationViewMode] = useLocalStorage<'all' | 'elites'>('bracketRegistrationViewMode', 'all')
+  const [bracketRegistrationSortColumn, setBracketRegistrationSortColumn] = useLocalStorage<BracketSortColumn>('bracketRegistrationSortColumn', 'rating')
   const [bracketArchiveEventName, setBracketArchiveEventName] = useLocalStorage('bracketArchiveEventName', '')
   const [bracketArchiveEventNameFetch, setBracketArchiveEventNameFetch] = useLocalStorage('bracketArchiveEventNameFetch', '')
   const [bracketArchiveCategories, setBracketArchiveCategories] = useState<BracketCategory[] | null>(null)
@@ -327,6 +330,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketRegistrationUpcomingLinks, setBracketRegistrationUpcomingLinks,
       bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink,
       bracketRegistrationViewMode, setBracketRegistrationViewMode,
+      bracketRegistrationSortColumn, setBracketRegistrationSortColumn,
       bracketArchiveEventName, setBracketArchiveEventName,
       bracketArchiveEventNameFetch, setBracketArchiveEventNameFetch,
       bracketArchiveCategories, setBracketArchiveCategories,

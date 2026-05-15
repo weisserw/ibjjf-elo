@@ -18,6 +18,8 @@ interface BracketTableProps {
   selectedCategory: string | null;
   sortColumn?: string;
   showSeed: boolean;
+  showEstSeed?: boolean;
+  onEstSeedInfoClick?: () => void;
   showWeight?: boolean;
   showRank?: boolean;
   showEndRating?: boolean;
@@ -30,7 +32,7 @@ interface BracketTableProps {
   calculateEnabled: (athlete: Competitor) => boolean;
 }
 
-export type SortColumn = 'rating' | 'seed' | 'next'
+export type SortColumn = 'rating' | 'seed' | 'est_seed' | 'next'
 
 function BracketTable(props: BracketTableProps) {
   const {
@@ -195,6 +197,27 @@ function BracketTable(props: BracketTableProps) {
               </th>
             }
             {
+              props.showEstSeed &&
+              <th className="has-text-right est-seed-header">
+                {
+                  (sortColumn !== undefined && sortColumn !== 'est_seed') ?
+                    <a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>{t("Est. Seed")}</a> :
+                    <span className="no-wrap">{t("Est. Seed")} ↓</span>
+                }
+                {
+                  props.onEstSeedInfoClick &&
+                  <a
+                    href="#"
+                    className="est-seed-info"
+                    aria-label={t("About estimated seeding")}
+                    onClick={(e) => { e.preventDefault(); props.onEstSeedInfoClick?.() }}
+                  >
+                    <i className="fas fa-circle-info"></i>
+                  </a>
+                }
+              </th>
+            }
+            {
               props.showSeed &&
               <th className="has-text-right">
                 {
@@ -265,6 +288,10 @@ function BracketTable(props: BracketTableProps) {
                 }
                 { props.showRatings &&
                 <td className="has-text-right">{competitor.ordinal}</td>
+                }
+                {
+                  props.showEstSeed &&
+                  <td className="has-text-right">{competitor.est_seed ?? ''}</td>
                 }
                 {
                   props.showSeed &&

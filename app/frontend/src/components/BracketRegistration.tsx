@@ -2,9 +2,10 @@ import { useState, useMemo, useEffect } from 'react'
 import axios from 'axios'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
-import BracketTable from './BracketTable'
+import BracketTable, { type SortColumn } from './BracketTable'
 import EliteTable, { type EliteAthlete } from './EliteTable'
-import { isGi, handleError, type CompetitorsResponse, type Competitor } from './BracketUtils'
+import EstSeedModal from './EstSeedModal'
+import { isGi, handleError, type CompetitorsResponse, type Competitor, type SideSwap } from './BracketUtils'
 import { translateMulti, t } from '../translate'
 
 interface RegistrationCategoriesResponse {
@@ -29,6 +30,9 @@ function BracketRegistration() {
   const [elitesLoading, setElitesLoading] = useState(false)
   const [elites, setElites] = useState<EliteAthlete[] | null>(null)
   const [eliteNote, setEliteNote] = useState<string | null>(null);
+  const [estSeedModalOpen, setEstSeedModalOpen] = useState(false)
+  const [sideSwaps, setSideSwaps] = useState<SideSwap[]>([])
+  const [sideSwapBailout, setSideSwapBailout] = useState<string | null>(null)
   const [elitesByLink, setElitesByLink] = useState<
     Record<string, { data: {elites: EliteAthlete[]; note: string | null; }; fetchedAt: number }>
   >({})
@@ -52,6 +56,8 @@ function BracketRegistration() {
     setBracketRegistrationSelectedUpcomingLink: setSelectedUpcomingLink,
     bracketRegistrationViewMode: viewMode,
     setBracketRegistrationViewMode: setViewMode,
+    bracketRegistrationSortColumn: sortColumn,
+    setBracketRegistrationSortColumn: setSortColumn,
     setActiveTab,
   } = useAppContext()
 
@@ -69,9 +75,13 @@ function BracketRegistration() {
       });
       if (data.error) {
         setRegistrationCompetitors(null)
+        setSideSwaps([])
+        setSideSwapBailout(null)
         setError(data.error)
       } else if (data.competitors) {
         setRegistrationCompetitors(data.competitors)
+        setSideSwaps(data.side_swaps ?? [])
+        setSideSwapBailout(data.side_swap_bailout ?? null)
         setError(null)
       }
     } catch (err) {
@@ -98,6 +108,11 @@ function BracketRegistration() {
     getUpcomingLinks()
   }, [])
 
+  const columnClicked = (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => {
+    ev.preventDefault()
+    setSortColumn(column)
+  }
+
   const registrationAthleteClicked = (ev: React.MouseEvent<HTMLAnchorElement>, slug: string) => {
     ev.preventDefault()
     
@@ -112,6 +127,21 @@ function BracketRegistration() {
     setSelectedRegistrationCategory(category)
   }
 
+  const showRatings = useMemo(() => {
+    if (selectedRegistrationCategory) {
+      return !/Teen/.test(selectedRegistrationCategory)
+    }
+    return true
+  }, [selectedRegistrationCategory])
+
+  const usableSortColumn = useMemo(() => {
+    let column = sortColumn
+    if (!showRatings && column === 'rating') {
+      column = 'est_seed'
+    }
+    return column
+  }, [sortColumn, showRatings])
+
   const sortedRegistrationCompetitors = useMemo(() => {
     if (registrationCompetitors === null) {
       return null
@@ -119,13 +149,20 @@ function BracketRegistration() {
     return [...registrationCompetitors].sort((a, b) => {
       const aRating = a.ordinal ?? -1;
       const bRating = b.ordinal ?? -1;
+      const aEst = a.est_seed ?? Number.MAX_SAFE_INTEGER;
+      const bEst = b.est_seed ?? Number.MAX_SAFE_INTEGER;
+      if (usableSortColumn === 'est_seed') {
+        if (aEst === bEst) {
+          return aRating - bRating
+        }
+        return aEst - bEst
+      }
       if (aRating === bRating) {
         return a.name.localeCompare(b.name)
-      } else {
-        return aRating - bRating
       }
+      return aRating - bRating
     });
-  }, [registrationCompetitors])
+  }, [registrationCompetitors, usableSortColumn])
 
   const divisionCount = useMemo(() => registrationCompetitors?.length ?? null, [registrationCompetitors])
   const elitesCount = useMemo(() => elites?.length ?? null, [elites])
@@ -217,13 +254,6 @@ function BracketRegistration() {
   const calculateEnabledAthlete = (athlete: Competitor) => {
     return athlete.rating !== null && athlete.match_count !== null && athlete.match_count > 0
   }
-
-  const showRatings = useMemo(() => {
-    if (selectedRegistrationCategory) {
-      return !/Teen/.test(selectedRegistrationCategory)
-    }
-    return true
-  }, [selectedRegistrationCategory])
 
   useEffect(() => {
     if (selectedUpcomingLink) {
@@ -423,12 +453,16 @@ function BracketRegistration() {
         {
           viewMode === 'all' && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
             <BracketTable competitors={sortedRegistrationCompetitors}
+                          sortColumn={usableSortColumn}
                           showSeed={false}
+                          showEstSeed={true}
+                          onEstSeedInfoClick={() => setEstSeedModalOpen(true)}
                           showRank={true}
                           selectedCategory={selectedRegistrationCategory}
                           showRatings={showRatings}
                           belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
                           isGi={isGi(registrationEventName ?? '')}
+                          columnClicked={columnClicked}
                           athleteClicked={registrationAthleteClicked}
                           calculateEnabled={calculateEnabledAthlete} />
           )
@@ -443,6 +477,17 @@ function BracketRegistration() {
         }
         {
           (loading || elitesLoading) && <div className="bracket-loader loader mt-4"></div>
+        }
+        {
+          estSeedModalOpen && sortedRegistrationCompetitors && (
+            <EstSeedModal
+              competitors={sortedRegistrationCompetitors}
+              selectedCategory={selectedRegistrationCategory}
+              sideSwaps={sideSwaps}
+              sideSwapBailout={sideSwapBailout}
+              onClose={() => setEstSeedModalOpen(false)}
+            />
+          )
         }
       </div>
     </div>

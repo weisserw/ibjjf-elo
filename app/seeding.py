@@ -7,8 +7,10 @@ points scheme.
 
 The public entry point is :func:`add_seeding_data`.
 """
+
 import math
 import re
+import zlib
 from datetime import datetime
 
 from sqlalchemy.sql import func, or_
@@ -43,15 +45,19 @@ SEEDING_JUVENILE_AGES = frozenset([JUVENILE, JUVENILE_1, JUVENILE_2])
 # Ordered young -> old; masters count their own level and every level below it,
 # plus adult (but not juvenile).
 SEEDING_MASTER_AGES_ORDERED = (
-    MASTER_1, MASTER_2, MASTER_3, MASTER_4, MASTER_5, MASTER_6, MASTER_7,
+    MASTER_1,
+    MASTER_2,
+    MASTER_3,
+    MASTER_4,
+    MASTER_5,
+    MASTER_6,
+    MASTER_7,
 )
 SEEDING_MASTER_AGES = frozenset(SEEDING_MASTER_AGES_ORDERED)
 
 # Normal weight classes in order (Rooster -> Ultra Heavy) and the open-class set.
 SEEDING_NORMAL_WEIGHTS_ORDERED = tuple(weight_class_order)
-SEEDING_OPEN_CLASS_WEIGHTS = frozenset(
-    [OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY]
-)
+SEEDING_OPEN_CLASS_WEIGHTS = frozenset([OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY])
 
 # Base names of the "Worlds" event whose start date defines each category's
 # season boundaries. A season *begins at* the start of Worlds: a medal earned
@@ -221,9 +227,7 @@ def _seeding_category(age, gi):
         # and including their own (Master 1 -> Adult+M1; Master 3 -> Adult+M1+M2+M3).
         # Juvenile medals do not fold into masters.
         idx = SEEDING_MASTER_AGES_ORDERED.index(age)
-        return SEEDING_ADULT_AGES | frozenset(
-            SEEDING_MASTER_AGES_ORDERED[: idx + 1]
-        )
+        return SEEDING_ADULT_AGES | frozenset(SEEDING_MASTER_AGES_ORDERED[: idx + 1])
     return None
 
 
@@ -278,9 +282,7 @@ def _event_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
         _normalize_event_name(f"{base} {year}"): year for year in years
     }
     candidate_events = (
-        db.session.query(Event.id, Event.name)
-        .filter(Event.name.like(f"{base}%"))
-        .all()
+        db.session.query(Event.id, Event.name).filter(Event.name.like(f"{base}%")).all()
     )
     events_by_year = {}
     for e in candidate_events:
@@ -480,9 +482,7 @@ def _adult_black_belt_seeding(athlete_ids, gi, today):
     # Recency rank by year: 0 = most recent past Worlds.
     sorted_years = sorted(year_groups.keys(), reverse=True)
     year_to_rank = {y: i for i, y in enumerate(sorted_years)}
-    eid_to_year = {
-        eid: y for y, (eids, _) in year_groups.items() for eid in eids
-    }
+    eid_to_year = {eid: y for y, (eids, _) in year_groups.items() for eid in eids}
 
     # Black-belt adult golds at *any* past Worlds.
     black_rows = (
@@ -546,9 +546,7 @@ def _master_levels_up_to(master_age):
     ``[(1, Master 1), (2, Master 2), (3, Master 3)]``.
     """
     idx = SEEDING_MASTER_AGES_ORDERED.index(master_age)
-    return [
-        (i + 1, SEEDING_MASTER_AGES_ORDERED[i]) for i in range(idx + 1)
-    ]
+    return [(i + 1, SEEDING_MASTER_AGES_ORDERED[i]) for i in range(idx + 1)]
 
 
 def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
@@ -573,9 +571,7 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
     relevant_master_ages = [age for _, age in levels]
 
     # Past adult Worlds events (for the "adult_world_champion" check).
-    adult_year_groups = _past_worlds_year_groups(
-        _adult_worlds_patterns(gi), today
-    )
+    adult_year_groups = _past_worlds_year_groups(_adult_worlds_patterns(gi), today)
     adult_event_ids = [
         eid for _, (eids, _) in adult_year_groups.items() for eid in eids
     ]
@@ -601,9 +597,7 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
 
     # Past master Worlds events (different from adult Worlds in gi; same
     # event in no-gi).
-    master_year_groups = _past_worlds_year_groups(
-        _master_worlds_patterns(gi), today
-    )
+    master_year_groups = _past_worlds_year_groups(_master_worlds_patterns(gi), today)
     master_event_ids = [
         eid for _, (eids, _) in master_year_groups.items() for eid in eids
     ]
@@ -670,10 +664,7 @@ def _score_medal(
         if weight_mult:
             weight_acc[athlete_id] = (
                 weight_acc.get(athlete_id, 0)
-                + _WEIGHT_PLACE_POINTS[place]
-                * season_mult
-                * weight_mult
-                * star_mult
+                + _WEIGHT_PLACE_POINTS[place] * season_mult * weight_mult * star_mult
             )
 
 
@@ -723,16 +714,11 @@ def add_seeding_data(rows, divdata, gi, now=None):
         row["grand_slam_points"] = 0
         row["grand_slam_open_class_points"] = 0
 
-    is_adult_black = (
-        divdata.get("age") == ADULT and divdata.get("belt") == BLACK
-    )
+    is_adult_black = divdata.get("age") == ADULT and divdata.get("belt") == BLACK
     is_master_black = (
-        divdata.get("age") in SEEDING_MASTER_AGES
-        and divdata.get("belt") == BLACK
+        divdata.get("age") in SEEDING_MASTER_AGES and divdata.get("belt") == BLACK
     )
-    master_levels = (
-        _master_levels_up_to(divdata["age"]) if is_master_black else []
-    )
+    master_levels = _master_levels_up_to(divdata["age"]) if is_master_black else []
 
     if is_adult_black:
         for row in rows:
@@ -874,8 +860,258 @@ def add_seeding_data(rows, divdata, gi, now=None):
         if aid in gs_points_by_athlete:
             row["grand_slam_points"] = math.floor(gs_points_by_athlete[aid])
         if aid in gs_open_by_athlete:
-            row["grand_slam_open_class_points"] = math.floor(
-                gs_open_by_athlete[aid]
-            )
+            row["grand_slam_open_class_points"] = math.floor(gs_open_by_athlete[aid])
         if aid in bb_data:
             row.update(bb_data[aid])
+
+
+def add_estimated_seeds(rows, divdata):
+    """Populate ``est_seed`` on each row with the 1-based ranking the athlete
+    would have in this division based on the values produced by
+    :func:`add_seeding_data`. Row order is preserved; only ``est_seed`` is set.
+    Sort keys are descending (more is better -> lower seed number); for each
+    criterion below, ties fall through to the next criterion.
+
+    Six rankings, picked from ``divdata``:
+      1. regular: ``grand_slam_points``, ``points``.
+      2. regular open class: ``grand_slam_open_class_points``,
+         ``grand_slam_points``, ``open_class_points``, ``points``.
+      3. adult black belt: ``world_champion_recent``,
+         ``last_world_title_year``, ``grand_slam_points``,
+         ``world_champion_4_years_ago``, ``world_champion_5_years_ago``,
+         ``previous_brown_world_champion``, ``former_world_champion``,
+         ``points``.
+      4. adult black belt open class: ``world_champion_recent``,
+         ``last_world_title_year``, ``grand_slam_open_class_points``,
+         ``grand_slam_points``, ``world_champion_4_years_ago``,
+         ``world_champion_5_years_ago``, ``previous_brown_world_champion``,
+         ``former_world_champion``, ``open_class_points``, ``points``.
+      5. master black belt: ``adult_world_champion``,
+         ``master_1_world_champion`` .. ``master_K_world_champion`` (K = this
+         division's master level), ``grand_slam_points``, ``points``.
+      6. master black belt open class: ``adult_world_champion``,
+         ``master_1..K_world_champion``, ``grand_slam_open_class_points``,
+         ``grand_slam_points``, ``open_class_points``, ``points``.
+    """
+    age = divdata.get("age")
+    belt = divdata.get("belt")
+    is_open = divdata.get("weight") in SEEDING_OPEN_CLASS_WEIGHTS
+    is_adult_black = age == ADULT and belt == BLACK
+    is_master_black = age in SEEDING_MASTER_AGES and belt == BLACK
+
+    def tie_break(r):
+        # Deterministic pseudo-random ordering on athletes who are otherwise
+        # tied on every seeding criterion. Uses the athlete name (not id —
+        # not every registrant matches a DB athlete) so it's stable across
+        # runs and Python versions; crc32 is a fixed function unlike the
+        # salted built-in hash().
+        return zlib.crc32(r.get("name", "").encode("utf-8"))
+
+    if is_adult_black and is_open:
+
+        def keyfn(r):
+            return (
+                bool(r.get("world_champion_recent")),
+                r.get("last_world_title_year") or 0,
+                r.get("grand_slam_open_class_points", 0),
+                r.get("grand_slam_points", 0),
+                bool(r.get("world_champion_4_years_ago")),
+                bool(r.get("world_champion_5_years_ago")),
+                bool(r.get("previous_brown_world_champion")),
+                bool(r.get("former_world_champion")),
+                r.get("open_class_points", 0),
+                r.get("points", 0),
+                tie_break(r),
+            )
+
+    elif is_adult_black:
+
+        def keyfn(r):
+            return (
+                bool(r.get("world_champion_recent")),
+                r.get("last_world_title_year") or 0,
+                r.get("grand_slam_points", 0),
+                bool(r.get("world_champion_4_years_ago")),
+                bool(r.get("world_champion_5_years_ago")),
+                bool(r.get("previous_brown_world_champion")),
+                bool(r.get("former_world_champion")),
+                r.get("points", 0),
+                tie_break(r),
+            )
+
+    elif is_master_black:
+        master_fields = [
+            f"master_{n}_world_champion" for n, _ in _master_levels_up_to(age)
+        ]
+        if is_open:
+
+            def keyfn(r):
+                return (
+                    bool(r.get("adult_world_champion")),
+                    *(bool(r.get(f)) for f in master_fields),
+                    r.get("grand_slam_open_class_points", 0),
+                    r.get("grand_slam_points", 0),
+                    r.get("open_class_points", 0),
+                    r.get("points", 0),
+                    tie_break(r),
+                )
+
+        else:
+
+            def keyfn(r):
+                return (
+                    bool(r.get("adult_world_champion")),
+                    *(bool(r.get(f)) for f in master_fields),
+                    r.get("grand_slam_points", 0),
+                    r.get("points", 0),
+                    tie_break(r),
+                )
+
+    elif is_open:
+
+        def keyfn(r):
+            return (
+                r.get("grand_slam_open_class_points", 0),
+                r.get("grand_slam_points", 0),
+                r.get("open_class_points", 0),
+                r.get("points", 0),
+                tie_break(r),
+            )
+
+    else:
+
+        def keyfn(r):
+            return (
+                r.get("grand_slam_points", 0),
+                r.get("points", 0),
+                tie_break(r),
+            )
+
+    ordered = sorted(range(len(rows)), key=lambda i: keyfn(rows[i]), reverse=True)
+    for seed, i in enumerate(ordered, start=1):
+        rows[i]["est_seed"] = seed
+
+
+def _bracket_layout(bracket_size):
+    """For a single-elim bracket of size ``bracket_size`` (a power of 2),
+    return a list ``layout`` where ``layout[slot_index]`` is the seed
+    (1-based) placed at that slot. Standard recursive 'snake' seeding —
+    each level interleaves a seed with its complement, producing a
+    top-bottom-bottom-top block pattern. For size 8:
+    ``[1, 8, 4, 5, 2, 7, 3, 6]``.
+    """
+
+    def gen(size):
+        if size == 1:
+            return [1]
+        half = gen(size // 2)
+        out = []
+        for s in half:
+            out.append(s)
+            out.append(size + 1 - s)
+        return out
+
+    return gen(bracket_size)
+
+
+def _next_power_of_two(n):
+    p = 1
+    while p < n:
+        p *= 2
+    return p
+
+
+SAME_TEAM_BAILOUT_MESSAGE = (
+    "Same-team side-swaps were not performed because more than two athletes "
+    "in this bracket are from the same team."
+)
+
+
+def add_side_swaps(rows):
+    """Swap ``est_seed`` values to keep same-team athletes out of the same
+    half of the bracket (where they'd meet before the final).
+
+    Assumes :func:`add_estimated_seeds` has already populated ``est_seed``
+    contiguously (1..len(rows)) on every row.
+
+    Bracket geometry: bracket size is the next power of two >= number of
+    athletes, with the remainder as byes. Standard recursive snake seeding
+    decides which half each seed lives in.
+
+    Behavior:
+      - len(rows) <= 3: do nothing.
+      - Any team with > 2 athletes: bail out with a message, do no swaps.
+      - For each pair of same-team athletes whose seeds end up on the same
+        side: swap the worse-seeded athlete with the athlete at seed+1.
+        If that doesn't move them to opposite sides (or seed+1 doesn't
+        exist), try seed-1. If neither works, leave the pair as-is.
+
+    Mutates ``rows`` in place. Returns
+    ``{"swaps": [{"name_a", "name_b"}, ...], "bailout": str | None}``.
+    """
+    swaps = []
+    num = len(rows)
+    if num <= 3:
+        return {"swaps": swaps, "bailout": None}
+
+    teams = {}
+    for r in rows:
+        team = r.get("team")
+        if not team:
+            continue
+        teams.setdefault(team, []).append(r)
+
+    if any(len(members) > 2 for members in teams.values()):
+        return {"swaps": [], "bailout": SAME_TEAM_BAILOUT_MESSAGE}
+
+    bracket_size = _next_power_of_two(num)
+    layout = _bracket_layout(bracket_size)
+    seed_to_slot = [0] * (bracket_size + 1)
+    for slot_idx, seed in enumerate(layout):
+        seed_to_slot[seed] = slot_idx
+    half = bracket_size // 2
+
+    def side(seed):
+        return 0 if seed_to_slot[seed] < half else 1
+
+    seed_to_row = {}
+    for r in rows:
+        s = r.get("est_seed")
+        if s is not None:
+            seed_to_row[s] = r
+
+    # Process pairs in order of the better-seeded athlete so earlier pairs
+    # (which had a chance to be placed cleanly by the seeder) are handled
+    # first.
+    pairs = sorted(
+        [m for m in teams.values() if len(m) == 2],
+        key=lambda m: min(x["est_seed"] for x in m),
+    )
+
+    for members in pairs:
+        m1, m2 = sorted(members, key=lambda x: x["est_seed"])
+        s1, s2 = m1["est_seed"], m2["est_seed"]
+        if side(s1) != side(s2):
+            continue
+
+        target_seed = None
+        for candidate in (s2 + 1, s2 - 1):
+            if candidate < 1 or candidate > num:
+                continue
+            if candidate == s1:
+                # Don't swap with the teammate — no effect.
+                continue
+            if side(candidate) != side(s1):
+                target_seed = candidate
+                break
+        if target_seed is None:
+            continue
+
+        other = seed_to_row[target_seed]
+        m2["est_seed"] = target_seed
+        other["est_seed"] = s2
+        seed_to_row[target_seed] = m2
+        seed_to_row[s2] = other
+        swaps.append({"name_a": m2["name"], "name_b": other["name"]})
+
+    return {"swaps": swaps, "bailout": None}

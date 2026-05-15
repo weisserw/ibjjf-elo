@@ -242,3 +242,50 @@
   align-items: center;
   height: 100%;
 }
+
+.est-seed-header {
+  white-space: nowrap;
+}
+
+.est-seed-info {
+  margin-left: 0.4em;
+}
+
+.est-seed-modal .modal-content {
+  width: 95vw;
+  max-width: 95vw;
+  max-height: 92vh;
+  background-color: #e5e7eb;
+  border-radius: 6px;
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  overflow-y: auto;
+  position: relative;
+}
+
+.est-seed-modal-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+.est-seed-modal-table {
+  background-color: transparent;
+}
+
+.est-seed-disclaimer {
+  font-size: 0.9rem;
+  color: #4b5563;
+  font-style: italic;
+}
+
+.est-seed-swap-note,
+.est-seed-modal .notification.est-seed-swap-note {
+  background-color: #4b5563;
+  color: #f3f4f6;
+}
+
+.est-seed-swap-note ul {
+  list-style: disc inside;
+  margin: 0;
+  padding: 0;
+}
