@@ -468,7 +468,9 @@ def _adult_black_belt_seeding(athlete_ids, gi, today):
       - ``world_champion_4_years_ago`` — gold at the 4th most-recent past Worlds.
       - ``world_champion_5_years_ago`` — gold at the 5th most-recent past Worlds.
       - ``last_world_title_year`` — year of the athlete's most-recent Worlds gold (any year).
-      - ``former_world_champion`` — has any Worlds gold (any year).
+      - ``former_world_champion`` — has a Worlds gold from 6+ years ago (a
+        rank-5-or-older past Worlds). Mutually exclusive with the other
+        ``world_champion_*`` recency flags.
       - ``previous_brown_world_champion`` — gold at the single most-recent past
         Worlds in the **brown belt** adult division.
     """
@@ -534,7 +536,7 @@ def _adult_black_belt_seeding(athlete_ids, gi, today):
             "last_world_title_year": max(years_won) if years_won else None,
             "world_champion_4_years_ago": 3 in ranks_won,
             "world_champion_5_years_ago": 4 in ranks_won,
-            "former_world_champion": bool(years_won),
+            "former_world_champion": bool(ranks_won - {0, 1, 2, 3, 4}),
             "previous_brown_world_champion": aid in brown_winners,
         }
     return result

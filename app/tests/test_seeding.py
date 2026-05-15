@@ -594,7 +594,8 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(row["last_world_title_year"], 2025)
         self.assertFalse(row["world_champion_4_years_ago"])
         self.assertFalse(row["world_champion_5_years_ago"])
-        self.assertTrue(row["former_world_champion"])
+        # Only a recent title -> not a 6+-year "former" champion.
+        self.assertFalse(row["former_world_champion"])
         self.assertFalse(row["previous_brown_world_champion"])
 
     def test_adult_black_belt_4_years_ago(self):
@@ -610,7 +611,8 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(row["last_world_title_year"], 2022)
         self.assertTrue(row["world_champion_4_years_ago"])
         self.assertFalse(row["world_champion_5_years_ago"])
-        self.assertTrue(row["former_world_champion"])
+        # Title is exactly 4 years ago, not 6+ -> not "former".
+        self.assertFalse(row["former_world_champion"])
 
     def test_adult_black_belt_5_years_ago_legacy_name(self):
         # Gold at Worlds 2021 (rank 4) — the "5 years ago" slot. Also
@@ -625,7 +627,8 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(row["last_world_title_year"], 2021)
         self.assertFalse(row["world_champion_4_years_ago"])
         self.assertTrue(row["world_champion_5_years_ago"])
-        self.assertTrue(row["former_world_champion"])
+        # Title is exactly 5 years ago, not 6+ -> not "former".
+        self.assertFalse(row["former_world_champion"])
 
     def test_adult_black_belt_former_champion_only(self):
         # Gold at Worlds 2020 (rank 5) — older than any tracked slot, so
