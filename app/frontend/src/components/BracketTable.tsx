@@ -199,22 +199,41 @@ function BracketTable(props: BracketTableProps) {
             {
               props.showEstSeed &&
               <th className="has-text-right est-seed-header">
-                {
-                  (sortColumn !== undefined && sortColumn !== 'est_seed') ?
-                    <a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>{t("Est. Seed")}</a> :
-                    <span>{t("Est. Seed")}{' ↓'}</span>
-                }
-                {
-                  props.onEstSeedInfoClick &&
-                  <a
-                    href="#"
-                    className="est-seed-info"
-                    aria-label={t("About estimated seeding")}
-                    onClick={(e) => { e.preventDefault(); props.onEstSeedInfoClick?.() }}
-                  >
-                    <i className="fas fa-circle-info"></i>
-                  </a>
-                }
+                {(() => {
+                  const label = t("Est. Seed")
+                  const lastSpace = label.lastIndexOf(' ')
+                  const head = lastSpace >= 0 ? label.slice(0, lastSpace) : ''
+                  const tail = lastSpace >= 0 ? label.slice(lastSpace + 1) : label
+                  const sorted = !(sortColumn !== undefined && sortColumn !== 'est_seed')
+                  const tailText = `${tail}${sorted ? ' ↓' : ''}`
+                  const infoIcon = props.onEstSeedInfoClick && (
+                    <a
+                      href="#"
+                      className="est-seed-info"
+                      aria-label={t("About estimated seeding")}
+                      onClick={(e) => { e.preventDefault(); props.onEstSeedInfoClick?.() }}
+                    >
+                      <i className="fas fa-circle-info"></i>
+                    </a>
+                  )
+                  if (sorted) {
+                    return (
+                      <span className="est-seed-text">
+                        {head && <>{head}{' '}</>}
+                        <span className="no-wrap">{tailText}{infoIcon}</span>
+                      </span>
+                    )
+                  }
+                  return (
+                    <span className="est-seed-text">
+                      {head && <><a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>{head}</a>{' '}</>}
+                      <span className="no-wrap">
+                        <a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>{tailText}</a>
+                        {infoIcon}
+                      </span>
+                    </span>
+                  )
+                })()}
               </th>
             }
             {

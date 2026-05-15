@@ -243,6 +243,11 @@
   height: 100%;
 }
 
+.est-seed-text {
+  display: inline-block;
+  text-align: left;
+}
+
 .est-seed-info {
   margin-left: 0.4em;
 }
