@@ -202,7 +202,7 @@ function BracketTable(props: BracketTableProps) {
                 {
                   (sortColumn !== undefined && sortColumn !== 'est_seed') ?
                     <a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>{t("Est. Seed")}</a> :
-                    <span className="no-wrap">{t("Est. Seed")} ↓</span>
+                    <span>{t("Est. Seed")}{' ↓'}</span>
                 }
                 {
                   props.onEstSeedInfoClick &&
