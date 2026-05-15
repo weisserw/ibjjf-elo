@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import type { Competitor, SideSwap } from './BracketUtils'
-import { t } from '../translate'
+import { t, type translationKeys } from '../translate'
 
 interface EstSeedModalProps {
   competitors: Competitor[]
@@ -69,7 +69,7 @@ function columnsForDivision(selectedCategory: string | null): ColumnSpec[] {
   if (isMasterBlack) {
     const masters: ColumnSpec[] = []
     for (let i = 1; i <= (masterLevel as number); i++) {
-      masters.push(bool(`master_${i}_world_champion` as keyof Competitor, t(`M${i} WC`)))
+      masters.push(bool(`master_${i}_world_champion` as keyof Competitor, t(`M${i} WC` as translationKeys)))
     }
     if (isOpen) {
       return [
