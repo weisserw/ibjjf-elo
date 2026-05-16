@@ -112,7 +112,7 @@ export interface CompetitorsResponse {
   error?: string
   competitors?: Competitor[]
   side_swaps?: SideSwap[]
-  side_swap_bailout?: string | null
+  side_swap_bailout_teams?: string[]
 }
 
 

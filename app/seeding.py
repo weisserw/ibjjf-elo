@@ -1081,18 +1081,14 @@ def _next_power_of_two(n):
     return p
 
 
-SAME_TEAM_BAILOUT_MESSAGE = (
-    "Same-team side-swaps were not performed because more than two athletes "
-    "in this bracket are from the same team."
-)
-
-
 def add_side_swaps(rows):
-    """Swap ``est_seed`` values to keep same-team athletes out of the same
-    half of the bracket (where they'd meet before the final).
+    """Identify same-team side-swaps without mutating ``est_seed``.
 
     Assumes :func:`add_estimated_seeds` has already populated ``est_seed``
-    contiguously (1..len(rows)) on every row.
+    contiguously (1..len(rows)) on every row. The natural (pre-swap)
+    seeding is preserved on the rows; only the list of athletes that
+    *would* be swapped is returned, so callers can flag those positions
+    as uncertain.
 
     Bracket geometry: bracket size is the next power of two >= number of
     athletes, with the remainder as byes. Standard recursive snake seeding
@@ -1100,19 +1096,22 @@ def add_side_swaps(rows):
 
     Behavior:
       - len(rows) <= 3: do nothing.
-      - Any team with > 2 athletes: bail out with a message, do no swaps.
+      - Any team with > 2 athletes: bail out (no swaps) and return the
+        offending team name(s) so callers can flag them.
       - For each pair of same-team athletes whose seeds end up on the same
-        side: swap the worse-seeded athlete with the athlete at seed+1.
-        If that doesn't move them to opposite sides (or seed+1 doesn't
-        exist), try seed-1. If neither works, leave the pair as-is.
+        side: pick the worse-seeded teammate and consider swapping with the
+        athlete at seed+1 (or seed-1 if that doesn't help). Track the
+        intended swap so later same-team pairs are evaluated against the
+        post-swap geometry, but the actual row ``est_seed`` values are
+        restored before returning.
 
-    Mutates ``rows`` in place. Returns
-    ``{"swaps": [{"name_a", "name_b"}, ...], "bailout": str | None}``.
+    Returns ``{"swaps": [{"name_a", "name_b"}, ...],
+    "bailout_teams": list[str]}``.
     """
     swaps = []
     num = len(rows)
     if num <= 3:
-        return {"swaps": swaps, "bailout": None}
+        return {"swaps": swaps, "bailout_teams": []}
 
     teams = {}
     for r in rows:
@@ -1121,8 +1120,9 @@ def add_side_swaps(rows):
             continue
         teams.setdefault(team, []).append(r)
 
-    if any(len(members) > 2 for members in teams.values()):
-        return {"swaps": [], "bailout": SAME_TEAM_BAILOUT_MESSAGE}
+    bailout_teams = [name for name, members in teams.items() if len(members) > 2]
+    if bailout_teams:
+        return {"swaps": [], "bailout_teams": bailout_teams}
 
     bracket_size = _next_power_of_two(num)
     layout = _bracket_layout(bracket_size)
@@ -1133,6 +1133,8 @@ def add_side_swaps(rows):
 
     def side(seed):
         return 0 if seed_to_slot[seed] < half else 1
+
+    original_seeds = {id(r): r.get("est_seed") for r in rows}
 
     seed_to_row = {}
     for r in rows:
@@ -1168,10 +1170,15 @@ def add_side_swaps(rows):
             continue
 
         other = seed_to_row[target_seed]
+        # Mutate transiently so cascading pairs see the post-swap geometry,
+        # then restore below.
         m2["est_seed"] = target_seed
         other["est_seed"] = s2
         seed_to_row[target_seed] = m2
         seed_to_row[s2] = other
         swaps.append({"name_a": m2["name"], "name_b": other["name"]})
 
-    return {"swaps": swaps, "bailout": None}
+    for r in rows:
+        r["est_seed"] = original_seeds[id(r)]
+
+    return {"swaps": swaps, "bailout_teams": []}

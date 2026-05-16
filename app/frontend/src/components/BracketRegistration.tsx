@@ -32,7 +32,7 @@ function BracketRegistration() {
   const [eliteNote, setEliteNote] = useState<string | null>(null);
   const [estSeedModalOpen, setEstSeedModalOpen] = useState(false)
   const [sideSwaps, setSideSwaps] = useState<SideSwap[]>([])
-  const [sideSwapBailout, setSideSwapBailout] = useState<string | null>(null)
+  const [sideSwapBailoutTeams, setSideSwapBailoutTeams] = useState<string[]>([])
   const [elitesByLink, setElitesByLink] = useState<
     Record<string, { data: {elites: EliteAthlete[]; note: string | null; }; fetchedAt: number }>
   >({})
@@ -76,12 +76,12 @@ function BracketRegistration() {
       if (data.error) {
         setRegistrationCompetitors(null)
         setSideSwaps([])
-        setSideSwapBailout(null)
+        setSideSwapBailoutTeams([])
         setError(data.error)
       } else if (data.competitors) {
         setRegistrationCompetitors(data.competitors)
         setSideSwaps(data.side_swaps ?? [])
-        setSideSwapBailout(data.side_swap_bailout ?? null)
+        setSideSwapBailoutTeams(data.side_swap_bailout_teams ?? [])
         setError(null)
       }
     } catch (err) {
@@ -462,6 +462,8 @@ function BracketRegistration() {
                           showRatings={showRatings}
                           belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
                           isGi={isGi(registrationEventName ?? '')}
+                          sideSwaps={sideSwaps}
+                          sideSwapBailoutTeams={sideSwapBailoutTeams}
                           columnClicked={columnClicked}
                           athleteClicked={registrationAthleteClicked}
                           calculateEnabled={calculateEnabledAthlete} />
@@ -484,7 +486,6 @@ function BracketRegistration() {
               competitors={sortedRegistrationCompetitors}
               selectedCategory={selectedRegistrationCategory}
               sideSwaps={sideSwaps}
-              sideSwapBailout={sideSwapBailout}
               onClose={() => setEstSeedModalOpen(false)}
             />
           )

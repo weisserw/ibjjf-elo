@@ -255,6 +255,24 @@
   cursor: help;
 }
 
+.est-seed-swap {
+  background-color: #bfdbfe;
+  padding: 0 0.4em;
+  border-radius: 3px;
+  cursor: help;
+}
+
+.team-bailout {
+  background-color: #fecaca;
+  padding: 0 0.4em;
+  border-radius: 3px;
+  cursor: help;
+}
+
+.est-seed-plain {
+  padding-right: 0.4em;
+}
+
 .est-seed-info {
   margin-left: 0.4em;
 }

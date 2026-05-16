@@ -30,7 +30,6 @@ from constants import (
 from extensions import db
 from models import Athlete, Division, Event, Match, Medal, Team
 from seeding import (
-    SAME_TEAM_BAILOUT_MESSAGE,
     add_estimated_seeds,
     add_seeding_data,
     add_side_swaps,
@@ -1385,7 +1384,7 @@ class SideSwapTestCase(unittest.TestCase):
         rows = [_swap_row(i, f"A{i}", "Same Team") for i in (1, 2, 3)]
         result = add_side_swaps(rows)
         self.assertEqual(result["swaps"], [])
-        self.assertIsNone(result["bailout"])
+        self.assertEqual(result["bailout_teams"], [])
         self.assertEqual(self._seeds(rows), [1, 2, 3])
 
     def test_more_than_two_per_team_bails_out(self):
@@ -1398,7 +1397,7 @@ class SideSwapTestCase(unittest.TestCase):
         ]
         result = add_side_swaps(rows)
         self.assertEqual(result["swaps"], [])
-        self.assertEqual(result["bailout"], SAME_TEAM_BAILOUT_MESSAGE)
+        self.assertEqual(result["bailout_teams"], ["Mega"])
         self.assertEqual(self._seeds(rows), [1, 2, 3, 4])
 
     def test_no_same_team_pairs_no_swaps(self):
@@ -1410,7 +1409,7 @@ class SideSwapTestCase(unittest.TestCase):
         ]
         result = add_side_swaps(rows)
         self.assertEqual(result["swaps"], [])
-        self.assertIsNone(result["bailout"])
+        self.assertEqual(result["bailout_teams"], [])
 
     def test_same_team_already_split_no_swap(self):
         # N=8 sides: T,B,B,T,T,B,B,T. Seeds 2 and 5 are on different sides.
@@ -1428,12 +1427,13 @@ class SideSwapTestCase(unittest.TestCase):
         rows[3]["team"] = "Pair"  # seed 4 (T)
         rows[4]["team"] = "Pair"  # seed 5 (T)
         result = add_side_swaps(rows)
-        self.assertEqual(result["bailout"], None)
+        self.assertEqual(result["bailout_teams"], [])
         self.assertEqual(len(result["swaps"]), 1)
-        self.assertEqual(result["swaps"][0]["name_a"], "A5")  # moved down
-        self.assertEqual(result["swaps"][0]["name_b"], "A6")  # moved up
-        self.assertEqual(rows[4]["est_seed"], 6)  # A5 -> seed 6
-        self.assertEqual(rows[5]["est_seed"], 5)  # A6 -> seed 5
+        self.assertEqual(result["swaps"][0]["name_a"], "A5")  # would move down
+        self.assertEqual(result["swaps"][0]["name_b"], "A6")  # would move up
+        # est_seed is not mutated; the seeding shown reflects natural order
+        self.assertEqual(rows[4]["est_seed"], 5)
+        self.assertEqual(rows[5]["est_seed"], 6)
 
     def test_falls_back_to_seed_minus_one_when_seed_plus_one_does_not_fix(self):
         # N=8: seeds 1 (T) and 4 (T) same team. seed+1 = 5 (T) doesn't flip.
@@ -1445,8 +1445,9 @@ class SideSwapTestCase(unittest.TestCase):
         self.assertEqual(len(result["swaps"]), 1)
         self.assertEqual(result["swaps"][0]["name_a"], "A4")
         self.assertEqual(result["swaps"][0]["name_b"], "A3")
-        self.assertEqual(rows[3]["est_seed"], 3)
-        self.assertEqual(rows[2]["est_seed"], 4)
+        # est_seed is not mutated; natural seeds remain in place
+        self.assertEqual(rows[3]["est_seed"], 4)
+        self.assertEqual(rows[2]["est_seed"], 3)
 
     def test_no_swap_when_neither_neighbor_works(self):
         # N=4: T,B,B,T. Seeds 1 and 4 same team; seed+1 = 5 doesn't exist
@@ -1487,7 +1488,7 @@ class SideSwapTestCase(unittest.TestCase):
         # Empty-team athletes are not grouped, so only the real "Pair" pair
         # is detected and swapped.
         self.assertEqual(len(result["swaps"]), 1)
-        self.assertIsNone(result["bailout"])
+        self.assertEqual(result["bailout_teams"], [])
 
 
 if __name__ == "__main__":

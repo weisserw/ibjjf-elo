@@ -71,7 +71,8 @@ from photos import get_s3_client, get_public_photo_url
 from seeding import (
     add_estimated_seeds,
     add_seeding_data,
-)  # , add_side_swaps # temporarily removed, see below
+    add_side_swaps,
+)
 
 log = logging.getLogger("ibjjf")
 
@@ -1410,17 +1411,13 @@ def registration_competitors():
     add_seeding_data(rows, divdata, gi)
     add_estimated_seeds(rows, divdata)
 
-    # not doing side swaps for registration competitors for now since
-    # it can be confusing when we don't display an actual bracket diagram
-    # swap_info = add_side_swaps(rows)
+    swap_info = add_side_swaps(rows)
 
     return jsonify(
         {
             "competitors": rows,
-            # "side_swaps": swap_info["swaps"],
-            # "side_swap_bailout": swap_info["bailout"],
-            "side_swaps": [],
-            "side_swap_bailout": False,
+            "side_swaps": swap_info["swaps"],
+            "side_swap_bailout_teams": swap_info["bailout_teams"],
         }
     )
 

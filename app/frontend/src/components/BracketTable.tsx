@@ -5,7 +5,7 @@ import dayjs from 'dayjs'
 import { useAppContext } from '../AppContext'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Competitor, MatLinks, MatLinkEntry } from './BracketUtils'
+import type { Competitor, MatLinks, MatLinkEntry, SideSwap } from './BracketUtils'
 import { Tooltip } from 'react-tooltip';
 import { t } from '../translate'
 import NameInfo from './NameInfo'
@@ -27,6 +27,8 @@ interface BracketTableProps {
   showRatings: boolean;
   isGi: boolean;
   belt: string;
+  sideSwaps?: SideSwap[];
+  sideSwapBailoutTeams?: string[];
   columnClicked?: (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => void;
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, slug: string) => void;
   calculateEnabled: (athlete: Competitor) => boolean;
@@ -64,6 +66,16 @@ function BracketTable(props: BracketTableProps) {
   useEffect(() => {
     setSelectedAthletes([]);
   }, [competitors]);
+
+  const swappedNames = new Set<string>();
+  if (props.sideSwaps) {
+    for (const swap of props.sideSwaps) {
+      swappedNames.add(swap.name_a);
+      swappedNames.add(swap.name_b);
+    }
+  }
+
+  const bailoutTeams = new Set<string>(props.sideSwapBailoutTeams ?? []);
 
   const handleCheckboxChange = (competitor: Competitor) => {
     setSelectedAthletes(prev => {
@@ -320,7 +332,18 @@ function BracketTable(props: BracketTableProps) {
                       >
                         {competitor.est_seed}
                       </span>
-                    ) : (competitor.est_seed ?? '')}
+                    ) : swappedNames.has(competitor.name) && competitor.est_seed != null ? (
+                      <span
+                        className="est-seed-swap"
+                        data-tooltip-id="est-seed-swap-tooltip"
+                        data-tooltip-content={t("This athlete may swap bracket positions due to a team conflict")}
+                        data-tooltip-place="top"
+                      >
+                        {competitor.est_seed}
+                      </span>
+                    ) : (
+                      <span className="est-seed-plain">{competitor.est_seed ?? ''}</span>
+                    )}
                   </td>
                 }
                 {
@@ -374,7 +397,18 @@ function BracketTable(props: BracketTableProps) {
                       </td>
                     </>
                 }
-                <td>{competitor.team}</td>
+                <td>
+                  {bailoutTeams.has(competitor.team) ? (
+                    <span
+                      className="team-bailout"
+                      data-tooltip-id="team-bailout-tooltip"
+                      data-tooltip-content={t("Position swaps not calculated because more than two athletes are from the same team")}
+                      data-tooltip-place="top"
+                    >
+                      {competitor.team}
+                    </span>
+                  ) : competitor.team}
+                </td>
                 {
                   props.showWeight &&
                   <td>{competitor.last_weight}</td>
@@ -442,6 +476,8 @@ function BracketTable(props: BracketTableProps) {
       <Tooltip id="badge-tooltip" className="tooltip-normal" />
       <Tooltip id="competitor-tooltip" className="tooltip-multiline" />
       <Tooltip id="est-seed-tied-tooltip" className="tooltip-normal" />
+      <Tooltip id="est-seed-swap-tooltip" className="tooltip-normal" />
+      <Tooltip id="team-bailout-tooltip" className="tooltip-multiline" />
     </div>
   );
 }

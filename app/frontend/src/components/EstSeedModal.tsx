@@ -6,7 +6,6 @@ interface EstSeedModalProps {
   competitors: Competitor[]
   selectedCategory: string | null
   sideSwaps: SideSwap[]
-  sideSwapBailout: string | null
   onClose: () => void
 }
 
@@ -109,7 +108,7 @@ function renderCell(value: unknown, type: ColumnType): string {
   return String(value)
 }
 
-function EstSeedModal({ competitors, selectedCategory, sideSwaps, sideSwapBailout, onClose }: EstSeedModalProps) {
+function EstSeedModal({ competitors, selectedCategory, onClose }: EstSeedModalProps) {
   const columns = useMemo(() => columnsForDivision(selectedCategory), [selectedCategory])
 
   const sorted = useMemo(() => {
@@ -173,6 +172,7 @@ function EstSeedModal({ competitors, selectedCategory, sideSwaps, sideSwapBailou
               </tbody>
             </table>
           </div>
+          {/*
           {sideSwapBailout && (
             <div className="notification is-warning is-light est-seed-swap-note mt-4">
               {sideSwapBailout}
@@ -188,6 +188,7 @@ function EstSeedModal({ competitors, selectedCategory, sideSwaps, sideSwapBailou
               </ul>
             </div>
           )}
+          */}
           <p className="est-seed-disclaimer mt-4">
             {t('Estimated seeding is a BETA feature and can vary from the actual seeding for a division for many reasons, including but not limited to: missing medals in our system, athletes changing teams or gaining points before an event, and differences in tie breaks. The IBJJF will also swap positions of teammates on the same side of the bracket. These seeds should not be mistaken for official IBJJF seeds.')}
           </p>
