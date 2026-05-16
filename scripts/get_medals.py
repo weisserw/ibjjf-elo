@@ -390,6 +390,33 @@ def scrape(args):
     else:
         all_links = ibjjf_links + cbjj_links
 
+    # IBJJF's index page contains a handful of broken links where two different
+    # event-year entries point to the same destination URL (sometimes identical
+    # data-n+data-y, sometimes a Kids event linked to an Adult event's page, etc).
+    # Scraping the same URL twice produces duplicate rows (identical case ->
+    # primary-key violation; mis-routed case -> silently mis-labelled rows).
+    # Keep the first occurrence of each URL and warn on the rest.
+    deduped = []
+    seen_urls = {}
+    for link in all_links:
+        prev = seen_urls.get(link["url"])
+        if prev is None:
+            seen_urls[link["url"]] = link
+            deduped.append(link)
+            continue
+        print(
+            f"WARN: dropping duplicate URL {link['url']}: "
+            f"kept '{prev['tournament']} {prev['year']}' ({prev['source']}), "
+            f"dropping '{link['tournament']} {link['year']}' ({link['source']})",
+            file=sys.stderr,
+        )
+    if len(deduped) != len(all_links):
+        print(
+            f"URL dedup: {len(all_links) - len(deduped)} duplicate URLs dropped",
+            file=sys.stderr,
+        )
+    all_links = deduped
+
     if args.year:
         all_links = [link for link in all_links if link["year"] == args.year]
         print(f"Filtered to year={args.year}: {len(all_links)} links", file=sys.stderr)
