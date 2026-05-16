@@ -27,6 +27,7 @@ export interface Competitor {
   next_when: string | null
   medal?: string
   est_seed?: number | null
+  est_seed_tied?: boolean
   points?: number
   open_class_points?: number
   grand_slam_points?: number

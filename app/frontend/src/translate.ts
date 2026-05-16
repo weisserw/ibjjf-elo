@@ -312,6 +312,7 @@ const translations = {
     "disclaimer": "isenção de responsabilidade",
     "Est. Seed": "Seed Est.",
     "About estimated seeding": "Sobre a estimativa de seeding",
+    "The order of tied seeds may differ from what is shown": "A ordem das seeds empatadas pode diferir do que é mostrado",
     "Estimated Seeding": "Estimativa de Seeding",
     "Same-team side-swaps applied": "Trocas de lado da mesma equipe aplicadas",
     "Pts": "Pts",

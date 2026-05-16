@@ -310,7 +310,18 @@ function BracketTable(props: BracketTableProps) {
                 }
                 {
                   props.showEstSeed &&
-                  <td className="has-text-right">{competitor.est_seed ?? ''}</td>
+                  <td className="has-text-right">
+                    {competitor.est_seed_tied && competitor.est_seed != null ? (
+                      <span
+                        className="est-seed-tied"
+                        data-tooltip-id="est-seed-tied-tooltip"
+                        data-tooltip-content={t("The order of tied seeds may differ from what is shown")}
+                        data-tooltip-place="top"
+                      >
+                        {competitor.est_seed}
+                      </span>
+                    ) : (competitor.est_seed ?? '')}
+                  </td>
                 }
                 {
                   props.showSeed &&
@@ -430,6 +441,7 @@ function BracketTable(props: BracketTableProps) {
       }
       <Tooltip id="badge-tooltip" className="tooltip-normal" />
       <Tooltip id="competitor-tooltip" className="tooltip-multiline" />
+      <Tooltip id="est-seed-tied-tooltip" className="tooltip-normal" />
     </div>
   );
 }

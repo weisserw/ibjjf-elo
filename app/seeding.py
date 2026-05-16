@@ -1,16 +1,15 @@
 """IBJJF seeding-points calculator.
 
-Given the registration list for a single division, populates each row with
-seeding-related fields (currently: ``points`` and ``open_class_points``)
+Given the registration list for a single division, contains utilities that populate
+each row with seeding-related fields (currently: ``points`` and ``open_class_points``)
 according to the IBJJF's per-category, per-season, per-star, per-weight
-points scheme.
-
-The public entry point is :func:`add_seeding_data`.
+points scheme, and sort the rows by those points.
 """
 
 import math
 import re
 import zlib
+from collections import Counter
 from datetime import datetime
 
 from sqlalchemy.sql import func, or_
@@ -911,7 +910,11 @@ def add_seeding_data(rows, divdata, gi, now=None):
 def add_estimated_seeds(rows, divdata):
     """Populate ``est_seed`` on each row with the 1-based ranking the athlete
     would have in this division based on the values produced by
-    :func:`add_seeding_data`. Row order is preserved; only ``est_seed`` is set.
+    :func:`add_seeding_data`. Row order is preserved; ``est_seed`` and
+    ``est_seed_tied`` are set on every row. ``est_seed_tied`` is True when
+    the row's seed was decided only by the name-crc tie-break — i.e. some
+    other row shares an identical key on every real seeding criterion — and
+    so the relative order between those tied rows is arbitrary.
     Sort keys are descending (more is better -> lower seed number); for each
     criterion below, ties fall through to the next criterion.
 
@@ -1033,6 +1036,14 @@ def add_estimated_seeds(rows, divdata):
     ordered = sorted(range(len(rows)), key=lambda i: keyfn(rows[i]), reverse=True)
     for seed, i in enumerate(ordered, start=1):
         rows[i]["est_seed"] = seed
+
+    # Mark rows whose seed was decided only by the name-crc tie-break — i.e.
+    # at least one other row has an identical key on every real seeding
+    # criterion. The frontend uses this to flag those seeds as ambiguous.
+    keys_no_tiebreak = [keyfn(r)[:-1] for r in rows]
+    key_counts = Counter(keys_no_tiebreak)
+    for r, k in zip(rows, keys_no_tiebreak):
+        r["est_seed_tied"] = key_counts[k] > 1
 
 
 def _bracket_layout(bracket_size):
