@@ -22,6 +22,8 @@ from constants import (
     MASTER_4,
     MASTER_5,
     MASTER_7,
+    MEDIUM_HEAVY,
+    MIDDLE,
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
 )
@@ -373,15 +375,31 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(row["points"], 0)
         self.assertEqual(row["grand_slam_points"], 0)
 
-    def test_open_class_medal_goes_to_separate_bucket(self):
-        # Light tournament, gold in Open Class at Worlds 2025:
-        # open: 13.5 * 3 * 7 = 283.5 -> floor 283. Normal points: 0.
+    def test_open_class_medal_folds_into_points_for_non_open_tournament(self):
+        # Light tournament, gold in Open Class at Worlds 2025: open-class
+        # medals fold into the regular points bucket at flat 1.0 weight when
+        # the tournament itself is not open class.
+        # 13.5 * 3 * 7 = 283.5 -> floor 283. open_class_points stays 0.
         def seed(t):
             a = t._make_athlete("open-class-gold")
             t._add_medal(a, t.worlds_2025, place=1, weight=OPEN_CLASS)
             return a
 
         row = self._seed_and_run(seed, _divdata(weight=LIGHT), gi=True)
+        self.assertEqual(row["points"], 283)
+        self.assertEqual(row["open_class_points"], 0)
+        self.assertEqual(row["grand_slam_points"], 283)
+        self.assertEqual(row["grand_slam_open_class_points"], 0)
+
+    def test_open_class_medal_goes_to_separate_bucket_for_open_tournament(self):
+        # Open Class tournament: open-class medals stay in their own bucket.
+        # 13.5 * 3 * 7 = 283.5 -> floor 283.
+        def seed(t):
+            a = t._make_athlete("open-class-gold-in-open")
+            t._add_medal(a, t.worlds_2025, place=1, weight=OPEN_CLASS)
+            return a
+
+        row = self._seed_and_run(seed, _divdata(weight=OPEN_CLASS), gi=True)
         self.assertEqual(row["points"], 0)
         self.assertEqual(row["open_class_points"], 283)
         self.assertEqual(row["grand_slam_points"], 0)
@@ -400,6 +418,47 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         row = self._seed_and_run(seed, _divdata(weight=OPEN_CLASS), gi=True)
         self.assertEqual(row["points"], 189)
         self.assertEqual(row["open_class_points"], 189)
+
+    def test_non_open_tournament_combines_adjacent_weight_and_open_into_points(self):
+        # Mirrors a real-world scenario: athlete registered at Middle has an
+        # adjacent-weight bronze + silver and an open-class bronze, all at
+        # 1-star non-Grand-Slam events in the current season (3x). Per spec,
+        # for a non-open tournament the open-class medal folds into ``points``
+        # at flat 1.0 weight (open place values), not into open_class_points.
+        #
+        # MH bronze: 1 * 3 * 0.5 * 1 = 1.5
+        # MH silver: 3 * 3 * 0.5 * 1 = 4.5
+        # Open bronze: 1.5 * 3 * 1.0 * 1 = 4.5
+        # points = 1.5 + 4.5 + 4.5 = 10.5 -> floor 10
+        # open_class_points = 0 (tournament is not open class)
+        def seed(t):
+            a = t._make_athlete("middle-with-mh-and-open")
+            t._add_medal(
+                a,
+                t.local_event_2025,
+                place=3,
+                weight=MEDIUM_HEAVY,
+                happened_at=datetime(2025, 12, 6),
+            )
+            t._add_medal(
+                a,
+                t.local_event_2025,
+                place=2,
+                weight=MEDIUM_HEAVY,
+                happened_at=datetime(2025, 7, 19),
+            )
+            t._add_medal(
+                a,
+                t.local_event_2025,
+                place=3,
+                weight=OPEN_CLASS,
+                happened_at=datetime(2025, 7, 19),
+            )
+            return a
+
+        row = self._seed_and_run(seed, _divdata(weight=MIDDLE), gi=True)
+        self.assertEqual(row["points"], 10)
+        self.assertEqual(row["open_class_points"], 0)
 
     def test_belt_filter(self):
         # BLACK tournament; brown-belt medals must not contribute.

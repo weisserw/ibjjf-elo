@@ -213,7 +213,7 @@ def _star_table_for_division(division_age, gi):
 
 def _seeding_category(age, gi):
     """Return the set of division ages whose medals contribute to this
-    tournament's seeding pool, or None if the age has no defined category.
+    division's seeding pool, or None if the age has no defined category.
 
     Each (age, gi) bucket has its own pool of point-eligible medals.
     Season boundaries are handled separately in :func:`_recent_seasons`.
@@ -233,7 +233,7 @@ def _seeding_category(age, gi):
 
 def _worlds_base_name(age, gi):
     """The base name of the Worlds event whose start dates anchor the season
-    boundaries for this tournament's category.
+    boundaries for this division's category.
     """
     if not gi:
         return WORLDS_BASE_NOGI
@@ -242,21 +242,21 @@ def _worlds_base_name(age, gi):
     return WORLDS_BASE_ADULT_GI
 
 
-def _weight_multipliers(tournament_weight):
+def _weight_multipliers(division_weight):
     """Return {medal_weight: multiplier} for the *normal* weight classes that
-    contribute points to this tournament. Open-class medals are tallied
+    contribute points to this division. Open-class medals are tallied
     separately and are not included here.
 
-    - Normal-weight tournament: 100% from the same weight, 50% from the
+    - Normal-weight division: 100% from the same weight, 50% from the
       adjacent (one above, one below) weights.
-    - Open-class tournament: 100% from every normal weight class.
+    - Open-class division: 100% from every normal weight class.
     """
-    if tournament_weight in SEEDING_OPEN_CLASS_WEIGHTS:
+    if division_weight in SEEDING_OPEN_CLASS_WEIGHTS:
         return {w: 1.0 for w in SEEDING_NORMAL_WEIGHTS_ORDERED}
-    if tournament_weight not in SEEDING_NORMAL_WEIGHTS_ORDERED:
+    if division_weight not in SEEDING_NORMAL_WEIGHTS_ORDERED:
         return {}
-    idx = SEEDING_NORMAL_WEIGHTS_ORDERED.index(tournament_weight)
-    multipliers = {tournament_weight: 1.0}
+    idx = SEEDING_NORMAL_WEIGHTS_ORDERED.index(division_weight)
+    multipliers = {division_weight: 1.0}
     if idx > 0:
         multipliers[SEEDING_NORMAL_WEIGHTS_ORDERED[idx - 1]] = 0.5
     if idx + 1 < len(SEEDING_NORMAL_WEIGHTS_ORDERED):
@@ -563,7 +563,7 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today):
 
 
 def _master_levels_up_to(master_age):
-    """For a master tournament age, return ``[(level_num, master_age), ...]``
+    """For a master division age, return ``[(level_num, master_age), ...]``
     for levels 1 .. current. e.g. for Master 3:
     ``[(1, Master 1), (2, Master 2), (3, Master 3)]``.
     """
@@ -674,20 +674,26 @@ def _score_medal(
     gi,
     season_mult,
     weight_multipliers,
+    division_is_open,
 ):
     """Apply place / star / weight / season multipliers to a single medal
-    and add the resulting point value to either the weight-points or the
-    open-class-points accumulator dict, in-place.
+    and add the resulting point value to the appropriate accumulator dict,
+    in-place.
+
+    Open-class medals are split into ``open_acc`` only when the division
+    being seeded is itself open class; for non-open divisions they fold
+    into ``weight_acc`` at a flat 1.0 weight multiplier (using the larger
+    open-class place values), so the final ``points`` total reflects every
+    medal that contributes seeding for this division.
     """
     star_table = _star_table_for_division(division_age, gi)
     star_mult = star_table.get(
         _event_base(_normalize_event_name(event_name)), DEFAULT_STAR_RATING
     )
     if weight in SEEDING_OPEN_CLASS_WEIGHTS:
-        open_acc[athlete_id] = (
-            open_acc.get(athlete_id, 0)
-            + _OPEN_PLACE_POINTS[place] * season_mult * star_mult
-        )
+        contribution = _OPEN_PLACE_POINTS[place] * season_mult * star_mult
+        target = open_acc if division_is_open else weight_acc
+        target[athlete_id] = target.get(athlete_id, 0) + contribution
     else:
         weight_mult = weight_multipliers.get(weight, 0.0)
         if weight_mult:
@@ -701,32 +707,37 @@ def add_seeding_data(rows, divdata, gi, now=None):
     """Compute IBJJF seeding criteria for each competitor and attach to the row.
 
     Currently populates:
-      - points: weight-class medal points from the 3 most recent seasons of
-        the same gi/age category as this tournament. Base values 9 / 3 / 1
-        for 1st / 2nd / 3rd, with season multipliers 3x / 2x / 1x, weight
-        multipliers (1.0 same weight, 0.5 adjacent for normal-weight
-        tournaments; 1.0 every normal weight for open-class tournaments),
-        and per-event star ratings (looked up against the medal's own
-        division so adult-division medals carried into masters seeding use
-        the adult star table).
-      - open_class_points: medal points from open-class divisions
-        (Open Class, Open Class Light, Open Class Heavy), base values
-        13.5 / 4.5 / 1.5 with the same season and star multipliers and a
-        flat 1.0 weight multiplier.
+      - points: medal points from the 3 most recent seasons of the same
+        gi/age category as this division. Normal-weight medals use base
+        values 9 / 3 / 1 for 1st / 2nd / 3rd with weight multipliers (1.0
+        same weight, 0.5 adjacent for normal-weight divisions; 1.0 every
+        normal weight for open-class divisions). For *non-open-class*
+        divisions, open-class medals also fold into ``points`` at base
+        values 13.5 / 4.5 / 1.5 with a flat 1.0 weight multiplier — they
+        are only broken out into ``open_class_points`` when the division
+        being seeded is itself open class. Season multipliers are 3x / 2x
+        / 1x and per-event star ratings are looked up against the medal's
+        own division (so adult-division medals carried into masters
+        seeding use the adult star table).
+      - open_class_points: only populated for open-class divisions; the
+        open-class medal contribution that ``points`` would otherwise have
+        absorbed (base 13.5 / 4.5 / 1.5, flat 1.0 weight multiplier). For
+        non-open divisions this stays 0.
       - grand_slam_points / grand_slam_open_class_points: same scoring as
-        above but restricted to medals from Grand Slam events (Euros, Pans,
-        Brasileiros, Worlds). The Grand Slam season multiplier is
-        independent of the regular season: each of the four Grand Slam
-        event types has its own rolling 3x / 2x / 1x window based on the
-        recency of that specific event.
+        above (including the same "fold open into the regular bucket for
+        non-open divisions" rule) but restricted to medals from Grand
+        Slam events (Euros, Pans, Brasileiros, Worlds). The Grand Slam
+        season multiplier is independent of the regular season: each of
+        the four Grand Slam event types has its own rolling 3x / 2x / 1x
+        window based on the recency of that specific event.
 
-    Only for Adult / BLACK belt tournaments, also populates six
+    Only for Adult / BLACK belt divisions, also populates six
     black-belt-specific flags (see :func:`_adult_black_belt_seeding`):
     ``world_champion_recent``, ``last_world_title_year``,
     ``world_champion_4_years_ago``, ``world_champion_5_years_ago``,
     ``former_world_champion``, ``previous_brown_world_champion``.
 
-    Only for Master 1..7 / BLACK belt tournaments, also populates
+    Only for Master 1..7 / BLACK belt divisions, also populates
     ``adult_world_champion`` plus one ``master_K_world_champion`` flag for
     each level K = 1 .. current master level (see
     :func:`_master_black_belt_seeding`).
@@ -775,6 +786,7 @@ def add_seeding_data(rows, divdata, gi, now=None):
     weight_filter = list(weight_multipliers.keys()) + list(SEEDING_OPEN_CLASS_WEIGHTS)
     if not weight_filter:
         return
+    division_is_open = divdata["weight"] in SEEDING_OPEN_CLASS_WEIGHTS
 
     if now is None:
         now = datetime.now()
@@ -833,6 +845,7 @@ def add_seeding_data(rows, divdata, gi, now=None):
                         gi,
                         season_mult,
                         weight_multipliers,
+                        division_is_open,
                     )
                     break
 
@@ -869,6 +882,7 @@ def add_seeding_data(rows, divdata, gi, now=None):
                 gi,
                 gs_multipliers[r.event_id],
                 weight_multipliers,
+                division_is_open,
             )
 
     if is_adult_black:
