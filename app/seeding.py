@@ -168,6 +168,7 @@ _ADULT_GI_TOURNAMENTS = [
     ("São Paulo BJJ Pro IBJJF Championship", 2),
     ("Pan Pacific IBJJF Jiu-Jitsu Championship", 2),
     ("South American Jiu-Jitsu IBJJF Championship", 2),
+    ("Campeonato Sul-Americano de Jiu-Jitsu", 2),
     ("Jiu-Jitsu CON International", 2),
 ]
 STAR_RATINGS_ADULT_GI = _build_star_table(_ADULT_GI_TOURNAMENTS)
@@ -188,6 +189,7 @@ _NOGI_TOURNAMENTS = [
     ("American National IBJJF Jiu-Jitsu No-Gi Championship", 2),
     ("Pan Pacific IBJJF Jiu-Jitsu No-Gi Championship", 2),
     ("South American Jiu-Jitsu IBJJF No-Gi Championship", 2),
+    ("Campeonato Sul-Americano de Jiu-Jitsu No-Gi", 2),
     ("Jiu-Jitsu CON No-Gi International", 2),
 ]
 STAR_RATINGS_NOGI = _build_star_table(_NOGI_TOURNAMENTS)
@@ -804,6 +806,7 @@ def add_seeding_data(rows, divdata, gi, now=None):
         Division.belt == divdata["belt"],
         Division.age.in_(age_filter),
         Division.weight.in_(weight_filter),
+        Event.name.notilike("ibjjjf crown %"),
     )
 
     # Regular points: medals inside the rolling-Worlds-anchored season window.
