@@ -182,6 +182,7 @@ function Athlete() {
   const [loading, setLoading] = useState(false);
   const [reloading, setReloading] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
+  const [showAllMedals, setShowAllMedals] = useState(false);
 
   const {
     activeTab,
@@ -212,10 +213,14 @@ function Athlete() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    setShowAllMedals(false);
+  }, [id, activeTab]);
+
+  useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const response = await axios.get(`/api/athlete/${id}?gi=${activeTab === 'Gi' ? 'true' : 'false'}`);
+        const response = await axios.get(`/api/athlete/${id}?gi=${activeTab === 'Gi' ? 'true' : 'false'}&all_medals=${showAllMedals ? 'true' : 'false'}`);
         setResponseData(response.data);
         setPage(1);
       } catch (error) {
@@ -226,7 +231,7 @@ function Athlete() {
     };
 
     fetchData();
-  }, [id, activeTab]);
+  }, [id, activeTab, showAllMedals]);
 
   useEffect(() => {
     if (!responseData) return;
@@ -791,7 +796,20 @@ function Athlete() {
           <div className={classNames("box accordion-box mt-5", {"open": medalCaseOpen})}>
             <div className="accordion">
               <header className="accordion-header" onClick={() => setMedalCaseOpen(!medalCaseOpen)}>
-                <p><strong>{t("Earned Medals")} 🏆</strong></p>
+                <p>
+                  <strong>{t(showAllMedals ? "All Medals" : "Earned Medals")} 🏆</strong>
+                  <button
+                    type="button"
+                    className="medal-flip-button"
+                    onClick={(e) => { e.stopPropagation(); setShowAllMedals((prev) => !prev); if (!medalCaseOpen) setMedalCaseOpen(true); }}
+                    aria-label={t(showAllMedals ? "Show only earned medals" : "Show all medals")}
+                    data-tooltip-id="athlete-medal-flip-tooltip"
+                    data-tooltip-content={t(showAllMedals ? "Show only earned medals" : "Show all medals")}
+                  >
+                    <i className="fas fa-arrows-rotate"></i>
+                  </button>
+                  <Tooltip id="athlete-medal-flip-tooltip" className="tooltip-normal" />
+                </p>
                 <span className={`accordion-icon ${medalCaseOpen ? 'is-active' : ''}`}>
                   <i className={`fas fa-angle-${medalCaseOpen ? 'up' : 'down'}`}></i>
                 </span>

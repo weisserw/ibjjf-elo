@@ -305,7 +305,7 @@ def _won_real_match_exists():
     )
 
 
-def get_athlete_data(identifier, gi_param=None):
+def get_athlete_data(identifier, gi_param=None, all_medals=False):
     athlete, id_uuid = _resolve_athlete(identifier)
     if not athlete:
         return None
@@ -523,16 +523,16 @@ def get_athlete_data(identifier, gi_param=None):
         .join(Event)
         .join(Division)
         .filter(Medal.athlete_id == id_uuid)
-        .filter(Medal.default_gold == False)
         .filter(Division.gi == gi)
-        .filter(
+    )
+    if not all_medals:
+        medal_query = medal_query.filter(Medal.default_gold == False).filter(
             or_(  # OR conditions for valid medals
                 _won_real_match_exists(),
                 # Medal occurred before historical cutoff (December 1, 2024)
                 Medal.happened_at < datetime(2024, 12, 1),
             )
         )
-    )
 
     medals = [
         {
@@ -610,7 +610,8 @@ def get_athlete_data(identifier, gi_param=None):
 
 @athletes_route.route("/api/athlete/<id>")
 def get_athlete(id):
-    athlete_data = get_athlete_data(id, request.args.get("gi"))
+    all_medals = (request.args.get("all_medals") or "").lower() == "true"
+    athlete_data = get_athlete_data(id, request.args.get("gi"), all_medals=all_medals)
     if athlete_data is None:
         return jsonify({"error": "Athlete not found"}), 404
 
