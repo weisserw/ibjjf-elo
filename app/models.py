@@ -167,6 +167,27 @@ class Medal(db.Model):
     )
 
 
+class ResultMedal(db.Model):
+    __tablename__ = "result_medals"
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    event_name = Column(String, nullable=False)
+    event_ibjjf_id = Column(String, nullable=True)
+    division = Column(String, nullable=False)
+    team_name = Column(String, nullable=False)
+    athlete_name = Column(String, nullable=False)
+    place = Column(Integer, nullable=False)
+    source = Column(String, nullable=False)
+    event_url = Column(String, nullable=True)
+    scraped_at = Column(DateTime, nullable=False)
+
+    __table_args__ = (
+        Index("ix_result_medals_event_name", "event_name"),
+        Index("ix_result_medals_event_ibjjf_id", "event_ibjjf_id"),
+        Index("ix_result_medals_athlete_name", "athlete_name"),
+        Index("ix_result_medals_scraped_at", "scraped_at"),
+    )
+
+
 class Match(db.Model):
     __tablename__ = "matches"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
