@@ -68,7 +68,10 @@ from elo import (
     CLOSEOUT_NOTE,
 )
 from photos import get_s3_client, get_public_photo_url
-from seeding import add_estimated_seeds, add_seeding_data, add_side_swaps
+from seeding import (
+    add_estimated_seeds,
+    add_seeding_data,
+)  # , add_side_swaps # temporarily removed, see below
 
 log = logging.getLogger("ibjjf")
 
@@ -1406,13 +1409,18 @@ def registration_competitors():
 
     add_seeding_data(rows, divdata, gi)
     add_estimated_seeds(rows, divdata)
-    swap_info = add_side_swaps(rows)
+
+    # not doing side swaps for registration competitors for now since
+    # it can be confusing when we don't display an actual bracket diagram
+    # swap_info = add_side_swaps(rows)
 
     return jsonify(
         {
             "competitors": rows,
-            "side_swaps": swap_info["swaps"],
-            "side_swap_bailout": swap_info["bailout"],
+            # "side_swaps": swap_info["swaps"],
+            # "side_swap_bailout": swap_info["bailout"],
+            "side_swaps": [],
+            "side_swap_bailout": False,
         }
     )
 

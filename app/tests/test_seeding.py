@@ -746,9 +746,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
             t._add_medal(a, t.worlds_2025, place=1, weight=OPEN_CLASS_HEAVY)
             return a
 
-        row = self._seed_and_run(
-            seed, _divdata(belt=BLACK, weight=OPEN_CLASS), gi=True
-        )
+        row = self._seed_and_run(seed, _divdata(belt=BLACK, weight=OPEN_CLASS), gi=True)
         self.assertTrue(row["world_champion_recent"])
 
     def test_master_black_belt_title_in_different_weight_does_not_count(self):
@@ -756,9 +754,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         # Master 3 tournament's ``master_3_world_champion``.
         def seed(t):
             a = t._make_athlete("mb-wrong-weight")
-            t._add_medal(
-                a, t.master_worlds_2024, place=1, age=MASTER_3, weight=HEAVY
-            )
+            t._add_medal(a, t.master_worlds_2024, place=1, age=MASTER_3, weight=HEAVY)
             return a
 
         row = self._seed_and_run(

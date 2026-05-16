@@ -189,7 +189,7 @@ function EstSeedModal({ competitors, selectedCategory, sideSwaps, sideSwapBailou
             </div>
           )}
           <p className="est-seed-disclaimer mt-4">
-            {t('Estimated seeding is a BETA feature and can vary from the actual seeding for a division for many reasons, including but not limited to: missing medals in our system, athletes changing teams or gaining points before an event, and differences in tie breaks. These seeds should not be mistaken for official IBJJF seeds.')}
+            {t('Estimated seeding is a BETA feature and can vary from the actual seeding for a division for many reasons, including but not limited to: missing medals in our system, athletes changing teams or gaining points before an event, and differences in tie breaks. The IBJJF will also swap positions of teammates on the same side of the bracket. These seeds should not be mistaken for official IBJJF seeds.')}
           </p>
         </div>
       </div>
