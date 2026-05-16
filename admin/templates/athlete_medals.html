@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Medals for {{ athlete.name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='athlete_matches.css') }}">
+<div class="container mt-6">
+    <div class="box">
+        <h1 class="title is-4 has-text-centered">Medals for {{ athlete.name }}</h1>
+        <form id="global-medal-form" method="POST" action="{{ url_for('update_all_medals') }}">
+            <input type="hidden" name="athlete_id" value="{{ athlete.id }}">
+            <a class="button is-link is-light mt-4" href="{{ url_for('athlete_edit', id=athlete.id) }}">Back to Athlete</a>
+            <div class="save-button">
+                <button type="submit" class="button is-link">Save All</button>
+            </div>
+            <table class="table is-fullwidth is-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Event</th>
+                        <th>Division</th>
+                        <th>Gi</th>
+                        <th>Team</th>
+                        <th>Default Gold</th>
+                        <th>Place</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for medal in medals %}
+                    <tr>
+                        <td class="nowrap">{{ medal.happened_at.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ medal.event.name }}</td>
+                        <td>{{ medal.division.display_name() }}</td>
+                        <td>{{ 'Gi' if medal.division.gi else 'No-Gi' }}</td>
+                        <td>{{ medal.team.name }}</td>
+                        <td>{{ 'Yes' if medal.default_gold else 'No' }}</td>
+                        <td>
+                            {% if medal.default_gold %}
+                                <input type="text" value="{{ medal.place }}" class="video-input" readonly disabled>
+                            {% else %}
+                                <input type="number" name="place_{{ medal.id }}" value="{{ medal.place }}" min="1" class="video-input" required>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button type="submit" form="delete-medal-{{ medal.id }}" class="button is-danger is-small"
+                                onclick="return confirm('Delete this medal?');">Delete</button>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <div class="save-button">
+                <button type="submit" class="button is-link">Save All</button>
+            </div>
+        </form>
+        {% for medal in medals %}
+            <form id="delete-medal-{{ medal.id }}" method="POST" action="{{ url_for('update_all_medals') }}">
+                <input type="hidden" name="athlete_id" value="{{ athlete.id }}">
+                <input type="hidden" name="delete_medal_id" value="{{ medal.id }}">
+            </form>
+        {% endfor %}
+        <a class="button is-link is-light mt-4" href="{{ url_for('athlete_edit', id=athlete.id) }}">Back to Athlete</a>
+    </div>
+</div>
+{% endblock %}

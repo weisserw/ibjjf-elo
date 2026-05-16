@@ -26,6 +26,7 @@ from models import (
     LiveStream,
     Match,
     MatchParticipant,
+    Medal,
     FloEventTag,
     FloMatLink,
     BackgroundTask,
@@ -1302,6 +1303,65 @@ def update_all_video_links():
             match.video_link = video_link
     db.session.commit()
     return redirect(url_for("athlete_matches", id=athlete_id))
+
+
+@app.route("/athlete_medals")
+def athlete_medals():
+    athlete_id = request.args.get("id")
+    athlete = None
+    medals = []
+    if athlete_id:
+        athlete = Athlete.query.get(uuid.UUID(athlete_id))
+        if athlete:
+            medals = (
+                Medal.query.filter(Medal.athlete_id == athlete.id)
+                .order_by(Medal.happened_at.desc())
+                .all()
+            )
+    return render_template("athlete_medals.html", athlete=athlete, medals=medals)
+
+
+@app.route("/update_all_medals", methods=["POST"])
+def update_all_medals():
+    athlete_id = request.form.get("athlete_id")
+    error = None
+
+    delete_id = (request.form.get("delete_medal_id") or "").strip()
+    if delete_id:
+        try:
+            medal = Medal.query.get(uuid.UUID(delete_id))
+        except ValueError:
+            medal = None
+        if medal:
+            db.session.delete(medal)
+            db.session.commit()
+        return redirect(url_for("athlete_medals", id=athlete_id))
+
+    for key, value in request.form.items():
+        if not key.startswith("place_"):
+            continue
+        medal_id_raw = key[len("place_") :]
+        try:
+            medal = Medal.query.get(uuid.UUID(medal_id_raw))
+        except ValueError:
+            continue
+        if not medal or medal.default_gold:
+            continue
+        try:
+            new_place = int(value)
+        except (TypeError, ValueError):
+            error = "Place must be an integer."
+            continue
+        if new_place < 1:
+            error = "Place must be 1 or greater."
+            continue
+        medal.place = new_place
+
+    if error:
+        db.session.rollback()
+    else:
+        db.session.commit()
+    return redirect(url_for("athlete_medals", id=athlete_id))
 
 
 application = app

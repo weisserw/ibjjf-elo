@@ -90,6 +90,7 @@
         {% endif %}
         <a class="button is-link is-light mt-4" href="{{ url_for('athletes') }}">Back to Search</a>
         <a class="button is-link is-light ml-4 mt-4" href="{{ url_for('athlete_matches') }}?id={{ athlete.id }}">View Matches</a>
+        <a class="button is-link is-light ml-4 mt-4" href="{{ url_for('athlete_medals') }}?id={{ athlete.id }}">View Medals</a>
       </div>
     </div>
   </div>
