@@ -123,6 +123,9 @@ _VALID_MEDAL_PLACES = list(_WEIGHT_PLACE_POINTS.keys())
 # 3 years back).
 _EVENT_YEAR_LOOKBACK = 4
 
+# Exclude IBJJF Crown events, which aren't real medals / don't count for points
+_IBJJF_CROWN_EVENT_NAME_PATTERN = "ibjjf crown %"
+
 
 def _normalize_event_name(name):
     """Match key for an Event.name. Lowercases, removes any parenthetical
@@ -806,7 +809,7 @@ def add_seeding_data(rows, divdata, gi, now=None):
         Division.belt == divdata["belt"],
         Division.age.in_(age_filter),
         Division.weight.in_(weight_filter),
-        Event.name.notilike("ibjjjf crown %"),
+        Event.name.notilike(_IBJJF_CROWN_EVENT_NAME_PATTERN),
     )
 
     # Regular points: medals inside the rolling-Worlds-anchored season window.
