@@ -155,6 +155,40 @@ def _build_star_table(entries):
     return {_normalize_event_name(base): stars for base, stars in entries}
 
 
+# Alternate event-name bases that should be treated as the canonical
+# event base for star-rating lookups and Grand Slam slot grouping.
+# Each entry maps a canonical raw base name to a list of raw alias
+# base names. Keep both forms raw here so they can be re-used directly
+# by SQL ``LIKE`` filters; normalization is applied at lookup time.
+_EVENT_BASE_ALIASES_BY_CANONICAL = {
+    "Campeonato Brasileiro de Jiu-Jitsu Sem Kimono": [
+        "Brazilian National Jiu-Jitsu No-Gi Championship",
+    ],
+}
+
+# Reverse map: normalized alias base -> normalized canonical base.
+_EVENT_BASE_ALIASES = {
+    _normalize_event_name(alias): _normalize_event_name(canonical)
+    for canonical, aliases in _EVENT_BASE_ALIASES_BY_CANONICAL.items()
+    for alias in aliases
+}
+
+
+def _canonical_event_base(normalized_base):
+    """Map an aliased event-name base to its canonical normalized form."""
+    return _EVENT_BASE_ALIASES.get(normalized_base, normalized_base)
+
+
+def _bases_with_aliases(canonical_base):
+    """Return ``[canonical_base, *aliases]`` (raw names) so callers can run
+    SQL ``LIKE`` filters across every known variant of an event.
+    """
+    return [
+        canonical_base,
+        *_EVENT_BASE_ALIASES_BY_CANONICAL.get(canonical_base, []),
+    ]
+
+
 # Adult/Juvenile gi star tournaments. Base names are the *current* (post-2022)
 # event-name forms from the events table, without year suffix and without any
 # trailing source-marker parenthetical.
@@ -275,18 +309,25 @@ def _event_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
     years that have started (at least one matching event with a recorded
     start <= today).
 
+    ``base`` may be a single raw base name or an iterable of equivalent
+    bases (e.g. canonical + aliases); events matching any of them share
+    year slots so alias editions don't consume extra rolling-window slots.
+
     Duplicate source records that collide on the same (base, year) — e.g.
     ``Campeonato Brasileiro de Jiu-Jitsu 2023`` vs.
     ``Campeonato Brasileiro de Jiu-Jitsu (Juvenil, Adulto e Master) 2023 (Flo)``
     — collapse into a single year-group, so they don't consume multiple
     rolling-window slots.
     """
+    bases = [base] if isinstance(base, str) else list(base)
     years = range(today.year - lookback + 1, today.year + 1)
     candidate_by_norm = {
-        _normalize_event_name(f"{base} {year}"): year for year in years
+        _normalize_event_name(f"{b} {year}"): year for b in bases for year in years
     }
     candidate_events = (
-        db.session.query(Event.id, Event.name).filter(Event.name.like(f"{base}%")).all()
+        db.session.query(Event.id, Event.name)
+        .filter(or_(*[Event.name.like(f"{b}%") for b in bases]))
+        .all()
     )
     events_by_year = {}
     for e in candidate_events:
@@ -378,7 +419,7 @@ def _grand_slam_event_multipliers(age, gi, today, n=3):
     """
     result = {}
     for base in _grand_slam_bases(age, gi):
-        year_groups = _event_year_groups(base, today)
+        year_groups = _event_year_groups(_bases_with_aliases(base), today)
         if not year_groups:
             continue
         sorted_years = sorted(year_groups.keys(), reverse=True)[:n]
@@ -449,11 +490,16 @@ def _past_worlds_year_groups(patterns, today):
 
     result = {}
     for year, eids in events_by_year.items():
-        starts_in_year = [
-            eid_to_start[eid]
-            for eid in eids
-            if eid in eid_to_start and eid_to_start[eid] <= today
-        ]
+        starts_in_year = []
+        for eid in eids:
+            start = eid_to_start.get(eid)
+            if start is None:
+                # Legacy Worlds edition with no per-match timestamps in
+                # the DB — assume it ran in early June of its named year
+                # so historical titles still register.
+                start = datetime(year, 6, 1)
+            if start <= today:
+                starts_in_year.append(start)
         if not starts_in_year:
             continue
         result[year] = (eids, min(starts_in_year))
@@ -692,7 +738,8 @@ def _score_medal(
     """
     star_table = _star_table_for_division(division_age, gi)
     star_mult = star_table.get(
-        _event_base(_normalize_event_name(event_name)), DEFAULT_STAR_RATING
+        _canonical_event_base(_event_base(_normalize_event_name(event_name))),
+        DEFAULT_STAR_RATING,
     )
     if weight in SEEDING_OPEN_CLASS_WEIGHTS:
         contribution = _OPEN_PLACE_POINTS[place] * season_mult * star_mult
