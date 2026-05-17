@@ -666,7 +666,8 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
 
         row = self._seed_and_run(seed, _divdata(belt=BLACK), gi=True)
         self.assertFalse(row["world_champion_recent"])
-        self.assertEqual(row["last_world_title_year"], 2022)
+        # last_world_title_year is restricted to the 3 most-recent past Worlds.
+        self.assertIsNone(row["last_world_title_year"])
         self.assertTrue(row["world_champion_4_years_ago"])
         self.assertFalse(row["world_champion_5_years_ago"])
         # Title is exactly 4 years ago, not 6+ -> not "former".
@@ -682,7 +683,8 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
 
         row = self._seed_and_run(seed, _divdata(belt=BLACK), gi=True)
         self.assertFalse(row["world_champion_recent"])
-        self.assertEqual(row["last_world_title_year"], 2021)
+        # last_world_title_year is restricted to the 3 most-recent past Worlds.
+        self.assertIsNone(row["last_world_title_year"])
         self.assertFalse(row["world_champion_4_years_ago"])
         self.assertTrue(row["world_champion_5_years_ago"])
         # Title is exactly 5 years ago, not 6+ -> not "former".
@@ -690,8 +692,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
 
     def test_adult_black_belt_former_champion_only(self):
         # Gold at Worlds 2020 (rank 5) — older than any tracked slot, so
-        # only ``former_world_champion`` and ``last_world_title_year``
-        # should be set.
+        # only ``former_world_champion`` should be set.
         def seed(t):
             a = t._make_athlete("bb-former-only")
             t._add_medal(a, t.worlds_2020, place=1)
@@ -699,7 +700,8 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
 
         row = self._seed_and_run(seed, _divdata(belt=BLACK), gi=True)
         self.assertFalse(row["world_champion_recent"])
-        self.assertEqual(row["last_world_title_year"], 2020)
+        # last_world_title_year is restricted to the 3 most-recent past Worlds.
+        self.assertIsNone(row["last_world_title_year"])
         self.assertFalse(row["world_champion_4_years_ago"])
         self.assertFalse(row["world_champion_5_years_ago"])
         self.assertTrue(row["former_world_champion"])

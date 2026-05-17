@@ -15,7 +15,7 @@ from datetime import datetime
 from sqlalchemy.sql import func, or_
 
 from extensions import db
-from models import Medal, Match, Division, Event
+from models import Medal, Match, Division, Event, Suspension
 from constants import (
     ADULT,
     BLACK,
@@ -187,6 +187,45 @@ def _bases_with_aliases(canonical_base):
         canonical_base,
         *_EVENT_BASE_ALIASES_BY_CANONICAL.get(canonical_base, []),
     ]
+
+
+def _suspension_ranges_by_athlete_id(rows):
+    """Build ``{athlete_id: [(start_date, end_date), ...]}`` for the
+    athletes in ``rows``. The Suspension table is small, so the whole
+    thing is loaded and then filtered down to the relevant athletes
+    (suspensions are stored keyed by athlete *name*).
+    """
+    name_to_id = {
+        row["name"]: row["id"] for row in rows if row.get("name") and row.get("id")
+    }
+    if not name_to_id:
+        return {}
+    result = {}
+    for s in db.session.query(
+        Suspension.athlete_name, Suspension.start_date, Suspension.end_date
+    ).all():
+        aid = name_to_id.get(s.athlete_name)
+        if aid is None:
+            continue
+        result.setdefault(aid, []).append((s.start_date, s.end_date))
+    return result
+
+
+def _medal_during_suspension(suspension_ranges, athlete_id, happened_at):
+    """Mirror of the frontend ``isMedalDuringSuspension`` helper. Returns
+    True when ``happened_at`` falls on or between any of the athlete's
+    suspension start/end dates (inclusive, day-granularity).
+    """
+    if happened_at is None:
+        return False
+    ranges = suspension_ranges.get(athlete_id)
+    if not ranges:
+        return False
+    medal_date = happened_at.date()
+    for start, end in ranges:
+        if start.date() <= medal_date <= end.date():
+            return True
+    return False
 
 
 # Adult/Juvenile gi star tournaments. Base names are the *current* (post-2022)
@@ -517,7 +556,7 @@ def _title_weight_filter(weight):
     return Division.weight == weight
 
 
-def _adult_black_belt_seeding(athlete_ids, divdata, gi, today):
+def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges):
     """Compute the six adult-black-belt-only seeding flags per athlete.
 
     Returns ``{athlete_id: {field: value, ...}}``; only athletes who have at
@@ -532,7 +571,8 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today):
       - ``world_champion_recent`` — gold at any of the 3 most-recent past Worlds.
       - ``world_champion_4_years_ago`` — gold at the 4th most-recent past Worlds.
       - ``world_champion_5_years_ago`` — gold at the 5th most-recent past Worlds.
-      - ``last_world_title_year`` — year of the athlete's most-recent Worlds gold (any year).
+      - ``last_world_title_year`` — year of the athlete's most-recent Worlds
+        gold, restricted to the 3 most-recent past Worlds (``None`` otherwise).
       - ``former_world_champion`` — has a Worlds gold from 6+ years ago (a
         rank-5-or-older past Worlds). Mutually exclusive with the other
         ``world_champion_*`` recency flags.
@@ -555,7 +595,7 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today):
 
     # Black-belt adult golds at *any* past Worlds, in the current weight class.
     black_rows = (
-        db.session.query(Medal.athlete_id, Medal.event_id)
+        db.session.query(Medal.athlete_id, Medal.event_id, Medal.happened_at)
         .join(Division, Medal.division_id == Division.id)
         .filter(
             Medal.athlete_id.in_(athlete_ids),
@@ -575,7 +615,7 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today):
     brown_winners = {
         r.athlete_id
         for r in (
-            db.session.query(Medal.athlete_id)
+            db.session.query(Medal.athlete_id, Medal.happened_at)
             .join(Division, Medal.division_id == Division.id)
             .filter(
                 Medal.athlete_id.in_(athlete_ids),
@@ -588,10 +628,13 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today):
             )
             .all()
         )
+        if not _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at)
     }
 
     years_won_by_athlete = {}
     for r in black_rows:
+        if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
+            continue
         years_won_by_athlete.setdefault(r.athlete_id, set()).add(
             eid_to_year[r.event_id]
         )
@@ -601,9 +644,12 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today):
     for aid in affected:
         years_won = years_won_by_athlete.get(aid, set())
         ranks_won = {year_to_rank[y] for y in years_won}
+        recent_years_won = {y for y in years_won if year_to_rank[y] <= 2}
         result[aid] = {
             "world_champion_recent": bool(ranks_won & {0, 1, 2}),
-            "last_world_title_year": max(years_won) if years_won else None,
+            "last_world_title_year": (
+                max(recent_years_won) if recent_years_won else None
+            ),
             "world_champion_4_years_ago": 3 in ranks_won,
             "world_champion_5_years_ago": 4 in ranks_won,
             "former_world_champion": bool(ranks_won - {0, 1, 2, 3, 4}),
@@ -621,7 +667,7 @@ def _master_levels_up_to(master_age):
     return [(i + 1, SEEDING_MASTER_AGES_ORDERED[i]) for i in range(idx + 1)]
 
 
-def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
+def _master_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges):
     """Compute master-black-belt-only seeding flags per athlete.
 
     Returns ``{athlete_id: {field: value, ...}}``. Athletes not in the
@@ -658,7 +704,7 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
         adult_champs = {
             r.athlete_id
             for r in (
-                db.session.query(Medal.athlete_id)
+                db.session.query(Medal.athlete_id, Medal.happened_at)
                 .join(Division, Medal.division_id == Division.id)
                 .filter(
                     Medal.athlete_id.in_(athlete_ids),
@@ -670,6 +716,9 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
                     weight_filter,
                 )
                 .all()
+            )
+            if not _medal_during_suspension(
+                suspension_ranges, r.athlete_id, r.happened_at
             )
         }
 
@@ -683,7 +732,7 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
     master_champs_by_age = {}
     if master_event_ids:
         for r in (
-            db.session.query(Medal.athlete_id, Division.age)
+            db.session.query(Medal.athlete_id, Medal.happened_at, Division.age)
             .join(Division, Medal.division_id == Division.id)
             .filter(
                 Medal.athlete_id.in_(athlete_ids),
@@ -696,6 +745,8 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today):
             )
             .all()
         ):
+            if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
+                continue
             master_champs_by_age.setdefault(r.age, set()).add(r.athlete_id)
 
     affected = set(adult_champs)
@@ -843,6 +894,7 @@ def add_seeding_data(rows, divdata, gi, now=None):
         now = datetime.now()
     seasons = _recent_seasons(divdata["age"], gi, now, n=3)
     gs_multipliers = _grand_slam_event_multipliers(divdata["age"], gi, now, n=3)
+    suspension_ranges = _suspension_ranges_by_athlete_id(rows)
 
     points_by_athlete = {}
     open_by_athlete = {}
@@ -883,6 +935,8 @@ def add_seeding_data(rows, divdata, gi, now=None):
             .all()
         )
         for r in medal_rows:
+            if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
+                continue
             for i, (start, end) in enumerate(seasons):
                 if start <= r.happened_at < end:
                     season_mult = n_seasons - i  # 3x, 2x, 1x
@@ -910,6 +964,7 @@ def add_seeding_data(rows, divdata, gi, now=None):
                 Medal.athlete_id,
                 Medal.place,
                 Medal.event_id,
+                Medal.happened_at,
                 Division.age,
                 Division.weight,
                 Event.name.label("event_name"),
@@ -923,6 +978,8 @@ def add_seeding_data(rows, divdata, gi, now=None):
             .all()
         )
         for r in gs_medal_rows:
+            if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
+                continue
             _score_medal(
                 gs_points_by_athlete,
                 gs_open_by_athlete,
@@ -938,9 +995,13 @@ def add_seeding_data(rows, divdata, gi, now=None):
             )
 
     if is_adult_black:
-        bb_data = _adult_black_belt_seeding(athlete_ids, divdata, gi, now)
+        bb_data = _adult_black_belt_seeding(
+            athlete_ids, divdata, gi, now, suspension_ranges
+        )
     elif is_master_black:
-        bb_data = _master_black_belt_seeding(athlete_ids, divdata, gi, now)
+        bb_data = _master_black_belt_seeding(
+            athlete_ids, divdata, gi, now, suspension_ranges
+        )
     else:
         bb_data = {}
 
