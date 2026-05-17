@@ -389,6 +389,44 @@ def medal_is_plausible(
     return True
 
 
+def athlete_known_genders(session, athlete_id) -> set:
+    """Set of division genders the athlete has competed in (Match) or medaled in (Medal).
+
+    Empty set means we have no data for this athlete.
+    """
+    genders = set()
+    via_matches = (
+        session.query(Division.gender)
+        .join(Match, Match.division_id == Division.id)
+        .join(MatchParticipant, MatchParticipant.match_id == Match.id)
+        .filter(MatchParticipant.athlete_id == athlete_id)
+        .distinct()
+    )
+    via_medals = (
+        session.query(Division.gender)
+        .join(Medal, Medal.division_id == Division.id)
+        .filter(Medal.athlete_id == athlete_id)
+        .distinct()
+    )
+    for (g,) in via_matches.all():
+        genders.add(g)
+    for (g,) in via_medals.all():
+        genders.add(g)
+    return genders
+
+
+def gender_is_plausible(session, athlete_id, medal_gender: str) -> bool:
+    """Hard filter: an athlete who has only competed/medaled in male divisions
+    cannot receive a female medal, and vice versa.
+
+    Returns True when we have no data for this athlete (unconstrained).
+    """
+    known = athlete_known_genders(session, athlete_id)
+    if not known:
+        return True
+    return medal_gender in known
+
+
 # ---------------------------------------------------------------------------
 # Fuzzy name scoring
 # ---------------------------------------------------------------------------
@@ -560,6 +598,7 @@ def scan_event_for_missing_medals(
     # Per-event caches.
     candidates = _athlete_candidates_at_event(session, event.id)
     belt_bounds_cache = {}  # athlete_id -> (lo, hi)
+    gender_cache = {}  # athlete_id -> set of known genders
 
     # event_when is used for belt-plausibility on candidates. Compute once.
     last_match_row = (
@@ -585,7 +624,18 @@ def scan_event_for_missing_medals(
             )
         return belt_bounds_cache[athlete_id]
 
-    def _plausible(athlete_id, belt):
+    def _known_genders(athlete_id):
+        if athlete_id not in gender_cache:
+            gender_cache[athlete_id] = athlete_known_genders(session, athlete_id)
+        return gender_cache[athlete_id]
+
+    def _plausible(athlete_id, belt, gender):
+        # Gender check (hard): an athlete who only competed in male divisions
+        # cannot receive a female medal. Empty known-set = unconstrained.
+        known_genders = _known_genders(athlete_id)
+        if known_genders and gender not in known_genders:
+            return False
+        # Belt-rank check: medal's belt must fit the athlete's bounds at event_when.
         rank = belt_rank(belt)
         if rank is None:
             return True
@@ -612,10 +662,11 @@ def scan_event_for_missing_medals(
             )
             continue
 
-        # Belt-rank pre-filter: drop candidates whose known belt bounds rule out
-        # this medal's belt. Athletes with no match history pass through.
+        # Belt + gender pre-filter: drop candidates whose known belt bounds rule
+        # out this medal's belt OR whose known gender is the opposite of the
+        # medal's division. Athletes with no history pass through.
         plausible_candidates = [
-            a for a in candidates if _plausible(a.id, division.belt)
+            a for a in candidates if _plausible(a.id, division.belt, division.gender)
         ]
 
         rm_normalized = normalize(rm.athlete_name)

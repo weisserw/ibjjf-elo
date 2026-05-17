@@ -474,6 +474,33 @@ class LibDbTestCase(TestDbMixin, unittest.TestCase):
                 )
             )
 
+    # ---- gender filter ----
+
+    def test_gender_filter_rejects_opposite_gender(self):
+        # Seeded athlete only competed in Male divisions; a Female medal must fail.
+        from constants import FEMALE
+
+        with self.app_module.app.app_context():
+            self.assertFalse(
+                lib.gender_is_plausible(db.session, self.athlete_id, FEMALE)
+            )
+
+    def test_gender_filter_allows_matching_gender(self):
+        with self.app_module.app.app_context():
+            self.assertTrue(lib.gender_is_plausible(db.session, self.athlete_id, MALE))
+
+    def test_gender_filter_unconstrained_when_no_data(self):
+        from constants import FEMALE
+
+        with self.app_module.app.app_context():
+            # other_athlete has no matches and no medals — passes either way.
+            self.assertTrue(
+                lib.gender_is_plausible(db.session, self.other_athlete_id, MALE)
+            )
+            self.assertTrue(
+                lib.gender_is_plausible(db.session, self.other_athlete_id, FEMALE)
+            )
+
     def test_medal_is_plausible_unbounded_when_no_matches(self):
         with self.app_module.app.app_context():
             self.assertTrue(

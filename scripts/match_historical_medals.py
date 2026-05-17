@@ -171,7 +171,7 @@ def main():
                     division_parts = lib.parse_division_parts(rm.division)
                     if not division_parts:
                         continue
-                    belt, _age, _gender, _weight = division_parts
+                    belt, _age, gender, _weight = division_parts
 
                     # Tentative date for belt-rank filter: midpoint of the event's year.
                     year_match = lib.YEAR_SUFFIX_RE.search(rm.event_name)
@@ -182,6 +182,8 @@ def main():
                     if not lib.medal_is_plausible(
                         db.session, athlete.id, belt, tentative_date
                     ):
+                        continue
+                    if not lib.gender_is_plausible(db.session, athlete.id, gender):
                         continue
 
                     gi = not lib.is_no_gi_event(rm.event_name)
