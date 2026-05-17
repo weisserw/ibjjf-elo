@@ -935,8 +935,8 @@ def save_competitors(link_id, json_data, division_set):
                 continue
             if db_division is not None:
                 for competitor in entry["RegistrationCategories"]:
-                    name = competitor["AthleteName"]
-                    team = competitor["AcademyTeamName"]
+                    name = competitor["AthleteName"].strip()
+                    team = competitor["AcademyTeamName"].strip()
                     if save_registration_link_competitor(link, db_division, name, team):
                         added_row = True
     if added_row:
@@ -1368,8 +1368,8 @@ def registration_competitors():
 
             if format_division(parsed) == division:
                 for competitor in entry["RegistrationCategories"]:
-                    team = competitor["AcademyTeamName"]
-                    name = competitor["AthleteName"]
+                    team = competitor["AcademyTeamName"].strip()
+                    name = competitor["AthleteName"].strip()
                     rows.append(
                         {
                             "name": name,
@@ -1491,8 +1491,8 @@ def registration_elites():
 
             # competitors for this division
             for competitor in entry["RegistrationCategories"]:
-                team = competitor.get("AcademyTeamName")
-                name = competitor.get("AthleteName")
+                team = competitor.get("AcademyTeamName").strip()
+                name = competitor.get("AthleteName").strip()
                 rows.append(
                     {
                         "name": name,
