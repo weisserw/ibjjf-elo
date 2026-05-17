@@ -873,11 +873,11 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertNotIn("master_5_world_champion", row)
 
     def test_master_black_belt_carries_lower_levels(self):
-        # Master 4 tournament: athlete won M2 black in the past. Should
-        # set master_2_world_champion. M5+ shouldn't even be a key.
+        # Master 4 tournament: athlete is the current M2 black champ.
+        # Should set master_2_world_champion. M5+ shouldn't even be a key.
         def seed(t):
             a = t._make_athlete("m-carries-lower")
-            t._add_medal(a, t.master_worlds_2024, place=1, age=MASTER_2, belt=BLACK)
+            t._add_medal(a, t.master_worlds_2025, place=1, age=MASTER_2, belt=BLACK)
             return a
 
         row = self._seed_and_run(seed, _divdata(age=MASTER_4, belt=BLACK), gi=True)
@@ -904,11 +904,11 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertNotIn("master_5_world_champion", row)
 
     def test_master_black_belt_adult_title_carries_forward(self):
-        # Master 3 tournament: athlete is a former adult world champion.
+        # Master 3 tournament: athlete is the current adult world champion.
         # adult_world_champion must reflect that, regardless of master titles.
         def seed(t):
             a = t._make_athlete("m-adult-title")
-            t._add_medal(a, t.worlds_2024, place=1, age=ADULT, belt=BLACK)
+            t._add_medal(a, t.worlds_2025, place=1, age=ADULT, belt=BLACK)
             return a
 
         row = self._seed_and_run(seed, _divdata(age=MASTER_3, belt=BLACK), gi=True)
@@ -960,16 +960,17 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         ):
             self.assertNotIn(key, row)
 
-    def test_master_black_belt_legacy_naming(self):
-        # Gold at the pre-2022 "World Master Jiu-Jitsu IBJJF Championship"
-        # should still be detected.
+    def test_master_black_belt_only_current_title_counts(self):
+        # Only the most-recent past Master Worlds counts for
+        # master_K_world_champion. An old (pre-2022 legacy-named) gold
+        # must NOT set the flag.
         def seed(t):
-            a = t._make_athlete("m-legacy-name")
+            a = t._make_athlete("m-old-title")
             t._add_medal(a, t.master_worlds_2021, place=1, age=MASTER_1, belt=BLACK)
             return a
 
         row = self._seed_and_run(seed, _divdata(age=MASTER_1, belt=BLACK), gi=True)
-        self.assertTrue(row["master_1_world_champion"])
+        self.assertFalse(row["master_1_world_champion"])
 
     def test_master_black_belt_nogi_uses_adult_nogi_worlds_event(self):
         # No-gi has no dedicated Master Worlds event — master divisions are

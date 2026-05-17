@@ -758,10 +758,13 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_range
     regular weights match exactly, open-class divisions match any open-class
     variant.
 
-    Fields (all booleans, indicating an *ever* black-belt Worlds title):
-      - ``adult_world_champion`` — gold at any past adult Worlds.
+    Fields (all booleans, indicating the *current* black-belt Worlds title
+    in this weight class):
+      - ``adult_world_champion`` — gold at the single most-recent past
+        adult Worlds.
       - ``master_K_world_champion`` for K = 1 .. current master level —
-        gold at any past Master Worlds in the Master K division.
+        gold at the single most-recent past Master Worlds in the Master K
+        division.
 
     Gi master tournaments look up master titles at the dedicated Master
     Worlds event. No-gi master tournaments look up master titles at the
@@ -774,11 +777,12 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_range
     relevant_master_ages = [age for _, age in levels]
     weight_filter = _title_weight_filter(divdata["weight"])
 
-    # Past adult Worlds events (for the "adult_world_champion" check).
+    # Most-recent past adult Worlds (for the "adult_world_champion" check).
     adult_year_groups = _past_worlds_year_groups(_adult_worlds_patterns(gi), today)
-    adult_event_ids = [
-        eid for _, (eids, _) in adult_year_groups.items() for eid in eids
-    ]
+    adult_event_ids = []
+    if adult_year_groups:
+        latest_adult_year = max(adult_year_groups.keys())
+        adult_event_ids = list(adult_year_groups[latest_adult_year][0])
 
     adult_champs = set()
     if adult_event_ids:
@@ -803,12 +807,13 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_range
             )
         }
 
-    # Past master Worlds events (different from adult Worlds in gi; same
-    # event in no-gi).
+    # Most-recent past master Worlds (different from adult Worlds in gi;
+    # same event in no-gi).
     master_year_groups = _past_worlds_year_groups(_master_worlds_patterns(gi), today)
-    master_event_ids = [
-        eid for _, (eids, _) in master_year_groups.items() for eid in eids
-    ]
+    master_event_ids = []
+    if master_year_groups:
+        latest_master_year = max(master_year_groups.keys())
+        master_event_ids = list(master_year_groups[latest_master_year][0])
 
     master_champs_by_age = {}
     if master_event_ids:
