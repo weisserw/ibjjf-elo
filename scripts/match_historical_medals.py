@@ -172,7 +172,7 @@ def main():
 
             runner_up = merged[1][1] if len(merged) > 1 else 0
             top_name = merged[0][0]
-            gap = best_score - runner_up
+            top_name = merged[0][0]
             # Adaptive rule: with a crowded name space (many similar candidates)
             # only auto on a unique perfect match; otherwise the standard
             # dual-tier rule (HIGH score+gap OR SOFT score+wide-gap) applies.
