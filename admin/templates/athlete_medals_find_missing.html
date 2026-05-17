@@ -68,6 +68,8 @@
                                         <span class="tag is-warning">belt mismatch</span>
                                     {% elif c.status == 'gender_mismatch' %}
                                         <span class="tag is-warning">gender mismatch</span>
+                                    {% elif c.status == 'age_mismatch' %}
+                                        <span class="tag is-warning">age mismatch</span>
                                     {% elif c.status == 'duplicate' %}
                                         <span class="tag is-light">already imported</span>
                                     {% elif c.status == 'no_division' %}

@@ -21,7 +21,6 @@ import argparse
 import csv
 import os
 import sys
-from collections import defaultdict
 from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
@@ -81,6 +80,26 @@ def parse_args():
         help="Gap required in the soft tier (default 12).",
     )
     parser.add_argument(
+        "--similar-threshold",
+        type=int,
+        default=85,
+        help=(
+            "Score floor for counting a candidate as a 'plausible alias' when "
+            "deciding whether the athlete's name space is crowded (default 85)."
+        ),
+    )
+    parser.add_argument(
+        "--max-similar-candidates",
+        type=int,
+        default=3,
+        help=(
+            "When more than N candidates score >= --similar-threshold, the "
+            "athlete is treated as a common-name case: only a UNIQUE perfect "
+            "match (top == 100 and runner-up < 100) auto-imports; everything "
+            "else goes to review (default 3)."
+        ),
+    )
+    parser.add_argument(
         "--report-csv",
         type=str,
         default="missing_medals_review.csv",
@@ -102,13 +121,17 @@ def main():
     from rapidfuzz import fuzz, process
 
     with app.app_context():
-        print("Loading result_medals into memory...", flush=True)
-        all_rms = db.session.query(ResultMedal).all()
-        name_to_rows = defaultdict(list)
-        for rm in all_rms:
-            name_to_rows[rm.athlete_name].append(rm)
-        all_names = sorted(name_to_rows.keys())
-        print(f"  loaded {len(all_rms)} rows, {len(all_names)} distinct names")
+        print("Building division cache...", flush=True)
+        division_cache = lib.build_division_cache(db.session)
+        print(f"  {len(division_cache)} divisions cached", flush=True)
+        print("Loading distinct athlete names from result_medals...", flush=True)
+        # Don't load full ORM rows — with ~850k result_medals that's gigabytes.
+        # Keep only the distinct name strings in memory for process.extract;
+        # fetch the actual rows on demand for the few top-candidate names per athlete.
+        all_names = sorted(
+            n for (n,) in db.session.query(ResultMedal.athlete_name).distinct().all()
+        )
+        print(f"  {len(all_names)} distinct names", flush=True)
 
         athletes_q = db.session.query(Athlete)
         if args.athlete_id:
@@ -150,13 +173,18 @@ def main():
             runner_up = merged[1][1] if len(merged) > 1 else 0
             top_name = merged[0][0]
             gap = best_score - runner_up
-            # Two-tier confidence:
-            #   - HIGH score (>= auto_threshold) with a modest gap
-            #   - MID score (>= soft_threshold) with a wide gap (e.g. extra middle
-            #     name or abbreviation drops the score but the runner-up is far behind)
-            top_gap_satisfied = (
-                best_score >= args.auto_threshold and gap >= args.gap_threshold
-            ) or (best_score >= args.soft_threshold and gap >= args.soft_gap_threshold)
+            # Adaptive rule: with a crowded name space (many similar candidates)
+            # only auto on a unique perfect match; otherwise the standard
+            # dual-tier rule (HIGH score+gap OR SOFT score+wide-gap) applies.
+            top_gap_satisfied = lib.decide_auto_import(
+                merged,
+                auto_threshold=args.auto_threshold,
+                gap_threshold=args.gap_threshold,
+                soft_threshold=args.soft_threshold,
+                soft_gap_threshold=args.soft_gap_threshold,
+                similar_threshold=args.similar_threshold,
+                max_similar_candidates=args.max_similar_candidates,
+            )
 
             athlete_imported_this_run = 0
             athlete_review_this_run = 0
@@ -167,11 +195,18 @@ def main():
                 # Only top_name can be auto-imported; everything else is review.
                 is_top_name = cand_name == top_name
 
-                for rm in name_to_rows[cand_name]:
+                # Fetch this name's result_medals rows on demand (index hit on
+                # ix_result_medals_athlete_name). Usually <50 rows.
+                rms_for_name = (
+                    db.session.query(ResultMedal)
+                    .filter(ResultMedal.athlete_name == cand_name)
+                    .all()
+                )
+                for rm in rms_for_name:
                     division_parts = lib.parse_division_parts(rm.division)
                     if not division_parts:
                         continue
-                    belt, _age, gender, _weight = division_parts
+                    belt, age, gender, _weight = division_parts
 
                     # Tentative date for belt-rank filter: midpoint of the event's year.
                     year_match = lib.YEAR_SUFFIX_RE.search(rm.event_name)
@@ -185,10 +220,12 @@ def main():
                         continue
                     if not lib.gender_is_plausible(db.session, athlete.id, gender):
                         continue
+                    if not lib.age_is_plausible(db.session, athlete.id, age):
+                        continue
 
                     gi = not lib.is_no_gi_event(rm.event_name)
                     division = lib.parse_and_resolve_division(
-                        db.session, rm.division, gi
+                        db.session, rm.division, gi, division_cache=division_cache
                     )
                     if division is None:
                         continue

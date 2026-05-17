@@ -26,12 +26,44 @@ from models import (  # noqa: E402
 )
 from normalize import normalize  # noqa: E402
 from constants import (  # noqa: E402
+    ADULT,
+    JUVENILE,
+    JUVENILE_1,
+    JUVENILE_2,
+    MASTER_1,
+    MASTER_2,
+    MASTER_3,
+    MASTER_4,
+    MASTER_5,
+    MASTER_6,
+    MASTER_7,
+    TEEN_1,
+    TEEN_2,
+    TEEN_3,
     belt_order,
     translate_age,
     translate_belt,
     translate_gender,
     translate_weight,
 )
+
+# Once an athlete has competed/medaled in any of ADULT_OR_MASTERS, they cannot
+# legitimately appear in TEEN_AGES or JUVENILE_AGES. Once they have JUVENILE
+# history, they cannot appear in TEEN_AGES. ADULT <-> MASTERS is fine in both
+# directions. JUVENILE_1 / JUVENILE_2 are folded to JUVENILE by translate_age,
+# but include them in the set for robustness against raw stored values.
+TEEN_AGES = {TEEN_1, TEEN_2, TEEN_3}
+JUVENILE_AGES = {JUVENILE, JUVENILE_1, JUVENILE_2}
+ADULT_OR_MASTERS = {
+    ADULT,
+    MASTER_1,
+    MASTER_2,
+    MASTER_3,
+    MASTER_4,
+    MASTER_5,
+    MASTER_6,
+    MASTER_7,
+}
 
 
 NO_GI_TOKENS = ("no gi", "no-gi", "sem kimono")
@@ -427,9 +459,93 @@ def gender_is_plausible(session, athlete_id, medal_gender: str) -> bool:
     return medal_gender in known
 
 
+def athlete_known_ages(session, athlete_id) -> set:
+    """Set of division ages the athlete has competed in (Match) or medaled in (Medal).
+
+    Empty set means we have no data for this athlete.
+    """
+    ages = set()
+    via_matches = (
+        session.query(Division.age)
+        .join(Match, Match.division_id == Division.id)
+        .join(MatchParticipant, MatchParticipant.match_id == Match.id)
+        .filter(MatchParticipant.athlete_id == athlete_id)
+        .distinct()
+    )
+    via_medals = (
+        session.query(Division.age)
+        .join(Medal, Medal.division_id == Division.id)
+        .filter(Medal.athlete_id == athlete_id)
+        .distinct()
+    )
+    for (a,) in via_matches.all():
+        ages.add(a)
+    for (a,) in via_medals.all():
+        ages.add(a)
+    return ages
+
+
+def age_is_plausible(session, athlete_id, medal_age: str) -> bool:
+    """Hard filter: ages progress forward (Teen -> Juvenile -> Adult/Masters).
+
+    Once an athlete has competed/medaled at Adult or Masters, they cannot have a
+    Teen or Juvenile medal. Once they have Juvenile history, they cannot have a
+    Teen medal. Adult <-> Masters is fine in both directions.
+
+    Returns True when we have no data for this athlete (unconstrained).
+    """
+    known = athlete_known_ages(session, athlete_id)
+    if not known:
+        return True
+    if medal_age in TEEN_AGES and (known & (JUVENILE_AGES | ADULT_OR_MASTERS)):
+        return False
+    if medal_age in JUVENILE_AGES and (known & ADULT_OR_MASTERS):
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Fuzzy name scoring
 # ---------------------------------------------------------------------------
+
+
+def decide_auto_import(
+    merged,
+    *,
+    auto_threshold: int,
+    gap_threshold: int,
+    soft_threshold: int,
+    soft_gap_threshold: int,
+    similar_threshold: int,
+    max_similar_candidates: int,
+) -> bool:
+    """Decide whether the top candidate in `merged` is safe to auto-import.
+
+    `merged` is a list of `(name, score)` pairs sorted by score descending.
+
+    Adaptive rule:
+      - If the namespace around the athlete's name is crowded (more than
+        `max_similar_candidates` candidates score at or above
+        `similar_threshold`), require a UNIQUE perfect match: top score == 100
+        AND runner-up < 100. Common-name athletes ("Lucas Rodrigues Souza")
+        produce many plausible aliases at high scores; even score==100 isn't
+        safe when several other candidates are also close.
+      - Otherwise (rare name like "Sevada Khashadoorian"), the standard
+        dual-tier rule applies:
+          HIGH: score >= auto_threshold AND gap >= gap_threshold
+          SOFT: score >= soft_threshold AND gap >= soft_gap_threshold
+    """
+    if not merged:
+        return False
+    best_score = merged[0][1]
+    runner_up = merged[1][1] if len(merged) > 1 else 0
+    gap = best_score - runner_up
+    similar_count = sum(1 for _, s in merged if s >= similar_threshold)
+    if similar_count > max_similar_candidates:
+        return best_score == 100 and runner_up < 100
+    high = best_score >= auto_threshold and gap >= gap_threshold
+    soft = best_score >= soft_threshold and gap >= soft_gap_threshold
+    return high or soft
 
 
 def name_score(
@@ -599,6 +715,7 @@ def scan_event_for_missing_medals(
     candidates = _athlete_candidates_at_event(session, event.id)
     belt_bounds_cache = {}  # athlete_id -> (lo, hi)
     gender_cache = {}  # athlete_id -> set of known genders
+    age_cache = {}  # athlete_id -> set of known ages
 
     # event_when is used for belt-plausibility on candidates. Compute once.
     last_match_row = (
@@ -629,12 +746,25 @@ def scan_event_for_missing_medals(
             gender_cache[athlete_id] = athlete_known_genders(session, athlete_id)
         return gender_cache[athlete_id]
 
-    def _plausible(athlete_id, belt, gender):
+    def _known_ages(athlete_id):
+        if athlete_id not in age_cache:
+            age_cache[athlete_id] = athlete_known_ages(session, athlete_id)
+        return age_cache[athlete_id]
+
+    def _plausible(athlete_id, belt, gender, age):
         # Gender check (hard): an athlete who only competed in male divisions
         # cannot receive a female medal. Empty known-set = unconstrained.
         known_genders = _known_genders(athlete_id)
         if known_genders and gender not in known_genders:
             return False
+        # Age-progression check (hard): ages go forward only; a known Adult/Masters
+        # athlete cannot have a Teen or Juvenile medal, etc.
+        known_ages = _known_ages(athlete_id)
+        if known_ages:
+            if age in TEEN_AGES and (known_ages & (JUVENILE_AGES | ADULT_OR_MASTERS)):
+                return False
+            if age in JUVENILE_AGES and (known_ages & ADULT_OR_MASTERS):
+                return False
         # Belt-rank check: medal's belt must fit the athlete's bounds at event_when.
         rank = belt_rank(belt)
         if rank is None:
@@ -662,11 +792,14 @@ def scan_event_for_missing_medals(
             )
             continue
 
-        # Belt + gender pre-filter: drop candidates whose known belt bounds rule
-        # out this medal's belt OR whose known gender is the opposite of the
-        # medal's division. Athletes with no history pass through.
+        # Belt + gender + age pre-filter: drop candidates whose known belt bounds
+        # rule out this medal's belt, whose known gender is the opposite of the
+        # medal's division, or whose age history is incompatible with the medal's
+        # age bracket. Athletes with no history pass through.
         plausible_candidates = [
-            a for a in candidates if _plausible(a.id, division.belt, division.gender)
+            a
+            for a in candidates
+            if _plausible(a.id, division.belt, division.gender, division.age)
         ]
 
         rm_normalized = normalize(rm.athlete_name)

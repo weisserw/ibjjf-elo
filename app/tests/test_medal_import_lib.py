@@ -126,6 +126,75 @@ class PureFunctionTestCase(unittest.TestCase):
         self.assertGreaterEqual(right, 75)
         self.assertGreaterEqual(gap, 12)
 
+    # ---- decide_auto_import (adaptive fuzzy) ----
+
+    _DECIDE_KW = dict(
+        auto_threshold=92,
+        gap_threshold=8,
+        soft_threshold=75,
+        soft_gap_threshold=12,
+        similar_threshold=85,
+        max_similar_candidates=3,
+    )
+
+    def test_decide_auto_import_rare_name_soft_tier(self):
+        # Sevada-style: middling score (soft tier) with dissimilar runner-ups.
+        # Only one candidate is above the similar_threshold, so the namespace is
+        # not crowded and the existing dual-tier rule decides.
+        merged = [
+            ("Sevada Khashadoorian", 87),
+            ("Some Other Person", 55),
+            ("Yet Another", 40),
+        ]
+        self.assertTrue(lib.decide_auto_import(merged, **self._DECIDE_KW))
+
+    def test_decide_auto_import_rare_name_high_tier(self):
+        # Near-exact rare-name match: classic HIGH tier, easy auto.
+        merged = [
+            ("Sevada Khashadoorian", 100),
+            ("Some Other Person", 50),
+        ]
+        self.assertTrue(lib.decide_auto_import(merged, **self._DECIDE_KW))
+
+    def test_decide_auto_import_crowded_namespace_blocks_imperfect_top(self):
+        # Lucas-style: many similar candidates, top score is high but not 100.
+        # Crowded-namespace rule requires score==100 AND runner-up<100; this
+        # case fails so it goes to review.
+        merged = [
+            ("Lucas Rodrigues Souza", 92),
+            ("Mateus Rodrigues de Souza", 90),
+            ("Alan Rodrigues de Souza", 88),
+            ("Pedro Souza Rodrigues", 87),
+            ("Carlos Rodrigues", 86),
+        ]
+        self.assertFalse(lib.decide_auto_import(merged, **self._DECIDE_KW))
+
+    def test_decide_auto_import_crowded_namespace_blocks_100_with_100_runner_up(self):
+        # Two perfect matches in a crowded namespace means we genuinely can't
+        # disambiguate which athlete the medal belongs to.
+        merged = [
+            ("Lucas Rodrigues Souza", 100),
+            ("Souza Lucas Rodrigues", 100),
+            ("Mateus Rodrigues de Souza", 90),
+            ("Alan Rodrigues de Souza", 88),
+            ("Pedro Souza Rodrigues", 86),
+        ]
+        self.assertFalse(lib.decide_auto_import(merged, **self._DECIDE_KW))
+
+    def test_decide_auto_import_crowded_namespace_allows_unique_perfect_match(self):
+        # The only safe auto under high collision: top == 100 and runner-up < 100.
+        merged = [
+            ("Lucas Rodrigues Souza", 100),
+            ("Mateus Rodrigues de Souza", 90),
+            ("Alan Rodrigues de Souza", 88),
+            ("Pedro Souza Rodrigues", 87),
+            ("Carlos Rodrigues", 86),
+        ]
+        self.assertTrue(lib.decide_auto_import(merged, **self._DECIDE_KW))
+
+    def test_decide_auto_import_empty_merged(self):
+        self.assertFalse(lib.decide_auto_import([], **self._DECIDE_KW))
+
 
 class LibDbTestCase(TestDbMixin, unittest.TestCase):
     @classmethod
@@ -500,6 +569,139 @@ class LibDbTestCase(TestDbMixin, unittest.TestCase):
             self.assertTrue(
                 lib.gender_is_plausible(db.session, self.other_athlete_id, FEMALE)
             )
+
+    # ---- age filter ----
+
+    def test_age_filter_adult_history_rejects_teen_and_juvenile(self):
+        # Seeded athlete has only Adult matches; can't drop back to Teen/Juvenile.
+        from constants import JUVENILE, MASTER_2, TEEN_2
+
+        with self.app_module.app.app_context():
+            self.assertFalse(lib.age_is_plausible(db.session, self.athlete_id, TEEN_2))
+            self.assertFalse(
+                lib.age_is_plausible(db.session, self.athlete_id, JUVENILE)
+            )
+            # Adult <-> Masters is fine in both directions.
+            self.assertTrue(lib.age_is_plausible(db.session, self.athlete_id, ADULT))
+            self.assertTrue(lib.age_is_plausible(db.session, self.athlete_id, MASTER_2))
+
+    def test_age_filter_unconstrained_when_no_data(self):
+        from constants import JUVENILE, MASTER_3, TEEN_1
+
+        with self.app_module.app.app_context():
+            # other_athlete has no matches or medals — every age passes.
+            self.assertTrue(
+                lib.age_is_plausible(db.session, self.other_athlete_id, TEEN_1)
+            )
+            self.assertTrue(
+                lib.age_is_plausible(db.session, self.other_athlete_id, JUVENILE)
+            )
+            self.assertTrue(
+                lib.age_is_plausible(db.session, self.other_athlete_id, ADULT)
+            )
+            self.assertTrue(
+                lib.age_is_plausible(db.session, self.other_athlete_id, MASTER_3)
+            )
+
+    def test_age_filter_juvenile_history_rejects_teen_only(self):
+        # Seed an athlete whose only history is a Juvenile match. Teen medals
+        # should be rejected; Juvenile/Adult/Masters should all be allowed.
+        from constants import (
+            BLUE,
+            FEMALE,
+            FEATHER,
+            JUVENILE,
+            MASTER_1,
+            TEEN_2,
+        )
+
+        with self.app_module.app.app_context():
+            juv_div = Division(
+                gi=True, gender=FEMALE, age=JUVENILE, belt=BLUE, weight=FEATHER
+            )
+            db.session.add(juv_div)
+            db.session.flush()
+            athlete = Athlete(
+                name="Juvenile Only",
+                normalized_name="juvenile only",
+                slug=f"juvenile-only-{uuid.uuid4().hex[:8]}",
+            )
+            db.session.add(athlete)
+            db.session.flush()
+            event = db.session.query(Event).filter_by(ibjjf_id="EVT_BRACKET").one()
+            match = Match(
+                event_id=event.id,
+                division_id=juv_div.id,
+                happened_at=datetime(2023, 1, 1),
+                rated=True,
+            )
+            db.session.add(match)
+            db.session.flush()
+            db.session.add(
+                MatchParticipant(
+                    match_id=match.id,
+                    athlete_id=athlete.id,
+                    team_id=self.team_id,
+                    note="",
+                    seed=1,
+                    red=True,
+                    winner=True,
+                    start_rating=1500.0,
+                    end_rating=1510.0,
+                    start_match_count=1,
+                    end_match_count=2,
+                )
+            )
+            db.session.flush()
+
+            self.assertFalse(lib.age_is_plausible(db.session, athlete.id, TEEN_2))
+            self.assertTrue(lib.age_is_plausible(db.session, athlete.id, JUVENILE))
+            self.assertTrue(lib.age_is_plausible(db.session, athlete.id, ADULT))
+            self.assertTrue(lib.age_is_plausible(db.session, athlete.id, MASTER_1))
+
+    def test_age_filter_uses_medal_history_when_no_matches(self):
+        # An athlete whose only DB presence is a Medal (no MatchParticipant) should
+        # still be constrained by that medal's age bracket.
+        from constants import (
+            BLACK,
+            FEMALE,
+            JUVENILE,
+            MASTER_4,
+            MIDDLE,
+            TEEN_3,
+        )
+
+        with self.app_module.app.app_context():
+            masters_div = Division(
+                gi=True, gender=FEMALE, age=MASTER_4, belt=BLACK, weight=MIDDLE
+            )
+            db.session.add(masters_div)
+            db.session.flush()
+            athlete = Athlete(
+                name="Medal Only Masters",
+                normalized_name="medal only masters",
+                slug=f"medal-only-masters-{uuid.uuid4().hex[:8]}",
+            )
+            db.session.add(athlete)
+            db.session.flush()
+            event = db.session.query(Event).filter_by(ibjjf_id="EVT_BRACKET").one()
+            db.session.add(
+                Medal(
+                    happened_at=datetime(2023, 6, 1),
+                    event_id=event.id,
+                    division_id=masters_div.id,
+                    athlete_id=athlete.id,
+                    team_id=self.team_id,
+                    place=1,
+                    default_gold=False,
+                )
+            )
+            db.session.flush()
+
+            self.assertFalse(lib.age_is_plausible(db.session, athlete.id, TEEN_3))
+            self.assertFalse(lib.age_is_plausible(db.session, athlete.id, JUVENILE))
+            self.assertTrue(lib.age_is_plausible(db.session, athlete.id, ADULT))
+            self.assertTrue(lib.age_is_plausible(db.session, athlete.id, MASTER_4))
 
     def test_medal_is_plausible_unbounded_when_no_matches(self):
         with self.app_module.app.app_context():

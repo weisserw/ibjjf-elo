@@ -1583,7 +1583,7 @@ def athlete_medals_find_missing():
                         }
                     )
                     continue
-                belt, _age, gender, _weight = division_parts
+                belt, age, gender, _weight = division_parts
                 year_match = medal_lib.YEAR_SUFFIX_RE.search(rm.event_name)
                 tentative_date = (
                     datetime(int(year_match.group(1)), 6, 1)
@@ -1596,6 +1596,7 @@ def athlete_medals_find_missing():
                 gender_ok = medal_lib.gender_is_plausible(
                     db.session, athlete.id, gender
                 )
+                age_ok = medal_lib.age_is_plausible(db.session, athlete.id, age)
                 gi = not medal_lib.is_no_gi_event(rm.event_name)
                 division = medal_lib.parse_and_resolve_division(
                     db.session, rm.division, gi
@@ -1607,6 +1608,8 @@ def athlete_medals_find_missing():
                     status, checkable = "duplicate", False
                 elif not gender_ok:
                     status, checkable = "gender_mismatch", False
+                elif not age_ok:
+                    status, checkable = "age_mismatch", False
                 elif not belt_ok:
                     status, checkable = "belt_mismatch", False
                 elif not division:
