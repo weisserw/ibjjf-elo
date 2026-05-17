@@ -100,6 +100,32 @@ class PureFunctionTestCase(unittest.TestCase):
         score = lib.name_score("Maria Silva", "Silva Maria")
         self.assertEqual(score, 100)
 
+    def test_name_score_middle_name_extension_clears_soft_tier(self):
+        # Regression for the Pedro case: result_medal has "Pedro Vinicius Roque",
+        # our DB has "Pedro Vinicius Rodrigues Roque" (extra middle name). Score
+        # is around 82 and the next-best candidate scores ~66. Auto-import
+        # *must* fire via the soft tier (>= 75 with gap >= 15).
+        right = lib.name_score("Pedro Vinicius Roque", "Pedro Vinicius Rodrigues Roque")
+        wrong = lib.name_score("Pedro Vinicius Roque", "Vinícius Maziero Oliveira")
+        gap = right - wrong
+        self.assertGreaterEqual(right, 75)
+        self.assertGreaterEqual(gap, 12)
+
+    def test_name_score_abbreviated_middle_name_clears_soft_tier(self):
+        # Regression for the second Pedro case: full name vs abbreviated middle
+        # initial ("M." for Machado). Should clear the soft tier comfortably.
+        right = lib.name_score(
+            "Pedro Henrique Pinheiro Machado de Souza",
+            "Pedro Henrique Pinheiro M. de Souza",
+        )
+        wrong = lib.name_score(
+            "Pedro Henrique Pinheiro Machado de Souza",
+            "Pedro Henrique Souza da Silva",
+        )
+        gap = right - wrong
+        self.assertGreaterEqual(right, 75)
+        self.assertGreaterEqual(gap, 12)
+
 
 class LibDbTestCase(TestDbMixin, unittest.TestCase):
     @classmethod

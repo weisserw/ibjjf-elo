@@ -65,6 +65,22 @@ def parse_args():
         help="Required gap between best and runner-up score for auto-import (default 8).",
     )
     parser.add_argument(
+        "--soft-threshold",
+        type=int,
+        default=75,
+        help=(
+            "Secondary auto-import tier: score floor when paired with --soft-gap-threshold. "
+            "Catches the 'extra middle name / abbreviation' case where exact match isn't 100 "
+            "but the gap to the runner-up is wide (default 75)."
+        ),
+    )
+    parser.add_argument(
+        "--soft-gap-threshold",
+        type=int,
+        default=12,
+        help="Gap required in the soft tier (default 12).",
+    )
+    parser.add_argument(
         "--report-csv",
         type=str,
         default="missing_medals_review.csv",
@@ -133,10 +149,14 @@ def main():
 
             runner_up = merged[1][1] if len(merged) > 1 else 0
             top_name = merged[0][0]
+            gap = best_score - runner_up
+            # Two-tier confidence:
+            #   - HIGH score (>= auto_threshold) with a modest gap
+            #   - MID score (>= soft_threshold) with a wide gap (e.g. extra middle
+            #     name or abbreviation drops the score but the runner-up is far behind)
             top_gap_satisfied = (
-                best_score >= args.auto_threshold
-                and best_score - runner_up >= args.gap_threshold
-            )
+                best_score >= args.auto_threshold and gap >= args.gap_threshold
+            ) or (best_score >= args.soft_threshold and gap >= args.soft_gap_threshold)
 
             athlete_imported_this_run = 0
             athlete_review_this_run = 0

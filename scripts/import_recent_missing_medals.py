@@ -110,13 +110,13 @@ def main():
                 if status == "matched":
                     athlete = entry["matched_athlete"]
                     division = entry["division"]
-                    if args.dry_run:
-                        print(
-                            f"  [dry-run] would import: {event.name} | "
-                            f"{division.belt}/{division.age}/{division.gender}/{division.weight} | "
-                            f"place {rm.place} | {rm.athlete_name} -> {athlete.name}"
-                        )
-                    else:
+                    prefix = "[dry-run]" if args.dry_run else "[import]"
+                    print(
+                        f"  {prefix} {division.belt}/{division.age}/{division.gender}/{division.weight} | "
+                        f"place {rm.place} | {rm.athlete_name} -> {athlete.name}",
+                        flush=True,
+                    )
+                    if not args.dry_run:
                         team = lib.find_or_create_team(db.session, rm.team_name)
                         happened_at = lib.compute_happened_at(
                             db.session, athlete.id, event, event.name

@@ -529,6 +529,8 @@ def scan_event_for_missing_medals(
     fuzzy: bool = False,
     auto_threshold: int = 92,
     gap_threshold: int = 8,
+    soft_threshold: int = 75,
+    soft_gap_threshold: int = 12,
     division_cache: Optional[dict] = None,
 ) -> list:
     """For one event, return a list of per-result_medal status dicts.
@@ -641,10 +643,14 @@ def scan_event_for_missing_medals(
             if scored:
                 best_score, best = scored[0]
                 runner_up = scored[1][0] if len(scored) > 1 else 0
-                if (
-                    best_score >= auto_threshold
-                    and best_score - runner_up >= gap_threshold
-                ):
+                gap = best_score - runner_up
+                # Two confidence tiers, either is sufficient:
+                #   - HIGH absolute score with a modest gap (near-exact match)
+                #   - MID score with a wide gap (e.g. extra middle name or abbreviation
+                #     drops the score below 92 but the runner-up is still far behind)
+                high = best_score >= auto_threshold and gap >= gap_threshold
+                soft = best_score >= soft_threshold and gap >= soft_gap_threshold
+                if high or soft:
                     matched_athlete = best
                 alternatives = [{"athlete": a, "score": s} for s, a in scored[:5]]
 
