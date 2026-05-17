@@ -152,6 +152,8 @@ class Medal(db.Model):
     team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False)
     place = Column(Integer, nullable=False)
     default_gold = Column(Boolean, nullable=False)
+    imported_via = Column(String, nullable=True)
+    imported_at = Column(DateTime, nullable=True)
 
     division = relationship("Division", lazy="select", viewonly=True)
     athlete = relationship("Athlete", lazy="select", viewonly=True)

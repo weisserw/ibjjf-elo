@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Find missing medals for {{ athlete.name }}{% endblock %}
+{% block content %}
+<div class="container mt-6">
+    <div class="box">
+        <h1 class="title is-4">Find missing medals for {{ athlete.name }}</h1>
+        <p class="subtitle is-6">
+            Searches the raw IBJJF results archive for medals that match this athlete by name.
+            Use the search box to try old/alternate names if the athlete was renamed.
+            Rows that fail the belt-rank or duplicate check are shown but can't be imported.
+        </p>
+
+        <form method="GET" action="{{ url_for('athlete_medals_find_missing') }}">
+            <input type="hidden" name="id" value="{{ athlete.id }}">
+            <div class="field has-addons">
+                <div class="control is-expanded">
+                    <input class="input" type="text" name="q" value="{{ query_name }}"
+                           placeholder="Search name (defaults to athlete's current name)">
+                </div>
+                <div class="control">
+                    <button class="button is-link" type="submit">Search</button>
+                </div>
+            </div>
+        </form>
+
+        {% if has_searched %}
+            {% if not candidates %}
+                <p class="mt-5 has-text-grey">No candidates found for "{{ query_name }}".</p>
+            {% else %}
+                <form method="POST" action="{{ url_for('athlete_medals_import_candidates') }}">
+                    <input type="hidden" name="athlete_id" value="{{ athlete.id }}">
+
+                    <div class="buttons mt-4">
+                        <button class="button is-link" type="submit">Import selected</button>
+                        <button class="button is-light" type="button"
+                                onclick="document.querySelectorAll('input.find-cbx:not(:disabled)').forEach(c => c.checked = true)">
+                            Select all importable
+                        </button>
+                    </div>
+
+                    <table class="table is-fullwidth is-striped is-narrow">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Score</th>
+                                <th>Status</th>
+                                <th>Event</th>
+                                <th>Division</th>
+                                <th>Place</th>
+                                <th>Result name</th>
+                                <th>Team</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for c in candidates %}
+                            {% set rm = c.rm %}
+                            <tr {% if not c.checkable %}class="has-background-light has-text-grey"{% endif %}>
+                                <td>
+                                    {% if c.checkable %}
+                                        <input class="find-cbx" type="checkbox" name="rm_id" value="{{ rm.id }}">
+                                    {% endif %}
+                                </td>
+                                <td>{{ c.score }}</td>
+                                <td>
+                                    {% if c.status == 'ok' %}
+                                        <span class="tag is-success">ok</span>
+                                    {% elif c.status == 'belt_mismatch' %}
+                                        <span class="tag is-warning">belt mismatch</span>
+                                    {% elif c.status == 'duplicate' %}
+                                        <span class="tag is-light">already imported</span>
+                                    {% elif c.status == 'no_division' %}
+                                        <span class="tag is-light">no division</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ rm.event_name }}
+                                    {% if c.event %}<span class="has-text-grey is-size-7">(linked)</span>{% else %}<span class="has-text-warning is-size-7">(will create medals-only)</span>{% endif %}
+                                </td>
+                                <td>
+                                    {% if c.division %}
+                                        {{ c.division.belt }} / {{ c.division.age }} /
+                                        {{ c.division.gender }} / {{ c.division.weight }}
+                                        {% if not c.division.gi %}<span class="tag is-light is-small">no-gi</span>{% endif %}
+                                    {% else %}
+                                        <code>{{ rm.division }}</code>
+                                    {% endif %}
+                                </td>
+                                <td>{{ rm.place }}</td>
+                                <td>{{ rm.athlete_name }}</td>
+                                <td>{{ rm.team_name }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <div class="buttons mt-4">
+                        <button class="button is-link" type="submit">Import selected</button>
+                    </div>
+                </form>
+            {% endif %}
+        {% endif %}
+
+        <a class="button is-light mt-5" href="{{ url_for('athlete_medals', id=athlete.id) }}">Back to medals</a>
+    </div>
+</div>
+{% endblock %}

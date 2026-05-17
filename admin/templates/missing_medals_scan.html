@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Missing medals scan{% endblock %}
+{% block content %}
+<div class="container mt-6">
+    <div class="box">
+        <h1 class="title is-4">Scan recent events for missing medals</h1>
+        <p class="subtitle is-6">
+            Finds medals that the IBJJF posted to their results page after we imported the bracket.
+            Names must match exactly (normalized) against athletes who competed in the same division.
+            For the initial backfill use <code>scripts/import_recent_missing_medals.py</code> from the command line.
+        </p>
+
+        {% if session.get('scan_flash') %}
+            <div class="notification is-info">{{ session.pop('scan_flash') }}</div>
+        {% endif %}
+
+        <form method="GET" action="{{ url_for('missing_medals_scan') }}">
+            <div class="field is-grouped">
+                <div class="field">
+                    <label class="label">Since</label>
+                    <div class="control">
+                        <input class="input" type="date" name="since" value="{{ since }}">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Until</label>
+                    <div class="control">
+                        <input class="input" type="date" name="until" value="{{ until }}">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">&nbsp;</label>
+                    <div class="control">
+                        <input type="hidden" name="scan" value="1">
+                        <button class="button is-link" type="submit">Scan</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        {% if has_scanned %}
+            <div class="content mt-5">
+                <strong>Summary:</strong>
+                {{ summary.events }} events scanned;
+                <span class="has-text-success">{{ summary.matched }} matched</span>,
+                {{ summary.already_imported }} already imported,
+                <span class="has-text-warning">{{ summary.ambiguous }} ambiguous</span>,
+                <span class="has-text-danger">{{ summary.no_match }} no match</span>,
+                {{ summary.no_division }} unparseable division.
+            </div>
+        {% endif %}
+
+        {% if events_data %}
+            <form method="POST" action="{{ url_for('missing_medals_scan_import') }}">
+                <input type="hidden" name="since" value="{{ since }}">
+                <input type="hidden" name="until" value="{{ until }}">
+
+                <div class="buttons mt-4">
+                    <button class="button is-link" type="submit">Import selected</button>
+                    <button class="button is-light" type="button"
+                            onclick="document.querySelectorAll('input.match-cbx:not(:disabled)').forEach(c => c.checked = true)">
+                        Select all matched
+                    </button>
+                </div>
+
+                {% for grp in events_data %}
+                    {% set event = grp.event %}
+                    <h2 class="title is-5 mt-5">{{ event.name }}</h2>
+                    <table class="table is-fullwidth is-striped is-narrow">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Status</th>
+                                <th>Division</th>
+                                <th>Place</th>
+                                <th>Result name</th>
+                                <th>Team</th>
+                                <th>Matched athlete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for entry in grp.entries %}
+                            {% set rm = entry.result_medal %}
+                            <tr>
+                                <td>
+                                    {% if entry.status == 'matched' %}
+                                        <input class="match-cbx" type="checkbox"
+                                               name="match"
+                                               value="{{ rm.id }}:{{ entry.matched_athlete.id }}">
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if entry.status == 'matched' %}
+                                        <span class="tag is-success">matched</span>
+                                    {% elif entry.status == 'ambiguous' %}
+                                        <span class="tag is-warning">ambiguous</span>
+                                    {% elif entry.status == 'no_match' %}
+                                        <span class="tag is-danger">no match</span>
+                                    {% elif entry.status == 'no_division' %}
+                                        <span class="tag is-light">no division</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if entry.division %}
+                                        {{ entry.division.belt }} / {{ entry.division.age }} /
+                                        {{ entry.division.gender }} / {{ entry.division.weight }}
+                                        {% if not entry.division.gi %}<span class="tag is-light is-small">no-gi</span>{% endif %}
+                                    {% else %}
+                                        <code>{{ rm.division }}</code>
+                                    {% endif %}
+                                </td>
+                                <td>{{ rm.place }}</td>
+                                <td>{{ rm.athlete_name }}</td>
+                                <td>{{ rm.team_name }}</td>
+                                <td>
+                                    {% if entry.matched_athlete %}
+                                        <a href="{{ url_for('athlete_edit', id=entry.matched_athlete.id) }}">{{ entry.matched_athlete.name }}</a>
+                                    {% elif entry.alternatives %}
+                                        {% for alt in entry.alternatives[:3] %}
+                                            <div>
+                                                <a href="{{ url_for('athlete_edit', id=alt.athlete.id) }}">{{ alt.athlete.name }}</a>
+                                                <span class="has-text-grey">({{ alt.score }}{% if alt.get('reason') %} {{ alt.reason }}{% endif %})</span>
+                                            </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="has-text-grey">(none)</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                {% endfor %}
+
+                <div class="buttons mt-4">
+                    <button class="button is-link" type="submit">Import selected</button>
+                </div>
+            </form>
+        {% elif has_scanned %}
+            <p class="mt-5 has-text-grey">No events have missing medals in this range.</p>
+        {% endif %}
+
+        <a class="button is-light mt-5" href="{{ url_for('index') }}">Back to dashboard</a>
+    </div>
+</div>
+{% endblock %}

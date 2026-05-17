@@ -1364,6 +1364,343 @@ def update_all_medals():
     return redirect(url_for("athlete_medals", id=athlete_id))
 
 
+# ---------------------------------------------------------------------------
+# Missing medals scanner (Problem 2)
+# ---------------------------------------------------------------------------
+
+# medal_import_lib lives under /scripts; add it to sys.path so it imports.
+_SCRIPTS_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "scripts")
+)
+if _SCRIPTS_PATH not in sys.path:
+    sys.path.insert(0, _SCRIPTS_PATH)
+import medal_import_lib as medal_lib  # noqa: E402
+
+
+def _parse_date_form(s, default):
+    if not s:
+        return default
+    try:
+        return datetime.strptime(s, "%Y-%m-%d")
+    except ValueError:
+        return default
+
+
+@app.route("/missing_medals_scan", methods=["GET"])
+def missing_medals_scan():
+    now = datetime.utcnow()
+    default_since = now - timedelta(days=28)
+    since = _parse_date_form(request.args.get("since"), default_since)
+    until = _parse_date_form(request.args.get("until"), now)
+    until_eod = until.replace(hour=23, minute=59, second=59)
+    has_scanned = "scan" in request.args
+
+    events_data = []
+    summary = {
+        "events": 0,
+        "matched": 0,
+        "already_imported": 0,
+        "ambiguous": 0,
+        "no_match": 0,
+        "no_division": 0,
+    }
+    if has_scanned:
+        division_cache = medal_lib.build_division_cache(db.session)
+        events = medal_lib.find_events_with_matches_in_range(
+            db.session, since, until_eod
+        )
+        summary["events"] = len(events)
+        for event in events:
+            entries = medal_lib.scan_event_for_missing_medals(
+                db.session, event, fuzzy=False, division_cache=division_cache
+            )
+            actionable = []
+            for e in entries:
+                summary[e["status"]] = summary.get(e["status"], 0) + 1
+                if e["status"] in ("matched", "ambiguous", "no_match", "no_division"):
+                    actionable.append(e)
+            if actionable:
+                events_data.append({"event": event, "entries": actionable})
+
+    return render_template(
+        "missing_medals_scan.html",
+        since=since.strftime("%Y-%m-%d"),
+        until=until.strftime("%Y-%m-%d"),
+        has_scanned=has_scanned,
+        events_data=events_data,
+        summary=summary,
+    )
+
+
+@app.route("/missing_medals_scan/import", methods=["POST"])
+def missing_medals_scan_import():
+    since = request.form.get("since", "")
+    until = request.form.get("until", "")
+    selections = request.form.getlist("match")  # values like "<rm_id>:<athlete_id>"
+
+    imported = 0
+    skipped = 0
+    errors = []
+
+    for sel in selections:
+        try:
+            rm_id_raw, athlete_id_raw = sel.split(":", 1)
+            rm_id = uuid.UUID(rm_id_raw)
+            athlete_id = uuid.UUID(athlete_id_raw)
+        except (ValueError, AttributeError):
+            errors.append(f"Invalid selection: {sel}")
+            continue
+
+        rm = db.session.query(medal_lib.ResultMedal).get(rm_id)
+        athlete = Athlete.query.get(athlete_id)
+        if not rm or not athlete:
+            errors.append(f"Missing rm or athlete for {sel}")
+            continue
+
+        event = medal_lib.find_event(db.session, rm.event_name, rm.event_ibjjf_id)
+        if not event:
+            errors.append(f"Event not found for {rm.event_name}")
+            continue
+
+        gi = not medal_lib.is_no_gi_event(event.name)
+        division = medal_lib.parse_and_resolve_division(db.session, rm.division, gi)
+        if not division:
+            errors.append(f"Division not resolved: {rm.division} for {rm.event_name}")
+            continue
+
+        if medal_lib.medal_already_exists(
+            db.session, athlete.id, event.id, division.id
+        ):
+            skipped += 1
+            continue
+
+        team = medal_lib.find_or_create_team(db.session, rm.team_name)
+        happened_at = medal_lib.compute_happened_at(
+            db.session, athlete.id, event, event.name
+        )
+        default_gold = medal_lib.compute_default_gold(db.session, rm)
+
+        medal_lib.insert_medal(
+            db.session,
+            athlete_id=athlete.id,
+            event_id=event.id,
+            division_id=division.id,
+            team_id=team.id,
+            place=rm.place,
+            happened_at=happened_at,
+            default_gold=default_gold,
+            imported_via="recent_scan_manual",
+        )
+        imported += 1
+
+    if errors:
+        db.session.rollback()
+    else:
+        db.session.commit()
+
+    flash_msg = f"Imported {imported} medal(s)"
+    if skipped:
+        flash_msg += f"; skipped {skipped} duplicate(s)"
+    if errors:
+        flash_msg += f"; {len(errors)} error(s): " + "; ".join(errors[:3])
+    session["scan_flash"] = flash_msg
+
+    return redirect(url_for("missing_medals_scan", since=since, until=until, scan="1"))
+
+
+# ---------------------------------------------------------------------------
+# Per-athlete historical medal search (Problem 1, manual UI)
+# ---------------------------------------------------------------------------
+
+
+@app.route("/athlete_medals/find_missing")
+def athlete_medals_find_missing():
+    athlete_id = request.args.get("id", "")
+    query_name = request.args.get("q", "").strip()
+    has_searched = "q" in request.args
+
+    try:
+        athlete = Athlete.query.get(uuid.UUID(athlete_id))
+    except (ValueError, TypeError):
+        athlete = None
+    if not athlete:
+        return redirect(url_for("athletes"))
+
+    if not query_name:
+        query_name = athlete.name
+
+    candidates = []
+    if has_searched:
+        from rapidfuzz import fuzz, process
+
+        # Bound the work: pull distinct candidate names with at least one
+        # 3+-char token overlap, then top-score them.
+        normalized_q = medal_lib.normalize(query_name)
+        tokens = [t for t in normalized_q.split() if len(t) >= 3]
+        rm_query = db.session.query(medal_lib.ResultMedal)
+        if tokens:
+            from sqlalchemy import or_, func
+
+            conds = [
+                func.lower(medal_lib.ResultMedal.athlete_name).contains(t)
+                for t in tokens
+            ]
+            rm_query = rm_query.filter(or_(*conds))
+
+        candidate_rms = rm_query.all()
+        name_to_rows = {}
+        for rm in candidate_rms:
+            name_to_rows.setdefault(rm.athlete_name, []).append(rm)
+        all_names = list(name_to_rows.keys())
+
+        if all_names:
+            scored = process.extract(
+                query_name, all_names, scorer=fuzz.token_ratio, limit=50
+            )
+        else:
+            scored = []
+
+        # Pre-cache existing medals for this athlete (event_id, division_id).
+        existing_pairs = set(
+            (m.event_id, m.division_id)
+            for m in Medal.query.filter(Medal.athlete_id == athlete.id).all()
+        )
+
+        for cand_name, score, _ in scored:
+            if score < 60:
+                break
+            for rm in name_to_rows[cand_name]:
+                division_parts = medal_lib.parse_division_parts(rm.division)
+                if not division_parts:
+                    candidates.append(
+                        {
+                            "rm": rm,
+                            "score": score,
+                            "division": None,
+                            "event": None,
+                            "status": "no_division",
+                            "checkable": False,
+                        }
+                    )
+                    continue
+                belt, _age, _gender, _weight = division_parts
+                year_match = medal_lib.YEAR_SUFFIX_RE.search(rm.event_name)
+                tentative_date = (
+                    datetime(int(year_match.group(1)), 6, 1)
+                    if year_match
+                    else datetime.utcnow()
+                )
+                plausible = medal_lib.medal_is_plausible(
+                    db.session, athlete.id, belt, tentative_date
+                )
+                gi = not medal_lib.is_no_gi_event(rm.event_name)
+                division = medal_lib.parse_and_resolve_division(
+                    db.session, rm.division, gi
+                )
+                event = medal_lib.find_event(
+                    db.session, rm.event_name, rm.event_ibjjf_id
+                )
+                if division and event and (event.id, division.id) in existing_pairs:
+                    status, checkable = "duplicate", False
+                elif not plausible:
+                    status, checkable = "belt_mismatch", False
+                elif not division:
+                    status, checkable = "no_division", False
+                else:
+                    status, checkable = "ok", True
+                candidates.append(
+                    {
+                        "rm": rm,
+                        "score": score,
+                        "division": division,
+                        "event": event,
+                        "status": status,
+                        "checkable": checkable,
+                    }
+                )
+
+        candidates.sort(key=lambda c: -c["score"])
+
+    return render_template(
+        "athlete_medals_find_missing.html",
+        athlete=athlete,
+        query_name=query_name,
+        candidates=candidates,
+        has_searched=has_searched,
+    )
+
+
+@app.route("/athlete_medals/import_candidates", methods=["POST"])
+def athlete_medals_import_candidates():
+    athlete_id = request.form.get("athlete_id", "")
+    try:
+        athlete = Athlete.query.get(uuid.UUID(athlete_id))
+    except (ValueError, TypeError):
+        athlete = None
+    if not athlete:
+        return redirect(url_for("athletes"))
+
+    selections = request.form.getlist("rm_id")
+    imported = 0
+    errors = []
+
+    for rm_id_raw in selections:
+        try:
+            rm_id = uuid.UUID(rm_id_raw)
+        except ValueError:
+            errors.append(f"bad rm_id: {rm_id_raw}")
+            continue
+        rm = db.session.query(medal_lib.ResultMedal).get(rm_id)
+        if not rm:
+            errors.append(f"missing rm: {rm_id_raw}")
+            continue
+        event = medal_lib.find_event(db.session, rm.event_name, rm.event_ibjjf_id)
+        if event is None:
+            try:
+                event = medal_lib.create_medals_only_event(db.session, rm.event_name)
+            except ValueError as e:
+                errors.append(f"event for {rm.event_name}: {e}")
+                continue
+        gi = not medal_lib.is_no_gi_event(event.name)
+        division = medal_lib.parse_and_resolve_division(db.session, rm.division, gi)
+        if not division:
+            errors.append(f"division for {rm.event_name}: {rm.division}")
+            continue
+        if medal_lib.medal_already_exists(
+            db.session, athlete.id, event.id, division.id
+        ):
+            continue
+        team = medal_lib.find_or_create_team(db.session, rm.team_name)
+        happened_at = medal_lib.compute_happened_at(
+            db.session, athlete.id, event, event.name
+        )
+        default_gold = medal_lib.compute_default_gold(db.session, rm)
+        medal_lib.insert_medal(
+            db.session,
+            athlete_id=athlete.id,
+            event_id=event.id,
+            division_id=division.id,
+            team_id=team.id,
+            place=rm.place,
+            happened_at=happened_at,
+            default_gold=default_gold,
+            imported_via="historical_manual",
+        )
+        imported += 1
+
+    if errors:
+        db.session.rollback()
+    else:
+        db.session.commit()
+
+    msg = f"Imported {imported} medal(s) for {athlete.name}"
+    if errors:
+        msg += f"; {len(errors)} error(s): " + "; ".join(errors[:3])
+    session["medal_find_flash"] = msg
+
+    return redirect(url_for("athlete_medals", id=str(athlete.id)))
+
+
 application = app
 
 if __name__ == "__main__":

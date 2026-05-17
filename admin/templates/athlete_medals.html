@@ -5,9 +5,13 @@
 <div class="container mt-6">
     <div class="box">
         <h1 class="title is-4 has-text-centered">Medals for {{ athlete.name }}</h1>
+        {% if session.get('medal_find_flash') %}
+            <div class="notification is-info">{{ session.pop('medal_find_flash') }}</div>
+        {% endif %}
         <form id="global-medal-form" method="POST" action="{{ url_for('update_all_medals') }}">
             <input type="hidden" name="athlete_id" value="{{ athlete.id }}">
             <a class="button is-link is-light mt-4" href="{{ url_for('athlete_edit', id=athlete.id) }}">Back to Athlete</a>
+            <a class="button is-info is-light mt-4" href="{{ url_for('athlete_medals_find_missing', id=athlete.id) }}">Find missing medals &rarr;</a>
             <div class="save-button">
                 <button type="submit" class="button is-link">Save All</button>
             </div>
@@ -21,6 +25,7 @@
                         <th>Team</th>
                         <th>Default Gold</th>
                         <th>Place</th>
+                        <th>Source</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -38,6 +43,19 @@
                                 <input type="text" value="{{ medal.place }}" class="video-input" readonly disabled>
                             {% else %}
                                 <input type="number" name="place_{{ medal.id }}" value="{{ medal.place }}" min="1" class="video-input" required>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if medal.imported_via == 'historical_auto' %}
+                                <span class="tag is-info is-light" title="Auto-imported from historical archive">hist-auto</span>
+                            {% elif medal.imported_via == 'historical_manual' %}
+                                <span class="tag is-info" title="Imported via per-athlete admin search">hist-manual</span>
+                            {% elif medal.imported_via == 'recent_scan_auto' %}
+                                <span class="tag is-success is-light" title="Auto-imported via recent-scan CLI">recent-auto</span>
+                            {% elif medal.imported_via == 'recent_scan_manual' %}
+                                <span class="tag is-success" title="Imported via recent-scan admin UI">recent-manual</span>
+                            {% else %}
+                                <span class="has-text-grey">&mdash;</span>
                             {% endif %}
                         </td>
                         <td>
