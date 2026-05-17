@@ -189,6 +189,87 @@ def _bases_with_aliases(canonical_base):
     ]
 
 
+# Event-name keywords that identify a tournament held in Brazil. These
+# events run on the CBJJ season calendar (anchored to Brasileiros) rather
+# than the IBJJF Worlds-anchored calendar when scored for points. Only
+# applied to gi medals; no-gi tournaments always use the no-gi Worlds
+# calendar even when held in Brazil. Matched case-insensitively against
+# the normalized event name as whole words.
+_BRAZILIAN_EVENT_KEYWORDS = (
+    "brasileiro",  # Campeonato Brasileiro, Sul-Brasileiro
+    "sul-americano",
+    "south american",
+    "rio",
+    "sao paulo",
+    "são paulo",
+    "belo horizonte",
+    "curitiba",
+    "salvador",
+    "recife",
+    "fortaleza",
+    "manaus",
+    "floripa",
+    "florianópolis",
+    "brasília",
+    "brasilia",
+    "balneário camboriú",
+    "balneario camboriu",
+    "porto alegre",
+)
+_BRAZILIAN_EVENT_RE = re.compile(
+    r"(?:^|\W)(?:"
+    + "|".join(re.escape(k) for k in _BRAZILIAN_EVENT_KEYWORDS)
+    + r")(?:$|\W)"
+)
+
+
+def _is_brazilian_event(event_name):
+    """True if ``event_name`` looks like a tournament held in Brazil. The
+    caller is responsible for restricting this to gi divisions — the CBJJ
+    season rule only applies to gi.
+    """
+    if not event_name:
+        return False
+    return bool(_BRAZILIAN_EVENT_RE.search(_normalize_event_name(event_name)))
+
+
+_CBJJ_SEASON_BASE = "Campeonato Brasileiro de Jiu-Jitsu"
+
+
+def _cbjj_recent_seasons(today, n=3):
+    """CBJJ season boundaries — analogous to :func:`_recent_seasons` but
+    anchored to Brasileiros start dates rather than Worlds. Used as the
+    seasonal multiplier source for gi medals at Brazilian tournaments.
+    """
+    year_groups = _event_year_groups(_CBJJ_SEASON_BASE, today)
+    if not year_groups:
+        return []
+
+    sorted_years = sorted(year_groups.keys(), reverse=True)[:n]
+    starts = [
+        year_groups[y][1].replace(hour=0, minute=0, second=0, microsecond=0)
+        for y in sorted_years
+    ]
+
+    far_future = datetime(9999, 12, 31)
+    seasons = []
+    next_start = far_future
+    for s in starts:
+        seasons.append((s, next_start))
+        next_start = s
+    return seasons
+
+
+def _season_multiplier(seasons, happened_at):
+    """Find the multiplier (n .. 1) for ``happened_at`` against ``seasons``
+    (ordered newest -> oldest). Returns ``None`` when no season matches.
+    """
+    for i, (start, end) in enumerate(seasons):
+        if start <= happened_at < end:
+            return len(seasons) - i
+    return None
+
+
 def _suspension_ranges_by_athlete_id(rows):
     """Build ``{athlete_id: [(start_date, end_date), ...]}`` for the
     athletes in ``rows``. The Suspension table is small, so the whole
@@ -893,6 +974,10 @@ def add_seeding_data(rows, divdata, gi, now=None):
     if now is None:
         now = datetime.now()
     seasons = _recent_seasons(divdata["age"], gi, now, n=3)
+    # CBJJ (Brasileiros-anchored) seasons override the regular season
+    # multiplier for gi medals at Brazilian tournaments. Only relevant in
+    # gi; no-gi events always use the no-gi Worlds calendar.
+    cbjj_seasons = _cbjj_recent_seasons(now, n=3) if gi else []
     gs_multipliers = _grand_slam_event_multipliers(divdata["age"], gi, now, n=3)
     suspension_ranges = _suspension_ranges_by_athlete_id(rows)
 
@@ -911,11 +996,14 @@ def add_seeding_data(rows, divdata, gi, now=None):
         Event.name.notilike(_IBJJF_CROWN_EVENT_NAME_PATTERN),
     )
 
-    # Regular points: medals inside the rolling-Worlds-anchored season window.
-    if seasons:
-        earliest_start = seasons[-1][0]
-        latest_end = seasons[0][1]
-        n_seasons = len(seasons)
+    # Regular points: medals inside the rolling-Worlds-anchored season
+    # window (or the Brasileiros-anchored CBJJ window for gi Brazilian
+    # tournaments — they're scored on the CBJJ calendar instead).
+    if seasons or cbjj_seasons:
+        earliest_candidates = [s[-1][0] for s in (seasons, cbjj_seasons) if s]
+        earliest_start = min(earliest_candidates)
+        # All season lists share the same far-future upper bound.
+        latest_end = (seasons or cbjj_seasons)[0][1]
         medal_rows = (
             db.session.query(
                 Medal.athlete_id,
@@ -937,23 +1025,25 @@ def add_seeding_data(rows, divdata, gi, now=None):
         for r in medal_rows:
             if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
                 continue
-            for i, (start, end) in enumerate(seasons):
-                if start <= r.happened_at < end:
-                    season_mult = n_seasons - i  # 3x, 2x, 1x
-                    _score_medal(
-                        points_by_athlete,
-                        open_by_athlete,
-                        r.athlete_id,
-                        r.place,
-                        r.weight,
-                        r.event_name,
-                        r.age,
-                        gi,
-                        season_mult,
-                        weight_multipliers,
-                        division_is_open,
-                    )
-                    break
+            if gi and _is_brazilian_event(r.event_name):
+                season_mult = _season_multiplier(cbjj_seasons, r.happened_at)
+            else:
+                season_mult = _season_multiplier(seasons, r.happened_at)
+            if season_mult is None:
+                continue
+            _score_medal(
+                points_by_athlete,
+                open_by_athlete,
+                r.athlete_id,
+                r.place,
+                r.weight,
+                r.event_name,
+                r.age,
+                gi,
+                season_mult,
+                weight_multipliers,
+                division_is_open,
+            )
 
     # Grand Slam points: medals at the most recent n editions of each Grand
     # Slam event, multipliers driven by per-event-type recency (not by the
@@ -980,6 +1070,12 @@ def add_seeding_data(rows, divdata, gi, now=None):
         for r in gs_medal_rows:
             if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
                 continue
+            if gi and _is_brazilian_event(r.event_name):
+                gs_mult = _season_multiplier(cbjj_seasons, r.happened_at)
+                if gs_mult is None:
+                    continue
+            else:
+                gs_mult = gs_multipliers[r.event_id]
             _score_medal(
                 gs_points_by_athlete,
                 gs_open_by_athlete,
@@ -989,7 +1085,7 @@ def add_seeding_data(rows, divdata, gi, now=None):
                 r.event_name,
                 r.age,
                 gi,
-                gs_multipliers[r.event_id],
+                gs_mult,
                 weight_multipliers,
                 division_is_open,
             )
