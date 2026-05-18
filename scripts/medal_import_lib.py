@@ -524,6 +524,14 @@ def first_and_last_match(query_name: str, candidate_name: str) -> bool:
       - "Roberto Gonzalez Ruiz" vs "Roberto J Gonzalez"   (last differs)
       - "Simone Mura"            vs "Max Simone"          (both differ)
 
+    Generational suffixes (`Jr`, `Sr`, `III`, `Filho` etc) are compared as
+    regular last tokens — they implicitly distinguish father/son cases:
+      - Carlos Gracie Jr vs Carlos Gracie    → last 'jr' != 'gracie' → fail
+      - Carlos Gracie Jr vs Carlos Gracie Sr → last 'jr' != 'sr'     → fail
+      - Carlos Gracie Jr vs Carlos Gracie Jr → last 'jr' == 'jr'     → pass
+    Dropping or adding a suffix routes to manual review, which is the safe
+    choice when same-named relatives both compete.
+
     Single-letter initials in the first or last position fail this check —
     we don't trust "P. Souza" → "Pedro Souza" without a clearer signal,
     even though token_sort_ratio may score it highly.

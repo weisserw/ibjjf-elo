@@ -84,8 +84,14 @@ def parse_args():
     parser.add_argument(
         "--soft-gap-threshold",
         type=int,
-        default=12,
-        help="Gap required in the soft tier (default 12).",
+        default=0,
+        help=(
+            "Gap required in the soft tier (default 0). The first/last-token "
+            "identity guard does the wrong-person filtering; gap is only useful "
+            "as belt-and-suspenders for the rare case where two distinct people "
+            "in a rare namespace share the same first AND last name. Bump if "
+            "you see those slip through."
+        ),
     )
     parser.add_argument(
         "--similar-threshold",

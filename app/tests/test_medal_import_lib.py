@@ -369,6 +369,32 @@ class PureFunctionTestCase(unittest.TestCase):
         self.assertFalse(lib.first_and_last_match("", "Maria Silva"))
         self.assertFalse(lib.first_and_last_match("Maria Silva", ""))
 
+    def test_first_and_last_match_jr_dropped_fails(self):
+        # Father/son with the same first+last name are different people. If a
+        # 'Jr' is dropped on one registration, we can't safely merge — route
+        # to review instead. Suffix is treated as just another last token.
+        self.assertFalse(lib.first_and_last_match("Carlos Gracie Jr", "Carlos Gracie"))
+        self.assertFalse(lib.first_and_last_match("Carlos Gracie", "Carlos Gracie Jr"))
+
+    def test_first_and_last_match_jr_vs_sr_fails(self):
+        # Different generations are different people.
+        self.assertFalse(
+            lib.first_and_last_match("Carlos Gracie Jr", "Carlos Gracie Sr")
+        )
+
+    def test_first_and_last_match_iii_vs_iv_fails(self):
+        # Roman numeral generations are also different people.
+        self.assertFalse(lib.first_and_last_match("John Doe III", "John Doe IV"))
+
+    def test_first_and_last_match_same_generational_suffix_passes(self):
+        # Same suffix on both sides naturally passes the last-token check.
+        self.assertTrue(lib.first_and_last_match("John Doe III", "John A Doe III"))
+
+    def test_first_and_last_match_filho_dropped_fails(self):
+        # Same logic for Brazilian 'Filho' (Jr) — dropping it could merge
+        # father and son. Route to review.
+        self.assertFalse(lib.first_and_last_match("Helio Gracie", "Helio Gracie Filho"))
+
 
 class LibDbTestCase(TestDbMixin, unittest.TestCase):
     @classmethod
