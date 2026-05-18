@@ -513,28 +513,34 @@ def name_passes_token_overlap(
     query_name: str,
     candidate_name: str,
     *,
-    min_informative_len: int = 4,
+    min_informative_len: int = 3,
 ) -> bool:
     """SOFT-tier safety check: reject pairs where each side has at least one
     'informative' unique token. That pattern — same first names, different
-    surnames — is the signature of two different people sharing partial names,
-    and is the main false-positive source for the SOFT tier where score >= 75.
+    surnames (or vice versa) — is the signature of two different people sharing
+    partial names, and is the main false-positive source for the SOFT tier
+    where score >= 75.
 
-    Tokens shorter than `min_informative_len` characters are ignored on both
-    sides, which folds out Portuguese stopwords (`de`, `da`, `do`, `dos`, `das`,
-    `e`) and abbreviations (`m.`, `j.`) — neither should count as a real
-    identity difference.
+    Tokens shorter than `min_informative_len` characters (default 3) are
+    ignored on both sides. The default folds out:
+      - Portuguese name particles `de`, `da`, `do`, `e` (len <= 2)
+      - Abbreviations after normalize() strips periods: `M.` -> `m` (len 1)
+    while keeping short first names like Max, Tom, Ray, Ana as informative.
 
     Returns True (pass) when at most one side has informative unique tokens.
 
-    Examples (with min_informative_len=4):
+    Examples:
       - "Pedro Vinicius Roque" vs "Pedro Vinicius Rodrigues Roque":
           query is a subset (no informative unique) → pass
       - "Pedro Henrique Pinheiro Machado de Souza" vs
         "Pedro Henrique Pinheiro M. de Souza":
-          query unique={machado}, cand unique={} ('m.' < len 4) → pass
+          query unique={machado}, cand unique={} ('m' is 1 char) → pass
+      - "Dustin Ray Hurst" vs "Dustin Hurst":
+          query unique={ray} (informative), cand unique={} → pass
       - "Daniel de Jesus Abdalla" vs "Daniel de Jesus Amaral":
           query unique={abdalla}, cand unique={amaral} → fail
+      - "Simone Mura" vs "Max Simone":
+          query unique={mura}, cand unique={max} (3 chars, informative) → fail
     """
     q_tokens = set(normalize(query_name).split())
     c_tokens = set(normalize(candidate_name).split())

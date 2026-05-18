@@ -321,6 +321,21 @@ class PureFunctionTestCase(unittest.TestCase):
             )
         )
 
+    def test_name_passes_token_overlap_three_letter_first_name_fails(self):
+        # Simone Mura / Max Simone regression: "Max" is 3 chars but a real first
+        # name, not a stopword/abbreviation. Must count as informative or the
+        # guard wrongly allows this auto-import.
+        self.assertFalse(lib.name_passes_token_overlap("Simone Mura", "Max Simone"))
+
+    def test_name_passes_token_overlap_extra_short_middle_passes(self):
+        # Dustin Ray Hurst / Dustin Hurst regression: only query has an extra
+        # token ('ray', 3 chars, informative). Other side empty → guard passes.
+        # This is the common "registered with middle name once, without it
+        # another time" case we want to auto-import.
+        self.assertTrue(
+            lib.name_passes_token_overlap("Dustin Ray Hurst", "Dustin Hurst")
+        )
+
     def test_name_passes_token_overlap_short_stopwords_ignored(self):
         # 'de' vs 'da' differ but both are < 4 chars; not informative.
         self.assertTrue(
