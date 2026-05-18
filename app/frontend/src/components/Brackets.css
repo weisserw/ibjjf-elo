@@ -275,6 +275,12 @@
 
 .est-seed-info {
   margin-left: 0.4em;
+  cursor: pointer;
+  color: #2196f3;
+}
+
+.est-seed-info:hover {
+  color: #1976d2;
 }
 
 .est-seed-modal .modal-content {

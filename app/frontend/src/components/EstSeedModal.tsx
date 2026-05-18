@@ -142,6 +142,7 @@ function EstSeedModal({ competitors, selectedCategory, onClose }: EstSeedModalPr
             <table className="table is-fullwidth est-seed-modal-table">
               <thead>
                 <tr>
+                  <th className="has-text-right">#</th>
                   <th>{t('Name')}</th>
                   <th>{t('Team')}</th>
                   {columns.map(c => (
@@ -155,8 +156,9 @@ function EstSeedModal({ competitors, selectedCategory, onClose }: EstSeedModalPr
                 </tr>
               </thead>
               <tbody>
-                {sorted.map(c => (
+                {sorted.map((c, i) => (
                   <tr key={`${c.name}-${c.est_seed ?? ''}`}>
+                    <td className="has-text-right">{i + 1}</td>
                     <td>{c.personal_name ? c.personal_name : c.name}</td>
                     <td>{c.team}</td>
                     {columns.map(col => (

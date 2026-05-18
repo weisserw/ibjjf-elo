@@ -219,14 +219,22 @@ function BracketTable(props: BracketTableProps) {
                   const sorted = !(sortColumn !== undefined && sortColumn !== 'est_seed')
                   const tailText = `${tail}${sorted ? ' ↓' : ''}`
                   const infoIcon = props.onEstSeedInfoClick && (
-                    <a
-                      href="#"
+                    <span
+                      role="button"
+                      tabIndex={0}
                       className="est-seed-info"
                       aria-label={t("About estimated seeding")}
-                      onClick={(e) => { e.preventDefault(); props.onEstSeedInfoClick?.() }}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); props.onEstSeedInfoClick?.() }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          props.onEstSeedInfoClick?.();
+                        }
+                      }}
                     >
                       <i className="fas fa-circle-info"></i>
-                    </a>
+                    </span>
                   )
                   if (sorted) {
                     return (
@@ -238,11 +246,10 @@ function BracketTable(props: BracketTableProps) {
                   }
                   return (
                     <span className="est-seed-text">
-                      {head && <><a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>{head}</a>{' '}</>}
-                      <span className="no-wrap">
-                        <a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>{tailText}</a>
-                        {infoIcon}
-                      </span>
+                      <a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>
+                        {head && <>{head}{' '}</>}
+                        <span className="no-wrap">{tailText}{infoIcon}</span>
+                      </a>
                     </span>
                   )
                 })()}
