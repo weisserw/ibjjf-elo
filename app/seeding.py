@@ -646,7 +646,8 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
 
     World-title checks are scoped to the current division's weight class —
     regular weights match exactly, open-class divisions match any open-class
-    variant.
+    variant — *except* ``former_world_champion``, which matches a gold in any
+    weight class.
 
     Fields:
       - ``world_champion_recent`` — gold at any of the 3 most-recent past Worlds.
@@ -655,8 +656,8 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
       - ``last_world_title_year`` — year of the athlete's most-recent Worlds
         gold, restricted to the 3 most-recent past Worlds (``None`` otherwise).
       - ``former_world_champion`` — has a Worlds gold from 6+ years ago (a
-        rank-5-or-older past Worlds). Mutually exclusive with the other
-        ``world_champion_*`` recency flags.
+        rank-5-or-older past Worlds), in any weight class. Mutually exclusive
+        with the other ``world_champion_*`` recency flags.
       - ``previous_brown_world_champion`` — gold at the single most-recent past
         Worlds in the **brown belt** adult division.
     """
@@ -674,13 +675,17 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
 
     weight_filter = _title_weight_filter(divdata["weight"])
 
-    # Black-belt adult golds at *any* past Worlds, in the current weight class.
+    recent_event_ids = [eid for eid, y in eid_to_year.items() if year_to_rank[y] <= 4]
+    older_event_ids = [eid for eid, y in eid_to_year.items() if year_to_rank[y] > 4]
+
+    # Black-belt adult golds at the 5 most-recent past Worlds, in the current
+    # weight class (drives the recency flags).
     black_rows = (
         db.session.query(Medal.athlete_id, Medal.event_id, Medal.happened_at)
         .join(Division, Medal.division_id == Division.id)
         .filter(
             Medal.athlete_id.in_(athlete_ids),
-            Medal.event_id.in_(list(eid_to_year.keys())),
+            Medal.event_id.in_(recent_event_ids),
             Medal.place == 1,
             Division.gi == gi,
             Division.age == ADULT,
@@ -688,6 +693,26 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
             weight_filter,
         )
         .all()
+        if recent_event_ids
+        else []
+    )
+
+    # Black-belt adult golds at older past Worlds (6+ years ago), in *any*
+    # weight class (drives ``former_world_champion`` only).
+    older_black_rows = (
+        db.session.query(Medal.athlete_id, Medal.event_id, Medal.happened_at)
+        .join(Division, Medal.division_id == Division.id)
+        .filter(
+            Medal.athlete_id.in_(athlete_ids),
+            Medal.event_id.in_(older_event_ids),
+            Medal.place == 1,
+            Division.gi == gi,
+            Division.age == ADULT,
+            Division.belt == BLACK,
+        )
+        .all()
+        if older_event_ids
+        else []
     )
 
     # Brown-belt adult golds *only* at the single most-recent past Worlds,
@@ -713,7 +738,7 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
     }
 
     years_won_by_athlete = {}
-    for r in black_rows:
+    for r in list(black_rows) + list(older_black_rows):
         if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
             continue
         years_won_by_athlete.setdefault(r.athlete_id, set()).add(
