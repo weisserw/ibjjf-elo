@@ -393,6 +393,7 @@ def main():
                 runner_up = merged[1][1] if len(merged) > 1 else 0
                 auto_names = lib.decide_auto_import_names(
                     merged,
+                    query_name=athlete.name,
                     auto_threshold=args.auto_threshold,
                     gap_threshold=args.gap_threshold,
                     soft_threshold=args.soft_threshold,

@@ -509,9 +509,44 @@ def age_is_plausible(session, athlete_id, medal_age: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def name_passes_token_overlap(
+    query_name: str,
+    candidate_name: str,
+    *,
+    min_informative_len: int = 4,
+) -> bool:
+    """SOFT-tier safety check: reject pairs where each side has at least one
+    'informative' unique token. That pattern — same first names, different
+    surnames — is the signature of two different people sharing partial names,
+    and is the main false-positive source for the SOFT tier where score >= 75.
+
+    Tokens shorter than `min_informative_len` characters are ignored on both
+    sides, which folds out Portuguese stopwords (`de`, `da`, `do`, `dos`, `das`,
+    `e`) and abbreviations (`m.`, `j.`) — neither should count as a real
+    identity difference.
+
+    Returns True (pass) when at most one side has informative unique tokens.
+
+    Examples (with min_informative_len=4):
+      - "Pedro Vinicius Roque" vs "Pedro Vinicius Rodrigues Roque":
+          query is a subset (no informative unique) → pass
+      - "Pedro Henrique Pinheiro Machado de Souza" vs
+        "Pedro Henrique Pinheiro M. de Souza":
+          query unique={machado}, cand unique={} ('m.' < len 4) → pass
+      - "Daniel de Jesus Abdalla" vs "Daniel de Jesus Amaral":
+          query unique={abdalla}, cand unique={amaral} → fail
+    """
+    q_tokens = set(normalize(query_name).split())
+    c_tokens = set(normalize(candidate_name).split())
+    q_unique = {t for t in q_tokens - c_tokens if len(t) >= min_informative_len}
+    c_unique = {t for t in c_tokens - q_tokens if len(t) >= min_informative_len}
+    return not (q_unique and c_unique)
+
+
 def decide_auto_import_names(
     merged,
     *,
+    query_name: str,
     auto_threshold: int,
     gap_threshold: int,
     soft_threshold: int,
@@ -525,7 +560,8 @@ def decide_auto_import_names(
     and is expected to contain only UNKNOWN spelling variants — names that
     don't already match the athlete's stored aliases (`name` /
     `personal_name`). Known-alias handling lives in the CLI, ahead of fuzzy
-    matching.
+    matching. `query_name` is the athlete's legal name (what fuzzy was
+    anchored to) and is used for the SOFT-tier token-overlap guard.
 
     Returns a set with at most one name (always `merged[0][0]` when non-empty).
     The set return type is for API symmetry with the iteration loop.
@@ -535,9 +571,15 @@ def decide_auto_import_names(
         at or above `similar_threshold`): only a UNIQUE perfect match is safe.
         Top must be 100 AND runner-up strictly < 100. Common-name athletes
         ("Lucas Rodrigues Souza") produce many plausible aliases at high scores.
-      - Rare namespace: standard dual-tier rule:
-          HIGH: score >= auto_threshold AND gap >= gap_threshold
-          SOFT: score >= soft_threshold AND gap >= soft_gap_threshold
+      - Rare namespace: dual-tier rule:
+          HIGH: score >= auto_threshold AND gap >= gap_threshold (no overlap
+              guard — at score >= 92 names are essentially identical, and the
+              guard would over-reject single-character typos).
+          SOFT: score >= soft_threshold AND gap >= soft_gap_threshold AND
+              passes `name_passes_token_overlap` against `query_name`. The
+              guard rejects "shared first names, different surname" pairs
+              (Daniel de Jesus Abdalla vs Daniel de Jesus Amaral) that score
+              high enough to clear SOFT but are clearly different people.
         (Tied top scores fail the gap rule — when two unknown spellings both
         score 100, we genuinely can't tell which is the right person.)
     """
@@ -552,11 +594,14 @@ def decide_auto_import_names(
             return {merged[0][0]}
         return set()
 
+    top_name = merged[0][0]
     gap = best_score - runner_up
     high = best_score >= auto_threshold and gap >= gap_threshold
     soft = best_score >= soft_threshold and gap >= soft_gap_threshold
-    if high or soft:
-        return {merged[0][0]}
+    if high:
+        return {top_name}
+    if soft and name_passes_token_overlap(query_name, top_name):
+        return {top_name}
     return set()
 
 

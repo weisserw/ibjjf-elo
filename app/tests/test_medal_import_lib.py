@@ -140,14 +140,18 @@ class PureFunctionTestCase(unittest.TestCase):
     def test_decide_auto_import_rare_name_soft_tier(self):
         # Soft-tier rare name: middling score with dissimilar runner-ups.
         # Only one candidate is above similar_threshold, so the namespace is
-        # not crowded and the dual-tier rule applies. Only the top name auto-imports.
+        # not crowded and the dual-tier rule applies. Token-overlap guard
+        # passes because the query is a subset of the candidate (extra middle
+        # name only).
         merged = [
             ("Pedro Vinicius Rodrigues Roque", 82),
             ("Vinícius Maziero Oliveira", 60),
             ("Yet Another", 40),
         ]
         self.assertEqual(
-            lib.decide_auto_import_names(merged, **self._DECIDE_KW),
+            lib.decide_auto_import_names(
+                merged, query_name="Pedro Vinicius Roque", **self._DECIDE_KW
+            ),
             {"Pedro Vinicius Rodrigues Roque"},
         )
 
@@ -158,8 +162,47 @@ class PureFunctionTestCase(unittest.TestCase):
             ("Some Other Person", 50),
         ]
         self.assertEqual(
-            lib.decide_auto_import_names(merged, **self._DECIDE_KW),
+            lib.decide_auto_import_names(
+                merged, query_name="Sevada Khashadoorian", **self._DECIDE_KW
+            ),
             {"Sevada Khashadoorian"},
+        )
+
+    def test_decide_auto_import_soft_tier_rejected_by_token_overlap_guard(self):
+        # Daniel/Amaral regression: SOFT-tier auto would fire on score+gap alone
+        # (84, gap 14 — both clear soft_threshold=75, soft_gap_threshold=12), but
+        # the token-overlap guard catches it: query has unique informative token
+        # {abdalla}, candidate has unique informative token {amaral} — different
+        # people sharing partial names, send to review.
+        merged = [
+            ("Daniel de Jesus Amaral", 84),
+            ("Some Distractor", 70),
+        ]
+        self.assertEqual(
+            lib.decide_auto_import_names(
+                merged,
+                query_name="Daniel de Jesus Abdalla",
+                **self._DECIDE_KW,
+            ),
+            set(),
+        )
+
+    def test_decide_auto_import_soft_tier_allows_abbreviated_middle(self):
+        # Abbreviation case: candidate has 'M.' where query has 'Machado'.
+        # 'M.' is shorter than min_informative_len so it doesn't count as a
+        # unique informative token — query unique is {machado}, candidate unique
+        # is {} — guard passes, SOFT auto fires.
+        merged = [
+            ("Pedro Henrique Pinheiro M. de Souza", 82),
+            ("Pedro Henrique Souza da Silva", 66),
+        ]
+        self.assertEqual(
+            lib.decide_auto_import_names(
+                merged,
+                query_name="Pedro Henrique Pinheiro Machado de Souza",
+                **self._DECIDE_KW,
+            ),
+            {"Pedro Henrique Pinheiro M. de Souza"},
         )
 
     def test_decide_auto_import_rare_namespace_tied_top_scores_review_only(self):
@@ -173,7 +216,12 @@ class PureFunctionTestCase(unittest.TestCase):
             ("Unknown Spelling Two", 100),
             ("Far Other", 30),
         ]
-        self.assertEqual(lib.decide_auto_import_names(merged, **self._DECIDE_KW), set())
+        self.assertEqual(
+            lib.decide_auto_import_names(
+                merged, query_name="Some Query", **self._DECIDE_KW
+            ),
+            set(),
+        )
 
     def test_decide_auto_import_crowded_namespace_blocks_imperfect_top(self):
         # Lucas-style: many similar candidates, top score is high but not 100.
@@ -186,7 +234,14 @@ class PureFunctionTestCase(unittest.TestCase):
             ("Pedro Souza Rodrigues", 87),
             ("Carlos Rodrigues", 86),
         ]
-        self.assertEqual(lib.decide_auto_import_names(merged, **self._DECIDE_KW), set())
+        self.assertEqual(
+            lib.decide_auto_import_names(
+                merged,
+                query_name="Lucas de Souza Rodrigues",
+                **self._DECIDE_KW,
+            ),
+            set(),
+        )
 
     def test_decide_auto_import_crowded_namespace_blocks_100_with_100_runner_up(self):
         # Two perfect matches in a crowded namespace means we genuinely can't
@@ -198,7 +253,14 @@ class PureFunctionTestCase(unittest.TestCase):
             ("Alan Rodrigues de Souza", 88),
             ("Pedro Souza Rodrigues", 86),
         ]
-        self.assertEqual(lib.decide_auto_import_names(merged, **self._DECIDE_KW), set())
+        self.assertEqual(
+            lib.decide_auto_import_names(
+                merged,
+                query_name="Lucas Rodrigues Souza",
+                **self._DECIDE_KW,
+            ),
+            set(),
+        )
 
     def test_decide_auto_import_crowded_namespace_allows_unique_perfect_match(self):
         # The only safe auto under high collision: top == 100 and runner-up < 100.
@@ -210,12 +272,63 @@ class PureFunctionTestCase(unittest.TestCase):
             ("Carlos Rodrigues", 86),
         ]
         self.assertEqual(
-            lib.decide_auto_import_names(merged, **self._DECIDE_KW),
+            lib.decide_auto_import_names(
+                merged,
+                query_name="Lucas Rodrigues Souza",
+                **self._DECIDE_KW,
+            ),
             {"Lucas Rodrigues Souza"},
         )
 
     def test_decide_auto_import_empty_merged(self):
-        self.assertEqual(lib.decide_auto_import_names([], **self._DECIDE_KW), set())
+        self.assertEqual(
+            lib.decide_auto_import_names([], query_name="Anything", **self._DECIDE_KW),
+            set(),
+        )
+
+    # ---- name_passes_token_overlap (SOFT-tier guard) ----
+
+    def test_name_passes_token_overlap_query_subset_passes(self):
+        # Extra middle name on the candidate side, query is a subset.
+        self.assertTrue(
+            lib.name_passes_token_overlap(
+                "Pedro Vinicius Roque", "Pedro Vinicius Rodrigues Roque"
+            )
+        )
+
+    def test_name_passes_token_overlap_candidate_subset_passes(self):
+        # Query has extra middle name; candidate is a subset.
+        self.assertTrue(
+            lib.name_passes_token_overlap(
+                "Pedro Vinicius Rodrigues Roque", "Pedro Vinicius Roque"
+            )
+        )
+
+    def test_name_passes_token_overlap_abbreviation_passes(self):
+        # 'M.' on candidate doesn't count as informative (len < 4).
+        self.assertTrue(
+            lib.name_passes_token_overlap(
+                "Pedro Henrique Pinheiro Machado de Souza",
+                "Pedro Henrique Pinheiro M. de Souza",
+            )
+        )
+
+    def test_name_passes_token_overlap_different_surname_fails(self):
+        # The Daniel/Amaral pattern — both sides have an informative unique token.
+        self.assertFalse(
+            lib.name_passes_token_overlap(
+                "Daniel de Jesus Abdalla", "Daniel de Jesus Amaral"
+            )
+        )
+
+    def test_name_passes_token_overlap_short_stopwords_ignored(self):
+        # 'de' vs 'da' differ but both are < 4 chars; not informative.
+        self.assertTrue(
+            lib.name_passes_token_overlap("Maria de Souza", "Maria da Souza")
+        )
+
+    def test_name_passes_token_overlap_identical_passes(self):
+        self.assertTrue(lib.name_passes_token_overlap("Maria Silva", "Maria Silva"))
 
 
 class LibDbTestCase(TestDbMixin, unittest.TestCase):
