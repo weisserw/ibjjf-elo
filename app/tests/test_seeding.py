@@ -708,7 +708,8 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
 
     def test_adult_black_belt_last_world_title_year_takes_max(self):
         # Multiple Worlds titles — ``last_world_title_year`` should report
-        # the most recent year.
+        # the most recent year. Recency flags are mutually exclusive: only
+        # the highest-priority one (``world_champion_recent``) should be set.
         def seed(t):
             a = t._make_athlete("bb-multi-titles")
             t._add_medal(a, t.worlds_2023, place=1)
@@ -718,7 +719,10 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         row = self._seed_and_run(seed, _divdata(belt=BLACK), gi=True)
         self.assertEqual(row["last_world_title_year"], 2023)
         self.assertTrue(row["world_champion_recent"])  # 2023 is rank 2
-        self.assertTrue(row["world_champion_5_years_ago"])  # 2021 is rank 4
+        # Mutually exclusive: a recent title suppresses the older-rank flags.
+        self.assertFalse(row["world_champion_4_years_ago"])
+        self.assertFalse(row["world_champion_5_years_ago"])
+        self.assertFalse(row["former_world_champion"])
 
     def test_adult_black_belt_no_titles(self):
         # An adult black athlete with no Worlds golds — all flags should be
@@ -761,7 +765,8 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
 
     def test_adult_black_belt_title_in_different_weight_does_not_count(self):
         # Gold at Worlds 2025 in HEAVY shouldn't satisfy a LIGHT tournament's
-        # world-champion flags.
+        # weight-scoped flags, but it *does* set ``former_world_champion``
+        # (which matches a black-belt gold in any weight class).
         def seed(t):
             a = t._make_athlete("bb-wrong-weight")
             t._add_medal(a, t.worlds_2025, place=1, weight=HEAVY)
@@ -770,7 +775,9 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         row = self._seed_and_run(seed, _divdata(belt=BLACK, weight=LIGHT), gi=True)
         self.assertFalse(row["world_champion_recent"])
         self.assertIsNone(row["last_world_title_year"])
-        self.assertFalse(row["former_world_champion"])
+        self.assertFalse(row["world_champion_4_years_ago"])
+        self.assertFalse(row["world_champion_5_years_ago"])
+        self.assertTrue(row["former_world_champion"])
 
     def test_adult_black_belt_brown_title_in_different_weight_does_not_count(self):
         # Brown gold in HEAVY at the most-recent past Worlds should NOT trigger

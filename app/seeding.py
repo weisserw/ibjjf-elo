@@ -644,22 +644,35 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
     least one of the flags set appear in the dict. Athletes not present in
     the result should keep the default values initialized by the caller.
 
-    World-title checks are scoped to the current division's weight class —
-    regular weights match exactly, open-class divisions match any open-class
-    variant — *except* ``former_world_champion``, which matches a gold in any
-    weight class.
+    World-title checks for the recency flags (``world_champion_recent``,
+    ``world_champion_4_years_ago``, ``world_champion_5_years_ago``) and for
+    ``previous_brown_world_champion`` are scoped to the current division's
+    weight class — regular weights match exactly, open-class divisions match
+    any open-class variant. ``former_world_champion`` matches a black-belt
+    Worlds gold in **any** weight class.
+
+    The four black-belt flags are mutually exclusive: at most one of
+    ``world_champion_recent``, ``world_champion_4_years_ago``,
+    ``world_champion_5_years_ago``, ``former_world_champion`` is true, in
+    that priority order.
 
     Fields:
-      - ``world_champion_recent`` — gold at any of the 3 most-recent past Worlds.
-      - ``world_champion_4_years_ago`` — gold at the 4th most-recent past Worlds.
-      - ``world_champion_5_years_ago`` — gold at the 5th most-recent past Worlds.
+      - ``world_champion_recent`` — gold at any of the 3 most-recent past
+        Worlds, at the current weight class.
+      - ``world_champion_4_years_ago`` — gold at the 4th most-recent past
+        Worlds at the current weight class; suppressed if
+        ``world_champion_recent`` is true.
+      - ``world_champion_5_years_ago`` — gold at the 5th most-recent past
+        Worlds at the current weight class; suppressed if either of the
+        above is true.
       - ``last_world_title_year`` — year of the athlete's most-recent Worlds
-        gold, restricted to the 3 most-recent past Worlds (``None`` otherwise).
-      - ``former_world_champion`` — has a Worlds gold from 6+ years ago (a
-        rank-5-or-older past Worlds), in any weight class. Mutually exclusive
-        with the other ``world_champion_*`` recency flags.
+        gold at the current weight class, restricted to the 3 most-recent
+        past Worlds (``None`` otherwise).
+      - ``former_world_champion`` — has a black-belt Worlds gold at any past
+        Worlds, in any weight class; suppressed if any recency flag above
+        is true.
       - ``previous_brown_world_champion`` — gold at the single most-recent past
-        Worlds in the **brown belt** adult division.
+        Worlds in the **brown belt** adult division, at the current weight class.
     """
     if not athlete_ids:
         return {}
@@ -675,17 +688,14 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
 
     weight_filter = _title_weight_filter(divdata["weight"])
 
-    recent_event_ids = [eid for eid, y in eid_to_year.items() if year_to_rank[y] <= 4]
-    older_event_ids = [eid for eid, y in eid_to_year.items() if year_to_rank[y] > 4]
-
-    # Black-belt adult golds at the 5 most-recent past Worlds, in the current
-    # weight class (drives the recency flags).
-    black_rows = (
+    # Black-belt adult golds at any past Worlds, in the current weight class —
+    # drives the recency flags and ``last_world_title_year``.
+    weight_rows = (
         db.session.query(Medal.athlete_id, Medal.event_id, Medal.happened_at)
         .join(Division, Medal.division_id == Division.id)
         .filter(
             Medal.athlete_id.in_(athlete_ids),
-            Medal.event_id.in_(recent_event_ids),
+            Medal.event_id.in_(list(eid_to_year.keys())),
             Medal.place == 1,
             Division.gi == gi,
             Division.age == ADULT,
@@ -693,26 +703,22 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
             weight_filter,
         )
         .all()
-        if recent_event_ids
-        else []
     )
 
-    # Black-belt adult golds at older past Worlds (6+ years ago), in *any*
-    # weight class (drives ``former_world_champion`` only).
-    older_black_rows = (
-        db.session.query(Medal.athlete_id, Medal.event_id, Medal.happened_at)
+    # Black-belt adult golds at any past Worlds, in *any* weight class — drives
+    # ``former_world_champion`` (when no recency flag applies).
+    any_weight_rows = (
+        db.session.query(Medal.athlete_id, Medal.happened_at)
         .join(Division, Medal.division_id == Division.id)
         .filter(
             Medal.athlete_id.in_(athlete_ids),
-            Medal.event_id.in_(older_event_ids),
+            Medal.event_id.in_(list(eid_to_year.keys())),
             Medal.place == 1,
             Division.gi == gi,
             Division.age == ADULT,
             Division.belt == BLACK,
         )
         .all()
-        if older_event_ids
-        else []
     )
 
     # Brown-belt adult golds *only* at the single most-recent past Worlds,
@@ -737,28 +743,40 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
         if not _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at)
     }
 
-    years_won_by_athlete = {}
-    for r in list(black_rows) + list(older_black_rows):
+    weight_years_by_athlete = {}
+    for r in weight_rows:
         if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
             continue
-        years_won_by_athlete.setdefault(r.athlete_id, set()).add(
+        weight_years_by_athlete.setdefault(r.athlete_id, set()).add(
             eid_to_year[r.event_id]
         )
 
+    any_weight_winners = {
+        r.athlete_id
+        for r in any_weight_rows
+        if not _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at)
+    }
+
     result = {}
-    affected = set(years_won_by_athlete) | brown_winners
+    affected = set(weight_years_by_athlete) | any_weight_winners | brown_winners
     for aid in affected:
-        years_won = years_won_by_athlete.get(aid, set())
+        years_won = weight_years_by_athlete.get(aid, set())
         ranks_won = {year_to_rank[y] for y in years_won}
         recent_years_won = {y for y in years_won if year_to_rank[y] <= 2}
+
+        recent = bool(ranks_won & {0, 1, 2})
+        four_yr = (not recent) and (3 in ranks_won)
+        five_yr = (not recent) and (not four_yr) and (4 in ranks_won)
+        former = (aid in any_weight_winners) and not (recent or four_yr or five_yr)
+
         result[aid] = {
-            "world_champion_recent": bool(ranks_won & {0, 1, 2}),
+            "world_champion_recent": recent,
             "last_world_title_year": (
                 max(recent_years_won) if recent_years_won else None
             ),
-            "world_champion_4_years_ago": 3 in ranks_won,
-            "world_champion_5_years_ago": 4 in ranks_won,
-            "former_world_champion": bool(ranks_won - {0, 1, 2, 3, 4}),
+            "world_champion_4_years_ago": four_yr,
+            "world_champion_5_years_ago": five_yr,
+            "former_world_champion": former,
             "previous_brown_world_champion": aid in brown_winners,
         }
     return result
