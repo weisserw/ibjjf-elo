@@ -126,7 +126,7 @@ class PureFunctionTestCase(unittest.TestCase):
         self.assertGreaterEqual(right, 75)
         self.assertGreaterEqual(gap, 12)
 
-    # ---- decide_auto_import (adaptive fuzzy) ----
+    # ---- decide_auto_import_names (adaptive fuzzy) ----
 
     _DECIDE_KW = dict(
         auto_threshold=92,
@@ -138,15 +138,18 @@ class PureFunctionTestCase(unittest.TestCase):
     )
 
     def test_decide_auto_import_rare_name_soft_tier(self):
-        # Sevada-style: middling score (soft tier) with dissimilar runner-ups.
-        # Only one candidate is above the similar_threshold, so the namespace is
-        # not crowded and the existing dual-tier rule decides.
+        # Soft-tier rare name: middling score with dissimilar runner-ups.
+        # Only one candidate is above similar_threshold, so the namespace is
+        # not crowded and the dual-tier rule applies. Only the top name auto-imports.
         merged = [
-            ("Sevada Khashadoorian", 87),
-            ("Some Other Person", 55),
+            ("Pedro Vinicius Rodrigues Roque", 82),
+            ("Vinícius Maziero Oliveira", 60),
             ("Yet Another", 40),
         ]
-        self.assertTrue(lib.decide_auto_import(merged, **self._DECIDE_KW))
+        self.assertEqual(
+            lib.decide_auto_import_names(merged, **self._DECIDE_KW),
+            {"Pedro Vinicius Rodrigues Roque"},
+        )
 
     def test_decide_auto_import_rare_name_high_tier(self):
         # Near-exact rare-name match: classic HIGH tier, easy auto.
@@ -154,7 +157,23 @@ class PureFunctionTestCase(unittest.TestCase):
             ("Sevada Khashadoorian", 100),
             ("Some Other Person", 50),
         ]
-        self.assertTrue(lib.decide_auto_import(merged, **self._DECIDE_KW))
+        self.assertEqual(
+            lib.decide_auto_import_names(merged, **self._DECIDE_KW),
+            {"Sevada Khashadoorian"},
+        )
+
+    def test_decide_auto_import_rare_namespace_tied_top_scores_review_only(self):
+        # Two unknown spellings tied at the top, in a rare namespace.
+        # Known-alias spellings are filtered out before this function runs (the
+        # CLI handles them separately), so a tie here means two distinct unknown
+        # names — genuinely ambiguous. Gap=0 fails both HIGH and SOFT, so the
+        # function returns empty and both go to review.
+        merged = [
+            ("Unknown Spelling One", 100),
+            ("Unknown Spelling Two", 100),
+            ("Far Other", 30),
+        ]
+        self.assertEqual(lib.decide_auto_import_names(merged, **self._DECIDE_KW), set())
 
     def test_decide_auto_import_crowded_namespace_blocks_imperfect_top(self):
         # Lucas-style: many similar candidates, top score is high but not 100.
@@ -167,7 +186,7 @@ class PureFunctionTestCase(unittest.TestCase):
             ("Pedro Souza Rodrigues", 87),
             ("Carlos Rodrigues", 86),
         ]
-        self.assertFalse(lib.decide_auto_import(merged, **self._DECIDE_KW))
+        self.assertEqual(lib.decide_auto_import_names(merged, **self._DECIDE_KW), set())
 
     def test_decide_auto_import_crowded_namespace_blocks_100_with_100_runner_up(self):
         # Two perfect matches in a crowded namespace means we genuinely can't
@@ -179,7 +198,7 @@ class PureFunctionTestCase(unittest.TestCase):
             ("Alan Rodrigues de Souza", 88),
             ("Pedro Souza Rodrigues", 86),
         ]
-        self.assertFalse(lib.decide_auto_import(merged, **self._DECIDE_KW))
+        self.assertEqual(lib.decide_auto_import_names(merged, **self._DECIDE_KW), set())
 
     def test_decide_auto_import_crowded_namespace_allows_unique_perfect_match(self):
         # The only safe auto under high collision: top == 100 and runner-up < 100.
@@ -190,10 +209,13 @@ class PureFunctionTestCase(unittest.TestCase):
             ("Pedro Souza Rodrigues", 87),
             ("Carlos Rodrigues", 86),
         ]
-        self.assertTrue(lib.decide_auto_import(merged, **self._DECIDE_KW))
+        self.assertEqual(
+            lib.decide_auto_import_names(merged, **self._DECIDE_KW),
+            {"Lucas Rodrigues Souza"},
+        )
 
     def test_decide_auto_import_empty_merged(self):
-        self.assertFalse(lib.decide_auto_import([], **self._DECIDE_KW))
+        self.assertEqual(lib.decide_auto_import_names([], **self._DECIDE_KW), set())
 
 
 class LibDbTestCase(TestDbMixin, unittest.TestCase):

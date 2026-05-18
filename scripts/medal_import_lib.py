@@ -509,7 +509,7 @@ def age_is_plausible(session, athlete_id, medal_age: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def decide_auto_import(
+def decide_auto_import_names(
     merged,
     *,
     auto_threshold: int,
@@ -518,34 +518,46 @@ def decide_auto_import(
     soft_gap_threshold: int,
     similar_threshold: int,
     max_similar_candidates: int,
-) -> bool:
-    """Decide whether the top candidate in `merged` is safe to auto-import.
+) -> set:
+    """Return the set of candidate names in `merged` safe to auto-import.
 
-    `merged` is a list of `(name, score)` pairs sorted by score descending.
+    `merged` is a list of `(name, score)` pairs sorted by score descending,
+    and is expected to contain only UNKNOWN spelling variants — names that
+    don't already match the athlete's stored aliases (`name` /
+    `personal_name`). Known-alias handling lives in the CLI, ahead of fuzzy
+    matching.
+
+    Returns a set with at most one name (always `merged[0][0]` when non-empty).
+    The set return type is for API symmetry with the iteration loop.
 
     Adaptive rule:
-      - If the namespace around the athlete's name is crowded (more than
-        `max_similar_candidates` candidates score at or above
-        `similar_threshold`), require a UNIQUE perfect match: top score == 100
-        AND runner-up < 100. Common-name athletes ("Lucas Rodrigues Souza")
-        produce many plausible aliases at high scores; even score==100 isn't
-        safe when several other candidates are also close.
-      - Otherwise (rare name like "Sevada Khashadoorian"), the standard
-        dual-tier rule applies:
+      - Crowded namespace (more than `max_similar_candidates` candidates score
+        at or above `similar_threshold`): only a UNIQUE perfect match is safe.
+        Top must be 100 AND runner-up strictly < 100. Common-name athletes
+        ("Lucas Rodrigues Souza") produce many plausible aliases at high scores.
+      - Rare namespace: standard dual-tier rule:
           HIGH: score >= auto_threshold AND gap >= gap_threshold
           SOFT: score >= soft_threshold AND gap >= soft_gap_threshold
+        (Tied top scores fail the gap rule — when two unknown spellings both
+        score 100, we genuinely can't tell which is the right person.)
     """
     if not merged:
-        return False
+        return set()
     best_score = merged[0][1]
     runner_up = merged[1][1] if len(merged) > 1 else 0
-    gap = best_score - runner_up
     similar_count = sum(1 for _, s in merged if s >= similar_threshold)
+
     if similar_count > max_similar_candidates:
-        return best_score == 100 and runner_up < 100
+        if best_score == 100 and runner_up < 100:
+            return {merged[0][0]}
+        return set()
+
+    gap = best_score - runner_up
     high = best_score >= auto_threshold and gap >= gap_threshold
     soft = best_score >= soft_threshold and gap >= soft_gap_threshold
-    return high or soft
+    if high or soft:
+        return {merged[0][0]}
+    return set()
 
 
 def name_score(
