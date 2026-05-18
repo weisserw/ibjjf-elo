@@ -509,44 +509,37 @@ def age_is_plausible(session, athlete_id, medal_age: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def name_passes_token_overlap(
-    query_name: str,
-    candidate_name: str,
-    *,
-    min_informative_len: int = 3,
-) -> bool:
-    """SOFT-tier safety check: reject pairs where each side has at least one
-    'informative' unique token. That pattern — same first names, different
-    surnames (or vice versa) — is the signature of two different people sharing
-    partial names, and is the main false-positive source for the SOFT tier
-    where score >= 75.
+def first_and_last_match(query_name: str, candidate_name: str) -> bool:
+    """Strict identity guard for the SOFT tier: the FIRST and LAST tokens of
+    `query_name` and `candidate_name` (in raw order, after normalize()) must
+    be identical.
 
-    Tokens shorter than `min_informative_len` characters (default 3) are
-    ignored on both sides. The default folds out:
-      - Portuguese name particles `de`, `da`, `do`, `e` (len <= 2)
-      - Abbreviations after normalize() strips periods: `M.` -> `m` (len 1)
-    while keeping short first names like Max, Tom, Ray, Ana as informative.
+    At IBJJF, the dominant name-change pattern is athletes adding or
+    abbreviating MIDDLE names on later registrations — first and last names
+    stay the same. Requiring exact first+last match catches every common
+    legitimate case (extra middle, abbreviated middle, accent differences
+    folded by normalize()) while rejecting the "shared partial name,
+    different person" false positives:
+      - "Jordan Richard Thompson" vs "Richard Thompson" (first differs)
+      - "Roberto Gonzalez Ruiz" vs "Roberto J Gonzalez"   (last differs)
+      - "Simone Mura"            vs "Max Simone"          (both differ)
 
-    Returns True (pass) when at most one side has informative unique tokens.
+    Single-letter initials in the first or last position fail this check —
+    we don't trust "P. Souza" → "Pedro Souza" without a clearer signal,
+    even though token_sort_ratio may score it highly.
 
-    Examples:
-      - "Pedro Vinicius Roque" vs "Pedro Vinicius Rodrigues Roque":
-          query is a subset (no informative unique) → pass
-      - "Pedro Henrique Pinheiro Machado de Souza" vs
-        "Pedro Henrique Pinheiro M. de Souza":
-          query unique={machado}, cand unique={} ('m' is 1 char) → pass
-      - "Dustin Ray Hurst" vs "Dustin Hurst":
-          query unique={ray} (informative), cand unique={} → pass
-      - "Daniel de Jesus Abdalla" vs "Daniel de Jesus Amaral":
-          query unique={abdalla}, cand unique={amaral} → fail
-      - "Simone Mura" vs "Max Simone":
-          query unique={mura}, cand unique={max} (3 chars, informative) → fail
+    Returns False when either side is empty or has a length-1 first/last
+    token; otherwise True iff the first AND last tokens are equal.
     """
-    q_tokens = set(normalize(query_name).split())
-    c_tokens = set(normalize(candidate_name).split())
-    q_unique = {t for t in q_tokens - c_tokens if len(t) >= min_informative_len}
-    c_unique = {t for t in c_tokens - q_tokens if len(t) >= min_informative_len}
-    return not (q_unique and c_unique)
+    q_tokens = normalize(query_name).split()
+    c_tokens = normalize(candidate_name).split()
+    if not q_tokens or not c_tokens:
+        return False
+    if len(q_tokens[0]) < 2 or len(q_tokens[-1]) < 2:
+        return False
+    if len(c_tokens[0]) < 2 or len(c_tokens[-1]) < 2:
+        return False
+    return q_tokens[0] == c_tokens[0] and q_tokens[-1] == c_tokens[-1]
 
 
 def decide_auto_import_names(
@@ -578,14 +571,16 @@ def decide_auto_import_names(
         Top must be 100 AND runner-up strictly < 100. Common-name athletes
         ("Lucas Rodrigues Souza") produce many plausible aliases at high scores.
       - Rare namespace: dual-tier rule:
-          HIGH: score >= auto_threshold AND gap >= gap_threshold (no overlap
-              guard — at score >= 92 names are essentially identical, and the
-              guard would over-reject single-character typos).
+          HIGH: score >= auto_threshold AND gap >= gap_threshold. No
+              first/last guard — at score >= 92 names are essentially
+              identical, and the guard would over-reject single-character
+              typos in first or last names.
           SOFT: score >= soft_threshold AND gap >= soft_gap_threshold AND
-              passes `name_passes_token_overlap` against `query_name`. The
-              guard rejects "shared first names, different surname" pairs
-              (Daniel de Jesus Abdalla vs Daniel de Jesus Amaral) that score
-              high enough to clear SOFT but are clearly different people.
+              passes `first_and_last_match` against `query_name`. At IBJJF
+              the legitimate SOFT cases are middle-name additions /
+              abbreviations; the false positives are different people who
+              share a partial name. Requiring first and last to match
+              precisely separates the two.
         (Tied top scores fail the gap rule — when two unknown spellings both
         score 100, we genuinely can't tell which is the right person.)
     """
@@ -606,7 +601,7 @@ def decide_auto_import_names(
     soft = best_score >= soft_threshold and gap >= soft_gap_threshold
     if high:
         return {top_name}
-    if soft and name_passes_token_overlap(query_name, top_name):
+    if soft and first_and_last_match(query_name, top_name):
         return {top_name}
     return set()
 

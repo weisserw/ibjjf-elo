@@ -140,9 +140,9 @@ class PureFunctionTestCase(unittest.TestCase):
     def test_decide_auto_import_rare_name_soft_tier(self):
         # Soft-tier rare name: middling score with dissimilar runner-ups.
         # Only one candidate is above similar_threshold, so the namespace is
-        # not crowded and the dual-tier rule applies. Token-overlap guard
-        # passes because the query is a subset of the candidate (extra middle
-        # name only).
+        # not crowded and the dual-tier rule applies. first_and_last_match
+        # passes (first 'pedro'='pedro', last 'roque'='roque'); only the
+        # middle differs.
         merged = [
             ("Pedro Vinicius Rodrigues Roque", 82),
             ("Vinícius Maziero Oliveira", 60),
@@ -168,12 +168,11 @@ class PureFunctionTestCase(unittest.TestCase):
             {"Sevada Khashadoorian"},
         )
 
-    def test_decide_auto_import_soft_tier_rejected_by_token_overlap_guard(self):
+    def test_decide_auto_import_soft_tier_rejected_by_first_last_guard(self):
         # Daniel/Amaral regression: SOFT-tier auto would fire on score+gap alone
         # (84, gap 14 — both clear soft_threshold=75, soft_gap_threshold=12), but
-        # the token-overlap guard catches it: query has unique informative token
-        # {abdalla}, candidate has unique informative token {amaral} — different
-        # people sharing partial names, send to review.
+        # the first/last guard catches it: last token differs ('abdalla' vs
+        # 'amaral') so we route to review.
         merged = [
             ("Daniel de Jesus Amaral", 84),
             ("Some Distractor", 70),
@@ -188,10 +187,9 @@ class PureFunctionTestCase(unittest.TestCase):
         )
 
     def test_decide_auto_import_soft_tier_allows_abbreviated_middle(self):
-        # Abbreviation case: candidate has 'M.' where query has 'Machado'.
-        # 'M.' is shorter than min_informative_len so it doesn't count as a
-        # unique informative token — query unique is {machado}, candidate unique
-        # is {} — guard passes, SOFT auto fires.
+        # Abbreviation case: candidate has 'M.' where query has 'Machado' in
+        # the middle. First ('pedro') and last ('souza') match, so the
+        # first/last guard passes and SOFT auto fires.
         merged = [
             ("Pedro Henrique Pinheiro M. de Souza", 82),
             ("Pedro Henrique Souza da Silva", 66),
@@ -286,64 +284,90 @@ class PureFunctionTestCase(unittest.TestCase):
             set(),
         )
 
-    # ---- name_passes_token_overlap (SOFT-tier guard) ----
+    # ---- first_and_last_match (SOFT-tier identity guard) ----
 
-    def test_name_passes_token_overlap_query_subset_passes(self):
-        # Extra middle name on the candidate side, query is a subset.
+    def test_first_and_last_match_extra_middle_passes(self):
+        # Pedro case: candidate has extra middle name. First and last match.
         self.assertTrue(
-            lib.name_passes_token_overlap(
+            lib.first_and_last_match(
                 "Pedro Vinicius Roque", "Pedro Vinicius Rodrigues Roque"
             )
         )
 
-    def test_name_passes_token_overlap_candidate_subset_passes(self):
-        # Query has extra middle name; candidate is a subset.
-        self.assertTrue(
-            lib.name_passes_token_overlap(
-                "Pedro Vinicius Rodrigues Roque", "Pedro Vinicius Roque"
-            )
-        )
+    def test_first_and_last_match_extra_middle_on_query_passes(self):
+        # Symmetric: query has the extra middle, candidate is shorter.
+        self.assertTrue(lib.first_and_last_match("Dustin Ray Hurst", "Dustin Hurst"))
 
-    def test_name_passes_token_overlap_abbreviation_passes(self):
-        # 'M.' on candidate doesn't count as informative (len < 4).
+    def test_first_and_last_match_abbreviated_middle_passes(self):
+        # 'M.' for 'Machado' in the middle position — first/last unchanged.
         self.assertTrue(
-            lib.name_passes_token_overlap(
+            lib.first_and_last_match(
                 "Pedro Henrique Pinheiro Machado de Souza",
                 "Pedro Henrique Pinheiro M. de Souza",
             )
         )
 
-    def test_name_passes_token_overlap_different_surname_fails(self):
-        # The Daniel/Amaral pattern — both sides have an informative unique token.
+    def test_first_and_last_match_eder_abbreviated_middle_passes(self):
+        # Eder Daniel G. de Souza <- Eder Daniel Garcia de Souza
+        self.assertTrue(
+            lib.first_and_last_match(
+                "Eder Daniel G. de Souza",
+                "Eder Daniel Garcia de Souza",
+            )
+        )
+
+    def test_first_and_last_match_konrad_abbreviated_middle_passes(self):
+        # Konrad Vitus Stempkowski <- Konrad V. Stempkowski
+        self.assertTrue(
+            lib.first_and_last_match(
+                "Konrad Vitus Stempkowski",
+                "Konrad V. Stempkowski",
+            )
+        )
+
+    def test_first_and_last_match_different_surname_fails(self):
+        # Daniel/Amaral pattern.
         self.assertFalse(
-            lib.name_passes_token_overlap(
+            lib.first_and_last_match(
                 "Daniel de Jesus Abdalla", "Daniel de Jesus Amaral"
             )
         )
 
-    def test_name_passes_token_overlap_three_letter_first_name_fails(self):
-        # Simone Mura / Max Simone regression: "Max" is 3 chars but a real first
-        # name, not a stopword/abbreviation. Must count as informative or the
-        # guard wrongly allows this auto-import.
-        self.assertFalse(lib.name_passes_token_overlap("Simone Mura", "Max Simone"))
-
-    def test_name_passes_token_overlap_extra_short_middle_passes(self):
-        # Dustin Ray Hurst / Dustin Hurst regression: only query has an extra
-        # token ('ray', 3 chars, informative). Other side empty → guard passes.
-        # This is the common "registered with middle name once, without it
-        # another time" case we want to auto-import.
-        self.assertTrue(
-            lib.name_passes_token_overlap("Dustin Ray Hurst", "Dustin Hurst")
+    def test_first_and_last_match_different_first_name_fails(self):
+        # Jordan/Richard pattern — query has extra leading first name.
+        self.assertFalse(
+            lib.first_and_last_match("Jordan Richard Thompson", "Richard Thompson")
         )
 
-    def test_name_passes_token_overlap_short_stopwords_ignored(self):
-        # 'de' vs 'da' differ but both are < 4 chars; not informative.
-        self.assertTrue(
-            lib.name_passes_token_overlap("Maria de Souza", "Maria da Souza")
+    def test_first_and_last_match_different_first_name_fails_chad(self):
+        # Chad/Jeffrey pattern — same subset shape as Jordan/Richard.
+        self.assertFalse(
+            lib.first_and_last_match("Chad Jeffrey Lewis", "Jeffrey Lewis")
         )
 
-    def test_name_passes_token_overlap_identical_passes(self):
-        self.assertTrue(lib.name_passes_token_overlap("Maria Silva", "Maria Silva"))
+    def test_first_and_last_match_different_last_name_fails(self):
+        # Roberto Gonzalez Ruiz <- Roberto J Gonzalez: first matches, last differs.
+        # Even though candidate has 'J' as middle initial (which alone is fine),
+        # the last token differs (Ruiz vs Gonzalez) — different person.
+        self.assertFalse(
+            lib.first_and_last_match("Roberto Gonzalez Ruiz", "Roberto J Gonzalez")
+        )
+
+    def test_first_and_last_match_swapped_first_last_fails(self):
+        # Simone Mura / Max Simone: 'Simone' is the surname on one side and a
+        # given name on the other. First/last positional check correctly rejects.
+        self.assertFalse(lib.first_and_last_match("Simone Mura", "Max Simone"))
+
+    def test_first_and_last_match_single_letter_first_rejected(self):
+        # Don't trust a 1-char first name as a basis for matching.
+        self.assertFalse(lib.first_and_last_match("P. Souza", "Pedro Souza"))
+
+    def test_first_and_last_match_identical_passes(self):
+        self.assertTrue(lib.first_and_last_match("Maria Silva", "Maria Silva"))
+
+    def test_first_and_last_match_empty_inputs_fail(self):
+        self.assertFalse(lib.first_and_last_match("", "Maria Silva"))
+        self.assertFalse(lib.first_and_last_match("Maria Silva", ""))
 
 
 class LibDbTestCase(TestDbMixin, unittest.TestCase):
