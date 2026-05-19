@@ -273,22 +273,30 @@ def main():
             if division is None:
                 return "skipped"
 
+            # Don't create the Event yet. Event creation is a side effect we
+            # used to "undo" with db.session.rollback() when we decided not to
+            # use it — but rollback nukes the WHOLE transaction, taking out
+            # earlier flushed inserts for this athlete. Defer creation until
+            # we're certain we'll insert a Medal.
             event = lib.find_event(db.session, rm.event_name, rm.event_ibjjf_id)
-            created_event = False
-            if event is None:
-                try:
-                    event = lib.create_medals_only_event(db.session, rm.event_name)
-                    created_event = True
-                except ValueError:
-                    return "skipped"
 
-            if lib.medal_already_exists(db.session, athlete.id, event.id, division.id):
-                if created_event:
-                    db.session.rollback()
+            # Dedup is only meaningful if the event already exists — a brand
+            # new event we'd create in the auto branch below cannot have any
+            # existing medals tied to it.
+            if event is not None and lib.medal_already_exists(
+                db.session, athlete.id, event.id, division.id
+            ):
                 return "skipped"
 
             if is_auto:
                 if not args.dry_run:
+                    if event is None:
+                        try:
+                            event = lib.create_medals_only_event(
+                                db.session, rm.event_name
+                            )
+                        except ValueError:
+                            return "skipped"
                     team = lib.find_or_create_team(db.session, rm.team_name)
                     happened_at = lib.compute_happened_at(
                         db.session, athlete.id, event, rm.event_name
@@ -306,6 +314,7 @@ def main():
                         imported_via="historical_auto",
                     )
                 else:
+                    # Dry-run: log only, no DB writes (so nothing to roll back).
                     if source == "alias":
                         print(
                             f"  [dry-run alias] {athlete.name} <- {rm.athlete_name} | "
@@ -317,10 +326,9 @@ def main():
                             f"({score}, gap={best_score-runner_up}) | "
                             f"{rm.event_name} | {rm.division} place {rm.place}"
                         )
-                    if created_event:
-                        db.session.rollback()
                 return "imported"
             else:
+                # Review row — also no DB writes, so no cleanup needed.
                 if csv_writer is not None:
                     csv_writer.writerow(
                         {
@@ -337,8 +345,6 @@ def main():
                             "raw_team_name": rm.team_name,
                         }
                     )
-                if created_event:
-                    db.session.rollback()
                 return "review"
 
         for athlete in athletes_q.all():
