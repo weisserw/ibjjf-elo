@@ -1408,7 +1408,16 @@ def registration_competitors():
         s3_client,
     )
 
-    add_seeding_data(rows, divdata, gi)
+    target_event_name = None
+    db_link = (
+        db.session.query(RegistrationLink.name)
+        .filter(RegistrationLink.link == link)
+        .first()
+    )
+    if db_link is not None:
+        target_event_name = db_link.name
+
+    add_seeding_data(rows, divdata, gi, target_event_name)
     add_estimated_seeds(rows, divdata)
 
     swap_info = add_side_swaps(rows)

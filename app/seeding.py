@@ -233,6 +233,49 @@ def _is_brazilian_event(event_name):
     return bool(_BRAZILIAN_EVENT_RE.search(_normalize_event_name(event_name)))
 
 
+# Keywords that identify a CBJJ-only tournament — one that runs on the CBJJ
+# calendar but is NOT also an IBJJF tournament. Currently the
+# Sul-Brasileiro and the Portuguese national events.
+_CBJJ_ONLY_EVENT_KEYWORDS = (
+    "sul-brasileiro",
+    "campeonato portugues",
+    "campeonato português",
+    "nacional open portugal",
+    "portugal grand slam",
+)
+_CBJJ_ONLY_EVENT_RE = re.compile(
+    r"(?:^|\W)(?:"
+    + "|".join(re.escape(k) for k in _CBJJ_ONLY_EVENT_KEYWORDS)
+    + r")(?:$|\W)"
+)
+
+# Three tournament classifications for scoring purposes:
+#   "cbjj_only"  — Sul-Brasileiro / Portuguese national. Medals from these
+#                  events DO NOT apply when seeding for an IBJJF-only
+#                  tournament; for cbjj-only/mixed targets they score on
+#                  the CBJJ season schedule.
+#   "mixed"      — Brazilian tournaments that are also IBJJF events (e.g.
+#                  Campeonato Brasileiro, Rio/São Paulo BJJ Pro, etc.).
+#                  Score on the CBJJ schedule for cbjj-only/mixed targets,
+#                  on the IBJJF schedule for ibjjf-only targets.
+#   "ibjjf_only" — everything else. Always uses the IBJJF schedule.
+TOURNAMENT_TYPE_CBJJ_ONLY = "cbjj_only"
+TOURNAMENT_TYPE_MIXED = "mixed"
+TOURNAMENT_TYPE_IBJJF_ONLY = "ibjjf_only"
+
+
+def _event_tournament_type(event_name):
+    """Classify ``event_name`` as cbjj-only, mixed, or ibjjf-only."""
+    if not event_name:
+        return TOURNAMENT_TYPE_IBJJF_ONLY
+    normalized = _normalize_event_name(event_name)
+    if _CBJJ_ONLY_EVENT_RE.search(normalized):
+        return TOURNAMENT_TYPE_CBJJ_ONLY
+    if _BRAZILIAN_EVENT_RE.search(normalized):
+        return TOURNAMENT_TYPE_MIXED
+    return TOURNAMENT_TYPE_IBJJF_ONLY
+
+
 _CBJJ_SEASON_BASE = "Campeonato Brasileiro de Jiu-Jitsu"
 
 
@@ -934,7 +977,7 @@ def _score_medal(
             )
 
 
-def add_seeding_data(rows, divdata, gi, now=None):
+def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
     """Compute IBJJF seeding criteria for each competitor and attach to the row.
 
     Currently populates:
@@ -973,12 +1016,18 @@ def add_seeding_data(rows, divdata, gi, now=None):
     each level K = 1 .. current master level (see
     :func:`_master_black_belt_seeding`).
 
+    ``target_event_name`` is the name of the tournament being seeded for;
+    it determines whether medal sources score on the CBJJ schedule or the
+    IBJJF schedule (and whether CBJJ-only medals apply at all). See
+    :func:`_event_tournament_type` for the three classifications.
+
     ``now`` is the reference date used for season-window construction;
     defaults to ``datetime.now()``. Tests can pass a fixed datetime to make
     season rollover deterministic.
 
     Final values are floored to integers.
     """
+    target_type = _event_tournament_type(target_event_name)
     for row in rows:
         row["points"] = 0
         row["open_class_points"] = 0
@@ -1073,7 +1122,20 @@ def add_seeding_data(rows, divdata, gi, now=None):
         for r in medal_rows:
             if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
                 continue
-            if gi and _is_brazilian_event(r.event_name):
+            source_type = (
+                _event_tournament_type(r.event_name)
+                if gi
+                else TOURNAMENT_TYPE_IBJJF_ONLY
+            )
+            if (
+                source_type == TOURNAMENT_TYPE_CBJJ_ONLY
+                and target_type == TOURNAMENT_TYPE_IBJJF_ONLY
+            ):
+                continue
+            if (
+                source_type in (TOURNAMENT_TYPE_CBJJ_ONLY, TOURNAMENT_TYPE_MIXED)
+                and target_type != TOURNAMENT_TYPE_IBJJF_ONLY
+            ):
                 season_mult = _season_multiplier(cbjj_seasons, r.happened_at)
             else:
                 season_mult = _season_multiplier(seasons, r.happened_at)
@@ -1118,7 +1180,20 @@ def add_seeding_data(rows, divdata, gi, now=None):
         for r in gs_medal_rows:
             if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
                 continue
-            if gi and _is_brazilian_event(r.event_name):
+            source_type = (
+                _event_tournament_type(r.event_name)
+                if gi
+                else TOURNAMENT_TYPE_IBJJF_ONLY
+            )
+            if (
+                source_type == TOURNAMENT_TYPE_CBJJ_ONLY
+                and target_type == TOURNAMENT_TYPE_IBJJF_ONLY
+            ):
+                continue
+            if (
+                source_type in (TOURNAMENT_TYPE_CBJJ_ONLY, TOURNAMENT_TYPE_MIXED)
+                and target_type != TOURNAMENT_TYPE_IBJJF_ONLY
+            ):
                 gs_mult = _season_multiplier(cbjj_seasons, r.happened_at)
                 if gs_mult is None:
                     continue

@@ -210,6 +210,10 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
             "Campeonato Brasileiro de Jiu-Jitsu (Juvenil, Adulto e Master) 2023 (Flo)",
             datetime(2023, 4, 29),
         )
+        # Sul-Brasileiro — a CBJJ-only tournament (not also an IBJJF event).
+        cls.sul_brasil_2025 = add_event(
+            "Campeonato Sul-Brasileiro de Jiu-Jitsu 2025", datetime(2025, 7, 12)
+        )
 
         # A non-star local event (default 1x).
         cls.local_event_2025 = add_event(
@@ -259,7 +263,20 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         db.session.flush()
         return medal
 
-    def _seed_and_run(self, seed_fn, divdata, gi, now=NOW):
+    # Default target tournament for tests — a mixed (CBJJ + IBJJF) event so
+    # both CBJJ-source and IBJJF-source medals apply with their respective
+    # schedules, matching the pre-target-aware scoring behavior. Tests can
+    # override via the ``target_event_name`` kwarg.
+    DEFAULT_TARGET_EVENT_NAME = "Campeonato Brasileiro de Jiu-Jitsu 2026"
+
+    def _seed_and_run(
+        self,
+        seed_fn,
+        divdata,
+        gi,
+        now=NOW,
+        target_event_name=DEFAULT_TARGET_EVENT_NAME,
+    ):
         """Open an app_context, let `seed_fn(self)` create athletes/medals
         and return the registration row(s) (single dict or list of dicts),
         run add_seeding_data within the same context, and return the row(s).
@@ -274,7 +291,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 rows = [_registration_row(a.id) for a in seeded]
             else:
                 rows = [_registration_row(seeded.id)]
-            add_seeding_data(rows, divdata, gi, now=now)
+            add_seeding_data(rows, divdata, gi, target_event_name, now=now)
         return rows[0] if not isinstance(seeded, list) else rows
 
     # ------------------------------------------------------------------
@@ -297,7 +314,13 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         # without any DB work.
         rows = [_registration_row(athlete_id=None)]
         with self.app_module.app.app_context():
-            add_seeding_data(rows, _divdata(), gi=True, now=NOW)
+            add_seeding_data(
+                rows,
+                _divdata(),
+                gi=True,
+                target_event_name=self.DEFAULT_TARGET_EVENT_NAME,
+                now=NOW,
+            )
         self.assertEqual(rows[0]["points"], 0)
         self.assertEqual(rows[0]["open_class_points"], 0)
         self.assertEqual(rows[0]["grand_slam_points"], 0)
@@ -628,13 +651,130 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
             athlete_id = a.id
 
             current_rows = [_registration_row(athlete_id)]
-            add_seeding_data(current_rows, _divdata(), gi=True, now=NOW)
+            add_seeding_data(
+                current_rows,
+                _divdata(),
+                gi=True,
+                target_event_name=self.DEFAULT_TARGET_EVENT_NAME,
+                now=NOW,
+            )
 
             pre_rows = [_registration_row(athlete_id)]
-            add_seeding_data(pre_rows, _divdata(), gi=True, now=datetime(2025, 5, 28))
+            add_seeding_data(
+                pre_rows,
+                _divdata(),
+                gi=True,
+                target_event_name=self.DEFAULT_TARGET_EVENT_NAME,
+                now=datetime(2025, 5, 28),
+            )
 
         self.assertEqual(current_rows[0]["points"], 126 + 63)
         self.assertEqual(pre_rows[0]["points"], 189 + 126)
+
+    # ------------------------------------------------------------------
+    # Target tournament classification — cbjj-only / mixed / ibjjf-only
+    # ------------------------------------------------------------------
+
+    # Naming refs used by these tests
+    IBJJF_ONLY_TARGET = "Pan IBJJF Jiu-Jitsu Championship 2026"
+    MIXED_TARGET = "Campeonato Brasileiro de Jiu-Jitsu 2026"
+    CBJJ_ONLY_TARGET = "Campeonato Sul-Brasileiro de Jiu-Jitsu 2026"
+
+    def test_cbjj_only_source_excluded_from_ibjjf_only_target(self):
+        # Sul-Brasileiro is a CBJJ-only tournament. Its medals must not
+        # contribute when seeding for an IBJJF-only tournament.
+        def seed(t):
+            a = t._make_athlete("sul-brasil-into-pan")
+            t._add_medal(a, t.sul_brasil_2025, place=1)
+            return a
+
+        row = self._seed_and_run(
+            seed, _divdata(), gi=True, target_event_name=self.IBJJF_ONLY_TARGET
+        )
+        self.assertEqual(row["points"], 0)
+
+    def test_cbjj_only_source_applies_to_mixed_target_with_cbjj_schedule(self):
+        # Sul-Brasileiro 2025 (2025-07-12) falls in the CBJJ 3x season
+        # (anchored to Brasileiros 2025). Default star rating = 1.
+        # Expected: 9 (gold) * 3 (cbjj 3x) * 1.0 (weight) * 1 (star) = 27.
+        def seed(t):
+            a = t._make_athlete("sul-brasil-into-brasileiros")
+            t._add_medal(a, t.sul_brasil_2025, place=1)
+            return a
+
+        row = self._seed_and_run(
+            seed, _divdata(), gi=True, target_event_name=self.MIXED_TARGET
+        )
+        self.assertEqual(row["points"], 27)
+
+    def test_cbjj_only_source_applies_to_cbjj_only_target(self):
+        # Same medal, target is also CBJJ-only (Sul-Brasileiro). Same
+        # CBJJ schedule applies.
+        def seed(t):
+            a = t._make_athlete("sul-brasil-into-sul-brasil")
+            t._add_medal(a, t.sul_brasil_2025, place=1)
+            return a
+
+        row = self._seed_and_run(
+            seed, _divdata(), gi=True, target_event_name=self.CBJJ_ONLY_TARGET
+        )
+        self.assertEqual(row["points"], 27)
+
+    def test_mixed_source_uses_ibjjf_schedule_for_ibjjf_only_target(self):
+        # Brasileiros 2025 (2025-04-26) for a Pan (IBJJF-only) target:
+        # - Regular: IBJJF Worlds-anchored seasons; 2025-04-26 is before
+        #   Worlds 2025 (2025-05-29) and after Worlds 2024 (2024-05-30) ->
+        #   2x slot. Star=4. Points: 9 * 2 * 1.0 * 4 = 72.
+        # - Grand Slam: brasil_2025 is the most-recent Brasileiros -> 3x.
+        #   GS points: 9 * 3 * 1.0 * 4 = 108.
+        def seed(t):
+            a = t._make_athlete("brasileiros-into-pan")
+            t._add_medal(a, t.brasil_2025, place=1)
+            return a
+
+        row = self._seed_and_run(
+            seed, _divdata(), gi=True, target_event_name=self.IBJJF_ONLY_TARGET
+        )
+        self.assertEqual(row["points"], 72)
+        self.assertEqual(row["grand_slam_points"], 108)
+
+    def test_mixed_source_uses_cbjj_schedule_for_mixed_target(self):
+        # Same medal, target is now mixed (Brasileiros). Both regular and
+        # GS multipliers come from the CBJJ schedule: brasil_2025 is in
+        # cbjj_seasons[0] -> 3x. Star=4.
+        # Regular: 9 * 3 * 1.0 * 4 = 108.
+        # Grand Slam (Brasileiros is a GS event): same 3x cbjj season
+        # applies in the GS calc -> 108.
+        def seed(t):
+            a = t._make_athlete("brasileiros-into-brasileiros")
+            t._add_medal(a, t.brasil_2025, place=1)
+            return a
+
+        row = self._seed_and_run(
+            seed, _divdata(), gi=True, target_event_name=self.MIXED_TARGET
+        )
+        self.assertEqual(row["points"], 108)
+        self.assertEqual(row["grand_slam_points"], 108)
+
+    def test_ibjjf_only_source_always_uses_ibjjf_schedule(self):
+        # Worlds 2025 (IBJJF-only) medal scores identically regardless of
+        # target type: it always uses the IBJJF schedule.
+        # 9 (gold) * 3 (regular season 3x) * 1.0 (weight) * 7 (star) = 189.
+        for i, target in enumerate(
+            (self.IBJJF_ONLY_TARGET, self.MIXED_TARGET, self.CBJJ_ONLY_TARGET)
+        ):
+            slug = f"worlds-only-target-{i}"
+
+            def seed(t, slug=slug):
+                a = t._make_athlete(slug)
+                t._add_medal(a, t.worlds_2025, place=1)
+                return a
+
+            with self.subTest(target=target):
+                row = self._seed_and_run(
+                    seed, _divdata(), gi=True, target_event_name=target
+                )
+                self.assertEqual(row["points"], 189)
 
     # ------------------------------------------------------------------
     # Adult black-belt-only fields

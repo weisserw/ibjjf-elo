@@ -25,6 +25,7 @@ import argparse
 import csv
 import os
 import sys
+from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
@@ -48,11 +49,28 @@ def parse_args():
         action="store_true",
         help="Include alias-pass matches in the output (default: fuzzy only).",
     )
+    parser.add_argument(
+        "--since",
+        default="2023-06-01",
+        help=(
+            "Only include medals with happened_at on or after this date "
+            "(ISO format YYYY-MM-DD, default 2023-06-01 = Worlds 2023)."
+        ),
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+
+    try:
+        since = datetime.strptime(args.since, "%Y-%m-%d")
+    except ValueError:
+        print(
+            f"ERROR: --since must be ISO date YYYY-MM-DD; got {args.since!r}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     with app.app_context():
         print("Loading result_medals.athlete_name index...", flush=True)
@@ -68,12 +86,16 @@ def main():
         division_by_id = {d.id: d for d in db.session.query(Division).all()}
         print(f"  {len(division_by_id)} divisions", flush=True)
 
-        print("Querying historical_auto medals...", flush=True)
+        print(
+            f"Querying historical_auto medals with happened_at >= {since.date()}...",
+            flush=True,
+        )
         medals_q = (
             db.session.query(Medal, Athlete, Event)
             .join(Athlete, Athlete.id == Medal.athlete_id)
             .join(Event, Event.id == Medal.event_id)
             .filter(Medal.imported_via == "historical_auto")
+            .filter(Medal.happened_at >= since)
             .order_by(Athlete.name, Event.name)
         )
         total = medals_q.count()
