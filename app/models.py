@@ -166,6 +166,12 @@ class Medal(db.Model):
         Index("ix_medals_athlete_id", "athlete_id"),
         Index("ix_medals_team_id", "team_id"),
         Index("ix_medals_happened_at", "happened_at"),
+        UniqueConstraint(
+            "event_id",
+            "division_id",
+            "athlete_id",
+            name="uq_medals_event_division_athlete",
+        ),
     )
 
 

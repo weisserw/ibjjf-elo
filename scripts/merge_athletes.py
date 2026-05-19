@@ -45,8 +45,16 @@ if __name__ == "__main__":
             sys.exit(1)
 
         print(f"Merging {merge.name} into {keep.name}")
+        keep_medal_keys = {
+            (medal.event_id, medal.division_id)
+            for medal in db.session.query(Medal).filter_by(athlete_id=keep_uuid).all()
+        }
         for medal in db.session.query(Medal).filter_by(athlete_id=merge_uuid).all():
-            medal.athlete_id = keep_uuid
+            if (medal.event_id, medal.division_id) in keep_medal_keys:
+                db.session.delete(medal)
+            else:
+                medal.athlete_id = keep_uuid
+                keep_medal_keys.add((medal.event_id, medal.division_id))
         for match_participant in (
             db.session.query(MatchParticipant).filter_by(athlete_id=merge_uuid).all()
         ):
