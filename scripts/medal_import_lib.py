@@ -267,6 +267,7 @@ def compute_happened_at(
     """Spec precedence:
     1) athlete's last match in this event
     2) any athlete's last match in this event
+    3) any athlete's last medal in this event
     3) the major-event hardcoded date for this name prefix, if applicable
     4) Jan 1 of the event's year
     """
@@ -290,6 +291,14 @@ def compute_happened_at(
     )
     if last_event_match:
         return last_event_match[0]
+    last_medal = (
+        session.query(Medal.happened_at)
+        .filter(Medal.athlete_id == athlete_id, Medal.event_id == event.id)
+        .order_by(Medal.happened_at.desc())
+        .first()
+    )
+    if last_medal:
+        return last_medal[0]
     default_date = _event_default_date(raw_event_name)
     if default_date:
         return default_date
