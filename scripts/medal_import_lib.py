@@ -71,6 +71,55 @@ WEIGHT_PAREN_RE = re.compile(r"\s+\(.*\)\s*$")
 YEAR_SUFFIX_RE = re.compile(r"\s+(\d{4})\s*$")
 SLUG_RE = re.compile(r"[^a-z0-9]+")
 
+# Maps an IBJJF-canonical tournament name (as it appears in result_medals /
+# medals.csv) to the existing event name in our DB. Without this, find_event
+# can't bridge spelling gaps the prefix-match fallback doesn't cover, and the
+# import creates a duplicate medals_only event alongside the real one.
+EVENT_NAME_ALIASES = {
+    "Brasília International Open IBJJF Jiu-Jitsu Championship 2024": (
+        "Basilia International Open 2024 (Archive)"
+    ),
+    "Brasília International Open IBJJF Jiu-Jitsu No-Gi Championship 2024": (
+        "Basilia International No Gi Open 2024 (Archive)"
+    ),
+    "Itajaí International Open IBJJF Jiu-Jitsu Championship 2024": (
+        "Itaji International Open 2024 (Archive)"
+    ),
+    "Itajaí International Open IBJJF Jiu-Jitsu No-Gi Championship 2024": (
+        "Itaji International No Gi Open 2024 (Archive)"
+    ),
+    "Campeonato Brasileiro de Jiu-Jitsu 2022": (
+        "Campeonato Brasileiro de Jiu-Jitsu (Juvenil, Adulto e Master) 2022 (BJJHeroes)"
+    ),
+    "Campeonato Brasileiro de Jiu-Jitsu 2023": (
+        "Campeonato Brasileiro de Jiu-Jitsu (Juvenil, Adulto e Master) 2023 (Flo)"
+    ),
+    "Balneário Camboriú International Open IBJJF Jiu-Jitsu Championship 2023": (
+        "Camboriú International Open IBJJF Jiu-Jitsu Championship 2023 (BJJHeroes)"
+    ),
+    "Balneário Camboriú International Open IBJJF Jiu-Jitsu No-Gi Championship 2023": (
+        "Camboriú International Open IBJJF Jiu-Jitsu No-Gi Championship 2023 (BJJHeroes)"
+    ),
+    "South American Jiu-Jitsu IBJJF Championship 2022": (
+        "Campeonato Sul-Americano de Jiu-Jitsu 2022 (BJJHeroes)"
+    ),
+    "South American Jiu-Jitsu IBJJF Championship 2023": (
+        "Campeonato Sul-Americano de Jiu-Jitsu 2023 (BJJHeroes)"
+    ),
+    "South American Jiu-Jitsu IBJJF Championship 2024": (
+        "Sul Americano 2024 (Archive)"
+    ),
+    "South American Jiu-Jitsu IBJJF No-Gi Championship 2022": (
+        "Campeonato Sul-Americano de Jiu-Jitsu Sem Kimono 2022 (BJJHeroes)"
+    ),
+    "South American Jiu-Jitsu IBJJF No-Gi Championship 2023": (
+        "Campeonato Sul-Americano de Jiu-Jitsu No-Gi 2023 (BJJHeroes)"
+    ),
+    "South American Jiu-Jitsu IBJJF No-Gi Championship 2024": (
+        "Campeonato Sul-Americano de Jiu-Jitsu No-Gi 2024 (BJJHeroes)"
+    ),
+}
+
 # Tournaments with no match data fall back to these canonical dates.
 # Keys are matched against the event name with its trailing 4-digit year stripped.
 MAJOR_EVENT_DATES = {
@@ -194,6 +243,12 @@ def find_event(
     """
     if event_ibjjf_id:
         event = session.query(Event).filter(Event.ibjjf_id == event_ibjjf_id).first()
+        if event:
+            return event
+
+    aliased_name = EVENT_NAME_ALIASES.get(raw_event_name)
+    if aliased_name:
+        event = session.query(Event).filter(Event.name == aliased_name).first()
         if event:
             return event
 

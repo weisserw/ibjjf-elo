@@ -3,6 +3,7 @@ import sys
 import unittest
 import uuid
 from datetime import datetime
+from unittest import mock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.insert(
@@ -598,6 +599,18 @@ class LibDbTestCase(TestDbMixin, unittest.TestCase):
                     db.session, "Some Brand New Tournament 2024", event_ibjjf_id=None
                 )
             )
+
+    def test_find_event_uses_name_alias(self):
+        with self.app_module.app.app_context():
+            aliased_input = "Aliased Tournament Name 2024"
+            with mock.patch.dict(
+                lib.EVENT_NAME_ALIASES,
+                {aliased_input: "Some Open 2023 (BJJHeroes)"},
+                clear=False,
+            ):
+                found = lib.find_event(db.session, aliased_input, event_ibjjf_id=None)
+            self.assertIsNotNone(found)
+            self.assertEqual(found.name, "Some Open 2023 (BJJHeroes)")
 
     # ---- find_or_create_team ----
 
