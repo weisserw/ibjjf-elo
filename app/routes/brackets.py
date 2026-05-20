@@ -1422,6 +1422,15 @@ def registration_competitors():
     if db_link is not None:
         target_event_name = db_link.name
 
+    if divdata["age"] in {JUVENILE, JUVENILE_1, JUVENILE_2}:
+        return jsonify(
+            {
+                "competitors": rows,
+                "side_swaps": [],
+                "side_swap_bailout_teams": [],
+            }
+        )
+
     add_seeding_data(rows, divdata, gi, target_event_name)
     add_estimated_seeds(rows, divdata)
 

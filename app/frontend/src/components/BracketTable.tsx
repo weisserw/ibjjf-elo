@@ -77,6 +77,10 @@ function BracketTable(props: BracketTableProps) {
 
   const bailoutTeams = new Set<string>(props.sideSwapBailoutTeams ?? []);
 
+  const categoryAge = selectedCategory ? selectedCategory.split(' / ')[1] : null;
+  const isJuvenile = categoryAge === 'Juvenile' || categoryAge === 'Juvenile 1' || categoryAge === 'Juvenile 2';
+  const showEstSeed = props.showEstSeed && !isJuvenile;
+
   const handleCheckboxChange = (competitor: Competitor) => {
     setSelectedAthletes(prev => {
       if (prev.includes(competitor)) {
@@ -209,7 +213,7 @@ function BracketTable(props: BracketTableProps) {
               </th>
             }
             {
-              props.showEstSeed &&
+              showEstSeed &&
               <th className="has-text-right est-seed-header">
                 {(() => {
                   const label = t("Est. Seed")
@@ -328,7 +332,7 @@ function BracketTable(props: BracketTableProps) {
                 <td className="has-text-right">{competitor.ordinal}</td>
                 }
                 {
-                  props.showEstSeed &&
+                  showEstSeed &&
                   <td className="has-text-right">
                     {competitor.est_seed_tied && competitor.est_seed != null ? (
                       <span
