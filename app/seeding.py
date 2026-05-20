@@ -235,13 +235,11 @@ def _is_brazilian_event(event_name):
 
 # Keywords that identify a CBJJ-only tournament — one that runs on the CBJJ
 # calendar but is NOT also an IBJJF tournament. Currently the
-# Sul-Brasileiro and the Portuguese national events.
+# Sul-Brasileiro and the Campeonato Português.
 _CBJJ_ONLY_EVENT_KEYWORDS = (
     "sul-brasileiro",
     "campeonato portugues",
     "campeonato português",
-    "nacional open portugal",
-    "portugal grand slam",
 )
 _CBJJ_ONLY_EVENT_RE = re.compile(
     r"(?:^|\W)(?:"
@@ -249,8 +247,17 @@ _CBJJ_ONLY_EVENT_RE = re.compile(
     + r")(?:$|\W)"
 )
 
-# Three tournament classifications for scoring purposes:
-#   "cbjj_only"  — Sul-Brasileiro / Portuguese national. Medals from these
+# Keywords that identify a tournament whose medals never count toward
+# seeding points for any other tournament.
+_NONE_EVENT_KEYWORDS = ("portugal grand slam",)
+_NONE_EVENT_RE = re.compile(
+    r"(?:^|\W)(?:" + "|".join(re.escape(k) for k in _NONE_EVENT_KEYWORDS) + r")(?:$|\W)"
+)
+
+# Four tournament classifications for scoring purposes:
+#   "none"       — Portugal Grand Slam. Medals from these events never
+#                  contribute to seeding points for any target tournament.
+#   "cbjj_only"  — Sul-Brasileiro / Campeonato Português. Medals from these
 #                  events DO NOT apply when seeding for an IBJJF-only
 #                  tournament; for cbjj-only/mixed targets they score on
 #                  the CBJJ season schedule.
@@ -259,16 +266,19 @@ _CBJJ_ONLY_EVENT_RE = re.compile(
 #                  Score on the CBJJ schedule for cbjj-only/mixed targets,
 #                  on the IBJJF schedule for ibjjf-only targets.
 #   "ibjjf_only" — everything else. Always uses the IBJJF schedule.
+TOURNAMENT_TYPE_NONE = "none"
 TOURNAMENT_TYPE_CBJJ_ONLY = "cbjj_only"
 TOURNAMENT_TYPE_MIXED = "mixed"
 TOURNAMENT_TYPE_IBJJF_ONLY = "ibjjf_only"
 
 
 def _event_tournament_type(event_name):
-    """Classify ``event_name`` as cbjj-only, mixed, or ibjjf-only."""
+    """Classify ``event_name`` as none, cbjj-only, mixed, or ibjjf-only."""
     if not event_name:
         return TOURNAMENT_TYPE_IBJJF_ONLY
     normalized = _normalize_event_name(event_name)
+    if _NONE_EVENT_RE.search(normalized):
+        return TOURNAMENT_TYPE_NONE
     if _CBJJ_ONLY_EVENT_RE.search(normalized):
         return TOURNAMENT_TYPE_CBJJ_ONLY
     if _BRAZILIAN_EVENT_RE.search(normalized):
@@ -1028,6 +1038,12 @@ def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
     Final values are floored to integers.
     """
     target_type = _event_tournament_type(target_event_name)
+    # A "none" target (Portugal Grand Slam) is not Brazilian; for the
+    # purpose of filtering which source medals apply, treat it like an
+    # IBJJF-only target so CBJJ-only sources are excluded and mixed
+    # sources score on the IBJJF calendar.
+    if target_type == TOURNAMENT_TYPE_NONE:
+        target_type = TOURNAMENT_TYPE_IBJJF_ONLY
     for row in rows:
         row["points"] = 0
         row["open_class_points"] = 0
@@ -1122,11 +1138,11 @@ def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
         for r in medal_rows:
             if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
                 continue
-            source_type = (
-                _event_tournament_type(r.event_name)
-                if gi
-                else TOURNAMENT_TYPE_IBJJF_ONLY
-            )
+            source_type = _event_tournament_type(r.event_name)
+            if source_type == TOURNAMENT_TYPE_NONE:
+                continue
+            if not gi:
+                source_type = TOURNAMENT_TYPE_IBJJF_ONLY
             if (
                 source_type == TOURNAMENT_TYPE_CBJJ_ONLY
                 and target_type == TOURNAMENT_TYPE_IBJJF_ONLY
@@ -1180,11 +1196,11 @@ def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
         for r in gs_medal_rows:
             if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
                 continue
-            source_type = (
-                _event_tournament_type(r.event_name)
-                if gi
-                else TOURNAMENT_TYPE_IBJJF_ONLY
-            )
+            source_type = _event_tournament_type(r.event_name)
+            if source_type == TOURNAMENT_TYPE_NONE:
+                continue
+            if not gi:
+                source_type = TOURNAMENT_TYPE_IBJJF_ONLY
             if (
                 source_type == TOURNAMENT_TYPE_CBJJ_ONLY
                 and target_type == TOURNAMENT_TYPE_IBJJF_ONLY
