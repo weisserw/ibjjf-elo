@@ -324,7 +324,12 @@ def get_ratings(
             result["country_note_pt"] = athlete.country_note_pt
         elif normalize(result["name"]) in athletes_by_name:
             matched_athlete = None
-            for athlete in athletes_by_name[normalize(result["name"])]:
+            candidates = sorted(
+                athletes_by_name[normalize(result["name"])],
+                key=lambda a: highest_belt_index_by_athlete_id.get(a.id, -1),
+                reverse=True,
+            )
+            for athlete in candidates:
                 if is_compatible_registration_match(result, athlete):
                     matched_athlete = athlete
                     break
