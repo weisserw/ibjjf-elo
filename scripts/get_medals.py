@@ -104,6 +104,46 @@ CBJJ_NAME_MAP = {
 }
 
 
+# (tournament-label-from-data-n, year-from-data-y, championship-id-from-URL)
+# triples for IBJJF index entries we've confirmed are mislabeled — typically
+# a Kids/regional event link that accidentally points at a different
+# championship's results page, or a phantom year-button that points at a
+# different year's real page. Entries here are silently dropped before URL
+# dedup, leaving the correctly-labeled sibling link in place.
+KNOWN_BAD_LINKS = {
+    # IBJJF's index lists this Florianópolis Kids button pointing at
+    # /ChampionshipResults/3086/, which is actually the Curitiba Summer
+    # No-Gi Championship 2026. Dropping the Florianópolis label preserves
+    # the legitimate Curitiba No-Gi scrape.
+    ("Kids International IBJJF Jiu-Jitsu Championship - Florianópolis", "2026", "3086"),
+    # The "American National Kids" button shares /ChampionshipResults/408/
+    # with the main American National IBJJF Jiu-Jitsu Championship 2015 —
+    # keep the main label, drop the Kids one. Same mislabel recurs in 2016,
+    # 2017, 2018.
+    ("American National Kids IBJJF Jiu-Jitsu Championship", "2015", "408"),
+    ("American National Kids IBJJF Jiu-Jitsu Championship", "2016", "575"),
+    ("American National Kids IBJJF Jiu-Jitsu Championship", "2017", "753"),
+    ("American National Kids IBJJF Jiu-Jitsu Championship", "2018", "948"),
+    # Same Kids-page-pointing-at-adult-page mistake on British National 2016.
+    ("British National Kids IBJJF Jiu-Jitsu Championship", "2016", "555"),
+    # Chicago Summer International 2016 Kids button points at the adult page.
+    ("Chicago Summer Kids International Open IBJJF Jiu-Jitsu Championship", "2016", "566"),
+    # Phantom Madrid 2025 button points at the real Madrid 2026 page (3077);
+    # there was no 2025 Madrid Open. Drop the 2025 label, keep 2026.
+    ("Madrid International Open IBJJF Jiu-Jitsu Championship", "2025", "3077"),
+    # The "Recife Kids 2026" button actually points at /ChampionshipResults/2717/,
+    # which is the real Florianópolis Kids 2025 page. Drop the Recife label.
+    ("Recife Kids International Open IBJJF Jiu-Jitsu Championship", "2026", "2717"),
+    # San Antonio 2026: the No-Gi button mistakenly points at 3121, which is
+    # the Gi page. The real No-Gi page is /ChampionshipResults/3122/, reachable
+    # from its own correct button. Drop the bad No-Gi label so the Gi entry
+    # owns 3121 unambiguously. NOTE: this is the same gi/no-gi shape as the
+    # Curitiba/Florianópolis incident — check medals already in the DB for
+    # cross-contamination on these events.
+    ("San Antonio International Open IBJJF Jiu-Jitsu No-Gi Championship", "2026", "3121"),
+}
+
+
 # UUID5 namespace for hashing medal rows into stable primary keys. This is a
 # fixed, randomly-generated UUID — do not change it without re-importing all rows.
 RESULT_MEDAL_NAMESPACE = uuid.UUID("3a4f1c1e-2b9d-5e8a-9c4f-7d6e5b3a2c1f")
@@ -414,12 +454,39 @@ def scrape(args):
     else:
         all_links = ibjjf_links + cbjj_links
 
-    # IBJJF's index page contains a handful of broken links where two different
-    # event-year entries point to the same destination URL (sometimes identical
-    # data-n+data-y, sometimes a Kids event linked to an Adult event's page, etc).
-    # Scraping the same URL twice produces duplicate rows (identical case ->
-    # primary-key violation; mis-routed case -> silently mis-labelled rows).
-    # Keep the first occurrence of each URL and warn on the rest.
+    # IBJJF's index page occasionally lists two different event-year entries
+    # pointing to the same destination URL — typically a Kids/regional event
+    # accidentally linked to an Adult/main championship's results page. The
+    # old behaviour ("keep first, warn") silently mis-labelled real medal
+    # data when the wrong label happened to come first in the index.
+    #
+    # New behaviour:
+    #   1. Drop any index entry listed in KNOWN_BAD_LINKS — explicit allowlist
+    #      of label/championship-id pairs we've confirmed are mislabeled.
+    #   2. After that, identical-label re-listings (same tournament+year at
+    #      the same URL) are dropped silently as harmless duplicates.
+    #   3. Any remaining URL collision between distinct labels aborts the
+    #      scrape so a human can investigate and either get IBJJF to fix
+    #      the link or add the bad entry to KNOWN_BAD_LINKS.
+    filtered = []
+    skipped_known_bad = 0
+    for link in all_links:
+        cid = extract_championship_id(link["url"])
+        if cid and (link["tournament"], link["year"], cid) in KNOWN_BAD_LINKS:
+            print(
+                f"NOTICE: skipping known-mislabeled IBJJF index entry: "
+                f"'{link['tournament']} {link['year']}' -> {link['url']}",
+                file=sys.stderr,
+            )
+            skipped_known_bad += 1
+            continue
+        filtered.append(link)
+    if skipped_known_bad:
+        print(
+            f"KNOWN_BAD_LINKS: skipped {skipped_known_bad} entries", file=sys.stderr
+        )
+    all_links = filtered
+
     deduped = []
     seen_urls = {}
     for link in all_links:
@@ -428,16 +495,17 @@ def scrape(args):
             seen_urls[link["url"]] = link
             deduped.append(link)
             continue
-        print(
-            f"WARN: dropping duplicate URL {link['url']}: "
-            f"kept '{prev['tournament']} {prev['year']}' ({prev['source']}), "
-            f"dropping '{link['tournament']} {link['year']}' ({link['source']})",
-            file=sys.stderr,
-        )
-    if len(deduped) != len(all_links):
-        print(
-            f"URL dedup: {len(all_links) - len(deduped)} duplicate URLs dropped",
-            file=sys.stderr,
+        if (prev["tournament"], prev["year"]) == (link["tournament"], link["year"]):
+            # Same tournament+year listed twice with identical URL — benign.
+            continue
+        raise SystemExit(
+            f"ERROR: URL appears in the IBJJF index under multiple distinct "
+            f"tournament labels — refusing to silently pick one.\n"
+            f"  URL: {link['url']}\n"
+            f"  Label A: '{prev['tournament']} {prev['year']}' ({prev['source']})\n"
+            f"  Label B: '{link['tournament']} {link['year']}' ({link['source']})\n"
+            f"Resolve by adding the mislabeled (tournament, championship_id) "
+            f"pair to KNOWN_BAD_LINKS in get_medals.py."
         )
     all_links = deduped
 

@@ -118,6 +118,12 @@ EVENT_NAME_ALIASES = {
     "South American Jiu-Jitsu IBJJF No-Gi Championship 2024": (
         "Campeonato Sul-Americano de Jiu-Jitsu No-Gi 2024 (BJJHeroes)"
     ),
+    "Venice Jesolo International Open IBJJF Jiu-Jitsu Championship 2024": (
+        "Venice International Open IBJJF Jiu-Jitsu Championship 2024 (Results)"
+    ),
+    "Venice Jesolo International Open IBJJF Jiu-Jitsu No-Gi Championship 2024": (
+        "Venice International Open IBJJF Jiu-Jitsu No-Gi Championship 2024 (Results)"
+    ),
 }
 
 # Tournaments with no match data fall back to these canonical dates.
