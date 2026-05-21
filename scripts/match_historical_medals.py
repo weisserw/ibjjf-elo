@@ -113,6 +113,16 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--event-name",
+        type=str,
+        default=None,
+        help=(
+            "Restrict matching to result_medals whose event_name contains this "
+            "substring (case-insensitive). Useful for re-running against a "
+            "newly-added tournament without re-processing everything."
+        ),
+    )
+    parser.add_argument(
         "--report-csv",
         type=str,
         default="missing_medals_review.csv",
@@ -177,9 +187,13 @@ def main():
         # Don't load full ORM rows — with ~850k result_medals that's gigabytes.
         # Keep only the distinct name strings in memory for process.extract;
         # fetch the actual rows on demand for the few top-candidate names per athlete.
-        all_names = sorted(
-            n for (n,) in db.session.query(ResultMedal.athlete_name).distinct().all()
-        )
+        names_q = db.session.query(ResultMedal.athlete_name).distinct()
+        if args.event_name:
+            names_q = names_q.filter(
+                ResultMedal.event_name.ilike(f"%{args.event_name}%")
+            )
+            print(f"  filtering to event_name ILIKE %{args.event_name}%", flush=True)
+        all_names = sorted(n for (n,) in names_q.all())
         print(f"  {len(all_names)} distinct names", flush=True)
 
         # Index distinct result_medals names by their normalized form so the
@@ -369,11 +383,14 @@ def main():
 
             # ---- Pass 1: known-alias matches ----
             for cand_name in alias_raw_names:
-                rms_for_name = (
-                    db.session.query(ResultMedal)
-                    .filter(ResultMedal.athlete_name == cand_name)
-                    .all()
+                rms_q = db.session.query(ResultMedal).filter(
+                    ResultMedal.athlete_name == cand_name
                 )
+                if args.event_name:
+                    rms_q = rms_q.filter(
+                        ResultMedal.event_name.ilike(f"%{args.event_name}%")
+                    )
+                rms_for_name = rms_q.all()
                 for rm in rms_for_name:
                     result = try_import_rm(
                         rm,

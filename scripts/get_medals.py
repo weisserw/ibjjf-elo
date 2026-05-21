@@ -74,6 +74,25 @@ MAX_RETRIES = 2
 # "Campeonato Brasileiro de Jiu-Jitsu"). Those don't need to be mapped — the
 # dedup falls back to comparing the original name. Only add entries here when
 # the CBJJ name genuinely differs from the IBJJF spelling.
+# Extra IBJJF event pages that exist on ibjjfdb.com but are not linked from the
+# IBJJF or CBJJ results index pages. Scraped alongside the index-derived links
+# whenever IBJJF is being scraped.
+EXTRA_IBJJF_LINKS = [
+    {
+        "tournament": "Campeonato Português de Jiu-Jitsu",
+        "year": "2024",
+        "url": "https://www.ibjjfdb.com/ChampionshipResults/2166/PublicResults?lang=en-US",
+        "source": "ibjjf",
+    },
+    {
+        "tournament": "Campeonato Português de Jiu-Jitsu",
+        "year": "2023",
+        "url": "https://www.ibjjfdb.com/ChampionshipResults/2473/PublicResults?lang=en-US",
+        "source": "ibjjf",
+    },
+]
+
+
 CBJJ_NAME_MAP = {
     "Campeonato Brasileiro de Jiu-Jitsu Sem Kimono": "Brazilian National Jiu-Jitsu No-Gi Championship",
     "Campeonato Brasileiro de Jiu-Jitsu (idade 04 a 15 anos)": "Campeonato Brasileiro de Jiu-Jitsu (age 4 to 15)",
@@ -380,6 +399,11 @@ def scrape(args):
         print(f"Fetching IBJJF index {IBJJF_RESULTS_URL} ...", file=sys.stderr)
         ibjjf_links = parse_index_page(fetch(IBJJF_RESULTS_URL, session), "ibjjf")
         print(f"  found {len(ibjjf_links)} event-year links", file=sys.stderr)
+        ibjjf_links.extend(EXTRA_IBJJF_LINKS)
+        print(
+            f"  added {len(EXTRA_IBJJF_LINKS)} extra hard-coded IBJJF links",
+            file=sys.stderr,
+        )
     if "cbjj" in sources_to_fetch:
         print(f"Fetching CBJJ index {CBJJ_RESULTS_URL} ...", file=sys.stderr)
         cbjj_links = parse_index_page(fetch(CBJJ_RESULTS_URL, session), "cbjj")

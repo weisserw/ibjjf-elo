@@ -107,7 +107,7 @@ EVENT_NAME_ALIASES = {
         "Campeonato Sul-Americano de Jiu-Jitsu 2023 (BJJHeroes)"
     ),
     "South American Jiu-Jitsu IBJJF Championship 2024": (
-        "Sul Americano 2024 (Archive)"
+        "Campeonato Sul-Americano de Jiu-Jitsu 2024 (Archive)"
     ),
     "South American Jiu-Jitsu IBJJF No-Gi Championship 2022": (
         "Campeonato Sul-Americano de Jiu-Jitsu Sem Kimono 2022 (BJJHeroes)"
