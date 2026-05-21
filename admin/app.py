@@ -1389,7 +1389,7 @@ def _parse_date_form(s, default):
 @app.route("/missing_medals_scan", methods=["GET"])
 def missing_medals_scan():
     now = datetime.utcnow()
-    default_since = now - timedelta(days=28)
+    default_since = now - timedelta(days=14)
     since = _parse_date_form(request.args.get("since"), default_since)
     until = _parse_date_form(request.args.get("until"), now)
     until_eod = until.replace(hour=23, minute=59, second=59)
@@ -1442,6 +1442,28 @@ def missing_medals_scan_import():
     skipped = 0
     errors = []
 
+    # Per-request caches. Selections from one scan are almost always for a small
+    # set of (event, division, team) tuples, so caching by lookup key avoids
+    # the per-medal round-trips that were causing gateway timeouts on large batches.
+    division_cache = medal_lib.build_division_cache(db.session)
+    event_cache = {}  # (event_name, event_ibjjf_id) -> Event
+    team_cache = {}  # raw_team_name -> Team
+
+    def _get_event(event_name, event_ibjjf_id):
+        key = (event_name, event_ibjjf_id)
+        if key not in event_cache:
+            event_cache[key] = medal_lib.find_event(
+                db.session, event_name, event_ibjjf_id
+            )
+        return event_cache[key]
+
+    def _get_team(raw_team_name):
+        if raw_team_name not in team_cache:
+            team_cache[raw_team_name] = medal_lib.find_or_create_team(
+                db.session, raw_team_name
+            )
+        return team_cache[raw_team_name]
+
     for sel in selections:
         try:
             rm_id_raw, athlete_id_raw = sel.split(":", 1)
@@ -1457,13 +1479,15 @@ def missing_medals_scan_import():
             errors.append(f"Missing rm or athlete for {sel}")
             continue
 
-        event = medal_lib.find_event(db.session, rm.event_name, rm.event_ibjjf_id)
+        event = _get_event(rm.event_name, rm.event_ibjjf_id)
         if not event:
             errors.append(f"Event not found for {rm.event_name}")
             continue
 
         gi = not medal_lib.is_no_gi_event(event.name)
-        division = medal_lib.parse_and_resolve_division(db.session, rm.division, gi)
+        division = medal_lib.parse_and_resolve_division(
+            db.session, rm.division, gi, division_cache=division_cache
+        )
         if not division:
             errors.append(f"Division not resolved: {rm.division} for {rm.event_name}")
             continue
@@ -1474,7 +1498,7 @@ def missing_medals_scan_import():
             skipped += 1
             continue
 
-        team = medal_lib.find_or_create_team(db.session, rm.team_name)
+        team = _get_team(rm.team_name)
         happened_at = medal_lib.compute_happened_at(
             db.session, athlete.id, event, event.name
         )
