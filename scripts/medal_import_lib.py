@@ -1081,7 +1081,15 @@ def scan_event_for_missing_medals(
             if len(exact_hits) == 1:
                 matched_athlete = exact_hits[0]
             elif len(exact_hits) > 1:
-                alternatives = [{"athlete": a, "score": 100} for a in exact_hits]
+                # Duplicate athlete rows can exist when the loader creates a new row
+                # for a name that already has a record without an ibjjf_id (or vice
+                # versa). When exactly one exact-name hit has an ibjjf_id, prefer it
+                # — it's the canonical IBJJF-registered athlete.
+                with_ibjjf = [a for a in exact_hits if a.ibjjf_id]
+                if len(with_ibjjf) == 1:
+                    matched_athlete = with_ibjjf[0]
+                else:
+                    alternatives = [{"athlete": a, "score": 100} for a in exact_hits]
         else:
             scored = []
             for a in plausible_candidates:
