@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, redirect, url_for, request, session, jsonify
 from urllib.parse import urlparse, urlencode, urlunparse
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.exc import IntegrityError
 
 
@@ -27,6 +27,8 @@ from models import (
     Match,
     MatchParticipant,
     Medal,
+    ResultMedal,
+    Team,
     FloEventTag,
     FloMatLink,
     BackgroundTask,
@@ -1442,44 +1444,165 @@ def missing_medals_scan_import():
     skipped = 0
     errors = []
 
-    # Per-request caches. Selections from one scan are almost always for a small
-    # set of (event, division, team) tuples, so caching by lookup key avoids
-    # the per-medal round-trips that were causing gateway timeouts on large batches.
-    division_cache = medal_lib.build_division_cache(db.session)
-    event_cache = {}  # (event_name, event_ibjjf_id) -> Event
-    team_cache = {}  # raw_team_name -> Team
-
-    def _get_event(event_name, event_ibjjf_id):
-        key = (event_name, event_ibjjf_id)
-        if key not in event_cache:
-            event_cache[key] = medal_lib.find_event(
-                db.session, event_name, event_ibjjf_id
-            )
-        return event_cache[key]
-
-    def _get_team(raw_team_name):
-        if raw_team_name not in team_cache:
-            team_cache[raw_team_name] = medal_lib.find_or_create_team(
-                db.session, raw_team_name
-            )
-        return team_cache[raw_team_name]
-
+    # Parse selections up front so we can bulk-fetch everything by id.
+    pairs = []  # (rm_id, athlete_id)
     for sel in selections:
         try:
             rm_id_raw, athlete_id_raw = sel.split(":", 1)
-            rm_id = uuid.UUID(rm_id_raw)
-            athlete_id = uuid.UUID(athlete_id_raw)
+            pairs.append((uuid.UUID(rm_id_raw), uuid.UUID(athlete_id_raw)))
         except (ValueError, AttributeError):
             errors.append(f"Invalid selection: {sel}")
-            continue
 
-        rm = db.session.query(medal_lib.ResultMedal).get(rm_id)
-        athlete = Athlete.query.get(athlete_id)
+    rm_ids = list({p[0] for p in pairs})
+    athlete_ids = list({p[1] for p in pairs})
+
+    rms_by_id = (
+        {
+            rm.id: rm
+            for rm in db.session.query(ResultMedal)
+            .filter(ResultMedal.id.in_(rm_ids))
+            .all()
+        }
+        if rm_ids
+        else {}
+    )
+    athletes_by_id = (
+        {a.id: a for a in Athlete.query.filter(Athlete.id.in_(athlete_ids)).all()}
+        if athlete_ids
+        else {}
+    )
+
+    # Resolve events once per unique (name, ibjjf_id). find_event itself is 1-3
+    # queries; pulling it out of the per-medal loop is a major win when 1700
+    # medals share a handful of tournaments.
+    division_cache = medal_lib.build_division_cache(db.session)
+    event_cache = {}  # (event_name, event_ibjjf_id) -> Event
+    for rm in rms_by_id.values():
+        key = (rm.event_name, rm.event_ibjjf_id)
+        if key not in event_cache:
+            event_cache[key] = medal_lib.find_event(db.session, *key)
+    event_ids = [e.id for e in event_cache.values() if e is not None]
+
+    # Bulk-prefetch teams by normalized name. find_or_create_team is otherwise
+    # one query per unique raw name — hundreds of teams across a big batch.
+    team_cache = {}  # raw_team_name -> Team
+    raw_team_names = {rm.team_name for rm in rms_by_id.values()}
+    normed_to_raw = {}
+    for raw in raw_team_names:
+        normed_to_raw.setdefault(normalize(raw), raw)
+    if normed_to_raw:
+        existing_teams = (
+            db.session.query(Team)
+            .filter(Team.normalized_name.in_(normed_to_raw.keys()))
+            .all()
+        )
+        for t in existing_teams:
+            team_cache[normed_to_raw[t.normalized_name]] = t
+    for raw in raw_team_names:
+        if raw not in team_cache:
+            norm = normalize(raw)
+            t = Team(name=raw, normalized_name=norm)
+            db.session.add(t)
+            team_cache[raw] = t
+    if any(t for t in team_cache.values() if t.id is None):
+        db.session.flush()  # one flush gets ids for all new teams
+
+    # Bulk-prefetch existing medals to avoid medal_already_exists's per-row query.
+    existing_set = set()
+    if event_ids and athlete_ids:
+        for a_id, e_id, d_id in (
+            db.session.query(Medal.athlete_id, Medal.event_id, Medal.division_id)
+            .filter(
+                Medal.event_id.in_(event_ids),
+                Medal.athlete_id.in_(athlete_ids),
+            )
+            .all()
+        ):
+            existing_set.add((a_id, e_id, d_id))
+
+    # Bulk-prefetch the three lookups that compute_happened_at would otherwise
+    # do one-at-a-time per medal.
+    last_match_by_ae = {}
+    last_match_by_e = {}
+    last_medal_by_ae = {}
+    if event_ids:
+        if athlete_ids:
+            for a_id, e_id, ts in (
+                db.session.query(
+                    MatchParticipant.athlete_id,
+                    Match.event_id,
+                    func.max(Match.happened_at),
+                )
+                .join(Match, Match.id == MatchParticipant.match_id)
+                .filter(
+                    MatchParticipant.athlete_id.in_(athlete_ids),
+                    Match.event_id.in_(event_ids),
+                )
+                .group_by(MatchParticipant.athlete_id, Match.event_id)
+                .all()
+            ):
+                last_match_by_ae[(a_id, e_id)] = ts
+            for a_id, e_id, ts in (
+                db.session.query(
+                    Medal.athlete_id, Medal.event_id, func.max(Medal.happened_at)
+                )
+                .filter(
+                    Medal.athlete_id.in_(athlete_ids),
+                    Medal.event_id.in_(event_ids),
+                )
+                .group_by(Medal.athlete_id, Medal.event_id)
+                .all()
+            ):
+                last_medal_by_ae[(a_id, e_id)] = ts
+        for e_id, ts in (
+            db.session.query(Match.event_id, func.max(Match.happened_at))
+            .filter(Match.event_id.in_(event_ids))
+            .group_by(Match.event_id)
+            .all()
+        ):
+            last_match_by_e[e_id] = ts
+
+    # default_gold: place-1 medals where no sibling place exists for the same
+    # (event_name, division). One grouped query covers all place-1 selections.
+    multi_sibling_keys = set()
+    place1_event_names = {rm.event_name for rm in rms_by_id.values() if rm.place == 1}
+    if place1_event_names:
+        for en, div, cnt in (
+            db.session.query(
+                ResultMedal.event_name,
+                ResultMedal.division,
+                func.count(ResultMedal.id),
+            )
+            .filter(ResultMedal.event_name.in_(place1_event_names))
+            .group_by(ResultMedal.event_name, ResultMedal.division)
+            .all()
+        ):
+            if cnt > 1:
+                multi_sibling_keys.add((en, div))
+
+    def _happened_at(athlete_id, event):
+        ts = last_match_by_ae.get((athlete_id, event.id))
+        if ts is not None:
+            return ts
+        ts = last_match_by_e.get(event.id)
+        if ts is not None:
+            return ts
+        ts = last_medal_by_ae.get((athlete_id, event.id))
+        if ts is not None:
+            return ts
+        # Fallback to lib's name-based date inference; rare for recent-scan imports.
+        return medal_lib.compute_happened_at(db.session, athlete_id, event, event.name)
+
+    new_medals = []
+    now = datetime.utcnow()
+    for rm_id, athlete_id in pairs:
+        rm = rms_by_id.get(rm_id)
+        athlete = athletes_by_id.get(athlete_id)
         if not rm or not athlete:
-            errors.append(f"Missing rm or athlete for {sel}")
+            errors.append(f"Missing rm or athlete for {rm_id}:{athlete_id}")
             continue
 
-        event = _get_event(rm.event_name, rm.event_ibjjf_id)
+        event = event_cache.get((rm.event_name, rm.event_ibjjf_id))
         if not event:
             errors.append(f"Event not found for {rm.event_name}")
             continue
@@ -1492,30 +1615,35 @@ def missing_medals_scan_import():
             errors.append(f"Division not resolved: {rm.division} for {rm.event_name}")
             continue
 
-        if medal_lib.medal_already_exists(
-            db.session, athlete.id, event.id, division.id
-        ):
+        key = (athlete.id, event.id, division.id)
+        if key in existing_set:
             skipped += 1
             continue
+        # Also dedupe within this batch (rare, but safe).
+        existing_set.add(key)
 
-        team = _get_team(rm.team_name)
-        happened_at = medal_lib.compute_happened_at(
-            db.session, athlete.id, event, event.name
+        team = team_cache.get(rm.team_name)
+        default_gold = (
+            rm.place == 1 and (rm.event_name, rm.division) not in multi_sibling_keys
         )
-        default_gold = medal_lib.compute_default_gold(db.session, rm)
 
-        medal_lib.insert_medal(
-            db.session,
-            athlete_id=athlete.id,
-            event_id=event.id,
-            division_id=division.id,
-            team_id=team.id,
-            place=rm.place,
-            happened_at=happened_at,
-            default_gold=default_gold,
-            imported_via="recent_scan_manual",
+        new_medals.append(
+            Medal(
+                athlete_id=athlete.id,
+                event_id=event.id,
+                division_id=division.id,
+                team_id=team.id,
+                place=rm.place,
+                happened_at=_happened_at(athlete.id, event),
+                default_gold=default_gold,
+                imported_via="recent_scan_manual",
+                imported_at=now,
+            )
         )
         imported += 1
+
+    if new_medals:
+        db.session.add_all(new_medals)
 
     if errors:
         db.session.rollback()
