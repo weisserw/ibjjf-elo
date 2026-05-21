@@ -10,7 +10,7 @@ Idempotent: re-runs skip medals already in the canonical medals table.
 
 Usage:
     ./scripts/import_recent_missing_medals.py [--since 2025-04-01] [--until today]
-        [--dry-run] [--no-fuzzy]
+        [--dry-run]
 """
 
 import argparse
@@ -46,11 +46,6 @@ def parse_args():
         action="store_true",
         help="Print what would be imported without writing to the DB.",
     )
-    parser.add_argument(
-        "--no-fuzzy",
-        action="store_true",
-        help="Disable fuzzy name matching (exact normalized match only).",
-    )
     return parser.parse_args()
 
 
@@ -67,7 +62,6 @@ def main():
         )
         sys.exit(1)
     until_end_of_day = until.replace(hour=23, minute=59, second=59)
-    fuzzy = not args.no_fuzzy
 
     with app.app_context():
         print("Building division cache...", flush=True)
@@ -81,7 +75,6 @@ def main():
             f"Scanning {len(events)} events from {since.date()} to {until.date()}",
             flush=True,
         )
-        print(f"Fuzzy matching: {'on' if fuzzy else 'off'}", flush=True)
         print(flush=True)
 
         total_imported = 0
@@ -97,7 +90,7 @@ def main():
                 flush=True,
             )
             entries = lib.scan_event_for_missing_medals(
-                db.session, event, fuzzy=fuzzy, division_cache=division_cache
+                db.session, event, fuzzy=False, division_cache=division_cache
             )
             event_imports = 0
             event_no_match = 0

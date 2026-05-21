@@ -1076,10 +1076,7 @@ def scan_event_for_missing_medals(
 
         if not fuzzy:
             exact_hits = [
-                a
-                for a in plausible_candidates
-                if a.normalized_name == rm_normalized
-                or (a.normalized_personal_name == rm_normalized)
+                a for a in plausible_candidates if a.normalized_name == rm_normalized
             ]
             if len(exact_hits) == 1:
                 matched_athlete = exact_hits[0]
@@ -1088,7 +1085,11 @@ def scan_event_for_missing_medals(
         else:
             scored = []
             for a in plausible_candidates:
-                s = name_score(rm.athlete_name, a.name, a.personal_name)
+                # IBJJF result pages always use legal name, so personal_name (nicknames
+                # / preferred forms) must not match against rm.athlete_name — doing so
+                # produces false-positive ambiguity between two distinct athletes whose
+                # personal_name happens to coincide with another athlete's legal name.
+                s = name_score(rm.athlete_name, a.name)
                 scored.append((s, a))
             scored.sort(key=lambda t: t[0], reverse=True)
             if scored:
