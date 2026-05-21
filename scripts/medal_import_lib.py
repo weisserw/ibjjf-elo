@@ -596,6 +596,87 @@ def athlete_known_ages(session, athlete_id, when: datetime = None) -> set:
     return ages
 
 
+def bulk_athlete_belt_bounds_at(session, athlete_ids: list, when: datetime) -> dict:
+    """Bulk equivalent of athlete_belt_bounds_at — one query for many athletes.
+
+    Returns {athlete_id: (lo, hi)} for every requested athlete, with (None, None)
+    for athletes that have no matches. Avoids the N+1 that otherwise hits prod
+    once per candidate during a per-event scan.
+    """
+    result = {aid: (None, None) for aid in athlete_ids}
+    if not athlete_ids:
+        return result
+    rows = (
+        session.query(MatchParticipant.athlete_id, Division.belt, Match.happened_at)
+        .join(Match, Match.division_id == Division.id)
+        .join(MatchParticipant, MatchParticipant.match_id == Match.id)
+        .filter(MatchParticipant.athlete_id.in_(athlete_ids))
+        .all()
+    )
+    for athlete_id, belt, happened_at in rows:
+        rank = belt_rank(belt)
+        if rank is None:
+            continue
+        lo, hi = result[athlete_id]
+        if happened_at <= when:
+            lo = rank if lo is None else max(lo, rank)
+        if happened_at >= when:
+            hi = rank if hi is None else min(hi, rank)
+        result[athlete_id] = (lo, hi)
+    return result
+
+
+def bulk_athlete_known_genders(session, athlete_ids: list) -> dict:
+    """Bulk equivalent of athlete_known_genders — two queries for many athletes."""
+    result = {aid: set() for aid in athlete_ids}
+    if not athlete_ids:
+        return result
+    via_matches = (
+        session.query(MatchParticipant.athlete_id, Division.gender)
+        .join(Match, Match.division_id == Division.id)
+        .join(MatchParticipant, MatchParticipant.match_id == Match.id)
+        .filter(MatchParticipant.athlete_id.in_(athlete_ids))
+        .distinct()
+    )
+    via_medals = (
+        session.query(Medal.athlete_id, Division.gender)
+        .join(Medal, Medal.division_id == Division.id)
+        .filter(Medal.athlete_id.in_(athlete_ids))
+        .distinct()
+    )
+    for athlete_id, gender in via_matches.all():
+        result[athlete_id].add(gender)
+    for athlete_id, gender in via_medals.all():
+        result[athlete_id].add(gender)
+    return result
+
+
+def bulk_athlete_known_ages(session, athlete_ids: list, when: datetime = None) -> dict:
+    """Bulk equivalent of athlete_known_ages — two queries for many athletes."""
+    result = {aid: set() for aid in athlete_ids}
+    if not athlete_ids:
+        return result
+    via_matches = (
+        session.query(MatchParticipant.athlete_id, Division.age)
+        .join(Match, Match.division_id == Division.id)
+        .join(MatchParticipant, MatchParticipant.match_id == Match.id)
+        .filter(MatchParticipant.athlete_id.in_(athlete_ids))
+    )
+    via_medals = (
+        session.query(Medal.athlete_id, Division.age)
+        .join(Medal, Medal.division_id == Division.id)
+        .filter(Medal.athlete_id.in_(athlete_ids))
+    )
+    if when is not None:
+        via_matches = via_matches.filter(Match.happened_at <= when)
+        via_medals = via_medals.filter(Medal.happened_at <= when)
+    for athlete_id, age in via_matches.distinct().all():
+        result[athlete_id].add(age)
+    for athlete_id, age in via_medals.distinct().all():
+        result[athlete_id].add(age)
+    return result
+
+
 def age_is_plausible(
     session, athlete_id, medal_age: str, medal_date: datetime = None
 ) -> bool:
@@ -891,11 +972,8 @@ def scan_event_for_missing_medals(
     entries = []
     raw_medals = find_result_medals_for_event(session, event)
 
-    # Per-event caches.
+    # Per-event candidate pool. Plausibility caches are populated below in bulk.
     candidates = _athlete_candidates_at_event(session, event.id)
-    belt_bounds_cache = {}  # athlete_id -> (lo, hi)
-    gender_cache = {}  # athlete_id -> set of known genders
-    age_cache = {}  # athlete_id -> set of known ages
 
     # event_when is used for belt-plausibility on candidates. Compute once.
     last_match_row = (
@@ -905,6 +983,15 @@ def scan_event_for_missing_medals(
         .first()
     )
     event_when = last_match_row[0] if last_match_row else datetime.utcnow()
+
+    # Prefetch plausibility data for every candidate in 3 queries (belt + gender + age)
+    # instead of 3-per-candidate. Without this, the first result_medal in the loop
+    # below populates the per-athlete caches one round-trip at a time — at a big
+    # event that's thousands of sequential queries against prod and the scan stalls.
+    candidate_ids = [a.id for a in candidates]
+    belt_bounds_cache = bulk_athlete_belt_bounds_at(session, candidate_ids, event_when)
+    gender_cache = bulk_athlete_known_genders(session, candidate_ids)
+    age_cache = bulk_athlete_known_ages(session, candidate_ids, event_when)
 
     # Cache existing (athlete_id) -> set of division_ids already medaled at this event.
     existing_pairs = set(
