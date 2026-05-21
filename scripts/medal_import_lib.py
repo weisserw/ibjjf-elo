@@ -523,8 +523,13 @@ def gender_is_plausible(session, athlete_id, medal_gender: str) -> bool:
     return medal_gender in known
 
 
-def athlete_known_ages(session, athlete_id) -> set:
+def athlete_known_ages(session, athlete_id, when: datetime = None) -> set:
     """Set of division ages the athlete has competed in (Match) or medaled in (Medal).
+
+    If `when` is provided, only matches/medals at or before that date are
+    counted — callers asking "what age brackets did the athlete have by `when`?"
+    must not be confused by later-in-life history (someone who is Adult now was
+    Juvenile years ago).
 
     Empty set means we have no data for this athlete.
     """
@@ -534,31 +539,35 @@ def athlete_known_ages(session, athlete_id) -> set:
         .join(Match, Match.division_id == Division.id)
         .join(MatchParticipant, MatchParticipant.match_id == Match.id)
         .filter(MatchParticipant.athlete_id == athlete_id)
-        .distinct()
     )
     via_medals = (
         session.query(Division.age)
         .join(Medal, Medal.division_id == Division.id)
         .filter(Medal.athlete_id == athlete_id)
-        .distinct()
     )
-    for (a,) in via_matches.all():
+    if when is not None:
+        via_matches = via_matches.filter(Match.happened_at <= when)
+        via_medals = via_medals.filter(Medal.happened_at <= when)
+    for (a,) in via_matches.distinct().all():
         ages.add(a)
-    for (a,) in via_medals.all():
+    for (a,) in via_medals.distinct().all():
         ages.add(a)
     return ages
 
 
-def age_is_plausible(session, athlete_id, medal_age: str) -> bool:
+def age_is_plausible(
+    session, athlete_id, medal_age: str, medal_date: datetime = None
+) -> bool:
     """Hard filter: ages progress forward (Teen -> Juvenile -> Adult/Masters).
 
     Once an athlete has competed/medaled at Adult or Masters, they cannot have a
-    Teen or Juvenile medal. Once they have Juvenile history, they cannot have a
-    Teen medal. Adult <-> Masters is fine in both directions.
+    Teen or Juvenile medal *afterwards*. When `medal_date` is provided, only the
+    athlete's history at or before that date counts — a 2014 Juvenile medal is
+    not invalidated by the same athlete being Adult in 2020.
 
     Returns True when we have no data for this athlete (unconstrained).
     """
-    known = athlete_known_ages(session, athlete_id)
+    known = athlete_known_ages(session, athlete_id, medal_date)
     if not known:
         return True
     if medal_age in TEEN_AGES and (known & (JUVENILE_AGES | ADULT_OR_MASTERS)):
@@ -878,7 +887,7 @@ def scan_event_for_missing_medals(
 
     def _known_ages(athlete_id):
         if athlete_id not in age_cache:
-            age_cache[athlete_id] = athlete_known_ages(session, athlete_id)
+            age_cache[athlete_id] = athlete_known_ages(session, athlete_id, event_when)
         return age_cache[athlete_id]
 
     def _plausible(athlete_id, belt, gender, age):

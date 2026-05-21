@@ -1596,7 +1596,9 @@ def athlete_medals_find_missing():
                 gender_ok = medal_lib.gender_is_plausible(
                     db.session, athlete.id, gender
                 )
-                age_ok = medal_lib.age_is_plausible(db.session, athlete.id, age)
+                age_ok = medal_lib.age_is_plausible(
+                    db.session, athlete.id, age, tentative_date
+                )
                 gi = not medal_lib.is_no_gi_event(rm.event_name)
                 division = medal_lib.parse_and_resolve_division(
                     db.session, rm.division, gi

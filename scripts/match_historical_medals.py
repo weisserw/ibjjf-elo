@@ -263,7 +263,7 @@ def main():
                 return "skipped"
             if not lib.gender_is_plausible(db.session, athlete.id, gender):
                 return "skipped"
-            if not lib.age_is_plausible(db.session, athlete.id, age):
+            if not lib.age_is_plausible(db.session, athlete.id, age, tentative_date):
                 return "skipped"
 
             gi = not lib.is_no_gi_event(rm.event_name)
