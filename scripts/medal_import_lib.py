@@ -366,6 +366,47 @@ def compute_happened_at(
     )
 
 
+def tentative_event_date(
+    session,
+    raw_event_name: str,
+    event: Optional[Event] = None,
+    cache: Optional[dict] = None,
+) -> Optional[datetime]:
+    """Best-effort date for an event used in pre-import plausibility checks.
+
+    Precedence:
+      1) `cache[event.id]` if hit (caller-supplied dict, e.g. per request)
+      2) max(Match.happened_at) for the event (cached on miss)
+      3) hardcoded MAJOR_EVENT_DATES month/day for the name prefix
+      4) June 1 of the year suffix
+      5) None if no year can be parsed
+
+    Without this, all events in a year collapse to June 1 — a Sept World Master
+    medal then fails belt-bound checks against an athlete promoted in July.
+    """
+    if event is not None:
+        if cache is not None and event.id in cache:
+            return cache[event.id]
+        last = (
+            session.query(Match.happened_at)
+            .filter(Match.event_id == event.id)
+            .order_by(Match.happened_at.desc())
+            .first()
+        )
+        if last:
+            when = last[0]
+            if cache is not None:
+                cache[event.id] = when
+            return when
+    default = _event_default_date(raw_event_name)
+    if default:
+        return default
+    year_match = YEAR_SUFFIX_RE.search(raw_event_name)
+    if year_match:
+        return datetime(int(year_match.group(1)), 6, 1)
+    return None
+
+
 def compute_default_gold(session, result_medal: ResultMedal) -> bool:
     """True iff place==1 AND no other rows in result_medals share (event_name, division)."""
     if result_medal.place != 1:

@@ -29,7 +29,6 @@ import csv
 import os
 import sys
 import uuid as _uuid
-from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
@@ -173,6 +172,7 @@ def main():
         print("Building division cache...", flush=True)
         division_cache = lib.build_division_cache(db.session)
         print(f"  {len(division_cache)} divisions cached", flush=True)
+        event_when_cache = {}
         print("Loading distinct athlete names from result_medals...", flush=True)
         # Don't load full ORM rows — with ~850k result_medals that's gigabytes.
         # Keep only the distinct name strings in memory for process.extract;
@@ -254,16 +254,7 @@ def main():
                 return "skipped"
             belt, age, gender, _weight = division_parts
 
-            year_match = lib.YEAR_SUFFIX_RE.search(rm.event_name)
-            if not year_match:
-                return "skipped"
-            tentative_date = datetime(int(year_match.group(1)), 6, 1)
-
-            if not lib.medal_is_plausible(db.session, athlete.id, belt, tentative_date):
-                return "skipped"
-            if not lib.gender_is_plausible(db.session, athlete.id, gender):
-                return "skipped"
-            if not lib.age_is_plausible(db.session, athlete.id, age, tentative_date):
+            if not lib.YEAR_SUFFIX_RE.search(rm.event_name):
                 return "skipped"
 
             gi = not lib.is_no_gi_event(rm.event_name)
@@ -279,6 +270,19 @@ def main():
             # earlier flushed inserts for this athlete. Defer creation until
             # we're certain we'll insert a Medal.
             event = lib.find_event(db.session, rm.event_name, rm.event_ibjjf_id)
+
+            tentative_date = lib.tentative_event_date(
+                db.session, rm.event_name, event=event, cache=event_when_cache
+            )
+            if tentative_date is None:
+                return "skipped"
+
+            if not lib.medal_is_plausible(db.session, athlete.id, belt, tentative_date):
+                return "skipped"
+            if not lib.gender_is_plausible(db.session, athlete.id, gender):
+                return "skipped"
+            if not lib.age_is_plausible(db.session, athlete.id, age, tentative_date):
+                return "skipped"
 
             # Dedup is only meaningful if the event already exists — a brand
             # new event we'd create in the auto branch below cannot have any

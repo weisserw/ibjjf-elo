@@ -1533,19 +1533,22 @@ def athlete_medals_find_missing():
     if has_searched:
         from rapidfuzz import fuzz, process
 
-        # Bound the work: pull distinct candidate names with at least one
-        # 3+-char token overlap, then top-score them.
+        # Bound the work: require the first AND last 3+-char tokens of the
+        # query to both appear in the candidate's name (substring). This
+        # mirrors the first/last identity guard used elsewhere — it keeps
+        # "Carlos Gracie" → "Carlos Eduardo Gracie" matches but drops the
+        # flood of unrelated rows that share a single common token.
         normalized_q = medal_lib.normalize(query_name)
         tokens = [t for t in normalized_q.split() if len(t) >= 3]
         rm_query = db.session.query(medal_lib.ResultMedal)
         if tokens:
-            from sqlalchemy import or_, func
+            from sqlalchemy import func
 
-            conds = [
-                func.lower(medal_lib.ResultMedal.athlete_name).contains(t)
-                for t in tokens
-            ]
-            rm_query = rm_query.filter(or_(*conds))
+            anchor_tokens = {tokens[0], tokens[-1]} if len(tokens) > 1 else {tokens[0]}
+            for t in anchor_tokens:
+                rm_query = rm_query.filter(
+                    func.lower(medal_lib.ResultMedal.athlete_name).contains(t)
+                )
 
         candidate_rms = rm_query.all()
         name_to_rows = {}
@@ -1555,7 +1558,7 @@ def athlete_medals_find_missing():
 
         if all_names:
             scored = process.extract(
-                query_name, all_names, scorer=fuzz.token_ratio, limit=50
+                query_name, all_names, scorer=fuzz.token_ratio, limit=25
             )
         else:
             scored = []
@@ -1566,8 +1569,10 @@ def athlete_medals_find_missing():
             for m in Medal.query.filter(Medal.athlete_id == athlete.id).all()
         )
 
+        event_when_cache = {}
+
         for cand_name, score, _ in scored:
-            if score < 60:
+            if score < 75:
                 break
             for rm in name_to_rows[cand_name]:
                 division_parts = medal_lib.parse_division_parts(rm.division)
@@ -1584,11 +1589,18 @@ def athlete_medals_find_missing():
                     )
                     continue
                 belt, age, gender, _weight = division_parts
-                year_match = medal_lib.YEAR_SUFFIX_RE.search(rm.event_name)
+                gi = not medal_lib.is_no_gi_event(rm.event_name)
+                division = medal_lib.parse_and_resolve_division(
+                    db.session, rm.division, gi
+                )
+                event = medal_lib.find_event(
+                    db.session, rm.event_name, rm.event_ibjjf_id
+                )
                 tentative_date = (
-                    datetime(int(year_match.group(1)), 6, 1)
-                    if year_match
-                    else datetime.utcnow()
+                    medal_lib.tentative_event_date(
+                        db.session, rm.event_name, event=event, cache=event_when_cache
+                    )
+                    or datetime.utcnow()
                 )
                 belt_ok = medal_lib.medal_is_plausible(
                     db.session, athlete.id, belt, tentative_date
@@ -1599,23 +1611,17 @@ def athlete_medals_find_missing():
                 age_ok = medal_lib.age_is_plausible(
                     db.session, athlete.id, age, tentative_date
                 )
-                gi = not medal_lib.is_no_gi_event(rm.event_name)
-                division = medal_lib.parse_and_resolve_division(
-                    db.session, rm.division, gi
-                )
-                event = medal_lib.find_event(
-                    db.session, rm.event_name, rm.event_ibjjf_id
-                )
+                advisory = False
                 if division and event and (event.id, division.id) in existing_pairs:
                     status, checkable = "duplicate", False
                 elif not gender_ok:
                     status, checkable = "gender_mismatch", False
-                elif not age_ok:
-                    status, checkable = "age_mismatch", False
-                elif not belt_ok:
-                    status, checkable = "belt_mismatch", False
                 elif not division:
                     status, checkable = "no_division", False
+                elif not age_ok:
+                    status, checkable, advisory = "age_mismatch", True, True
+                elif not belt_ok:
+                    status, checkable, advisory = "belt_mismatch", True, True
                 else:
                     status, checkable = "ok", True
                 candidates.append(
@@ -1626,6 +1632,7 @@ def athlete_medals_find_missing():
                         "event": event,
                         "status": status,
                         "checkable": checkable,
+                        "advisory": advisory,
                     }
                 )
 

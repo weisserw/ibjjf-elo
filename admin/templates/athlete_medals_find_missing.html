@@ -7,7 +7,8 @@
         <p class="subtitle is-6">
             Searches the raw IBJJF results archive for medals that match this athlete by name.
             Use the search box to try old/alternate names if the athlete was renamed.
-            Rows that fail the belt-rank or duplicate check are shown but can't be imported.
+            Belt and age mismatches are shown as warnings but can still be imported manually;
+            duplicates, gender mismatches, and unresolved divisions stay blocked.
         </p>
 
         <form method="GET" action="{{ url_for('athlete_medals_find_missing') }}">
@@ -33,8 +34,8 @@
                     <div class="buttons mt-4">
                         <button class="button is-link" type="submit">Import selected</button>
                         <button class="button is-light" type="button"
-                                onclick="document.querySelectorAll('input.find-cbx:not(:disabled)').forEach(c => c.checked = true)">
-                            Select all importable
+                                onclick="document.querySelectorAll('input.find-cbx-ok').forEach(c => c.checked = true)">
+                            Select all without warnings
                         </button>
                     </div>
 
@@ -54,10 +55,10 @@
                         <tbody>
                         {% for c in candidates %}
                             {% set rm = c.rm %}
-                            <tr {% if not c.checkable %}class="has-background-light has-text-grey"{% endif %}>
+                            <tr {% if not c.checkable %}class="has-background-light has-text-grey"{% elif c.advisory %}class="has-background-warning-light"{% endif %}>
                                 <td>
                                     {% if c.checkable %}
-                                        <input class="find-cbx" type="checkbox" name="rm_id" value="{{ rm.id }}">
+                                        <input class="find-cbx{% if not c.advisory %} find-cbx-ok{% endif %}" type="checkbox" name="rm_id" value="{{ rm.id }}">
                                     {% endif %}
                                 </td>
                                 <td>{{ c.score }}</td>
