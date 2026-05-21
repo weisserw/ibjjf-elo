@@ -984,14 +984,23 @@ def scan_event_for_missing_medals(
     )
     event_when = last_match_row[0] if last_match_row else datetime.utcnow()
 
-    # Prefetch plausibility data for every candidate in 3 queries (belt + gender + age)
-    # instead of 3-per-candidate. Without this, the first result_medal in the loop
-    # below populates the per-athlete caches one round-trip at a time — at a big
-    # event that's thousands of sequential queries against prod and the scan stalls.
-    candidate_ids = [a.id for a in candidates]
-    belt_bounds_cache = bulk_athlete_belt_bounds_at(session, candidate_ids, event_when)
-    gender_cache = bulk_athlete_known_genders(session, candidate_ids)
-    age_cache = bulk_athlete_known_ages(session, candidate_ids, event_when)
+    # Plausibility caches. Only prefetched in fuzzy mode, which scores every
+    # candidate against every result_medal and needs belt/gender/age bounds for
+    # all of them up front. In non-fuzzy mode plausibility is only consulted to
+    # disambiguate same-name duplicates (rare), so lazy per-athlete fallback in
+    # the closures below is cheaper than pulling every candidate's full career
+    # history in 5 heavy bulk joins.
+    if fuzzy:
+        candidate_ids = [a.id for a in candidates]
+        belt_bounds_cache = bulk_athlete_belt_bounds_at(
+            session, candidate_ids, event_when
+        )
+        gender_cache = bulk_athlete_known_genders(session, candidate_ids)
+        age_cache = bulk_athlete_known_ages(session, candidate_ids, event_when)
+    else:
+        belt_bounds_cache = {}
+        gender_cache = {}
+        age_cache = {}
 
     # Cache existing (athlete_id) -> set of division_ids already medaled at this event.
     existing_pairs = set(
@@ -1059,38 +1068,46 @@ def scan_event_for_missing_medals(
             )
             continue
 
-        # Belt + gender + age pre-filter: drop candidates whose known belt bounds
-        # rule out this medal's belt, whose known gender is the opposite of the
-        # medal's division, or whose age history is incompatible with the medal's
-        # age bracket. Athletes with no history pass through.
-        plausible_candidates = [
-            a
-            for a in candidates
-            if _plausible(a.id, division.belt, division.gender, division.age)
-        ]
-
         rm_normalized = normalize(rm.athlete_name)
 
         matched_athlete = None
         alternatives = []
 
         if not fuzzy:
-            exact_hits = [
-                a for a in plausible_candidates if a.normalized_name == rm_normalized
-            ]
+            # Match on raw candidates — exact normalized name alone is high-signal
+            # when the candidate already competed at this event. Plausibility is
+            # only needed to disambiguate same-name duplicates below.
+            exact_hits = [a for a in candidates if a.normalized_name == rm_normalized]
             if len(exact_hits) == 1:
                 matched_athlete = exact_hits[0]
             elif len(exact_hits) > 1:
-                # Duplicate athlete rows can exist when the loader creates a new row
-                # for a name that already has a record without an ibjjf_id (or vice
-                # versa). When exactly one exact-name hit has an ibjjf_id, prefer it
-                # — it's the canonical IBJJF-registered athlete.
-                with_ibjjf = [a for a in exact_hits if a.ibjjf_id]
-                if len(with_ibjjf) == 1:
-                    matched_athlete = with_ibjjf[0]
-                else:
-                    alternatives = [{"athlete": a, "score": 100} for a in exact_hits]
+                # First try plausibility (belt/age/gender) to filter the dups.
+                plausible_hits = [
+                    a
+                    for a in exact_hits
+                    if _plausible(a.id, division.belt, division.gender, division.age)
+                ]
+                if len(plausible_hits) == 1:
+                    matched_athlete = plausible_hits[0]
+                elif len(plausible_hits) > 1:
+                    # Duplicate athlete rows can exist when the loader creates a new
+                    # row for a name that already has a record without an ibjjf_id
+                    # (or vice versa). When exactly one exact-name hit has an
+                    # ibjjf_id, prefer it — it's the canonical IBJJF-registered athlete.
+                    with_ibjjf = [a for a in plausible_hits if a.ibjjf_id]
+                    if len(with_ibjjf) == 1:
+                        matched_athlete = with_ibjjf[0]
+                    else:
+                        alternatives = [
+                            {"athlete": a, "score": 100} for a in plausible_hits
+                        ]
         else:
+            # Fuzzy mode pre-filters by plausibility to bound the scoring work.
+            plausible_candidates = [
+                a
+                for a in candidates
+                if _plausible(a.id, division.belt, division.gender, division.age)
+            ]
             scored = []
             for a in plausible_candidates:
                 # IBJJF result pages always use legal name, so personal_name (nicknames
