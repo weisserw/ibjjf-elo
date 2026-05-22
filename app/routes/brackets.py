@@ -72,6 +72,7 @@ from seeding import (
     add_estimated_seeds,
     add_seeding_data,
     add_side_swaps,
+    collect_athlete_medal_details,
 )
 
 log = logging.getLogger("ibjjf")
@@ -1444,6 +1445,43 @@ def registration_competitors():
             "side_swap_bailout_teams": swap_info["bailout_teams"],
         }
     )
+
+
+@brackets_route.route("/api/brackets/registrations/competitor_medal_breakdown")
+def registration_competitor_medal_breakdown():
+    from uuid import UUID
+
+    link = request.args.get("link")
+    division = request.args.get("division")
+    gi = request.args.get("gi")
+    athlete_id = request.args.get("athlete_id")
+
+    if not link or not division or not gi or not athlete_id:
+        return jsonify({"error": "Missing parameter"}), 400
+
+    gi = gi.lower() == "true"
+
+    try:
+        athlete_uuid = UUID(athlete_id)
+    except ValueError:
+        return jsonify({"error": "Invalid athlete_id"}), 400
+
+    try:
+        divdata = parse_division(division)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    target_event_name = None
+    db_link = (
+        db.session.query(RegistrationLink.name)
+        .filter(RegistrationLink.link == link)
+        .first()
+    )
+    if db_link is not None:
+        target_event_name = db_link.name
+
+    result = collect_athlete_medal_details(athlete_uuid, divdata, gi, target_event_name)
+    return jsonify(result)
 
 
 @brackets_route.route("/api/brackets/registrations/elites")

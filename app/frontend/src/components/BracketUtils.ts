@@ -130,6 +130,32 @@ export interface CategoriesResponse {
   total?: number
 }
 
+export interface AthleteMedalDetail {
+  event_name: string
+  division_age: string
+  division_weight: string
+  place: number
+  base_points: number
+  star: number
+  season_mult: number
+  weight_mult: number
+  total: number
+  happened_at: string | null
+  bucket: 'weight' | 'open'
+}
+
+export interface MedalBreakdownBucket {
+  medals: AthleteMedalDetail[]
+  points_total: number
+  open_class_points_total: number
+}
+
+export interface MedalBreakdownResponse {
+  points?: MedalBreakdownBucket
+  grand_slam?: MedalBreakdownBucket
+  error?: string
+}
+
 export type MatNumberString = string
 
 export type MatLinkType = 'youtube' | 'flo'

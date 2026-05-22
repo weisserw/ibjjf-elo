@@ -335,7 +335,18 @@ const translations = {
     "M5 WC": "M5 WC",
     "M6 WC": "M6 WC",
     "M7 WC": "M7 WC",
-    "Estimated seeding is a BETA feature and can vary from the actual seeding for a division for many reasons, including but not limited to: missing medals in our system, athletes changing teams or gaining points before an event, and differences in tie breaks. The IBJJF will also swap positions of teammates on the same side of the bracket. These seeds should not be mistaken for official IBJJF seeds.": "A estimativa de seeding é um recurso BETA e pode variar da seeding real para uma divisão por muitas razões, incluindo mas não se limitando a: medalhas faltando em nosso sistema, atletas mudando de equipe ou ganhando pontos antes de um evento, e diferenças em tie breaks. A IBJJF também trocará posições de colegas de equipe do mesmo lado da chave. Essas seeds não devem ser confundidas com seeds oficiais da IBJJF."
+    "Estimated seeding is a BETA feature and can vary from the actual seeding for a division for many reasons, including but not limited to: missing medals in our system, athletes changing teams or gaining points before an event, and differences in tie breaks. The IBJJF will also swap positions of teammates on the same side of the bracket. These seeds should not be mistaken for official IBJJF seeds.": "A estimativa de seeding é um recurso BETA e pode variar da seeding real para uma divisão por muitas razões, incluindo mas não se limitando a: medalhas faltando em nosso sistema, atletas mudando de equipe ou ganhando pontos antes de um evento, e diferenças em tie breaks. A IBJJF também trocará posições de colegas de equipe do mesmo lado da chave. Essas seeds não devem ser confundidas com seeds oficiais da IBJJF.",
+    "Event": "Evento",
+    "Points": "Pontos",
+    "Star": "Estrela",
+    "Season": "Temporada",
+    "Total": "Total",
+    "Back": "Voltar",
+    "No medals contribute to this athlete's regular-season points for this division.": "Nenhuma medalha contribui para os pontos da temporada regular deste atleta nesta divisão.",
+    "No medals contribute to this athlete's grand slam points for this division.": "Nenhuma medalha contribui para os pontos de grand slam deste atleta nesta divisão.",
+    "Grand Slam": "Grand Slam",
+    "Open Class Total": "Total Open Class",
+    "Point Total": "Total de Pontos"
 };
 
 export type translationKeys = keyof typeof translations;

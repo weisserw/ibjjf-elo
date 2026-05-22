@@ -486,6 +486,8 @@ function BracketRegistration() {
               competitors={sortedRegistrationCompetitors}
               selectedCategory={selectedRegistrationCategory}
               sideSwaps={sideSwaps}
+              link={registrationEventUrl ?? ''}
+              gi={isGi(registrationEventName ?? '')}
               onClose={() => setEstSeedModalOpen(false)}
             />
           )

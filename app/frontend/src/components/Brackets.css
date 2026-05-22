@@ -321,3 +321,44 @@
   margin: 0;
   padding: 0;
 }
+
+.est-seed-athlete-link {
+  background: transparent;
+  border: none;
+  color: #1976d2;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  white-space: normal;
+}
+
+.est-seed-athlete-link:hover,
+.est-seed-athlete-link:focus {
+  color: #0d47a1;
+  background: transparent;
+  outline: none;
+}
+
+.est-seed-modal-table td.medal-emoji-cell,
+.est-seed-modal-table th.medal-emoji-cell {
+  padding-left: 0;
+  padding-right: 0;
+  width: 1px;
+  white-space: nowrap;
+}
+
+.est-seed-back-button .icon {
+  font-size: 1rem;
+}
+
+.medal-breakdown-tabs.tabs.is-boxed li.is-active a {
+  background-color: #eee;
+  border-color: #9ca3af;
+  border-bottom-color: transparent !important;
+  color: #1f2937;
+}

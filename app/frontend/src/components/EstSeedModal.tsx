@@ -1,11 +1,14 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Competitor, SideSwap } from './BracketUtils'
+import AthleteMedalBreakdown from './AthleteMedalBreakdown'
 import { t, type translationKeys } from '../translate'
 
 interface EstSeedModalProps {
   competitors: Competitor[]
   selectedCategory: string | null
   sideSwaps: SideSwap[]
+  link: string
+  gi: boolean
   onClose: () => void
 }
 
@@ -108,8 +111,9 @@ function renderCell(value: unknown, type: ColumnType): string {
   return String(value)
 }
 
-function EstSeedModal({ competitors, selectedCategory, onClose }: EstSeedModalProps) {
+function EstSeedModal({ competitors, selectedCategory, link, gi, onClose }: EstSeedModalProps) {
   const columns = useMemo(() => columnsForDivision(selectedCategory), [selectedCategory])
+  const [selectedAthlete, setSelectedAthlete] = useState<Competitor | null>(null)
 
   const sorted = useMemo(() => {
     return [...competitors].sort((a, b) => {
@@ -121,76 +125,111 @@ function EstSeedModal({ competitors, selectedCategory, onClose }: EstSeedModalPr
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        if (selectedAthlete) {
+          setSelectedAthlete(null)
+        } else {
+          onClose()
+        }
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, selectedAthlete])
 
   return (
     <div className="modal is-active est-seed-modal">
       <div className="modal-background" onClick={onClose}></div>
       <div className="modal-content est-seed-modal-content">
-        <button
-          className="delete is-medium est-seed-modal-close"
-          aria-label="close"
-          onClick={onClose}
-        ></button>
+        {!selectedAthlete && (
+          <button
+            className="delete is-medium est-seed-modal-close"
+            aria-label="close"
+            onClick={onClose}
+          ></button>
+        )}
         <div className="est-seed-modal-body">
-          <h2 className="title is-5">{t('Estimated Seeding')}</h2>
-          <div className="table-container">
-            <table className="table is-fullwidth est-seed-modal-table">
-              <thead>
-                <tr>
-                  <th className="has-text-right">#</th>
-                  <th>{t('Name')}</th>
-                  <th>{t('Team')}</th>
-                  {columns.map(c => (
-                    <th
-                      key={c.key as string}
-                      className={`no-wrap ${c.type === 'bool' ? 'has-text-centered' : 'has-text-right'}`}
-                    >
-                      {c.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((c, i) => (
-                  <tr key={`${c.name}-${c.est_seed ?? ''}`}>
-                    <td className="has-text-right">{i + 1}</td>
-                    <td>{c.personal_name ? c.personal_name : c.name}</td>
-                    <td>{c.team}</td>
-                    {columns.map(col => (
-                      <td
-                        key={col.key as string}
-                        className={col.type === 'bool' ? 'has-text-centered' : 'has-text-right'}
-                      >
-                        {renderCell(c[col.key], col.type)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {/*
-          {sideSwapBailout && (
-            <div className="notification is-warning is-light est-seed-swap-note mt-4">
-              {sideSwapBailout}
-            </div>
+          {selectedAthlete ? (
+            <>
+              <div className="is-flex is-align-items-center mb-3">
+                <button
+                  className="button is-small is-light mr-3 est-seed-back-button"
+                  aria-label={t('Back')}
+                  onClick={() => setSelectedAthlete(null)}
+                >
+                  <span className="icon">
+                    <i className="fas fa-arrow-left" aria-hidden="true"></i>
+                  </span>
+                </button>
+                <h2 className="title is-5 mb-0">
+                  {selectedAthlete.personal_name ?? selectedAthlete.name}
+                </h2>
+              </div>
+              {selectedAthlete.id && selectedCategory && (
+                <AthleteMedalBreakdown
+                  athleteId={selectedAthlete.id}
+                  link={link}
+                  division={selectedCategory}
+                  gi={gi}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <h2 className="title is-5">{t('Estimated Seeding')}</h2>
+              <div className="table-container">
+                <table className="table is-fullwidth est-seed-modal-table">
+                  <thead>
+                    <tr>
+                      <th className="has-text-right">#</th>
+                      <th>{t('Name')}</th>
+                      <th>{t('Team')}</th>
+                      {columns.map(c => (
+                        <th
+                          key={c.key as string}
+                          className={`no-wrap ${c.type === 'bool' ? 'has-text-centered' : 'has-text-right'}`}
+                        >
+                          {c.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sorted.map((c, i) => {
+                      const displayName = c.personal_name ? c.personal_name : c.name
+                      return (
+                        <tr key={`${c.name}-${c.est_seed ?? ''}`}>
+                          <td className="has-text-right">{i + 1}</td>
+                          <td>
+                            {c.id ? (
+                              <button
+                                type="button"
+                                className="est-seed-athlete-link"
+                                onClick={() => setSelectedAthlete(c)}
+                              >
+                                {displayName}
+                              </button>
+                            ) : (
+                              displayName
+                            )}
+                          </td>
+                          <td>{c.team}</td>
+                          {columns.map(col => (
+                            <td
+                              key={col.key as string}
+                              className={col.type === 'bool' ? 'has-text-centered' : 'has-text-right'}
+                            >
+                              {renderCell(c[col.key], col.type)}
+                            </td>
+                          ))}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
-          {sideSwaps.length > 0 && (
-            <div className="notification is-info is-light est-seed-swap-note mt-4">
-              <p className="mb-2"><strong>{t('Same-team side-swaps applied')}:</strong></p>
-              <ul>
-                {sideSwaps.map((s, i) => (
-                  <li key={i}>{s.name_a} ↔ {s.name_b}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          */}
           <p className="est-seed-disclaimer mt-4">
             {t('Estimated seeding is a BETA feature and can vary from the actual seeding for a division for many reasons, including but not limited to: missing medals in our system, athletes changing teams or gaining points before an event, and differences in tie breaks. The IBJJF will also swap positions of teammates on the same side of the bracket. These seeds should not be mistaken for official IBJJF seeds.')}
           </p>

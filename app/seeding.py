@@ -946,6 +946,60 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_range
     return result
 
 
+def _compute_medal_contribution(
+    place,
+    weight,
+    event_name,
+    division_age,
+    division_weight,
+    gi,
+    season_mult,
+    weight_multipliers,
+    division_is_open,
+):
+    """Pure computation of a single medal's seeding contribution.
+
+    Returns ``(bucket, contribution, details)`` where:
+      - ``bucket`` is ``"weight"`` or ``"open"`` (which accumulator the
+        caller should add to). For non-open divisions, open-class medals
+        fold into the ``"weight"`` bucket.
+      - ``contribution`` is the float point value (``0.0`` if the medal
+        contributes nothing — e.g. an adjacent-weight medal with weight
+        multiplier 0).
+      - ``details`` is a dict with the per-component values used to build
+        the contribution: ``event_name``, ``division_age``,
+        ``division_weight``, ``place``, ``base_points``, ``star``,
+        ``season_mult``, ``weight_mult``, ``total``.
+    """
+    star_table = _star_table_for_division(division_age, gi)
+    star_mult = star_table.get(
+        _canonical_event_base(_event_base(_normalize_event_name(event_name))),
+        DEFAULT_STAR_RATING,
+    )
+    if weight in SEEDING_OPEN_CLASS_WEIGHTS:
+        base_points = _OPEN_PLACE_POINTS[place]
+        weight_mult = 1.0
+        contribution = base_points * season_mult * star_mult
+        bucket = "open" if division_is_open else "weight"
+    else:
+        base_points = _WEIGHT_PLACE_POINTS[place]
+        weight_mult = weight_multipliers.get(weight, 0.0)
+        contribution = base_points * season_mult * weight_mult * star_mult
+        bucket = "weight"
+    details = {
+        "event_name": event_name,
+        "division_age": division_age,
+        "division_weight": division_weight,
+        "place": place,
+        "base_points": base_points,
+        "star": star_mult,
+        "season_mult": season_mult,
+        "weight_mult": weight_mult,
+        "total": contribution,
+    }
+    return bucket, contribution, details
+
+
 def _score_medal(
     weight_acc,
     open_acc,
@@ -969,22 +1023,337 @@ def _score_medal(
     open-class place values), so the final ``points`` total reflects every
     medal that contributes seeding for this division.
     """
-    star_table = _star_table_for_division(division_age, gi)
-    star_mult = star_table.get(
-        _canonical_event_base(_event_base(_normalize_event_name(event_name))),
-        DEFAULT_STAR_RATING,
+    bucket, contribution, _ = _compute_medal_contribution(
+        place,
+        weight,
+        event_name,
+        division_age,
+        weight,
+        gi,
+        season_mult,
+        weight_multipliers,
+        division_is_open,
     )
-    if weight in SEEDING_OPEN_CLASS_WEIGHTS:
-        contribution = _OPEN_PLACE_POINTS[place] * season_mult * star_mult
-        target = open_acc if division_is_open else weight_acc
-        target[athlete_id] = target.get(athlete_id, 0) + contribution
-    else:
-        weight_mult = weight_multipliers.get(weight, 0.0)
-        if weight_mult:
-            weight_acc[athlete_id] = (
-                weight_acc.get(athlete_id, 0)
-                + _WEIGHT_PLACE_POINTS[place] * season_mult * weight_mult * star_mult
-            )
+    if weight not in SEEDING_OPEN_CLASS_WEIGHTS and not contribution:
+        return
+    target = open_acc if bucket == "open" else weight_acc
+    target[athlete_id] = target.get(athlete_id, 0) + contribution
+
+
+def _suspension_ranges_for_athlete_id(athlete_id):
+    """Build the suspension-ranges dict for a single athlete id, mirroring
+    the structure produced by :func:`_suspension_ranges_by_athlete_id` but
+    looking up the athlete's name from the database instead of from a row
+    set. Returns ``{}`` when the athlete has no suspensions on file.
+    """
+    from models import Athlete
+
+    name_row = db.session.query(Athlete.name).filter(Athlete.id == athlete_id).first()
+    if not name_row:
+        return {}
+    name = name_row.name
+    result = {}
+    for s in (
+        db.session.query(
+            Suspension.athlete_name, Suspension.start_date, Suspension.end_date
+        )
+        .filter(Suspension.athlete_name == name)
+        .all()
+    ):
+        result.setdefault(athlete_id, []).append((s.start_date, s.end_date))
+    return result
+
+
+def _iter_regular_season_medal_rows(
+    athlete_ids,
+    divdata,
+    gi,
+    target_type,
+    seasons,
+    cbjj_seasons,
+    suspension_ranges,
+    common_filters=None,
+):
+    """Yield ``(medal_row, season_mult)`` for every medal that contributes
+    to the regular-season ``points`` bucket for the given athletes.
+
+    Encapsulates all the gating logic — source-type filtering, suspension
+    exclusion, season-window filtering, and season-multiplier lookup — that
+    used to live inline in ``add_seeding_data``. The yielded rows are the
+    canonical "which medals count toward this division's regular-season
+    points" set, so both the existing pipeline and the per-athlete
+    drill-down endpoint can be driven from this generator.
+    """
+    if not (seasons or cbjj_seasons):
+        return
+    if not athlete_ids:
+        return
+
+    age_filter = _seeding_category(divdata["age"], gi)
+    if age_filter is None:
+        return
+    weight_multipliers = _weight_multipliers(divdata["weight"])
+    weight_filter = list(weight_multipliers.keys()) + list(SEEDING_OPEN_CLASS_WEIGHTS)
+    if not weight_filter:
+        return
+
+    if common_filters is None:
+        common_filters = (
+            Medal.athlete_id.in_(athlete_ids),
+            Medal.place.in_(_VALID_MEDAL_PLACES),
+            Division.gi == gi,
+            Division.belt == divdata["belt"],
+            Division.age.in_(age_filter),
+            Division.weight.in_(weight_filter),
+            Event.name.notilike(_IBJJF_CROWN_EVENT_NAME_PATTERN),
+        )
+
+    earliest_candidates = [s[-1][0] for s in (seasons, cbjj_seasons) if s]
+    earliest_start = min(earliest_candidates)
+    latest_end = (seasons or cbjj_seasons)[0][1]
+
+    medal_rows = (
+        db.session.query(
+            Medal.athlete_id,
+            Medal.place,
+            Medal.happened_at,
+            Division.age,
+            Division.weight,
+            Event.name.label("event_name"),
+        )
+        .join(Division, Medal.division_id == Division.id)
+        .join(Event, Medal.event_id == Event.id)
+        .filter(
+            *common_filters,
+            Medal.happened_at >= earliest_start,
+            Medal.happened_at < latest_end,
+        )
+        .all()
+    )
+    for r in medal_rows:
+        if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
+            continue
+        source_type = _event_tournament_type(r.event_name)
+        if source_type == TOURNAMENT_TYPE_NONE:
+            continue
+        if not gi:
+            source_type = TOURNAMENT_TYPE_IBJJF_ONLY
+        if (
+            source_type == TOURNAMENT_TYPE_CBJJ_ONLY
+            and target_type == TOURNAMENT_TYPE_IBJJF_ONLY
+        ):
+            continue
+        if (
+            source_type in (TOURNAMENT_TYPE_CBJJ_ONLY, TOURNAMENT_TYPE_MIXED)
+            and target_type != TOURNAMENT_TYPE_IBJJF_ONLY
+        ):
+            season_mult = _season_multiplier(cbjj_seasons, r.happened_at)
+        else:
+            season_mult = _season_multiplier(seasons, r.happened_at)
+        if season_mult is None:
+            continue
+        yield r, season_mult
+
+
+def _iter_grand_slam_medal_rows(
+    athlete_ids,
+    divdata,
+    gi,
+    target_type,
+    gs_multipliers,
+    cbjj_seasons,
+    suspension_ranges,
+    common_filters=None,
+):
+    """Yield ``(medal_row, gs_mult)`` for every medal that contributes to
+    the ``grand_slam_points`` bucket for the given athletes.
+
+    Parallels :func:`_iter_regular_season_medal_rows`. The Grand Slam
+    multiplier is driven by per-event-type recency from ``gs_multipliers``
+    (or the CBJJ season window when scoring a Brazilian/CBJJ target).
+    """
+    if not gs_multipliers:
+        return
+    if not athlete_ids:
+        return
+
+    age_filter = _seeding_category(divdata["age"], gi)
+    if age_filter is None:
+        return
+    weight_multipliers = _weight_multipliers(divdata["weight"])
+    weight_filter = list(weight_multipliers.keys()) + list(SEEDING_OPEN_CLASS_WEIGHTS)
+    if not weight_filter:
+        return
+
+    if common_filters is None:
+        common_filters = (
+            Medal.athlete_id.in_(athlete_ids),
+            Medal.place.in_(_VALID_MEDAL_PLACES),
+            Division.gi == gi,
+            Division.belt == divdata["belt"],
+            Division.age.in_(age_filter),
+            Division.weight.in_(weight_filter),
+            Event.name.notilike(_IBJJF_CROWN_EVENT_NAME_PATTERN),
+        )
+
+    medal_rows = (
+        db.session.query(
+            Medal.athlete_id,
+            Medal.place,
+            Medal.event_id,
+            Medal.happened_at,
+            Division.age,
+            Division.weight,
+            Event.name.label("event_name"),
+        )
+        .join(Division, Medal.division_id == Division.id)
+        .join(Event, Medal.event_id == Event.id)
+        .filter(
+            *common_filters,
+            Medal.event_id.in_(list(gs_multipliers.keys())),
+        )
+        .all()
+    )
+    for r in medal_rows:
+        if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
+            continue
+        source_type = _event_tournament_type(r.event_name)
+        if source_type == TOURNAMENT_TYPE_NONE:
+            continue
+        if not gi:
+            source_type = TOURNAMENT_TYPE_IBJJF_ONLY
+        if (
+            source_type == TOURNAMENT_TYPE_CBJJ_ONLY
+            and target_type == TOURNAMENT_TYPE_IBJJF_ONLY
+        ):
+            continue
+        if (
+            source_type in (TOURNAMENT_TYPE_CBJJ_ONLY, TOURNAMENT_TYPE_MIXED)
+            and target_type != TOURNAMENT_TYPE_IBJJF_ONLY
+        ):
+            gs_mult = _season_multiplier(cbjj_seasons, r.happened_at)
+            if gs_mult is None:
+                continue
+        else:
+            gs_mult = gs_multipliers[r.event_id]
+        yield r, gs_mult
+
+
+def _collect_bucket_details(medal_iter, gi, weight_multipliers, division_is_open):
+    """Walk a ``(medal_row, season_mult)`` iterator and produce the
+    drill-down payload for a single bucket: a list of detail dicts (sorted
+    by ``happened_at`` descending, zero-contribution medals dropped) plus
+    the integer per-accumulator totals (``points_total`` for the weight
+    bucket, ``open_class_points_total`` for the open-class bucket).
+
+    For non-open-class divisions, open-class medals fold into the
+    ``"weight"`` bucket, so ``open_class_points_total`` will always be 0
+    there — matching the main table's ``Open Pts`` column."""
+    rows = []
+    weight_total = 0.0
+    open_total = 0.0
+    for r, season_mult in medal_iter:
+        bucket, contribution, details = _compute_medal_contribution(
+            r.place,
+            r.weight,
+            r.event_name,
+            r.age,
+            r.weight,
+            gi,
+            season_mult,
+            weight_multipliers,
+            division_is_open,
+        )
+        if not contribution:
+            continue
+        details["bucket"] = bucket
+        details["happened_at"] = (
+            r.happened_at.isoformat() if r.happened_at is not None else None
+        )
+        rows.append(details)
+        if bucket == "open":
+            open_total += contribution
+        else:
+            weight_total += contribution
+    rows.sort(key=lambda d: d.get("happened_at") or "", reverse=True)
+    return {
+        "medals": rows,
+        "points_total": math.floor(weight_total),
+        "open_class_points_total": math.floor(open_total),
+    }
+
+
+def collect_athlete_medal_details(athlete_id, divdata, gi, target_event_name, now=None):
+    """Return the per-medal breakdown that drives the modal drill-down for
+    a single athlete, split into the regular ``points`` and
+    ``grand_slam_points`` buckets.
+
+    Mirrors the setup ``add_seeding_data`` does — resolving target type,
+    season windows, weight multipliers, and suspension ranges — then walks
+    :func:`_iter_regular_season_medal_rows` and
+    :func:`_iter_grand_slam_medal_rows` for the athlete and computes each
+    medal's contribution via :func:`_compute_medal_contribution`.
+
+    Returns ``{"points": {...}, "grand_slam": {...}}`` where each bucket
+    is ``{"medals": [...], "points_total": <int>, "open_class_points_total":
+    <int>}``. ``medals`` is sorted by ``happened_at`` descending.
+    Zero-contribution medals are dropped. ``points_total`` matches the
+    main table's ``Pts`` / ``GS Pts`` column and ``open_class_points_total``
+    matches ``Open Pts`` / ``GS Open Pts`` (always 0 for non-open
+    divisions, since open-class medals fold into the weight bucket there).
+    """
+    empty = {"medals": [], "points_total": 0, "open_class_points_total": 0}
+    target_type = _event_tournament_type(target_event_name)
+    if target_type == TOURNAMENT_TYPE_NONE:
+        target_type = TOURNAMENT_TYPE_IBJJF_ONLY
+
+    age_filter = _seeding_category(divdata["age"], gi)
+    if age_filter is None:
+        return {"points": empty, "grand_slam": empty}
+
+    weight_multipliers = _weight_multipliers(divdata["weight"])
+    weight_filter = list(weight_multipliers.keys()) + list(SEEDING_OPEN_CLASS_WEIGHTS)
+    if not weight_filter:
+        return {"points": empty, "grand_slam": empty}
+    division_is_open = divdata["weight"] in SEEDING_OPEN_CLASS_WEIGHTS
+
+    if now is None:
+        now = datetime.now()
+    seasons = _recent_seasons(divdata["age"], gi, now, n=3)
+    cbjj_seasons = _cbjj_recent_seasons(now, n=3) if gi else []
+    gs_multipliers = _grand_slam_event_multipliers(divdata["age"], gi, now, n=3)
+
+    suspension_ranges = _suspension_ranges_for_athlete_id(athlete_id)
+
+    points = _collect_bucket_details(
+        _iter_regular_season_medal_rows(
+            [athlete_id],
+            divdata,
+            gi,
+            target_type,
+            seasons,
+            cbjj_seasons,
+            suspension_ranges,
+        ),
+        gi,
+        weight_multipliers,
+        division_is_open,
+    )
+    grand_slam = _collect_bucket_details(
+        _iter_grand_slam_medal_rows(
+            [athlete_id],
+            divdata,
+            gi,
+            target_type,
+            gs_multipliers,
+            cbjj_seasons,
+            suspension_ranges,
+        ),
+        gi,
+        weight_multipliers,
+        division_is_open,
+    )
+    return {"points": points, "grand_slam": grand_slam}
 
 
 def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
@@ -1112,122 +1481,56 @@ def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
     # Regular points: medals inside the rolling-Worlds-anchored season
     # window (or the Brasileiros-anchored CBJJ window for gi Brazilian
     # tournaments — they're scored on the CBJJ calendar instead).
-    if seasons or cbjj_seasons:
-        earliest_candidates = [s[-1][0] for s in (seasons, cbjj_seasons) if s]
-        earliest_start = min(earliest_candidates)
-        # All season lists share the same far-future upper bound.
-        latest_end = (seasons or cbjj_seasons)[0][1]
-        medal_rows = (
-            db.session.query(
-                Medal.athlete_id,
-                Medal.place,
-                Medal.happened_at,
-                Division.age,
-                Division.weight,
-                Event.name.label("event_name"),
-            )
-            .join(Division, Medal.division_id == Division.id)
-            .join(Event, Medal.event_id == Event.id)
-            .filter(
-                *common_filters,
-                Medal.happened_at >= earliest_start,
-                Medal.happened_at < latest_end,
-            )
-            .all()
+    for r, season_mult in _iter_regular_season_medal_rows(
+        athlete_ids,
+        divdata,
+        gi,
+        target_type,
+        seasons,
+        cbjj_seasons,
+        suspension_ranges,
+        common_filters,
+    ):
+        _score_medal(
+            points_by_athlete,
+            open_by_athlete,
+            r.athlete_id,
+            r.place,
+            r.weight,
+            r.event_name,
+            r.age,
+            gi,
+            season_mult,
+            weight_multipliers,
+            division_is_open,
         )
-        for r in medal_rows:
-            if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
-                continue
-            source_type = _event_tournament_type(r.event_name)
-            if source_type == TOURNAMENT_TYPE_NONE:
-                continue
-            if not gi:
-                source_type = TOURNAMENT_TYPE_IBJJF_ONLY
-            if (
-                source_type == TOURNAMENT_TYPE_CBJJ_ONLY
-                and target_type == TOURNAMENT_TYPE_IBJJF_ONLY
-            ):
-                continue
-            if (
-                source_type in (TOURNAMENT_TYPE_CBJJ_ONLY, TOURNAMENT_TYPE_MIXED)
-                and target_type != TOURNAMENT_TYPE_IBJJF_ONLY
-            ):
-                season_mult = _season_multiplier(cbjj_seasons, r.happened_at)
-            else:
-                season_mult = _season_multiplier(seasons, r.happened_at)
-            if season_mult is None:
-                continue
-            _score_medal(
-                points_by_athlete,
-                open_by_athlete,
-                r.athlete_id,
-                r.place,
-                r.weight,
-                r.event_name,
-                r.age,
-                gi,
-                season_mult,
-                weight_multipliers,
-                division_is_open,
-            )
 
     # Grand Slam points: medals at the most recent n editions of each Grand
     # Slam event, multipliers driven by per-event-type recency (not by the
     # regular season window).
-    if gs_multipliers:
-        gs_medal_rows = (
-            db.session.query(
-                Medal.athlete_id,
-                Medal.place,
-                Medal.event_id,
-                Medal.happened_at,
-                Division.age,
-                Division.weight,
-                Event.name.label("event_name"),
-            )
-            .join(Division, Medal.division_id == Division.id)
-            .join(Event, Medal.event_id == Event.id)
-            .filter(
-                *common_filters,
-                Medal.event_id.in_(list(gs_multipliers.keys())),
-            )
-            .all()
+    for r, gs_mult in _iter_grand_slam_medal_rows(
+        athlete_ids,
+        divdata,
+        gi,
+        target_type,
+        gs_multipliers,
+        cbjj_seasons,
+        suspension_ranges,
+        common_filters,
+    ):
+        _score_medal(
+            gs_points_by_athlete,
+            gs_open_by_athlete,
+            r.athlete_id,
+            r.place,
+            r.weight,
+            r.event_name,
+            r.age,
+            gi,
+            gs_mult,
+            weight_multipliers,
+            division_is_open,
         )
-        for r in gs_medal_rows:
-            if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
-                continue
-            source_type = _event_tournament_type(r.event_name)
-            if source_type == TOURNAMENT_TYPE_NONE:
-                continue
-            if not gi:
-                source_type = TOURNAMENT_TYPE_IBJJF_ONLY
-            if (
-                source_type == TOURNAMENT_TYPE_CBJJ_ONLY
-                and target_type == TOURNAMENT_TYPE_IBJJF_ONLY
-            ):
-                continue
-            if (
-                source_type in (TOURNAMENT_TYPE_CBJJ_ONLY, TOURNAMENT_TYPE_MIXED)
-                and target_type != TOURNAMENT_TYPE_IBJJF_ONLY
-            ):
-                gs_mult = _season_multiplier(cbjj_seasons, r.happened_at)
-                if gs_mult is None:
-                    continue
-            else:
-                gs_mult = gs_multipliers[r.event_id]
-            _score_medal(
-                gs_points_by_athlete,
-                gs_open_by_athlete,
-                r.athlete_id,
-                r.place,
-                r.weight,
-                r.event_name,
-                r.age,
-                gi,
-                gs_mult,
-                weight_multipliers,
-                division_is_open,
-            )
 
     if is_adult_black:
         bb_data = _adult_black_belt_seeding(
