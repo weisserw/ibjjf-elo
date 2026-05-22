@@ -127,7 +127,11 @@ KNOWN_BAD_LINKS = {
     # Same Kids-page-pointing-at-adult-page mistake on British National 2016.
     ("British National Kids IBJJF Jiu-Jitsu Championship", "2016", "555"),
     # Chicago Summer International 2016 Kids button points at the adult page.
-    ("Chicago Summer Kids International Open IBJJF Jiu-Jitsu Championship", "2016", "566"),
+    (
+        "Chicago Summer Kids International Open IBJJF Jiu-Jitsu Championship",
+        "2016",
+        "566",
+    ),
     # Phantom Madrid 2025 button points at the real Madrid 2026 page (3077);
     # there was no 2025 Madrid Open. Drop the 2025 label, keep 2026.
     ("Madrid International Open IBJJF Jiu-Jitsu Championship", "2025", "3077"),
@@ -140,7 +144,11 @@ KNOWN_BAD_LINKS = {
     # owns 3121 unambiguously. NOTE: this is the same gi/no-gi shape as the
     # Curitiba/Florianópolis incident — check medals already in the DB for
     # cross-contamination on these events.
-    ("San Antonio International Open IBJJF Jiu-Jitsu No-Gi Championship", "2026", "3121"),
+    (
+        "San Antonio International Open IBJJF Jiu-Jitsu No-Gi Championship",
+        "2026",
+        "3121",
+    ),
 }
 
 
@@ -482,9 +490,7 @@ def scrape(args):
             continue
         filtered.append(link)
     if skipped_known_bad:
-        print(
-            f"KNOWN_BAD_LINKS: skipped {skipped_known_bad} entries", file=sys.stderr
-        )
+        print(f"KNOWN_BAD_LINKS: skipped {skipped_known_bad} entries", file=sys.stderr)
     all_links = filtered
 
     deduped = []

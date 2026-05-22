@@ -334,20 +334,20 @@ function BracketTable(props: BracketTableProps) {
                 {
                   showEstSeed &&
                   <td className="has-text-right">
-                    {competitor.est_seed_tied && competitor.est_seed != null ? (
-                      <span
-                        className="est-seed-tied"
-                        data-tooltip-id="est-seed-tied-tooltip"
-                        data-tooltip-content={t("The order of tied seeds may differ from what is shown")}
-                        data-tooltip-place="top"
-                      >
-                        {competitor.est_seed}
-                      </span>
-                    ) : swappedNames.has(competitor.name) && competitor.est_seed != null ? (
+                    {swappedNames.has(competitor.name) && competitor.est_seed != null ? (
                       <span
                         className="est-seed-swap"
                         data-tooltip-id="est-seed-swap-tooltip"
                         data-tooltip-content={t("This athlete may swap bracket positions due to a team conflict")}
+                        data-tooltip-place="top"
+                      >
+                        {competitor.est_seed}
+                      </span>
+                    ) : competitor.est_seed_tied && competitor.est_seed != null ? (
+                      <span
+                        className="est-seed-tied"
+                        data-tooltip-id="est-seed-tied-tooltip"
+                        data-tooltip-content={t("The order of tied seeds may differ from what is shown")}
                         data-tooltip-place="top"
                       >
                         {competitor.est_seed}

@@ -1395,33 +1395,20 @@ def add_estimated_seeds(rows, divdata):
         r["est_seed_tied"] = key_counts[k] > 1
 
 
-def _bracket_layout(bracket_size):
-    """For a single-elim bracket of size ``bracket_size`` (a power of 2),
-    return a list ``layout`` where ``layout[slot_index]`` is the seed
-    (1-based) placed at that slot. Standard recursive 'snake' seeding —
-    each level interleaves a seed with its complement, producing a
-    top-bottom-bottom-top block pattern. For size 8:
-    ``[1, 8, 4, 5, 2, 7, 3, 6]``.
+def _side(seed):
+    """Which side of an IBJJF bracket a given 1-based seed lands on (0 or 1).
+
+    IBJJF brackets place seeds 1 and 2 as the anchors of their respective
+    sides, then assign every other seed by parity: even seeds (4, 6, 8,
+    ...) join seed 1 on side 0; odd seeds (3, 5, 7, ...) join seed 2 on
+    side 1. The result is independent of bracket size — the same rule
+    applies whether there are 4 or 256 athletes.
     """
-
-    def gen(size):
-        if size == 1:
-            return [1]
-        half = gen(size // 2)
-        out = []
-        for s in half:
-            out.append(s)
-            out.append(size + 1 - s)
-        return out
-
-    return gen(bracket_size)
-
-
-def _next_power_of_two(n):
-    p = 1
-    while p < n:
-        p *= 2
-    return p
+    if seed == 1:
+        return 0
+    if seed == 2:
+        return 1
+    return 0 if seed % 2 == 0 else 1
 
 
 def add_side_swaps(rows):
@@ -1433,20 +1420,42 @@ def add_side_swaps(rows):
     *would* be swapped is returned, so callers can flag those positions
     as uncertain.
 
-    Bracket geometry: bracket size is the next power of two >= number of
-    athletes, with the remainder as byes. Standard recursive snake seeding
-    decides which half each seed lives in.
+    Bracket geometry: IBJJF brackets split by seed parity (see
+    :func:`_side`). Under that rule, every odd offset (+1, +3, +5, ...)
+    flips the side, so the search just walks odd offsets until it finds
+    a usable target.
+
+    Pairs are processed from highest min-seed to lowest. This lets a
+    higher-min pair's default ``+1`` target land on the worse seed of
+    a still-unprocessed lower-min pair when their seed neighborhoods
+    overlap — one swap resolves both pairs without needing a "fixes"
+    preference.
+
+    Target selection mirrors observed IBJJF behavior: for each
+    same-side pair with worse seed ``s2``, walk odd offsets upward
+    (s2+1, s2+3, ...) then downward (s2-1, s2-3, ...), and pick the
+    first candidate that satisfies all of:
+
+      - in bounds and not the teammate ``s1``;
+      - the athlete at that seed is not already in a previously-emitted
+        swap — IBJJF swaps are disjoint pairs, never chains;
+      - the swap wouldn't pull another team's currently-OK pair into a
+        new same-side collision.
+
+    If no candidate satisfies the third rule, a second pass relaxes it
+    (allowing a break as a last resort) while still respecting the
+    disjoint-pairs constraint.
 
     Behavior:
       - len(rows) <= 3: do nothing.
       - Any team with > 2 athletes: bail out (no swaps) and return the
         offending team name(s) so callers can flag them.
-      - For each pair of same-team athletes whose seeds end up on the same
-        side: pick the worse-seeded teammate and consider swapping with the
-        athlete at seed+1 (or seed-1 if that doesn't help). Track the
-        intended swap so later same-team pairs are evaluated against the
-        post-swap geometry, but the actual row ``est_seed`` values are
-        restored before returning.
+      - For each same-team same-side pair: pick a target with the rules
+        above and swap. If the worse-seeded teammate was already pulled
+        into a prior swap, the pair is left as-is — we never chain a
+        swap through a single athlete. Track the intended swap so later
+        pairs see the post-swap geometry; the row ``est_seed`` values
+        are restored before returning.
 
     Returns ``{"swaps": [{"name_a", "name_b"}, ...],
     "bailout_teams": list[str]}``.
@@ -1467,16 +1476,6 @@ def add_side_swaps(rows):
     if bailout_teams:
         return {"swaps": [], "bailout_teams": bailout_teams}
 
-    bracket_size = _next_power_of_two(num)
-    layout = _bracket_layout(bracket_size)
-    seed_to_slot = [0] * (bracket_size + 1)
-    for slot_idx, seed in enumerate(layout):
-        seed_to_slot[seed] = slot_idx
-    half = bracket_size // 2
-
-    def side(seed):
-        return 0 if seed_to_slot[seed] < half else 1
-
     original_seeds = {id(r): r.get("est_seed") for r in rows}
 
     seed_to_row = {}
@@ -1485,30 +1484,72 @@ def add_side_swaps(rows):
         if s is not None:
             seed_to_row[s] = r
 
-    # Process pairs in order of the better-seeded athlete so earlier pairs
-    # (which had a chance to be placed cleanly by the seeder) are handled
-    # first.
+    # Walk pairs from the higher-seeded end downward (highest min seed
+    # first). The default +1 target for a higher-min pair lands on a
+    # higher-numbered seed where downstream pairs haven't yet been
+    # touched, and — when the pair just below shares overlapping seed
+    # space — the +1 target may itself be that lower pair's worse seed,
+    # so one swap can opportunistically resolve both pairs without
+    # needing a "fixes" preference. (Sorting low-to-high would let the
+    # earliest pair claim a neutral target and leave the lower-min
+    # pair to chase a more distant offset.)
     pairs = sorted(
         [m for m in teams.values() if len(m) == 2],
         key=lambda m: min(x["est_seed"] for x in m),
+        reverse=True,
     )
+
+    swapped_ids = set()
+
+    def would_break(candidate_seed, dest_side):
+        # True iff the swap would pull the candidate's team into a
+        # same-side collision they didn't have before. The candidate
+        # ends up on ``dest_side`` after the swap; if their other
+        # teammate is currently there, they'd land on the same side.
+        row = seed_to_row[candidate_seed]
+        team_name = row.get("team")
+        if not team_name:
+            return False
+        members = teams.get(team_name, [])
+        if len(members) != 2:
+            return False
+        other_row = members[0] if members[1] is row else members[1]
+        other_side = _side(other_row["est_seed"])
+        was_same_side = other_side == _side(row["est_seed"])
+        will_be_same_side = other_side == dest_side
+        return not was_same_side and will_be_same_side
+
+    def find_target(s1, s2, dest_side):
+        # Walk odd offsets s2+1, s2+3, ..., then s2-1, s2-3, .... First
+        # pass refuses targets that would break another pair; second
+        # pass relaxes that as a last resort. Both passes always refuse
+        # already-swapped athletes (IBJJF swaps are disjoint pairs).
+        for allow_break in (False, True):
+            for direction in (1, -1):
+                for offset in range(1, num, 2):
+                    c = s2 + direction * offset
+                    if not (1 <= c <= num) or c == s1:
+                        continue
+                    if id(seed_to_row[c]) in swapped_ids:
+                        continue
+                    if not allow_break and would_break(c, dest_side):
+                        continue
+                    return c
+        return None
 
     for members in pairs:
         m1, m2 = sorted(members, key=lambda x: x["est_seed"])
         s1, s2 = m1["est_seed"], m2["est_seed"]
-        if side(s1) != side(s2):
+        if _side(s1) != _side(s2):
+            continue
+        if id(m2) in swapped_ids:
+            # m2 was already moved by a prior swap; we don't chain a
+            # second swap through the same athlete, so leave the pair
+            # in its current (possibly still same-side) state.
             continue
 
-        target_seed = None
-        for candidate in (s2 + 1, s2 - 1):
-            if candidate < 1 or candidate > num:
-                continue
-            if candidate == s1:
-                # Don't swap with the teammate — no effect.
-                continue
-            if side(candidate) != side(s1):
-                target_seed = candidate
-                break
+        dest_side = _side(s2)
+        target_seed = find_target(s1, s2, dest_side)
         if target_seed is None:
             continue
 
@@ -1520,6 +1561,8 @@ def add_side_swaps(rows):
         seed_to_row[target_seed] = m2
         seed_to_row[s2] = other
         swaps.append({"name_a": m2["name"], "name_b": other["name"]})
+        swapped_ids.add(id(m2))
+        swapped_ids.add(id(other))
 
     for r in rows:
         r["est_seed"] = original_seeds[id(r)]

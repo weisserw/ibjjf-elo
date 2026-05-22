@@ -1562,61 +1562,63 @@ class SideSwapTestCase(unittest.TestCase):
         self.assertEqual(result["bailout_teams"], [])
 
     def test_same_team_already_split_no_swap(self):
-        # N=8 sides: T,B,B,T,T,B,B,T. Seeds 2 and 5 are on different sides.
+        # IBJJF parity sides for N=8: seed 1=T, 2=B, 3=B, 4=T, 5=B, 6=T, 7=B,
+        # 8=T. Seeds 2 (B) and 4 (T) are on different sides.
         rows = [_swap_row(i, f"A{i}", f"Team{i}") for i in range(1, 9)]
         rows[1]["team"] = "Pair"  # seed 2 (B)
-        rows[4]["team"] = "Pair"  # seed 5 (T)
+        rows[3]["team"] = "Pair"  # seed 4 (T)
         result = add_side_swaps(rows)
         self.assertEqual(result["swaps"], [])
         self.assertEqual(self._seeds(rows), list(range(1, 9)))
 
     def test_seed_plus_one_swap_fixes_pair(self):
-        # N=8 sides: T,B,B,T,T,B,B,T. Seeds 4 and 5 are both T.
-        # seed+1 = 6 (B) flips the worse-seeded teammate to the other half.
+        # N=8: seeds 4 and 6 are both T (even -> side 0). seed+1 = 7 (odd
+        # -> B) flips the worse-seeded teammate to the other side.
         rows = [_swap_row(i, f"A{i}", f"Team{i}") for i in range(1, 9)]
         rows[3]["team"] = "Pair"  # seed 4 (T)
-        rows[4]["team"] = "Pair"  # seed 5 (T)
+        rows[5]["team"] = "Pair"  # seed 6 (T)
         result = add_side_swaps(rows)
         self.assertEqual(result["bailout_teams"], [])
         self.assertEqual(len(result["swaps"]), 1)
-        self.assertEqual(result["swaps"][0]["name_a"], "A5")  # would move down
-        self.assertEqual(result["swaps"][0]["name_b"], "A6")  # would move up
+        self.assertEqual(result["swaps"][0]["name_a"], "A6")  # would move down
+        self.assertEqual(result["swaps"][0]["name_b"], "A7")  # would move up
         # est_seed is not mutated; the seeding shown reflects natural order
-        self.assertEqual(rows[4]["est_seed"], 5)
         self.assertEqual(rows[5]["est_seed"], 6)
+        self.assertEqual(rows[6]["est_seed"], 7)
 
-    def test_falls_back_to_seed_minus_one_when_seed_plus_one_does_not_fix(self):
-        # N=8: seeds 1 (T) and 4 (T) same team. seed+1 = 5 (T) doesn't flip.
-        # seed-1 = 3 (B) flips and isn't the teammate -> use that.
+    def test_falls_back_to_seed_minus_one_when_seed_plus_one_oob(self):
+        # N=8: seeds 6 (T) and 8 (T) same team. seed+1 = 9 is OOB, so fall
+        # back to seed-1 = 7 (B) which flips.
         rows = [_swap_row(i, f"A{i}", f"Team{i}") for i in range(1, 9)]
-        rows[0]["team"] = "Pair"  # seed 1 (T)
-        rows[3]["team"] = "Pair"  # seed 4 (T)
+        rows[5]["team"] = "Pair"  # seed 6 (T)
+        rows[7]["team"] = "Pair"  # seed 8 (T)
         result = add_side_swaps(rows)
         self.assertEqual(len(result["swaps"]), 1)
-        self.assertEqual(result["swaps"][0]["name_a"], "A4")
-        self.assertEqual(result["swaps"][0]["name_b"], "A3")
+        self.assertEqual(result["swaps"][0]["name_a"], "A8")
+        self.assertEqual(result["swaps"][0]["name_b"], "A7")
         # est_seed is not mutated; natural seeds remain in place
-        self.assertEqual(rows[3]["est_seed"], 4)
-        self.assertEqual(rows[2]["est_seed"], 3)
+        self.assertEqual(rows[7]["est_seed"], 8)
+        self.assertEqual(rows[6]["est_seed"], 7)
 
-    def test_no_swap_when_neither_neighbor_works(self):
-        # N=4: T,B,B,T. Seeds 1 and 4 same team; seed+1 = 5 doesn't exist
-        # and seed-1 = 3 is on B side. So seed-1 works.
-        # To get a real "no swap possible" case, use seeds (2,3) in N=4:
-        # both B; seed+1 = 4 (T) -> swap works. Need a case where neither
-        # neighbor flips. With recursive snake there isn't one for N=4,
-        # so use the seed-1 == teammate case: seeds 1 and 2 in N=4 are
-        # already on different sides. Use 4 athletes with one pair at
-        # seeds 1 and 4 in N=4: this is actually handled by seed-1.
-        # Skip; covered indirectly by the bracket-size-4 test below.
-        pass
+    def test_seeds_two_and_three_same_team_swaps(self):
+        # Quirky parity edge: seeds 2 and 3 are both on side B (only
+        # adjacent pair that shares a side under the parity rule).
+        # seed+1 = 4 (T) flips.
+        rows = [_swap_row(i, f"A{i}", f"Team{i}") for i in range(1, 9)]
+        rows[1]["team"] = "Pair"  # seed 2 (B)
+        rows[2]["team"] = "Pair"  # seed 3 (B)
+        result = add_side_swaps(rows)
+        self.assertEqual(len(result["swaps"]), 1)
+        self.assertEqual(result["swaps"][0]["name_a"], "A3")
+        self.assertEqual(result["swaps"][0]["name_b"], "A4")
 
     def test_size_four_two_same_team_pairs(self):
-        # N=4 sides: T,B,B,T. Teams: A at (1,4)=T,T; B at (2,3)=B,B.
-        # Process team A first (lower seed 1): seed+1 = 5 OOB; seed-1 = 3 (B)
-        # which isn't teammate -> swap seed 4 with seed 3.
-        # After: A at (1,3) T,B fixed. But wait, the athlete that was at
-        # seed 3 was team B. So team B is now at (2,4) -> B,T fixed too.
+        # N=4 parity sides: 1=T, 2=B, 3=B, 4=T. Teams: A at (1,4)=T,T; B at
+        # (2,3)=B,B. Process team A first (lower seed 1): seed+1 = 5 OOB so
+        # fall back to seed-1 = 3 (B) -> swap seed 4 with seed 3.
+        # After: A at (1,3) T,B fixed. The athlete previously at seed 3
+        # (team B) is now at seed 4, so team B becomes (2,4) -> B,T, also
+        # fixed.
         rows = [
             _swap_row(1, "A1", "A"),
             _swap_row(2, "B2", "B"),
@@ -1630,10 +1632,46 @@ class SideSwapTestCase(unittest.TestCase):
             {result["swaps"][0]["name_a"], result["swaps"][0]["name_b"]}, {"A4", "B3"}
         )
 
+    def test_high_min_seed_first_resolves_adjacent_pairs_in_one_swap(self):
+        # N=8. P at (3, 7) — both B; Q at (4, 6) — both T. Both pairs
+        # are same-side. Under high-to-low processing, Q (min=4) goes
+        # before P (min=3); Q's worse seed is 6 and +1=7 lands on P's
+        # worse seed A7, itself same-side, so the swap moves A7 to the
+        # T side and simultaneously resolves P. Result: a single swap
+        # fixes both pairs, no chain.
+        rows = [_swap_row(i, f"A{i}", f"Team{i}") for i in range(1, 9)]
+        rows[2]["team"] = "P"  # seed 3 (B)
+        rows[6]["team"] = "P"  # seed 7 (B)
+        rows[3]["team"] = "Q"  # seed 4 (T)
+        rows[5]["team"] = "Q"  # seed 6 (T)
+        result = add_side_swaps(rows)
+        self.assertEqual(len(result["swaps"]), 1)
+        self.assertEqual(
+            {result["swaps"][0]["name_a"], result["swaps"][0]["name_b"]},
+            {"A6", "A7"},
+        )
+
+    def test_uses_seed_plus_three_when_seed_plus_one_would_break_another_pair(self):
+        # N=32. P=(27,29) both B; Q=(11,30) currently different sides
+        # (11=B, 30=T). When P is processed, s2+1=30 would pull Q into
+        # a same-side conflict, so IBJJF skips it. The next odd offset
+        # upward is s2+3=32, which is A32 (solo) — safe. The algorithm
+        # must NOT fall down to s2-1=28 first; IBJJF prefers upward
+        # odd offsets.
+        rows = [_swap_row(i, f"A{i}", f"Team{i}") for i in range(1, 33)]
+        rows[26]["team"] = "P"
+        rows[28]["team"] = "P"
+        rows[10]["team"] = "Q"
+        rows[29]["team"] = "Q"
+        result = add_side_swaps(rows)
+        self.assertEqual(len(result["swaps"]), 1)
+        self.assertEqual(result["swaps"][0]["name_a"], "A29")
+        self.assertEqual(result["swaps"][0]["name_b"], "A32")
+
     def test_empty_team_field_does_not_pair(self):
         rows = [_swap_row(i, f"A{i}", "") for i in range(1, 9)]
-        rows[3]["team"] = "Pair"  # seed 4
-        rows[4]["team"] = "Pair"  # seed 5
+        rows[3]["team"] = "Pair"  # seed 4 (T)
+        rows[5]["team"] = "Pair"  # seed 6 (T)
         result = add_side_swaps(rows)
         # Empty-team athletes are not grouped, so only the real "Pair" pair
         # is detected and swapped.
