@@ -71,10 +71,10 @@ function BreakdownTable({ medals, pointsTotal, openClassTotal, divisionIsOpen, e
             <tr key={`${m.event_name}-${m.happened_at ?? ''}-${i}`}>
               <td className="medal-emoji-cell">{medalEmoji(m.place)}</td>
               <td>{m.event_name}</td>
-              <td>{`${m.division_age} / ${m.division_weight}`}</td>
+              <td>{m.division_weight}</td>
               <td className="has-text-right">{formatNumber(m.base_points)}</td>
-              <td className="has-text-right">{formatNumber(m.star)}</td>
-              <td className="has-text-right">{formatNumber(m.season_mult)}</td>
+              <td className="has-text-right">x {formatNumber(m.star)}</td>
+              <td className="has-text-right">x {formatNumber(m.season_mult)}</td>
               <td className="has-text-right">{formatWeightMult(m.weight_mult)}</td>
               <td className="has-text-right">{formatNumber(m.total)}</td>
             </tr>
