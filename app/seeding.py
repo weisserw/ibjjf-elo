@@ -235,12 +235,8 @@ def _is_brazilian_event(event_name):
 
 # Keywords that identify a CBJJ-only tournament — one that runs on the CBJJ
 # calendar but is NOT also an IBJJF tournament. Currently the
-# Sul-Brasileiro and the Campeonato Português.
-_CBJJ_ONLY_EVENT_KEYWORDS = (
-    "sul-brasileiro",
-    "campeonato portugues",
-    "campeonato português",
-)
+# Sul-Brasileiro.
+_CBJJ_ONLY_EVENT_KEYWORDS = ("sul-brasileiro",)
 _CBJJ_ONLY_EVENT_RE = re.compile(
     r"(?:^|\W)(?:"
     + "|".join(re.escape(k) for k in _CBJJ_ONLY_EVENT_KEYWORDS)
