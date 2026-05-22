@@ -71,7 +71,7 @@ from photos import get_s3_client, get_public_photo_url
 from seeding import (
     add_estimated_seeds,
     add_seeding_data,
-    add_side_swaps,
+    # add_side_swaps,
 )
 
 log = logging.getLogger("ibjjf")
@@ -1435,13 +1435,17 @@ def registration_competitors():
     add_seeding_data(rows, divdata, gi, target_event_name)
     add_estimated_seeds(rows, divdata)
 
-    swap_info = add_side_swaps(rows)
+    # disabling swaps until we have a better visualization and can better predict the outcome
+    # of ties
+    # swap_info = add_side_swaps(rows)
 
     return jsonify(
         {
             "competitors": rows,
-            "side_swaps": swap_info["swaps"],
-            "side_swap_bailout_teams": swap_info["bailout_teams"],
+            # "side_swaps": swap_info["swaps"],
+            # "side_swap_bailout_teams": swap_info["bailout_teams"],
+            "side_swaps": [],
+            "side_swap_bailout_teams": [],
         }
     )
 
