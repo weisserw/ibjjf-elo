@@ -1416,13 +1416,15 @@ def registration_competitors():
     )
 
     target_event_name = None
+    event_start_date = None
     db_link = (
-        db.session.query(RegistrationLink.name)
+        db.session.query(RegistrationLink.name, RegistrationLink.event_start_date)
         .filter(RegistrationLink.link == link)
         .first()
     )
     if db_link is not None:
         target_event_name = db_link.name
+        event_start_date = db_link.event_start_date
 
     if divdata["age"] in {JUVENILE, JUVENILE_1, JUVENILE_2}:
         return jsonify(
@@ -1433,7 +1435,7 @@ def registration_competitors():
             }
         )
 
-    add_seeding_data(rows, divdata, gi, target_event_name)
+    add_seeding_data(rows, divdata, gi, target_event_name, now=event_start_date)
     add_estimated_seeds(rows, divdata)
 
     swap_info = add_side_swaps(rows)
@@ -1472,15 +1474,19 @@ def registration_competitor_medal_breakdown():
         return jsonify({"error": str(e)}), 400
 
     target_event_name = None
+    event_start_date = None
     db_link = (
-        db.session.query(RegistrationLink.name)
+        db.session.query(RegistrationLink.name, RegistrationLink.event_start_date)
         .filter(RegistrationLink.link == link)
         .first()
     )
     if db_link is not None:
         target_event_name = db_link.name
+        event_start_date = db_link.event_start_date
 
-    result = collect_athlete_medal_details(athlete_uuid, divdata, gi, target_event_name)
+    result = collect_athlete_medal_details(
+        athlete_uuid, divdata, gi, target_event_name, now=event_start_date
+    )
     return jsonify(result)
 
 

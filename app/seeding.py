@@ -750,6 +750,7 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
             Medal.athlete_id.in_(athlete_ids),
             Medal.event_id.in_(list(eid_to_year.keys())),
             Medal.place == 1,
+            Medal.happened_at < today,
             Division.gi == gi,
             Division.age == ADULT,
             Division.belt == BLACK,
@@ -767,6 +768,7 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
             Medal.athlete_id.in_(athlete_ids),
             Medal.event_id.in_(list(eid_to_year.keys())),
             Medal.place == 1,
+            Medal.happened_at < today,
             Division.gi == gi,
             Division.age == ADULT,
             Division.belt == BLACK,
@@ -786,6 +788,7 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
                 Medal.athlete_id.in_(athlete_ids),
                 Medal.event_id.in_(previous_event_ids),
                 Medal.place == 1,
+                Medal.happened_at < today,
                 Division.gi == gi,
                 Division.age == ADULT,
                 Division.belt == BROWN,
@@ -891,6 +894,7 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_range
                     Medal.athlete_id.in_(athlete_ids),
                     Medal.event_id.in_(adult_event_ids),
                     Medal.place == 1,
+                    Medal.happened_at < today,
                     Division.gi == gi,
                     Division.age == ADULT,
                     Division.belt == BLACK,
@@ -920,6 +924,7 @@ def _master_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_range
                 Medal.athlete_id.in_(athlete_ids),
                 Medal.event_id.in_(master_event_ids),
                 Medal.place == 1,
+                Medal.happened_at < today,
                 Division.gi == gi,
                 Division.age.in_(relevant_master_ages),
                 Division.belt == BLACK,
@@ -1072,6 +1077,7 @@ def _iter_regular_season_medal_rows(
     seasons,
     cbjj_seasons,
     suspension_ranges,
+    now,
     common_filters=None,
 ):
     """Yield ``(medal_row, season_mult)`` for every medal that contributes
@@ -1110,7 +1116,9 @@ def _iter_regular_season_medal_rows(
 
     earliest_candidates = [s[-1][0] for s in (seasons, cbjj_seasons) if s]
     earliest_start = min(earliest_candidates)
-    latest_end = (seasons or cbjj_seasons)[0][1]
+    # Cap at `now` so medals on or after the tournament start date don't
+    # leak into the in-progress season (whose end is a far-future sentinel).
+    latest_end = min((seasons or cbjj_seasons)[0][1], now)
 
     medal_rows = (
         db.session.query(
@@ -1163,6 +1171,7 @@ def _iter_grand_slam_medal_rows(
     gs_multipliers,
     cbjj_seasons,
     suspension_ranges,
+    now,
     common_filters=None,
 ):
     """Yield ``(medal_row, gs_mult)`` for every medal that contributes to
@@ -1211,6 +1220,7 @@ def _iter_grand_slam_medal_rows(
         .filter(
             *common_filters,
             Medal.event_id.in_(list(gs_multipliers.keys())),
+            Medal.happened_at < now,
         )
         .all()
     )
@@ -1334,6 +1344,7 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, target_event_name, no
             seasons,
             cbjj_seasons,
             suspension_ranges,
+            now,
         ),
         gi,
         weight_multipliers,
@@ -1348,6 +1359,7 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, target_event_name, no
             gs_multipliers,
             cbjj_seasons,
             suspension_ranges,
+            now,
         ),
         gi,
         weight_multipliers,
@@ -1489,6 +1501,7 @@ def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
         seasons,
         cbjj_seasons,
         suspension_ranges,
+        now,
         common_filters,
     ):
         _score_medal(
@@ -1516,6 +1529,7 @@ def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
         gs_multipliers,
         cbjj_seasons,
         suspension_ranges,
+        now,
         common_filters,
     ):
         _score_medal(
