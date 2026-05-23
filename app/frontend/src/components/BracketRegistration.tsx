@@ -3,10 +3,9 @@ import axios from 'axios'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
-import BracketTree from './BracketTree'
 import EliteTable, { type EliteAthlete } from './EliteTable'
 import EstSeedModal from './EstSeedModal'
-import { isGi, handleError, createMatchesFromSeeds, type CompetitorsResponse, type Competitor, type SideSwap } from './BracketUtils'
+import { isGi, handleError, type CompetitorsResponse, type Competitor, type SideSwap } from './BracketUtils'
 import { translateMulti, t } from '../translate'
 
 interface RegistrationCategoriesResponse {
@@ -164,11 +163,6 @@ function BracketRegistration() {
       return aRating - bRating
     });
   }, [registrationCompetitors, usableSortColumn])
-
-  const seededBracket = useMemo(() => {
-    if (!sortedRegistrationCompetitors) return null;
-    return createMatchesFromSeeds(sortedRegistrationCompetitors);
-  }, [sortedRegistrationCompetitors])
 
   const divisionCount = useMemo(() => registrationCompetitors?.length ?? null, [registrationCompetitors])
   const elitesCount = useMemo(() => elites?.length ?? null, [elites])
@@ -454,24 +448,6 @@ function BracketRegistration() {
         {
           registrationCategories?.some(c => /Teen/.test(c)) && (
             <div className="notification is-warning mt-4">{t("Note: we do not load age divisions younger than Teen 1.")}</div>
-          )
-        }
-        {
-          viewMode === 'all' &&
-          registrationEventUrl !== null &&
-          registrationCategories !== null &&
-          seededBracket !== null && (
-            <BracketTree
-              matches={seededBracket.matches}
-              matchCount={seededBracket.matchCount}
-              hasMatchNums={true}
-              showSeed={true}
-              showRefresh={false}
-              showRatings={showRatings}
-              belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
-              calculateClicked={() => {}}
-              calculateEnabled={() => false}
-            />
           )
         }
         {

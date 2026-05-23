@@ -379,24 +379,12 @@ _ADULT_GI_TOURNAMENTS = [
 ]
 STAR_RATINGS_ADULT_GI = _build_star_table(_ADULT_GI_TOURNAMENTS)
 
-# Masters gi: adult gi minus World, plus World Master and Master International series.
+# Masters gi: adult gi minus World, plus World Master.
 _MASTERS_GI_TOURNAMENTS = [
     (name, stars)
     for name, stars in _ADULT_GI_TOURNAMENTS
     if name != "World IBJJF Jiu-Jitsu Championship"
-] + [
-    ("World Master IBJJF Jiu-Jitsu Championship", 7),
-    # Master International series (all regions, both naming generations).
-    ("Master International Jiu-Jitsu Championship - Asia", 4),
-    ("Master International Jiu-Jitsu Championship - Europe", 4),
-    ("Master International Jiu-Jitsu Championship - North America", 4),
-    ("Master International Jiu-Jitsu Championship - South America", 4),
-    ("Master International Jiu-Jitsu IBJJF Championship", 4),
-    ("Master International Jiu-Jitsu IBJJF Championship – Asia", 4),
-    ("Master International Jiu-Jitsu IBJJF Championship – Europe", 4),
-    ("Master International Jiu-Jitsu IBJJF Championship – North America", 4),
-    ("Master International Jiu-Jitsu IBJJF Championship – South America", 4),
-]
+] + [("World Master IBJJF Jiu-Jitsu Championship", 7)]
 STAR_RATINGS_MASTERS_GI = _build_star_table(_MASTERS_GI_TOURNAMENTS)
 
 _NOGI_TOURNAMENTS = [
