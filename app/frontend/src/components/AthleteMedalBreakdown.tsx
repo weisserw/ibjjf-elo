@@ -157,10 +157,11 @@ function AthleteMedalBreakdown({ athleteId, link, division, gi }: AthleteMedalBr
   )
 
   useEffect(() => {
+    if (loading) return
     if (!showGrandSlamTab && activeTab === 'grand_slam') {
       setActiveTab('points')
     }
-  }, [showGrandSlamTab, activeTab])
+  }, [loading, showGrandSlamTab, activeTab])
 
   if (loading) {
     return <div className="bracket-loader loader mt-4"></div>
