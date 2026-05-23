@@ -1738,11 +1738,10 @@ def add_side_swaps(rows):
     flips the side, so the search just walks odd offsets until it finds
     a usable target.
 
-    Pairs are processed from highest min-seed to lowest. This lets a
-    higher-min pair's default ``+1`` target land on the worse seed of
-    a still-unprocessed lower-min pair when their seed neighborhoods
-    overlap — one swap resolves both pairs without needing a "fixes"
-    preference.
+    Pairs are processed in order of the worse-seeded (second) teammate,
+    ascending — i.e. the pair whose s2 appears first when walking down
+    the list is handled first. A later pair's swap may resolve an
+    earlier pair as a side effect.
 
     Target selection mirrors observed IBJJF behavior: for each
     same-side pair with worse seed ``s2``, walk odd offsets upward
@@ -1797,12 +1796,12 @@ def add_side_swaps(rows):
         if s is not None:
             seed_to_row[s] = r
 
-    # Process pairs in order of the better-seeded athlete so earlier pairs
-    # (which had a chance to be placed cleanly by the seeder) are handled
-    # first.
+    # Process pairs in order of the worse-seeded (second) teammate, walking
+    # down the list. A later pair's swap may resolve an earlier pair as a
+    # side effect.
     pairs = sorted(
         [m for m in teams.values() if len(m) == 2],
-        key=lambda m: min(x["est_seed"] for x in m),
+        key=lambda m: max(x["est_seed"] for x in m),
     )
 
     swapped_ids = set()
