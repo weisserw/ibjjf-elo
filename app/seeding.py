@@ -1797,19 +1797,12 @@ def add_side_swaps(rows):
         if s is not None:
             seed_to_row[s] = r
 
-    # Walk pairs from the higher-seeded end downward (highest min seed
-    # first). The default +1 target for a higher-min pair lands on a
-    # higher-numbered seed where downstream pairs haven't yet been
-    # touched, and — when the pair just below shares overlapping seed
-    # space — the +1 target may itself be that lower pair's worse seed,
-    # so one swap can opportunistically resolve both pairs without
-    # needing a "fixes" preference. (Sorting low-to-high would let the
-    # earliest pair claim a neutral target and leave the lower-min
-    # pair to chase a more distant offset.)
+    # Process pairs in order of the better-seeded athlete so earlier pairs
+    # (which had a chance to be placed cleanly by the seeder) are handled
+    # first.
     pairs = sorted(
         [m for m in teams.values() if len(m) == 2],
         key=lambda m: min(x["est_seed"] for x in m),
-        reverse=True,
     )
 
     swapped_ids = set()
