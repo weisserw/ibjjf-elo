@@ -124,6 +124,15 @@ EVENT_NAME_ALIASES = {
     "Venice Jesolo International Open IBJJF Jiu-Jitsu No-Gi Championship 2024": (
         "Venice International Open IBJJF Jiu-Jitsu No-Gi Championship 2024 (Results)"
     ),
+    "Brazilian National Jiu-Jitsu No-Gi Championship 2022": (
+        "Campeonato Brasileiro de Jiu-Jitsu Sem Kimono 2022 (BJJHeroes)"
+    ),
+    "Brazilian National Jiu-Jitsu No-Gi Championship 2023": (
+        "Campeonato Brasileiro de Jiu-Jitsu Sem Kimono 2023 (BJJHeroes)"
+    ),
+    "Brazilian National Jiu-Jitsu No-Gi Championship 2024": (
+        "Brazilian Nationals No Gi 2024 (Archive)"
+    ),
 }
 
 # Tournaments with no match data fall back to these canonical dates.
