@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect } from 'react'
 import axios from 'axios'
+import classNames from 'classnames'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
+import BracketTree, { type SeedHighlight } from './BracketTree'
 import EliteTable, { type EliteAthlete } from './EliteTable'
 import EstSeedModal from './EstSeedModal'
-import { isGi, handleError, type CompetitorsResponse, type Competitor, type SideSwap } from './BracketUtils'
+import { isGi, handleError, createMatchesFromSeeds, type CompetitorsResponse, type Competitor, type SideSwap } from './BracketUtils'
 import { translateMulti, t } from '../translate'
 
 interface RegistrationCategoriesResponse {
@@ -58,6 +60,8 @@ function BracketRegistration() {
     setBracketRegistrationViewMode: setViewMode,
     bracketRegistrationSortColumn: sortColumn,
     setBracketRegistrationSortColumn: setSortColumn,
+    bracketViewTab,
+    setBracketViewTab,
     setActiveTab,
   } = useAppContext()
 
@@ -163,6 +167,34 @@ function BracketRegistration() {
       return aRating - bRating
     });
   }, [registrationCompetitors, usableSortColumn])
+
+  const seededBracket = useMemo(() => {
+    if (!sortedRegistrationCompetitors) return null;
+    return createMatchesFromSeeds(sortedRegistrationCompetitors, sideSwaps);
+  }, [sortedRegistrationCompetitors, sideSwaps])
+
+  const seedHighlights = useMemo(() => {
+    const result = new Map<string, SeedHighlight>();
+    if (!sortedRegistrationCompetitors) return result;
+    const categoryAge = selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[1] : null;
+    const isJuvenile = categoryAge === 'Juvenile' || categoryAge === 'Juvenile 1' || categoryAge === 'Juvenile 2';
+    if (isJuvenile) return result;
+
+    const swappedNames = new Set<string>();
+    for (const swap of sideSwaps) {
+      swappedNames.add(swap.name_a);
+      swappedNames.add(swap.name_b);
+    }
+    for (const c of sortedRegistrationCompetitors) {
+      if (c.est_seed == null) continue;
+      const isSwap = swappedNames.has(c.name);
+      const isTied = !!c.est_seed_tied;
+      if (isSwap && isTied) result.set(c.name, 'swap-tied');
+      else if (isSwap) result.set(c.name, 'swap');
+      else if (isTied) result.set(c.name, 'tied');
+    }
+    return result;
+  }, [sortedRegistrationCompetitors, sideSwaps, selectedRegistrationCategory])
 
   const divisionCount = useMemo(() => registrationCompetitors?.length ?? null, [registrationCompetitors])
   const elitesCount = useMemo(() => elites?.length ?? null, [elites])
@@ -452,6 +484,62 @@ function BracketRegistration() {
         }
         {
           viewMode === 'all' && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
+            <div className="tabs bracket-view-tabs">
+              <ul>
+                <li className={classNames({"is-active": bracketViewTab === 'Table'})} onClick={() => setBracketViewTab('Table')}>
+                  <a>{t("Table")}</a>
+                </li>
+                <li className={classNames({"is-active": bracketViewTab === 'Bracket'})} onClick={() => setBracketViewTab('Bracket')}>
+                  <a>{t("Predicted Bracket")}</a>
+                </li>
+              </ul>
+            </div>
+          )
+        }
+        {
+          bracketViewTab === 'Bracket' &&
+          viewMode === 'all' &&
+          registrationEventUrl !== null &&
+          registrationCategories !== null && (
+            <p className="mt-4">
+              {t("Predicted brackets are a BETA feature and may vary from the actual brackets for the event. These brackets should not be mistaken for official IBJJF brackets.")}
+            </p>
+          )
+        }
+        {
+          bracketViewTab === 'Bracket' &&
+          viewMode === 'all' &&
+          registrationEventUrl !== null &&
+          registrationCategories !== null &&
+          seededBracket !== null && (
+            <BracketTree
+              matches={seededBracket.matches}
+              matchCount={seededBracket.matchCount}
+              hasMatchNums={true}
+              showSeed={true}
+              showRefresh={false}
+              showRatings={showRatings}
+              belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
+              seedHighlights={seedHighlights}
+              calculateClicked={() => {}}
+              calculateEnabled={() => false}
+            />
+          )
+        }
+        {
+          bracketViewTab === 'Bracket' &&
+          viewMode === 'all' &&
+          sideSwaps.length > 0 && (
+            <p className="mt-2">
+              <strong>{t("Swaps")}:</strong>{' '}
+              {sideSwaps.map((s, i) => (
+                <span key={i}>{i > 0 ? ', ' : ''}{s.name_a} → {s.name_b}</span>
+              ))}
+            </p>
+          )
+        }
+        {
+          bracketViewTab === 'Table' && viewMode === 'all' && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
             <BracketTable competitors={sortedRegistrationCompetitors}
                           sortColumn={usableSortColumn}
                           showSeed={false}

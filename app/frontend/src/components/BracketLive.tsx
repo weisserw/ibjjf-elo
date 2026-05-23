@@ -42,6 +42,8 @@ function BracketLive() {
     setBracketSortColumn: setSortColumn,
     bracketEventTotal: eventTotal,
     setBracketEventTotal: setEventTotal,
+    bracketViewTab,
+    setBracketViewTab,
     setActiveTab,
     setCalcFirstAthlete,
     setCalcSecondAthlete,
@@ -460,7 +462,21 @@ function BracketLive() {
           loading && <div className="bracket-loader loader mt-4"></div>
         }
         {
-          (events !== null && categories !== null && matches !== null) && (
+          (events !== null && categories !== null && competitors !== null) && (
+            <div className="tabs bracket-view-tabs">
+              <ul>
+                <li className={classNames({"is-active": bracketViewTab === 'Table'})} onClick={() => setBracketViewTab('Table')}>
+                  <a>{t("Table")}</a>
+                </li>
+                <li className={classNames({"is-active": bracketViewTab === 'Bracket'})} onClick={() => setBracketViewTab('Bracket')}>
+                  <a>{t("Bracket")}</a>
+                </li>
+              </ul>
+            </div>
+          )
+        }
+        {
+          bracketViewTab === 'Bracket' && (events !== null && categories !== null && matches !== null) && (
             <BracketTree
               matches={matches}
               matchCount={matches.length}
@@ -473,6 +489,26 @@ function BracketLive() {
               calculateClicked={calculateMatch}
               calculateEnabled={calculateEnabled}
               refreshClicked={viewBracket}
+            />
+          )
+        }
+        {
+          bracketViewTab === 'Table' && (events !== null && categories !== null && competitors !== null) && (
+            <BracketTable
+              competitors={sortedCompetitors}
+              matLinks={matLinks}
+              sortColumn={usableSortColumn}
+              showSeed={true}
+              showEndRating={true}
+              showNext={showNext}
+              showRatings={showRatings}
+              belt={belt}
+              showWeight={selectedCategory?.includes(' / Open') ?? false}
+              selectedCategory={selectedCategory}
+              isGi={isGi(selectedEventName ?? '')}
+              columnClicked={columnClicked}
+              athleteClicked={athleteClicked}
+              calculateEnabled={calculateEnabledAthlete}
             />
           )
         }
@@ -494,26 +530,6 @@ function BracketLive() {
             </span>
           </button>
         </div>
-        {
-          (events !== null && categories !== null && competitors !== null) && (
-            <BracketTable
-              competitors={sortedCompetitors}
-              matLinks={matLinks}
-              sortColumn={usableSortColumn}
-              showSeed={true}
-              showEndRating={true}
-              showNext={showNext}
-              showRatings={showRatings}
-              belt={belt}
-              showWeight={selectedCategory?.includes(' / Open') ?? false}
-              selectedCategory={selectedCategory}
-              isGi={isGi(selectedEventName ?? '')}
-              columnClicked={columnClicked}
-              athleteClicked={athleteClicked}
-              calculateEnabled={calculateEnabledAthlete}
-            />
-          )
-        }
       </div>
     </div>
   );

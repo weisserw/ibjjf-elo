@@ -18,6 +18,8 @@ import type {
   UpcomingLink as BracketRegistrationUpcomingLink,
 } from './components/BracketRegistration';
 
+export type BracketViewTab = 'Table' | 'Bracket';
+
 interface AppContextProps {
   filters: FilterValues;
   setFilters: (filters: FilterValues) => void;
@@ -63,6 +65,8 @@ interface AppContextProps {
   setBracketMatLinks: (matLinks: BracketMatLinks | null) => void;
   bracketSortColumn: BracketSortColumn;
   setBracketSortColumn: (column: BracketSortColumn) => void;
+  bracketViewTab: BracketViewTab;
+  setBracketViewTab: (tab: BracketViewTab) => void;
   bracketRegistrationEventName: string;
   setBracketRegistrationEventName: (name: string) => void;
   bracketRegistrationEventTotal: number | null;
@@ -196,6 +200,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketMatLinks, setBracketMatLinks] = useState<BracketMatLinks | null>(null)
   const [bracketEventTotal, setBracketEventTotal] = useState<number | null>(null)
   const [bracketSortColumn, setBracketSortColumn] = useState<BracketSortColumn>('rating')
+  const [bracketViewTab, setBracketViewTab] = useLocalStorage<BracketViewTab>('bracketViewTab', 'Bracket')
   const [bracketRegistrationEventName, setBracketRegistrationEventName] = useState('')
   const [bracketRegistrationEventTotal, setBracketRegistrationEventTotal] = useState<number | null>(null)
   const [bracketRegistrationEventUrl, setBracketRegistrationEventUrl] = useState('')
@@ -321,6 +326,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketMatLinks, setBracketMatLinks,
       bracketEventTotal, setBracketEventTotal,
       bracketSortColumn, setBracketSortColumn,
+      bracketViewTab, setBracketViewTab,
       bracketRegistrationEventName, setBracketRegistrationEventName,
       bracketRegistrationEventTotal, setBracketRegistrationEventTotal,
       bracketRegistrationEventUrl, setBracketRegistrationEventUrl,

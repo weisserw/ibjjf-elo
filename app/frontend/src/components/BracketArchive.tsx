@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import axios from 'axios'
+import classNames from 'classnames'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
@@ -49,6 +50,8 @@ function BracketArchive() {
     setBracketSortColumn: setSortColumn,
     bracketArchiveEventTotal: eventTotal,
     setBracketArchiveEventTotal: setEventTotal,
+    bracketViewTab,
+    setBracketViewTab,
     setActiveTab,
     setCalcFirstAthlete,
     setCalcSecondAthlete,
@@ -457,7 +460,21 @@ function BracketArchive() {
           error && <div className="notification is-danger mt-4">{error}</div>
         }
         {
-          (!!eventNameFetch && categories !== null && matches !== null) && (
+          (!!eventNameFetch && categories !== null && competitors !== null) && (
+            <div className="tabs bracket-view-tabs">
+              <ul>
+                <li className={classNames({"is-active": bracketViewTab === 'Table'})} onClick={() => setBracketViewTab('Table')}>
+                  <a>{t("Table")}</a>
+                </li>
+                <li className={classNames({"is-active": bracketViewTab === 'Bracket'})} onClick={() => setBracketViewTab('Bracket')}>
+                  <a>{t("Bracket")}</a>
+                </li>
+              </ul>
+            </div>
+          )
+        }
+        {
+          bracketViewTab === 'Bracket' && (!!eventNameFetch && categories !== null && matches !== null) && (
             <BracketTree matches={matches}
                          matchCount={expectedMatchCount}
                          hasMatchNums={hasMatchNums}
@@ -470,7 +487,7 @@ function BracketArchive() {
           )
         }
         {
-          (!!eventNameFetch && categories !== null && competitors !== null) && (
+          bracketViewTab === 'Table' && (!!eventNameFetch && categories !== null && competitors !== null) && (
             <BracketTable competitors={sortedCompetitors}
                           sortColumn={usableSortColumn}
                           showSeed={showSeed}

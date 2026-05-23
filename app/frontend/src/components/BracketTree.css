@@ -199,3 +199,19 @@
   margin-right: 2px;
   vertical-align: middle;
 }
+
+.bracket-tree-match-competitors tr.bracket-tree-seed-swap {
+  box-shadow: inset 0 0 0 2px #3b82f6;
+}
+
+.bracket-tree-match-competitors tr.bracket-tree-seed-tied {
+  box-shadow: inset 0 0 0 2px #ef4444;
+}
+
+.bracket-tree-match-competitors tr.bracket-tree-seed-swap-tied {
+  box-shadow:
+    inset 2px 0 0 0 #3b82f6,
+    inset -2px 0 0 0 #ef4444,
+    inset 0 2px 0 0 #3b82f6,
+    inset 0 -2px 0 0 #ef4444;
+}

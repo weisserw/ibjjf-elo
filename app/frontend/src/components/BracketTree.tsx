@@ -15,6 +15,8 @@ import "/node_modules/flag-icons/css/flag-icons.min.css";
 
 import "./BracketTree.css";
 
+export type SeedHighlight = 'swap' | 'tied' | 'swap-tied';
+
 interface BracketTreeMatchProps {
   match: Match;
   belt: string;
@@ -22,13 +24,34 @@ interface BracketTreeMatchProps {
   levelIndex: number;
   matchIndex: number;
   showRatings: boolean;
+  seedHighlights?: Map<string, SeedHighlight>;
   calculateEnabled: (match: Match) => boolean;
   calculateClicked: (match: Match) => void;
+}
+
+const seedHighlightClass = (h: SeedHighlight | undefined): string | undefined => {
+  if (!h) return undefined;
+  return `bracket-tree-seed-${h}`;
+}
+
+const seedHighlightTooltip = (h: SeedHighlight | undefined): string | undefined => {
+  if (!h) return undefined;
+  if (h === 'swap') return t("This athlete has swapped bracket positions due to a team conflict");
+  if (h === 'tied') return t("The order of tied seeds may differ from what is shown");
+  return `${t("This athlete has swapped bracket positions due to a team conflict")}. ${t("The order of tied seeds may differ from what is shown")}.`;
+}
+
+const seedHighlightTooltipId = (h: SeedHighlight | undefined): string | undefined => {
+  if (!h) return undefined;
+  return h === 'swap-tied' ? 'bracket-multiline-tooltip' : 'bracket-normal-tooltip';
 }
 
 function BracketTreeMatch(props: BracketTreeMatchProps) {
   const { match, levelIndex, matchIndex, belt } = props;
   const { language } = useAppContext();
+
+  const redHighlight = match.red_name ? props.seedHighlights?.get(match.red_name) : undefined;
+  const blueHighlight = match.blue_name ? props.seedHighlights?.get(match.blue_name) : undefined;
 
   const tooltip = (numMatches: number | null) => {
     const immature = immatureClass(numMatches);
@@ -99,7 +122,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
         }
         <table className="bracket-tree-match-competitors">
           <tbody>
-            <tr className={classNames({"bracket-tree-match-winner": match.blue_loser && !match.red_loser && !match.red_bye})}>
+            <tr className={classNames({"bracket-tree-match-winner": match.blue_loser && !match.red_loser && !match.red_bye}, seedHighlightClass(redHighlight))}>
               <td className="bracket-tree-match-ordinal">
                 {props.showSeed && match.red_seed}
                 {props.showSeed && !match.red_seed && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
@@ -120,7 +143,18 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
               <td className="bracket-tree-match-competitor-name">
                 <div className="bracket-tree-match-competitor-name-name">
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.red_note?.toLowerCase() === s)})}>
-                    {match.red_personal_name ? match.red_personal_name : match.red_name}
+                    {redHighlight ? (
+                      <span
+                        className="has-cursor-pointer"
+                        data-tooltip-id={seedHighlightTooltipId(redHighlight)}
+                        data-tooltip-content={seedHighlightTooltip(redHighlight)}
+                        data-tooltip-place="top"
+                      >
+                        {match.red_personal_name ? match.red_personal_name : match.red_name}
+                      </span>
+                    ) : (
+                      match.red_personal_name ? match.red_personal_name : match.red_name
+                    )}
                     {match.red_instagram_profile && (
                       <span className="instagram-profile-tree">
                         <a href={`https://www.instagram.com/${match.red_instagram_profile}`} target="_blank" rel="noopener noreferrer">
@@ -171,7 +205,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 {match.red_note && <span className="bracket-tree-match-note has-cursor-pointer" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={match.red_note}> ℹ️</span>}
               </td>
             </tr>
-            <tr className={classNames({"bracket-tree-match-winner": match.red_loser && !match.blue_loser && !match.blue_bye})}>
+            <tr className={classNames({"bracket-tree-match-winner": match.red_loser && !match.blue_loser && !match.blue_bye}, seedHighlightClass(blueHighlight))}>
               <td className="bracket-tree-match-ordinal">
                 {props.showSeed && match.blue_seed}
                 {props.showSeed && !match.blue_seed && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
@@ -192,7 +226,18 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
               <td className="bracket-tree-match-competitor-name">
                 <div className="bracket-tree-match-competitor-name-name">
                   <span className={classNames({"strike-through": noMatchStrings.some(s => match.blue_note?.toLowerCase() === s)})}>
-                    {match.blue_personal_name ? match.blue_personal_name : match.blue_name}
+                    {blueHighlight ? (
+                      <span
+                        className="has-cursor-pointer"
+                        data-tooltip-id={seedHighlightTooltipId(blueHighlight)}
+                        data-tooltip-content={seedHighlightTooltip(blueHighlight)}
+                        data-tooltip-place="top"
+                      >
+                        {match.blue_personal_name ? match.blue_personal_name : match.blue_name}
+                      </span>
+                    ) : (
+                      match.blue_personal_name ? match.blue_personal_name : match.blue_name
+                    )}
                     {match.blue_instagram_profile && (
                       <span className="instagram-profile-tree">
                         <a href={`https://www.instagram.com/${match.blue_instagram_profile}`} target="_blank" rel="noopener noreferrer">
@@ -259,6 +304,7 @@ interface BracketTreeProps {
   showRatings: boolean;
   belt: string;
   isRefreshing?: boolean;
+  seedHighlights?: Map<string, SeedHighlight>;
   calculateClicked: (match: Match) => void;
   refreshClicked?: () => void;
   calculateEnabled: (match: Match) => boolean;
@@ -356,6 +402,7 @@ function BracketTree(props: BracketTreeProps) {
                       calculateEnabled={props.calculateEnabled}
                       belt={props.belt}
                       matchIndex={matchIndex}
+                      seedHighlights={props.seedHighlights}
                     />
                   ))}
                   {
