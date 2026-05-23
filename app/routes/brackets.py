@@ -875,8 +875,7 @@ def registration_links():
     links = (
         db.session.query(RegistrationLink)
         .filter(RegistrationLink.hidden.isnot(True))
-        # temporary for debugging: backdate by one week, after we figure out seeding set back to days=1
-        .filter(RegistrationLink.event_end_date > datetime.now() - timedelta(days=8))
+        .filter(RegistrationLink.event_end_date > datetime.now() - timedelta(days=1))
         .order_by(RegistrationLink.event_end_date, RegistrationLink.name)
         .all()
     )
