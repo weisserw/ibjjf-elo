@@ -489,9 +489,11 @@ function BracketRegistration() {
                 <li className={classNames({"is-active": bracketViewTab === 'Table'})} onClick={() => setBracketViewTab('Table')}>
                   <a>{t("Table")}</a>
                 </li>
-                <li className={classNames({"is-active": bracketViewTab === 'Bracket'})} onClick={() => setBracketViewTab('Bracket')}>
-                  <a>{t("Predicted Bracket")}</a>
-                </li>
+                {seededBracket !== null && (
+                  <li className={classNames({"is-active": bracketViewTab === 'Bracket'})} onClick={() => setBracketViewTab('Bracket')}>
+                    <a>{t("Predicted Bracket")}</a>
+                  </li>
+                )}
               </ul>
             </div>
           )
