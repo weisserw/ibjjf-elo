@@ -1806,6 +1806,56 @@ def _ibjjf_display_order(first_round, play_in_count=0):
         ]
 
     if count == 32:
+        if play_in_count == 23:
+            ordered = []
+            for start in range(0, count, 8):
+                block = first_round[start : start + 8]
+                if start == 24:
+                    ordered.extend(
+                        [
+                            block[2],
+                            block[3],
+                            block[1],
+                            block[0],
+                            block[5],
+                            block[4],
+                            block[7],
+                            block[6],
+                        ]
+                    )
+                else:
+                    ordered.extend(
+                        [
+                            block[2],
+                            block[3],
+                            block[1],
+                            block[0],
+                            block[6],
+                            block[7],
+                            block[5],
+                            block[4],
+                        ]
+                    )
+            return ordered
+
+        if play_in_count == 20:
+            ordered = []
+            for start in range(0, count, 8):
+                block = first_round[start : start + 8]
+                ordered.extend(
+                    [
+                        block[2],
+                        block[3],
+                        block[1],
+                        block[0],
+                        block[5],
+                        block[4],
+                        block[7],
+                        block[6],
+                    ]
+                )
+            return ordered
+
         if play_in_count == 12:
             ordered = []
             for start in range(0, count, 8):
@@ -1840,6 +1890,25 @@ def _ibjjf_display_order(first_round, play_in_count=0):
             start = quarter * quarter_size
             block = first_round[start : start + quarter_size]
             if quarter in swap_quarters:
+                ordered.extend([block[1], block[0], *block[2:]])
+            else:
+                ordered.extend(block)
+        return ordered
+
+    if count == 64 and play_in_count == 8:
+        ordered = []
+        for start in range(0, count, 8):
+            block = first_round[start : start + 8]
+            ordered.extend([block[1], block[0], *block[2:]])
+        return ordered
+
+    if count == 64 and play_in_count == 2:
+        ordered = []
+        block_size = 8
+        for block_index in (3, 2, 0, 1, 7, 6, 4, 5):
+            start = block_index * block_size
+            block = first_round[start : start + block_size]
+            if block_index in {3, 7}:
                 ordered.extend([block[1], block[0], *block[2:]])
             else:
                 ordered.extend(block)
@@ -1906,9 +1975,16 @@ def _bracket_slots(n):
             selected_a = [17, 18, 19, 20, 29, 30, 31, 32, 25, 26, 27, 28]
         elif effective_size == 32 and play_in_count <= 4:
             selected_a = [29, 30, 31, 32][:count_a]
+        elif effective_size == 64 and play_in_count == 8:
+            selected_a = [57, 58, 59, 60, 61, 62, 63, 64]
+        elif effective_size == 64 and play_in_count == 2:
+            selected_a = [57, 58]
         else:
             selected_a = sorted(group_a[:count_a])
-        selected_b = sorted(group_b[:count_b])
+        if effective_size == 32 and play_in_count == 23:
+            selected_b = [13, 10, 11, 12, 15, 14, 16]
+        else:
+            selected_b = sorted(group_b[:count_b])
 
         if effective_size <= 4:
             for i, s in enumerate(selected_a):
