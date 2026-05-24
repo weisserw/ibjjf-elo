@@ -38,8 +38,8 @@ function BracketLive() {
     setBracketMatches: setMatches,
     bracketMatLinks: matLinks,
     setBracketMatLinks: setMatLinks,
-    bracketSortColumn: sortColumn,
-    setBracketSortColumn: setSortColumn,
+    bracketLiveSortColumn: sortColumn,
+    setBracketLiveSortColumn: setSortColumn,
     bracketEventTotal: eventTotal,
     setBracketEventTotal: setEventTotal,
     bracketViewTab,
@@ -491,6 +491,9 @@ function BracketLive() {
               showSeed={usableSortColumn === 'seed'}
               showRefresh={true}
               isRefreshing={loading}
+              numberMode={usableSortColumn === 'seed' ? 'seed' : 'rating'}
+              onNumberModeChange={setSortColumn}
+              canShowSeedNumbers={true}
               showRatings={showRatings}
               belt={belt}
               calculateClicked={calculateMatch}

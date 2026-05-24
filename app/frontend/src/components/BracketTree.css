@@ -169,22 +169,53 @@
 .bracket-tree-slider {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 12px;
   gap: 12px;
 }
 
+.bracket-tree-slider-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
 
 .bracket-tree-slider-controls {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 50%;
+  min-width: 220px;
+}
+
+.bracket-tree-number-toggle {
+  margin-bottom: 0;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.bracket-tree-number-toggle span {
+  margin-bottom: 8px;
+  margin-right: 10px;
 }
 
 @media screen and (max-width: 768px) {
+  .bracket-tree-slider,
+  .bracket-tree-slider-main {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .bracket-tree-slider-controls {
+    min-width: 0;
     width: 100%;
   } 
+
+  .bracket-tree-number-toggle {
+    align-self: flex-start;
+  }
 }
 
 .bracket-tree-slider-controls input {

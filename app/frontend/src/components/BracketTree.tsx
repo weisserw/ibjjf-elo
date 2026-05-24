@@ -16,6 +16,7 @@ import "/node_modules/flag-icons/css/flag-icons.min.css";
 import "./BracketTree.css";
 
 export type SeedHighlight = 'swap' | 'tied' | 'swap-tied';
+type NumberMode = 'rating' | 'seed';
 
 interface BracketTreeMatchProps {
   match: Match;
@@ -304,6 +305,9 @@ interface BracketTreeProps {
   showRatings: boolean;
   belt: string;
   isRefreshing?: boolean;
+  numberMode?: NumberMode;
+  onNumberModeChange?: (mode: NumberMode) => void;
+  canShowSeedNumbers?: boolean;
   seedHighlights?: Map<string, SeedHighlight>;
   calculateClicked: (match: Match) => void;
   refreshClicked?: () => void;
@@ -348,22 +352,49 @@ function BracketTree(props: BracketTreeProps) {
   return (
     <div className="mt-4">
       <div className="bracket-tree-slider">
-        <div className="bracket-tree-slider-controls">
-          <span className="icon cursor-pointer" onClick={() => setZoomLevel(Math.max(0.2, zoomLevel - 0.05))}>
-            <i className="fas fa-magnifying-glass-minus"></i>
-          </span>
-          <input
-            id="zoom-slider"
-            type="range"
-            min="0.2"
-            max="0.9"
-            step="0.05"
-            value={zoomLevel}
-            onChange={handleZoomChange}
-          />
-          <span className="icon cursor-pointer" onClick={() => setZoomLevel(Math.min(1, zoomLevel + 0.05))}>
-            <i className="fas fa-magnifying-glass-plus"></i>
-          </span>
+        <div className="bracket-tree-slider-main">
+          <div className="bracket-tree-slider-controls">
+            <span className="icon cursor-pointer" onClick={() => setZoomLevel(Math.max(0.2, zoomLevel - 0.05))}>
+              <i className="fas fa-magnifying-glass-minus"></i>
+            </span>
+            <input
+              id="zoom-slider"
+              type="range"
+              min="0.2"
+              max="0.9"
+              step="0.05"
+              value={zoomLevel}
+              onChange={handleZoomChange}
+            />
+            <span className="icon cursor-pointer" onClick={() => setZoomLevel(Math.min(1, zoomLevel + 0.05))}>
+              <i className="fas fa-magnifying-glass-plus"></i>
+            </span>
+          </div>
+          {props.numberMode && props.onNumberModeChange && (
+            <div className="buttons has-addons bracket-tree-number-toggle">
+              <span>
+                {t("Show")}:
+              </span>
+              <button
+                type="button"
+                className={classNames("button is-small", {"is-link is-selected": props.numberMode === 'rating'})}
+                aria-pressed={props.numberMode === 'rating'}
+                onClick={() => props.onNumberModeChange?.('rating')}
+              >
+                {t("Rank")}
+              </button>
+              {props.canShowSeedNumbers && (
+                <button
+                  type="button"
+                  className={classNames("button is-small", {"is-link is-selected": props.numberMode === 'seed'})}
+                  aria-pressed={props.numberMode === 'seed'}
+                  onClick={() => props.onNumberModeChange?.('seed')}
+                >
+                  {t("IBJJF Seed")}
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div className="bracket-tree-slider-refresh">
           {props.showRefresh && (

@@ -353,7 +353,8 @@ const translations = {
     "No medals contribute to this athlete's grand slam points for this division.": "Nenhuma medalha contribui para os pontos de grand slam deste atleta nesta divisão.",
     "Grand Slam": "Grand Slam",
     "Open Class Total": "Total Open Class",
-    "Point Total": "Total de Pontos"
+    "Point Total": "Total de Pontos",
+    "Show": "Mostrar",
 };
 
 export type translationKeys = keyof typeof translations;

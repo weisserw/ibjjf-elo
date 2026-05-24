@@ -46,8 +46,8 @@ function BracketArchive() {
     setBracketArchiveCompetitors: setCompetitors,
     bracketArchiveMatches: matches,
     setBracketArchiveMatches: setMatches,
-    bracketSortColumn: sortColumn,
-    setBracketSortColumn: setSortColumn,
+    bracketArchiveSortColumn: sortColumn,
+    setBracketArchiveSortColumn: setSortColumn,
     bracketArchiveEventTotal: eventTotal,
     setBracketArchiveEventTotal: setEventTotal,
     bracketViewTab,
@@ -487,6 +487,9 @@ function BracketArchive() {
                          hasMatchNums={hasMatchNums}
                          showSeed={usableSortColumn === 'seed'}
                          showRefresh={false}
+                         numberMode={showSeed ? (usableSortColumn === 'seed' ? 'seed' : 'rating') : undefined}
+                         onNumberModeChange={showSeed ? setSortColumn : undefined}
+                         canShowSeedNumbers={showSeed}
                          showRatings={showRatings}
                          belt={belt}
                          calculateClicked={calculateMatch}
