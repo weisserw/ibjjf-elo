@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import axios from 'axios'
-// import classNames from 'classnames'
+import classNames from 'classnames'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
@@ -62,8 +62,8 @@ function BracketRegistration() {
     setBracketRegistrationViewMode: setViewMode,
     bracketRegistrationSortColumn: sortColumn,
     setBracketRegistrationSortColumn: setSortColumn,
-    // bracketViewTab,
-    // setBracketViewTab,
+    bracketViewTab,
+    setBracketViewTab,
     setActiveTab,
   } = useAppContext()
 
@@ -488,7 +488,6 @@ function BracketRegistration() {
             <div className="notification is-warning mt-4">{t("Note: we do not load age divisions younger than Teen 1.")}</div>
           )
         }
-        {/* bracket-view-tabs hidden temporarily
         {
           viewMode === 'all' && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
             <div className="tabs bracket-view-tabs">
@@ -505,10 +504,8 @@ function BracketRegistration() {
             </div>
           )
         }
-        */}
         {
-          /* bracketViewTab === 'Bracket' && */
-          false &&
+          bracketViewTab === 'Bracket' &&
           viewMode === 'all' &&
           registrationEventUrl !== null &&
           registrationCategories !== null && (
@@ -518,20 +515,19 @@ function BracketRegistration() {
           )
         }
         {
-          /* bracketViewTab === 'Bracket' && */
-          false &&
+          bracketViewTab === 'Bracket' &&
           viewMode === 'all' &&
           registrationEventUrl !== null &&
           registrationCategories !== null &&
           seededBracket !== null && (
             <BracketTree
-              matches={seededBracket!.matches}
-              matchCount={seededBracket!.matchCount}
+              matches={seededBracket.matches}
+              matchCount={seededBracket.matchCount}
               hasMatchNums={true}
               showSeed={true}
               showRefresh={false}
               showRatings={showRatings}
-              belt={selectedRegistrationCategory! ? selectedRegistrationCategory!.split(' / ')[0] : ''}
+              belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
               seedHighlights={seedHighlights}
               calculateClicked={() => {}}
               calculateEnabled={() => false}
@@ -539,8 +535,7 @@ function BracketRegistration() {
           )
         }
         {
-          /* bracketViewTab === 'Bracket' && */
-          false &&
+          bracketViewTab === 'Bracket' &&
           viewMode === 'all' &&
           sideSwaps.length > 0 && (
             <p className="mt-2">
@@ -552,7 +547,7 @@ function BracketRegistration() {
           )
         }
         {
-          /* bracketViewTab === 'Table' && */ viewMode === 'all' && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
+          bracketViewTab === 'Table' && viewMode === 'all' && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
             <BracketTable competitors={sortedRegistrationCompetitors}
                           sortColumn={usableSortColumn}
                           showSeed={false}
