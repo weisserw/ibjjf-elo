@@ -94,6 +94,8 @@ interface AppContextProps {
   setBracketRegistrationSelectedUpcomingLink: (link: string) => void;
   bracketRegistrationViewMode: 'all' | 'elites';
   setBracketRegistrationViewMode: (mode: 'all' | 'elites') => void;
+  bracketRegistrationViewTab: BracketViewTab;
+  setBracketRegistrationViewTab: (tab: BracketViewTab) => void;
   bracketRegistrationSortColumn: BracketSortColumn;
   setBracketRegistrationSortColumn: (column: BracketSortColumn) => void;
   bracketArchiveEventName: string;
@@ -223,6 +225,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketRegistrationUpcomingLinks, setBracketRegistrationUpcomingLinks] = useState<BracketRegistrationUpcomingLink[]>([])
   const [bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink] = useLocalStorage<string>('bracketRegistrationSelectedUpcomingLink', '')
   const [bracketRegistrationViewMode, setBracketRegistrationViewMode] = useLocalStorage<'all' | 'elites'>('bracketRegistrationViewMode', 'all')
+  const [bracketRegistrationViewTab, setBracketRegistrationViewTab] = useLocalStorage<BracketViewTab>('bracketRegistrationViewTab', 'Bracket')
   const [bracketRegistrationSortColumn, setBracketRegistrationSortColumn] = useLocalStorage<BracketSortColumn>('bracketRegistrationSortColumn', 'rating')
   const [bracketArchiveEventName, setBracketArchiveEventName] = useLocalStorage('bracketArchiveEventName', '')
   const [bracketArchiveEventNameFetch, setBracketArchiveEventNameFetch] = useLocalStorage('bracketArchiveEventNameFetch', '')
@@ -353,6 +356,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketRegistrationUpcomingLinks, setBracketRegistrationUpcomingLinks,
       bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink,
       bracketRegistrationViewMode, setBracketRegistrationViewMode,
+      bracketRegistrationViewTab, setBracketRegistrationViewTab,
       bracketRegistrationSortColumn, setBracketRegistrationSortColumn,
       bracketArchiveEventName, setBracketArchiveEventName,
       bracketArchiveEventNameFetch, setBracketArchiveEventNameFetch,
