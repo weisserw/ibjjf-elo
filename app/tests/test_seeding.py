@@ -30,6 +30,8 @@ from constants import (
 from extensions import db
 from models import Athlete, Division, Event, Match, Medal, Team
 from seeding import (
+    _bracket_slots,
+    _side,
     add_estimated_seeds,
     add_seeding_data,
     add_side_swaps,
@@ -1522,6 +1524,232 @@ class EstimatedSeedsTestCase(unittest.TestCase):
         self.assertEqual(self._seeds(rows), [2, 1])
 
 
+class BracketSlotsTestCase(unittest.TestCase):
+    """Tests for _bracket_slots(n) — the first-round slot layout."""
+
+    def test_n_less_than_4_returns_none(self):
+        for n in (0, 1, 2, 3):
+            with self.subTest(n=n):
+                slots, size = _bracket_slots(n)
+                self.assertIsNone(slots)
+                self.assertIsNone(size)
+
+    def test_n4_slots(self):
+        slots, size = _bracket_slots(4)
+        self.assertEqual(slots, [(1, 4), (2, 3)])
+        self.assertEqual(size, 4)
+
+    def test_n8_slots(self):
+        slots, size = _bracket_slots(8)
+        self.assertEqual(slots, [(1, 8), (6, 4), (3, 5), (2, 7)])
+        self.assertEqual(size, 8)
+
+    def test_n5_play_in(self):
+        # Seed 5 is the play-in partner of seed 4.
+        slots, size = _bracket_slots(5)
+        self.assertEqual(size, 8)
+        self.assertIn((4, 5), slots)
+        self.assertIn((1, None), slots)
+        self.assertIn((2, None), slots)
+        self.assertIn((3, None), slots)
+
+    def test_n15_power_up_layout(self):
+        # usePowerUpLayout: uses 16-slot table with seed 16 as a bye.
+        slots, size = _bracket_slots(15)
+        self.assertEqual(size, 16)
+        self.assertEqual(len(slots), 8)
+        # Seed 1 gets a bye (no partner in a 15-person bracket).
+        self.assertIn((1, None), slots)
+
+    def test_seed_1_always_in_first_half(self):
+        for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 32]:
+            with self.subTest(n=n):
+                slots, _ = _bracket_slots(n)
+                half = len(slots) // 2
+                idx = next(i for i, (a, b) in enumerate(slots) if a == 1 or b == 1)
+                self.assertLess(idx, half)
+
+    def test_seed_2_always_in_second_half(self):
+        for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 32]:
+            with self.subTest(n=n):
+                slots, _ = _bracket_slots(n)
+                half = len(slots) // 2
+                idx = next(i for i, (a, b) in enumerate(slots) if a == 2 or b == 2)
+                self.assertGreaterEqual(idx, half)
+
+    def test_all_seeds_present(self):
+        for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16]:
+            with self.subTest(n=n):
+                slots, _ = _bracket_slots(n)
+                seen = set()
+                for a, b in slots:
+                    if a is not None:
+                        seen.add(a)
+                    if b is not None:
+                        seen.add(b)
+                self.assertEqual(seen, set(range(1, n + 1)))
+
+    def test_bracket_match_count(self):
+        # bracket_match_count = bracket_size - 1
+        for n, expected_size in [(4, 4), (8, 8), (5, 8), (9, 16), (15, 16), (16, 16)]:
+            with self.subTest(n=n):
+                _, size = _bracket_slots(n)
+                self.assertEqual(size - 1, expected_size - 1)
+
+
+class SideTestCase(unittest.TestCase):
+    """Tests for _side(seed, n) — the layout-based bracket-half assignment."""
+
+    def test_seed_1_always_side_0(self):
+        for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 32]:
+            with self.subTest(n=n):
+                self.assertEqual(_side(1, n), 0)
+
+    def test_seed_2_always_side_1(self):
+        for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 32]:
+            with self.subTest(n=n):
+                self.assertEqual(_side(2, n), 1)
+
+    def test_n4_layout(self):
+        # Layout [(1,4),(2,3)]: side 0 = {1,4}, side 1 = {2,3}.
+        for seed, expected in [(1, 0), (4, 0), (2, 1), (3, 1)]:
+            with self.subTest(seed=seed):
+                self.assertEqual(_side(seed, 4), expected)
+
+    def test_n8_layout(self):
+        # N=8 uses the 8-slot layout directly (no play-ins).
+        # Side 0: 1, 4, 6, 8 — side 1: 2, 3, 5, 7 (parity holds here).
+        for seed, expected in [
+            (1, 0),
+            (4, 0),
+            (6, 0),
+            (8, 0),
+            (2, 1),
+            (3, 1),
+            (5, 1),
+            (7, 1),
+        ]:
+            with self.subTest(seed=seed):
+                self.assertEqual(_side(seed, 8), expected)
+
+    def test_n5_play_in_seed_on_seed1_side(self):
+        # N=5: seed 5 is the play-in partner of seed 4 → side 0.
+        # Parity (seed 5 is odd) would wrongly assign it to side 1.
+        # Side 0: 1, 4, 5 — side 1: 2, 3.
+        for seed, expected in [(1, 0), (4, 0), (5, 0), (2, 1), (3, 1)]:
+            with self.subTest(seed=seed):
+                self.assertEqual(_side(seed, 5), expected)
+
+    def test_n6_play_in_seeds(self):
+        # N=6: play-in pairs (3,6) and (4,5) via effectiveLayout 4.
+        # Side 0: 1, 4, 5 — side 1: 2, 3, 6.
+        # Parity: seed 5 → side 1 (wrong), seed 6 → side 0 (wrong).
+        for seed, expected in [
+            (1, 0),
+            (4, 0),
+            (5, 0),
+            (2, 1),
+            (3, 1),
+            (6, 1),
+        ]:
+            with self.subTest(seed=seed):
+                self.assertEqual(_side(seed, 6), expected)
+
+    def test_n7_play_in_seeds(self):
+        # N=7: side 0: 1, 4, 5 — side 1: 2, 3, 6, 7.
+        # Parity: seed 5 → side 1 (wrong), seed 6 → side 0 (wrong).
+        for seed, expected in [
+            (1, 0),
+            (4, 0),
+            (5, 0),
+            (2, 1),
+            (3, 1),
+            (6, 1),
+            (7, 1),
+        ]:
+            with self.subTest(seed=seed):
+                self.assertEqual(_side(seed, 7), expected)
+
+    def test_n9_play_in_seed_on_seed1_side(self):
+        # N=9: seed 9 is the play-in partner of seed 8 → side 0.
+        # Parity (odd) would wrongly assign seed 9 to side 1.
+        # Side 0: 1, 6, 4, 8, 9 — side 1: 3, 5, 2, 7.
+        for seed, expected in [
+            (1, 0),
+            (6, 0),
+            (4, 0),
+            (8, 0),
+            (9, 0),
+            (3, 1),
+            (5, 1),
+            (2, 1),
+            (7, 1),
+        ]:
+            with self.subTest(seed=seed):
+                self.assertEqual(_side(seed, 9), expected)
+
+    def test_n11_play_in_seeds(self):
+        # N=11: side 0: 1, 8, 11, 6, 4 — side 1: 3, 5, 9, 2, 7, 10.
+        # Parity: seed 10 → side 0 (wrong), seed 11 → side 1 (wrong).
+        for seed, expected in [
+            (1, 0),
+            (8, 0),
+            (11, 0),
+            (6, 0),
+            (4, 0),
+            (3, 1),
+            (5, 1),
+            (9, 1),
+            (2, 1),
+            (7, 1),
+            (10, 1),
+        ]:
+            with self.subTest(seed=seed):
+                self.assertEqual(_side(seed, 11), expected)
+
+    def test_n13_play_in_seed_on_seed1_side(self):
+        # N=13: seed 13 is a play-in partner of seed 4 → side 0.
+        # Parity (odd) would wrongly assign it to side 1.
+        # Side 0: 1, 8, 12, 6, 10, 4, 13 — side 1: 3, 5, 9, 2, 7, 11.
+        for seed, expected in [
+            (1, 0),
+            (8, 0),
+            (12, 0),
+            (6, 0),
+            (10, 0),
+            (4, 0),
+            (13, 0),
+            (3, 1),
+            (5, 1),
+            (9, 1),
+            (2, 1),
+            (7, 1),
+            (11, 1),
+        ]:
+            with self.subTest(seed=seed):
+                self.assertEqual(_side(seed, 13), expected)
+
+    def test_n15_power_up_layout(self):
+        # N=15 triggers usePowerUpLayout with the 16-slot table (seed 16 is a bye).
+        # Side 0: 1, 8, 12, 4, 14, 6, 10 — side 1: 2, 15, 7, 11, 3, 13, 5, 9.
+        for seed in [1, 8, 12, 4, 14, 6, 10]:
+            with self.subTest(seed=seed, expected_side=0):
+                self.assertEqual(_side(seed, 15), 0)
+        for seed in [2, 15, 7, 11, 3, 13, 5, 9]:
+            with self.subTest(seed=seed, expected_side=1):
+                self.assertEqual(_side(seed, 15), 1)
+
+    def test_n16_full_layout(self):
+        # N=16: no play-ins, uses 16-slot layout directly.
+        # Side 0: 1, 16, 8, 12, 4, 14, 6, 10 — side 1: 2, 15, 7, 11, 3, 13, 5, 9.
+        for seed in [1, 16, 8, 12, 4, 14, 6, 10]:
+            with self.subTest(seed=seed, expected_side=0):
+                self.assertEqual(_side(seed, 16), 0)
+        for seed in [2, 15, 7, 11, 3, 13, 5, 9]:
+            with self.subTest(seed=seed, expected_side=1):
+                self.assertEqual(_side(seed, 16), 1)
+
+
 def _swap_row(seed, name, team):
     return {"id": seed, "name": name, "team": team, "est_seed": seed}
 
@@ -1677,6 +1905,52 @@ class SideSwapTestCase(unittest.TestCase):
         # is detected and swapped.
         self.assertEqual(len(result["swaps"]), 1)
         self.assertEqual(result["bailout_teams"], [])
+
+    # ------------------------------------------------------------------
+    # Non-power-of-2 brackets — cases where parity rule breaks
+    # ------------------------------------------------------------------
+
+    def test_n5_teammates_at_4_and_5_are_same_side(self):
+        # N=5: seeds 4 and 5 are both on side 0 (seed 1's half).
+        # The old parity rule treated seed 5 as side 1 (odd) and would miss
+        # this collision entirely. The layout-based rule catches it.
+        rows = [_swap_row(i, f"A{i}", f"Team{i}") for i in range(1, 6)]
+        rows[3]["team"] = "Pair"  # seed 4 (side 0)
+        rows[4]["team"] = "Pair"  # seed 5 (side 0)
+        result = add_side_swaps(rows)
+        self.assertEqual(result["bailout_teams"], [])
+        self.assertEqual(len(result["swaps"]), 1)
+        # s2=5, closest opposite-side seed: direction=-1, offset 2 → seed 3.
+        self.assertEqual(result["swaps"][0]["name_a"], "A5")
+        self.assertEqual(result["swaps"][0]["name_b"], "A3")
+
+    def test_n7_teammates_at_3_and_6_are_same_side(self):
+        # N=7: seeds 3 and 6 are both on side 1 (seed 2's half).
+        # Parity assigns seed 6 to side 0 (even), so the old algorithm would
+        # incorrectly treat (3, 6) as already split and skip the swap.
+        rows = [_swap_row(i, f"A{i}", f"Team{i}") for i in range(1, 8)]
+        rows[2]["team"] = "Pair"  # seed 3 (side 1)
+        rows[5]["team"] = "Pair"  # seed 6 (side 1)
+        result = add_side_swaps(rows)
+        self.assertEqual(result["bailout_teams"], [])
+        self.assertEqual(len(result["swaps"]), 1)
+        # s2=6, direction=+1: seed 7 is also side 1 (skip).
+        # direction=-1: seed 5 is side 0. Swap A6 ↔ A5.
+        self.assertEqual(result["swaps"][0]["name_a"], "A6")
+        self.assertEqual(result["swaps"][0]["name_b"], "A5")
+
+    def test_n9_teammates_at_8_and_9_are_same_side(self):
+        # N=9: seeds 8 and 9 are both on side 0 (seed 1's half).
+        # Parity treats seed 9 as side 1 (odd) and would miss the collision.
+        rows = [_swap_row(i, f"A{i}", f"Team{i}") for i in range(1, 10)]
+        rows[7]["team"] = "Pair"  # seed 8 (side 0)
+        rows[8]["team"] = "Pair"  # seed 9 (side 0)
+        result = add_side_swaps(rows)
+        self.assertEqual(result["bailout_teams"], [])
+        self.assertEqual(len(result["swaps"]), 1)
+        # s2=9, direction=+1: OOB. direction=-1: seed 8=s1 skip, seed 7 (side 1). Swap A9 ↔ A7.
+        self.assertEqual(result["swaps"][0]["name_a"], "A9")
+        self.assertEqual(result["swaps"][0]["name_b"], "A7")
 
 
 if __name__ == "__main__":

@@ -113,6 +113,8 @@ export interface CompetitorsResponse {
   competitors?: Competitor[]
   side_swaps?: SideSwap[]
   side_swap_bailout_teams?: string[]
+  bracket_slots?: [number, number | null][] | null
+  bracket_match_count?: number | null
 }
 
 
@@ -452,35 +454,6 @@ export const createTreeFromMatchNums = (matches: Match[], matchCount: number): M
   return levels;
 }
 
-export const IBJJF_SEED_LAYOUTS: Record<number, [number, number][]> = {
-  4: [[1, 4], [2, 3]],
-  8: [
-    [1, 8], [6, 4],
-    [3, 5], [2, 7],
-  ],
-  16: [
-    [1, 16], [8, 12],
-    [4, 14], [6, 10],
-    [2, 15], [7, 11],
-    [3, 13], [5, 9],
-  ],
-  32: [
-    [1, 32], [16, 24], [8, 28], [12, 20],
-    [4, 30], [14, 22], [6, 26], [10, 18],
-    [2, 31], [15, 23], [7, 27], [11, 19],
-    [3, 29], [13, 21], [5, 25], [9, 17],
-  ],
-  64: [
-    [1, 64], [32, 48], [16, 56], [24, 40],
-    [8, 60], [28, 44], [12, 52], [20, 36],
-    [4, 62], [30, 46], [14, 54], [22, 38],
-    [6, 58], [26, 42], [10, 50], [18, 34],
-    [2, 63], [31, 47], [15, 55], [23, 39],
-    [7, 59], [27, 43], [11, 51], [19, 35],
-    [3, 61], [29, 45], [13, 53], [21, 37],
-    [5, 57], [25, 41], [9, 49], [17, 33],
-  ],
-}
 
 const ADVANCING_ATHLETE_FIELDS = [
   'id', 'seed', 'name', 'team', 'note', 'ordinal', 'rating', 'match_count',
@@ -530,6 +503,8 @@ const fillSideFromParent = (target: Match, targetSide: 'red' | 'blue', parent: M
 
 export const createMatchesFromSeeds = (
   competitors: Competitor[],
+  bracketSlots: [number, number | null][],
+  matchCount: number,
   sideSwaps: SideSwap[] = [],
   seedOf: (c: Competitor) => number | null | undefined = (c) => c.est_seed,
 ): { matches: Match[]; matchCount: number } | null => {
@@ -538,80 +513,6 @@ export const createMatchesFromSeeds = (
     return s != null && s > 0;
   });
   if (seeded.length < 2) return null;
-
-  const N = seeded.length;
-  let effectiveSize = 1;
-  while (effectiveSize * 2 <= N) effectiveSize *= 2;
-  const playInCount = N - effectiveSize;
-  const bracketSize = playInCount > 0 ? effectiveSize * 2 : effectiveSize;
-
-  const effectiveLayout = IBJJF_SEED_LAYOUTS[effectiveSize];
-  if (!effectiveLayout) return null;
-
-  // When N is one less than a power of 2 and the bracket is large enough
-  // (effectiveSize >= 8), IBJJF skips play-ins entirely and uses the
-  // bracketSize layout directly, with the single missing top seed as a bye.
-  // Verified against real IBJJF brackets at N=15.
-  const usePowerUpLayout = effectiveSize >= 8 && playInCount === effectiveSize - 1;
-
-  // Which seeds become play-ins (vs receive byes), and what their partners are.
-  // - effectiveSize <= 4 (N <= 7): standard snake (mirror) pairing.
-  // - effectiveSize >= 8: IBJJF custom. Play-in seeds are pulled in priority
-  //   order from the layout: first the "high seed" of each layout pair (group A,
-  //   ordered by their pair's low seed ascending), then the "low seeds" (group B,
-  //   in reverse). Within each group, play-in seeds are sorted ascending and paired
-  //   with a contiguous block of new seeds — group A takes the lower block, group B
-  //   takes the higher block. Verified against real IBJJF brackets at N=9, 10, 11,
-  //   13, 14, 17, 18, 19, 20, 24, 25.
-  const playInPairs = new Map<number, number>();
-  if (playInCount > 0 && !usePowerUpLayout) {
-    const normalizedPairs = effectiveLayout
-      .map((p): [number, number] => (p[0] < p[1] ? p : [p[1], p[0]]))
-      .sort((x, y) => x[0] - y[0]);
-    const groupA = normalizedPairs.map(p => p[1]);
-    const groupB = normalizedPairs.map(p => p[0]).reverse();
-
-    const selectedA = groupA.slice(0, Math.min(playInCount, groupA.length))
-                            .sort((a, b) => a - b);
-    const selectedB = groupB.slice(0, Math.max(0, playInCount - groupA.length))
-                            .sort((a, b) => a - b);
-
-    if (effectiveSize <= 4) {
-      // Mirror (snake) within group A.
-      for (let i = 0; i < selectedA.length; i++) {
-        playInPairs.set(selectedA[i], effectiveSize + selectedA.length - i);
-      }
-      for (let i = 0; i < selectedB.length; i++) {
-        playInPairs.set(selectedB[i], effectiveSize + selectedA.length + 1 + i);
-      }
-    } else {
-      // Ascending within each group.
-      for (let i = 0; i < selectedA.length; i++) {
-        playInPairs.set(selectedA[i], effectiveSize + 1 + i);
-      }
-      for (let i = 0; i < selectedB.length; i++) {
-        playInPairs.set(selectedB[i], effectiveSize + selectedA.length + 1 + i);
-      }
-    }
-  }
-
-  const firstRoundSeeds: [number | null, number | null][] = [];
-  if (playInCount === 0) {
-    for (const [a, b] of effectiveLayout) firstRoundSeeds.push([a, b]);
-  } else if (usePowerUpLayout) {
-    const fullLayout = IBJJF_SEED_LAYOUTS[bracketSize];
-    if (!fullLayout) return null;
-    for (const [a, b] of fullLayout) {
-      if (a > N) firstRoundSeeds.push([b, null]);
-      else if (b > N) firstRoundSeeds.push([a, null]);
-      else firstRoundSeeds.push([a, b]);
-    }
-  } else {
-    for (const [a, b] of effectiveLayout) {
-      firstRoundSeeds.push(playInPairs.has(a) ? [a, playInPairs.get(a)!] : [a, null]);
-      firstRoundSeeds.push(playInPairs.has(b) ? [b, playInPairs.get(b)!] : [b, null]);
-    }
-  }
 
   const bySeed = new Map<number, Competitor>();
   for (const c of seeded) bySeed.set(seedOf(c)!, c);
@@ -623,7 +524,7 @@ export const createMatchesFromSeeds = (
   // stays with the competitor object, so swapping the competitors between two
   // slots moves the athletes without changing the seeds shown.
   const firstRoundSlots: [Competitor | null, Competitor | null][] =
-    firstRoundSeeds.map(([redSeed, blueSeed]) => [
+    bracketSlots.map(([redSeed, blueSeed]) => [
       redSeed !== null ? (bySeed.get(redSeed) ?? null) : null,
       blueSeed !== null ? (bySeed.get(blueSeed) ?? null) : null,
     ]);
@@ -739,7 +640,7 @@ export const createMatchesFromSeeds = (
     prevLevel = currentLevel;
   }
 
-  return { matches: allMatches, matchCount: bracketSize - 1 };
+  return { matches: allMatches, matchCount };
 }
 
 export const createTreeFromTop = (matches: Match[]): Match[][] => {

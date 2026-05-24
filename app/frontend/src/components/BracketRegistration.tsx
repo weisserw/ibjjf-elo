@@ -35,6 +35,8 @@ function BracketRegistration() {
   const [estSeedModalOpen, setEstSeedModalOpen] = useState(false)
   const [sideSwaps, setSideSwaps] = useState<SideSwap[]>([])
   const [sideSwapBailoutTeams, setSideSwapBailoutTeams] = useState<string[]>([])
+  const [bracketSlots, setBracketSlots] = useState<[number, number | null][] | null>(null)
+  const [bracketMatchCount, setBracketMatchCount] = useState<number | null>(null)
   const [elitesByLink, setElitesByLink] = useState<
     Record<string, { data: {elites: EliteAthlete[]; note: string | null; }; fetchedAt: number }>
   >({})
@@ -81,11 +83,15 @@ function BracketRegistration() {
         setRegistrationCompetitors(null)
         setSideSwaps([])
         setSideSwapBailoutTeams([])
+        setBracketSlots(null)
+        setBracketMatchCount(null)
         setError(data.error)
       } else if (data.competitors) {
         setRegistrationCompetitors(data.competitors)
         setSideSwaps(data.side_swaps ?? [])
         setSideSwapBailoutTeams(data.side_swap_bailout_teams ?? [])
+        setBracketSlots(data.bracket_slots ?? null)
+        setBracketMatchCount(data.bracket_match_count ?? null)
         setError(null)
       }
     } catch (err) {
@@ -169,9 +175,9 @@ function BracketRegistration() {
   }, [registrationCompetitors, usableSortColumn])
 
   const seededBracket = useMemo(() => {
-    if (!sortedRegistrationCompetitors) return null;
-    return createMatchesFromSeeds(sortedRegistrationCompetitors, sideSwaps);
-  }, [sortedRegistrationCompetitors, sideSwaps])
+    if (!sortedRegistrationCompetitors || !bracketSlots || bracketMatchCount == null) return null;
+    return createMatchesFromSeeds(sortedRegistrationCompetitors, bracketSlots, bracketMatchCount, sideSwaps);
+  }, [sortedRegistrationCompetitors, bracketSlots, bracketMatchCount, sideSwaps])
 
   const seedHighlights = useMemo(() => {
     const result = new Map<string, SeedHighlight>();

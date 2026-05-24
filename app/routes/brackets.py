@@ -69,6 +69,7 @@ from elo import (
 )
 from photos import get_s3_client, get_public_photo_url
 from seeding import (
+    _bracket_slots,
     add_estimated_seeds,
     add_seeding_data,
     add_side_swaps,
@@ -1426,11 +1427,14 @@ def registration_competitors():
         event_start_date = db_link.event_start_date
 
     if divdata["age"] in {JUVENILE, JUVENILE_1, JUVENILE_2}:
+        slots, bracket_size = _bracket_slots(len(rows))
         return jsonify(
             {
                 "competitors": rows,
                 "side_swaps": [],
                 "side_swap_bailout_teams": [],
+                "bracket_slots": slots,
+                "bracket_match_count": bracket_size - 1 if bracket_size else None,
             }
         )
 
@@ -1439,11 +1443,14 @@ def registration_competitors():
 
     swap_info = add_side_swaps(rows)
 
+    slots, bracket_size = _bracket_slots(len(rows))
     return jsonify(
         {
             "competitors": rows,
             "side_swaps": swap_info["swaps"],
             "side_swap_bailout_teams": swap_info["bailout_teams"],
+            "bracket_slots": slots,
+            "bracket_match_count": bracket_size - 1 if bracket_size else None,
         }
     )
 

@@ -1720,15 +1720,173 @@ def add_estimated_seeds(rows, divdata):
         r["est_seed_tied"] = key_counts[k] > 1
 
 
-def _side(seed):
-    """Which side of an IBJJF bracket a given 1-based seed lands on (0 or 1).
+_IBJJF_SEED_LAYOUTS = {
+    4: [(1, 4), (2, 3)],
+    8: [(1, 8), (6, 4), (3, 5), (2, 7)],
+    16: [
+        (1, 16),
+        (8, 12),
+        (4, 14),
+        (6, 10),
+        (2, 15),
+        (7, 11),
+        (3, 13),
+        (5, 9),
+    ],
+    32: [
+        (1, 32),
+        (16, 24),
+        (8, 28),
+        (12, 20),
+        (4, 30),
+        (14, 22),
+        (6, 26),
+        (10, 18),
+        (2, 31),
+        (15, 23),
+        (7, 27),
+        (11, 19),
+        (3, 29),
+        (13, 21),
+        (5, 25),
+        (9, 17),
+    ],
+    64: [
+        (1, 64),
+        (32, 48),
+        (16, 56),
+        (24, 40),
+        (8, 60),
+        (28, 44),
+        (12, 52),
+        (20, 36),
+        (4, 62),
+        (30, 46),
+        (14, 54),
+        (22, 38),
+        (6, 58),
+        (26, 42),
+        (10, 50),
+        (18, 34),
+        (2, 63),
+        (31, 47),
+        (15, 55),
+        (23, 39),
+        (7, 59),
+        (27, 43),
+        (11, 51),
+        (19, 35),
+        (3, 61),
+        (29, 45),
+        (13, 53),
+        (21, 37),
+        (5, 57),
+        (25, 41),
+        (9, 49),
+        (17, 33),
+    ],
+}
 
-    IBJJF brackets place seeds 1 and 2 as the anchors of their respective
-    sides, then assign every other seed by parity: even seeds (4, 6, 8,
-    ...) join seed 1 on side 0; odd seeds (3, 5, 7, ...) join seed 2 on
-    side 1. The result is independent of bracket size — the same rule
-    applies whether there are 4 or 256 athletes.
+
+def _bracket_slots(n):
+    """Return ``(first_round, bracket_size)`` for an n-person IBJJF bracket.
+
+    ``first_round`` is an ordered list of ``(red_seed, blue_seed)`` pairs
+    covering every first-round slot, where ``None`` denotes a bye.  The first
+    half of the list is seed 1's side of the bracket; the second half is seed
+    2's side.  ``bracket_size`` is the theoretical full bracket size
+    (always a power of 2).
+
+    Returns ``(None, None)`` when n < 4 or the bracket is larger than the
+    layout tables cover.
+
+    Mirrors the firstRoundSeeds construction in createMatchesFromSeeds
+    (BracketUtils.ts) and is the single source of truth for bracket layout.
     """
+    if n < 4:
+        return None, None
+
+    effective_size = 1
+    while effective_size * 2 <= n:
+        effective_size *= 2
+
+    play_in_count = n - effective_size
+    bracket_size = effective_size * 2 if play_in_count > 0 else effective_size
+    use_power_up_layout = effective_size >= 8 and play_in_count == effective_size - 1
+
+    effective_layout = _IBJJF_SEED_LAYOUTS.get(effective_size)
+    if effective_layout is None:
+        return None, None
+
+    play_in_pairs = {}
+    if play_in_count > 0 and not use_power_up_layout:
+        normalized = sorted(
+            [(min(a, b), max(a, b)) for a, b in effective_layout],
+            key=lambda p: p[0],
+        )
+        group_a = [p[1] for p in normalized]
+        group_b = list(reversed([p[0] for p in normalized]))
+
+        count_a = min(play_in_count, len(group_a))
+        count_b = max(0, play_in_count - len(group_a))
+        selected_a = sorted(group_a[:count_a])
+        selected_b = sorted(group_b[:count_b])
+
+        if effective_size <= 4:
+            for i, s in enumerate(selected_a):
+                play_in_pairs[s] = effective_size + len(selected_a) - i
+            for i, s in enumerate(selected_b):
+                play_in_pairs[s] = effective_size + len(selected_a) + 1 + i
+        else:
+            for i, s in enumerate(selected_a):
+                play_in_pairs[s] = effective_size + 1 + i
+            for i, s in enumerate(selected_b):
+                play_in_pairs[s] = effective_size + len(selected_a) + 1 + i
+
+    first_round = []
+    if play_in_count == 0:
+        first_round = list(effective_layout)
+    elif use_power_up_layout:
+        full_layout = _IBJJF_SEED_LAYOUTS.get(bracket_size)
+        if full_layout is None:
+            return None, None
+        for a, b in full_layout:
+            if a > n:
+                first_round.append((b, None))
+            elif b > n:
+                first_round.append((a, None))
+            else:
+                first_round.append((a, b))
+    else:
+        for a, b in effective_layout:
+            first_round.append(
+                (a, play_in_pairs[a]) if a in play_in_pairs else (a, None)
+            )
+            first_round.append(
+                (b, play_in_pairs[b]) if b in play_in_pairs else (b, None)
+            )
+
+    return first_round, bracket_size
+
+
+def _side(seed, n):
+    """Which side (0 = seed 1's half, 1 = seed 2's half) a given seed lands on
+    in an n-person IBJJF bracket.  Uses the actual layout from
+    :func:`_bracket_slots`; falls back to seed-parity for oversized brackets.
+    """
+    first_round, _ = _bracket_slots(n)
+    if first_round is None:
+        if seed == 1:
+            return 0
+        if seed == 2:
+            return 1
+        return 0 if seed % 2 == 0 else 1
+
+    half = len(first_round) // 2
+    for i, (a, b) in enumerate(first_round):
+        if a == seed or (b is not None and b == seed):
+            return 0 if i < half else 1
+
     if seed == 1:
         return 0
     if seed == 2:
@@ -1745,10 +1903,9 @@ def add_side_swaps(rows):
     *would* be swapped is returned, so callers can flag those positions
     as uncertain.
 
-    Bracket geometry: IBJJF brackets split by seed parity (see
-    :func:`_side`). Under that rule, every odd offset (+1, +3, +5, ...)
-    flips the side, so the search just walks odd offsets until it finds
-    a usable target.
+    Bracket geometry: IBJJF brackets split by actual layout position (see
+    :func:`_side`). The search walks all offsets from s2, skipping candidates
+    that land on the same side as s2, until it finds a usable target.
 
     Pairs are processed in order of the worse-seeded (second) teammate,
     ascending — i.e. the pair whose s2 appears first when walking down
@@ -1756,8 +1913,8 @@ def add_side_swaps(rows):
     earlier pair as a side effect.
 
     Target selection mirrors observed IBJJF behavior: for each
-    same-side pair with worse seed ``s2``, walk odd offsets upward
-    (s2+1, s2+3, ...) then downward (s2-1, s2-3, ...), and pick the
+    same-side pair with worse seed ``s2``, walk upward (s2+1, s2+2, ...)
+    then downward (s2-1, s2-2, ...) skipping same-side seeds, and pick the
     first candidate that satisfies all of:
 
       - in bounds and not the teammate ``s1``;
@@ -1831,21 +1988,24 @@ def add_side_swaps(rows):
         if len(members) != 2:
             return False
         other_row = members[0] if members[1] is row else members[1]
-        other_side = _side(other_row["est_seed"])
-        was_same_side = other_side == _side(row["est_seed"])
+        other_side = _side(other_row["est_seed"], num)
+        was_same_side = other_side == _side(row["est_seed"], num)
         will_be_same_side = other_side == dest_side
         return not was_same_side and will_be_same_side
 
     def find_target(s1, s2, dest_side):
-        # Walk odd offsets s2+1, s2+3, ..., then s2-1, s2-3, .... First
-        # pass refuses targets that would break another pair; second
+        # Walk all offsets from s2, skipping candidates on the same side.
+        # First pass refuses targets that would break another pair; second
         # pass relaxes that as a last resort. Both passes always refuse
         # already-swapped athletes (IBJJF swaps are disjoint pairs).
+        opposite_side = 1 - dest_side
         for allow_break in (False, True):
             for direction in (1, -1):
-                for offset in range(1, num, 2):
+                for offset in range(1, num):
                     c = s2 + direction * offset
                     if not (1 <= c <= num) or c == s1:
+                        continue
+                    if _side(c, num) != opposite_side:
                         continue
                     if id(seed_to_row[c]) in swapped_ids:
                         continue
@@ -1857,7 +2017,7 @@ def add_side_swaps(rows):
     for members in pairs:
         m1, m2 = sorted(members, key=lambda x: x["est_seed"])
         s1, s2 = m1["est_seed"], m2["est_seed"]
-        if _side(s1) != _side(s2):
+        if _side(s1, num) != _side(s2, num):
             continue
         if id(m2) in swapped_ids:
             # m2 was already moved by a prior swap; we don't chain a
@@ -1865,7 +2025,7 @@ def add_side_swaps(rows):
             # in its current (possibly still same-side) state.
             continue
 
-        dest_side = _side(s2)
+        dest_side = _side(s2, num)
         target_seed = find_target(s1, s2, dest_side)
         if target_seed is None:
             continue
