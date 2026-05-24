@@ -1793,11 +1793,17 @@ def _ibjjf_display_order(first_round):
 
     The seed layout tables are stored in a canonical tree order: seed 1's half
     first, then seed 2's half. IBJJF's rendered brackets put seed 2's half on
-    top and seed 1's half underneath for 16-slot-and-larger brackets. Within
-    each quadrant, rows are mirrored so the tree geometry is unchanged: only
-    complete subtrees are moved.
+    top and seed 1's half underneath. The 4-row bracket has only two
+    first-round rows per half, so its bottom half is mirrored directly. Larger
+    brackets mirror complete quadrants so the tree geometry is unchanged.
     """
     count = len(first_round)
+    if count == 4:
+        return [
+            (min(a, b), max(a, b)) if b is not None else (a, None)
+            for a, b in reversed(first_round)
+        ]
+
     if count < 8 or count % 4 != 0:
         return first_round
 
@@ -1831,7 +1837,7 @@ def _bracket_slots(n):
 
     play_in_count = n - effective_size
     bracket_size = effective_size * 2 if play_in_count > 0 else effective_size
-    use_power_up_layout = effective_size >= 8 and play_in_count == effective_size - 1
+    use_power_up_layout = effective_size >= 4 and play_in_count == effective_size - 1
 
     effective_layout = _IBJJF_SEED_LAYOUTS.get(effective_size)
     if effective_layout is None:

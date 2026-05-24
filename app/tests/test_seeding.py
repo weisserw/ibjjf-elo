@@ -1541,7 +1541,12 @@ class BracketSlotsTestCase(unittest.TestCase):
 
     def test_n8_slots(self):
         slots, size = _bracket_slots(8)
-        self.assertEqual(slots, [(1, 8), (6, 4), (3, 5), (2, 7)])
+        self.assertEqual(slots, [(2, 7), (3, 5), (4, 6), (1, 8)])
+        self.assertEqual(size, 8)
+
+    def test_n7_slots_match_ibjjf_visual_order(self):
+        slots, size = _bracket_slots(7)
+        self.assertEqual(slots, [(2, 7), (3, 5), (4, 6), (1, None)])
         self.assertEqual(size, 8)
 
     def test_n11_slots_match_ibjjf_visual_order(self):
@@ -1670,15 +1675,15 @@ class SideTestCase(unittest.TestCase):
                 self.assertEqual(_side(seed, 6), expected)
 
     def test_n7_play_in_seeds(self):
-        # N=7: side 0: 1, 4, 5 — side 1: 2, 3, 6, 7.
-        # Parity: seed 5 → side 1 (wrong), seed 6 → side 0 (wrong).
+        # N=7: one short of an 8-slot bracket, so seed 8 is the missing bye.
+        # Side 0: 1, 4, 6 — side 1: 2, 3, 5, 7.
         for seed, expected in [
             (1, 0),
             (4, 0),
-            (5, 0),
+            (6, 0),
             (2, 1),
             (3, 1),
-            (6, 1),
+            (5, 1),
             (7, 1),
         ]:
             with self.subTest(seed=seed):
@@ -1938,20 +1943,15 @@ class SideSwapTestCase(unittest.TestCase):
         self.assertEqual(result["swaps"][0]["name_a"], "A5")
         self.assertEqual(result["swaps"][0]["name_b"], "A3")
 
-    def test_n7_teammates_at_3_and_6_are_same_side(self):
-        # N=7: seeds 3 and 6 are both on side 1 (seed 2's half).
-        # Parity assigns seed 6 to side 0 (even), so the old algorithm would
-        # incorrectly treat (3, 6) as already split and skip the swap.
+    def test_n7_teammates_at_3_and_6_are_split(self):
+        # N=7 uses the 8-slot layout with seed 8 as the missing bye.
+        # Seeds 3 and 6 are already split across the seed-2 and seed-1 halves.
         rows = [_swap_row(i, f"A{i}", f"Team{i}") for i in range(1, 8)]
         rows[2]["team"] = "Pair"  # seed 3 (side 1)
-        rows[5]["team"] = "Pair"  # seed 6 (side 1)
+        rows[5]["team"] = "Pair"  # seed 6 (side 0)
         result = add_side_swaps(rows)
         self.assertEqual(result["bailout_teams"], [])
-        self.assertEqual(len(result["swaps"]), 1)
-        # s2=6, direction=+1: seed 7 is also side 1 (skip).
-        # direction=-1: seed 5 is side 0. Swap A6 ↔ A5.
-        self.assertEqual(result["swaps"][0]["name_a"], "A6")
-        self.assertEqual(result["swaps"][0]["name_b"], "A5")
+        self.assertEqual(result["swaps"], [])
 
     def test_n9_teammates_at_8_and_9_are_same_side(self):
         # N=9: seeds 8 and 9 are both on side 0 (seed 1's half).
