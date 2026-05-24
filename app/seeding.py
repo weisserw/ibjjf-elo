@@ -1788,7 +1788,7 @@ _IBJJF_SEED_LAYOUTS = {
 }
 
 
-def _ibjjf_display_order(first_round):
+def _ibjjf_display_order(first_round, play_in_count=0):
     """Return first-round rows in IBJJF's visual bracket order.
 
     The seed layout tables are stored in a canonical tree order: seed 1's half
@@ -1806,15 +1806,43 @@ def _ibjjf_display_order(first_round):
         ]
 
     if count == 32:
+        if play_in_count == 12:
+            ordered = []
+            for start in range(0, count, 8):
+                first = first_round[start : start + 4]
+                second = first_round[start + 4 : start + 8]
+                ordered.extend([second[1], second[0], second[3], second[2]])
+                ordered.extend([first[1], first[0], first[2], first[3]])
+            return ordered
+
+        if play_in_count >= 8:
+            ordered = []
+            for start in range(0, count, 4):
+                block = first_round[start : start + 4]
+                ordered.extend([block[1], block[0], block[2], block[3]])
+            return ordered
+
+        quarter_orders = {
+            1: (3, 2, 0, 1),
+            3: (2, 3, 1, 0),
+            4: (0, 1, 2, 3),
+        }
+        quarters_to_swap = {
+            1: {3},
+            3: {1, 2, 3},
+            4: {0, 1, 2, 3},
+        }
+        quarter_order = quarter_orders.get(play_in_count, (2, 3, 1, 0))
+        swap_quarters = quarters_to_swap.get(play_in_count, {1, 2, 3})
         ordered = []
         quarter_size = count // 4
-        for quarter in (2, 3, 1, 0):
+        for quarter in quarter_order:
             start = quarter * quarter_size
             block = first_round[start : start + quarter_size]
-            if quarter == 0:
-                ordered.extend(block)
-            else:
+            if quarter in swap_quarters:
                 ordered.extend([block[1], block[0], *block[2:]])
+            else:
+                ordered.extend(block)
         return ordered
 
     if count >= 16 and count % 4 == 0:
@@ -1874,8 +1902,10 @@ def _bracket_slots(n):
 
         count_a = min(play_in_count, len(group_a))
         count_b = max(0, play_in_count - len(group_a))
-        if effective_size == 32 and play_in_count == 3:
-            selected_a = [29, 30, 31]
+        if effective_size == 32 and play_in_count == 12:
+            selected_a = [17, 18, 19, 20, 29, 30, 31, 32, 25, 26, 27, 28]
+        elif effective_size == 32 and play_in_count <= 4:
+            selected_a = [29, 30, 31, 32][:count_a]
         else:
             selected_a = sorted(group_a[:count_a])
         selected_b = sorted(group_b[:count_b])
@@ -1914,7 +1944,7 @@ def _bracket_slots(n):
                 (b, play_in_pairs[b]) if b in play_in_pairs else (b, None)
             )
 
-    return _ibjjf_display_order(first_round), bracket_size
+    return _ibjjf_display_order(first_round, play_in_count), bracket_size
 
 
 def _side(seed, n):

@@ -1608,6 +1608,47 @@ class BracketSlotsTestCase(unittest.TestCase):
         )
         self.assertEqual(size, 32)
 
+    def test_n33_slots_match_ibjjf_visual_order(self):
+        slots, size = _bracket_slots(33)
+        self.assertEqual(
+            slots,
+            [
+                (29, 33),
+                (3, None),
+                (13, None),
+                (21, None),
+                (5, None),
+                (25, None),
+                (9, None),
+                (17, None),
+                (2, None),
+                (31, None),
+                (15, None),
+                (23, None),
+                (7, None),
+                (27, None),
+                (11, None),
+                (19, None),
+                (1, None),
+                (32, None),
+                (16, None),
+                (24, None),
+                (8, None),
+                (28, None),
+                (12, None),
+                (20, None),
+                (4, None),
+                (30, None),
+                (14, None),
+                (22, None),
+                (6, None),
+                (26, None),
+                (10, None),
+                (18, None),
+            ],
+        )
+        self.assertEqual(size, 64)
+
     def test_n35_slots_match_ibjjf_visual_order(self):
         slots, size = _bracket_slots(35)
         self.assertEqual(
@@ -1649,6 +1690,129 @@ class BracketSlotsTestCase(unittest.TestCase):
         )
         self.assertEqual(size, 64)
 
+    def test_n36_slots_match_ibjjf_visual_order(self):
+        slots, size = _bracket_slots(36)
+        self.assertEqual(
+            slots,
+            [
+                (32, 36),
+                (1, None),
+                (16, None),
+                (24, None),
+                (8, None),
+                (28, None),
+                (12, None),
+                (20, None),
+                (30, 34),
+                (4, None),
+                (14, None),
+                (22, None),
+                (6, None),
+                (26, None),
+                (10, None),
+                (18, None),
+                (31, 35),
+                (2, None),
+                (15, None),
+                (23, None),
+                (7, None),
+                (27, None),
+                (11, None),
+                (19, None),
+                (29, 33),
+                (3, None),
+                (13, None),
+                (21, None),
+                (5, None),
+                (25, None),
+                (9, None),
+                (17, None),
+            ],
+        )
+        self.assertEqual(size, 64)
+
+    def test_n40_slots_match_ibjjf_visual_order(self):
+        slots, size = _bracket_slots(40)
+        self.assertEqual(
+            slots,
+            [
+                (32, 40),
+                (1, None),
+                (16, None),
+                (24, None),
+                (28, 36),
+                (8, None),
+                (12, None),
+                (20, None),
+                (30, 38),
+                (4, None),
+                (14, None),
+                (22, None),
+                (26, 34),
+                (6, None),
+                (10, None),
+                (18, None),
+                (31, 39),
+                (2, None),
+                (15, None),
+                (23, None),
+                (27, 35),
+                (7, None),
+                (11, None),
+                (19, None),
+                (29, 37),
+                (3, None),
+                (13, None),
+                (21, None),
+                (25, 33),
+                (5, None),
+                (9, None),
+                (17, None),
+            ],
+        )
+        self.assertEqual(size, 64)
+
+    def test_n44_slots_match_ibjjf_visual_order(self):
+        slots, size = _bracket_slots(44)
+        self.assertEqual(
+            slots,
+            [
+                (28, 44),
+                (8, None),
+                (20, 36),
+                (12, None),
+                (32, 40),
+                (1, None),
+                (16, None),
+                (24, None),
+                (26, 42),
+                (6, None),
+                (18, 34),
+                (10, None),
+                (30, 38),
+                (4, None),
+                (14, None),
+                (22, None),
+                (27, 43),
+                (7, None),
+                (19, 35),
+                (11, None),
+                (31, 39),
+                (2, None),
+                (15, None),
+                (23, None),
+                (25, 41),
+                (5, None),
+                (17, 33),
+                (9, None),
+                (29, 37),
+                (3, None),
+                (13, None),
+                (21, None),
+            ],
+        )
+        self.assertEqual(size, 64)
+
     def test_n5_play_in(self):
         # Seed 5 is the play-in partner of seed 4.
         slots, size = _bracket_slots(5)
@@ -1680,7 +1844,7 @@ class BracketSlotsTestCase(unittest.TestCase):
                 self.assertNotEqual(seed1_idx < half, seed2_idx < half)
 
     def test_all_seeds_present(self):
-        for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 35]:
+        for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 33, 35, 36, 40, 44]:
             with self.subTest(n=n):
                 slots, _ = _bracket_slots(n)
                 seen = set()
