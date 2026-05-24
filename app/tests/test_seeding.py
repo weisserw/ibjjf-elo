@@ -1566,6 +1566,48 @@ class BracketSlotsTestCase(unittest.TestCase):
         )
         self.assertEqual(size, 16)
 
+    def test_n16_slots_match_single_page_visual_order(self):
+        slots, size = _bracket_slots(16)
+        self.assertEqual(
+            slots,
+            [
+                (5, 9),
+                (3, 13),
+                (7, 11),
+                (2, 15),
+                (8, 12),
+                (1, 16),
+                (6, 10),
+                (4, 14),
+            ],
+        )
+        self.assertEqual(size, 16)
+
+    def test_n20_slots_match_ibjjf_visual_order(self):
+        slots, size = _bracket_slots(20)
+        self.assertEqual(
+            slots,
+            [
+                (16, 20),
+                (1, None),
+                (8, None),
+                (12, None),
+                (14, 18),
+                (4, None),
+                (6, None),
+                (10, None),
+                (15, 19),
+                (2, None),
+                (7, None),
+                (11, None),
+                (13, 17),
+                (3, None),
+                (5, None),
+                (9, None),
+            ],
+        )
+        self.assertEqual(size, 32)
+
     def test_n5_play_in(self):
         # Seed 5 is the play-in partner of seed 4.
         slots, size = _bracket_slots(5)

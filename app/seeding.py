@@ -1793,9 +1793,10 @@ def _ibjjf_display_order(first_round):
 
     The seed layout tables are stored in a canonical tree order: seed 1's half
     first, then seed 2's half. IBJJF's rendered brackets put seed 2's half on
-    top and seed 1's half underneath. The 4-row bracket has only two
-    first-round rows per half, so its bottom half is mirrored directly. Larger
-    brackets mirror complete quadrants so the tree geometry is unchanged.
+    top and seed 1's half underneath for 8- and 16-slot brackets. Larger
+    brackets appear to follow their paged visual layout: each 4-row block keeps
+    its tree position, but the first pair of rows is mirrored. All transforms
+    move only complete first-round sibling rows, so tree geometry is unchanged.
     """
     count = len(first_round)
     if count == 4:
@@ -1803,6 +1804,13 @@ def _ibjjf_display_order(first_round):
             (min(a, b), max(a, b)) if b is not None else (a, None)
             for a, b in reversed(first_round)
         ]
+
+    if count >= 16 and count % 4 == 0:
+        ordered = []
+        for start in range(0, count, 4):
+            block = first_round[start : start + 4]
+            ordered.extend([block[1], block[0], block[2], block[3]])
+        return ordered
 
     if count < 8 or count % 4 != 0:
         return first_round
