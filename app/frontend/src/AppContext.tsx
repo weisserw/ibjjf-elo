@@ -13,12 +13,13 @@ import type {
   Match as BracketMatch,
   Category as BracketCategory,
   MatLinks as BracketMatLinks,
+  SideSwap as BracketSideSwap,
 } from './components/BracketUtils';
 import type {
   UpcomingLink as BracketRegistrationUpcomingLink,
 } from './components/BracketRegistration';
 
-export type BracketViewTab = 'Table' | 'Bracket';
+export type BracketViewTab = 'Table' | 'Bracket' | 'IdealBracket';
 
 interface AppContextProps {
   filters: FilterValues;
@@ -79,6 +80,14 @@ interface AppContextProps {
   setBracketRegistrationSelectedCategory: (category: string | null) => void;
   bracketRegistrationCompetitors: BracketCompetitor[] | null;
   setBracketRegistrationCompetitors: (competitors: BracketCompetitor[] | null) => void;
+  bracketRegistrationSideSwaps: BracketSideSwap[];
+  setBracketRegistrationSideSwaps: (swaps: BracketSideSwap[]) => void;
+  bracketRegistrationSideSwapBailoutTeams: string[];
+  setBracketRegistrationSideSwapBailoutTeams: (teams: string[]) => void;
+  bracketRegistrationSlots: [number, number | null][] | null;
+  setBracketRegistrationSlots: (slots: [number, number | null][] | null) => void;
+  bracketRegistrationMatchCount: number | null;
+  setBracketRegistrationMatchCount: (count: number | null) => void;
   bracketRegistrationUpcomingLinks: BracketRegistrationUpcomingLink[];
   setBracketRegistrationUpcomingLinks: (links: BracketRegistrationUpcomingLink[]) => void;
   bracketRegistrationSelectedUpcomingLink: string;
@@ -207,6 +216,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [bracketRegistrationCategories, setBracketRegistrationCategories] = useState<string[] | null>(null)
   const [bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory] = useState<string | null>(null)
   const [bracketRegistrationCompetitors, setBracketRegistrationCompetitors] = useState<BracketCompetitor[] | null>(null)
+  const [bracketRegistrationSideSwaps, setBracketRegistrationSideSwaps] = useState<BracketSideSwap[]>([])
+  const [bracketRegistrationSideSwapBailoutTeams, setBracketRegistrationSideSwapBailoutTeams] = useState<string[]>([])
+  const [bracketRegistrationSlots, setBracketRegistrationSlots] = useState<[number, number | null][] | null>(null)
+  const [bracketRegistrationMatchCount, setBracketRegistrationMatchCount] = useState<number | null>(null)
   const [bracketRegistrationUpcomingLinks, setBracketRegistrationUpcomingLinks] = useState<BracketRegistrationUpcomingLink[]>([])
   const [bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink] = useLocalStorage<string>('bracketRegistrationSelectedUpcomingLink', '')
   const [bracketRegistrationViewMode, setBracketRegistrationViewMode] = useLocalStorage<'all' | 'elites'>('bracketRegistrationViewMode', 'all')
@@ -333,6 +346,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       bracketRegistrationCategories, setBracketRegistrationCategories,
       bracketRegistrationSelectedCategory, setBracketRegistrationSelectedCategory,
       bracketRegistrationCompetitors, setBracketRegistrationCompetitors,
+      bracketRegistrationSideSwaps, setBracketRegistrationSideSwaps,
+      bracketRegistrationSideSwapBailoutTeams, setBracketRegistrationSideSwapBailoutTeams,
+      bracketRegistrationSlots, setBracketRegistrationSlots,
+      bracketRegistrationMatchCount, setBracketRegistrationMatchCount,
       bracketRegistrationUpcomingLinks, setBracketRegistrationUpcomingLinks,
       bracketRegistrationSelectedUpcomingLink, setBracketRegistrationSelectedUpcomingLink,
       bracketRegistrationViewMode, setBracketRegistrationViewMode,

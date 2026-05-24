@@ -643,6 +643,46 @@ export const createMatchesFromSeeds = (
   return { matches: allMatches, matchCount };
 }
 
+const snakeSeedOrder = (size: number): number[] => {
+  if (size <= 1) return [1];
+
+  const previous = snakeSeedOrder(size / 2);
+  const result: number[] = [];
+  for (const seed of previous) {
+    result.push(seed, size + 1 - seed);
+  }
+  return result;
+}
+
+export const createSnakeBracketSlots = (competitorCount: number): {
+  bracketSlots: [number, number | null][];
+  matchCount: number;
+} | null => {
+  if (competitorCount < 2) return null;
+
+  let bracketSize = 2;
+  while (bracketSize < competitorCount) {
+    bracketSize *= 2;
+  }
+
+  const order = snakeSeedOrder(bracketSize);
+  const bracketSlots: [number, number | null][] = [];
+  for (let i = 0; i < order.length; i += 2) {
+    const redSeed = order[i];
+    const blueSeed = order[i + 1];
+    if (redSeed <= competitorCount) {
+      bracketSlots.push([
+        redSeed,
+        blueSeed <= competitorCount ? blueSeed : null,
+      ]);
+    } else if (blueSeed <= competitorCount) {
+      bracketSlots.push([blueSeed, null]);
+    }
+  }
+
+  return { bracketSlots, matchCount: bracketSize - 1 };
+}
+
 export const createTreeFromTop = (matches: Match[]): Match[][] => {
   const levels: Match[][] = [[]];
 

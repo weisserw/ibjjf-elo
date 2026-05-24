@@ -64,6 +64,13 @@ function BracketArchive() {
   } = useAppContext()
 
   const navigate = useNavigate()
+  const supportedBracketViewTab = bracketViewTab === 'IdealBracket' ? 'Bracket' : bracketViewTab
+
+  useEffect(() => {
+    if (bracketViewTab === 'IdealBracket') {
+      setBracketViewTab('Bracket')
+    }
+  }, [bracketViewTab, setBracketViewTab])
 
   const getEventSuggestions = async ({ value }: { value: string }) => {
     try {
@@ -463,10 +470,10 @@ function BracketArchive() {
           (!!eventNameFetch && categories !== null && competitors !== null) && (
             <div className="tabs bracket-view-tabs">
               <ul>
-                <li className={classNames({"is-active": bracketViewTab === 'Table'})} onClick={() => setBracketViewTab('Table')}>
-                  <a>{t("Table")}</a>
+                <li className={classNames({"is-active": supportedBracketViewTab === 'Table'})} onClick={() => setBracketViewTab('Table')}>
+                  <a>{t("List")}</a>
                 </li>
-                <li className={classNames({"is-active": bracketViewTab === 'Bracket'})} onClick={() => setBracketViewTab('Bracket')}>
+                <li className={classNames({"is-active": supportedBracketViewTab === 'Bracket'})} onClick={() => setBracketViewTab('Bracket')}>
                   <a>{t("Bracket")}</a>
                 </li>
               </ul>
@@ -474,7 +481,7 @@ function BracketArchive() {
           )
         }
         {
-          bracketViewTab === 'Bracket' && (!!eventNameFetch && categories !== null && matches !== null) && (
+          supportedBracketViewTab === 'Bracket' && (!!eventNameFetch && categories !== null && matches !== null) && (
             <BracketTree matches={matches}
                          matchCount={expectedMatchCount}
                          hasMatchNums={hasMatchNums}
@@ -487,7 +494,7 @@ function BracketArchive() {
           )
         }
         {
-          bracketViewTab === 'Table' && (!!eventNameFetch && categories !== null && competitors !== null) && (
+          supportedBracketViewTab === 'Table' && (!!eventNameFetch && categories !== null && competitors !== null) && (
             <BracketTable competitors={sortedCompetitors}
                           sortColumn={usableSortColumn}
                           showSeed={showSeed}

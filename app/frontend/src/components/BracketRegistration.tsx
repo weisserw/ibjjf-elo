@@ -7,7 +7,7 @@ import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree, { type SeedHighlight } from './BracketTree'
 import EliteTable, { type EliteAthlete } from './EliteTable'
 import EstSeedModal from './EstSeedModal'
-import { isGi, handleError, createMatchesFromSeeds, type CompetitorsResponse, type Competitor, type SideSwap } from './BracketUtils'
+import { isGi, handleError, createMatchesFromSeeds, createSnakeBracketSlots, type CompetitorsResponse, type Competitor } from './BracketUtils'
 import { translateMulti, t } from '../translate'
 
 interface RegistrationCategoriesResponse {
@@ -33,10 +33,6 @@ function BracketRegistration() {
   const [elites, setElites] = useState<EliteAthlete[] | null>(null)
   const [eliteNote, setEliteNote] = useState<string | null>(null);
   const [estSeedModalOpen, setEstSeedModalOpen] = useState(false)
-  const [sideSwaps, setSideSwaps] = useState<SideSwap[]>([])
-  const [sideSwapBailoutTeams, setSideSwapBailoutTeams] = useState<string[]>([])
-  const [bracketSlots, setBracketSlots] = useState<[number, number | null][] | null>(null)
-  const [bracketMatchCount, setBracketMatchCount] = useState<number | null>(null)
   const [elitesByLink, setElitesByLink] = useState<
     Record<string, { data: {elites: EliteAthlete[]; note: string | null; }; fetchedAt: number }>
   >({})
@@ -54,6 +50,14 @@ function BracketRegistration() {
     setBracketRegistrationSelectedCategory: setSelectedRegistrationCategory,
     bracketRegistrationCompetitors: registrationCompetitors,
     setBracketRegistrationCompetitors: setRegistrationCompetitors,
+    bracketRegistrationSideSwaps: sideSwaps,
+    setBracketRegistrationSideSwaps: setSideSwaps,
+    bracketRegistrationSideSwapBailoutTeams: sideSwapBailoutTeams,
+    setBracketRegistrationSideSwapBailoutTeams: setSideSwapBailoutTeams,
+    bracketRegistrationSlots: bracketSlots,
+    setBracketRegistrationSlots: setBracketSlots,
+    bracketRegistrationMatchCount: bracketMatchCount,
+    setBracketRegistrationMatchCount: setBracketMatchCount,
     bracketRegistrationUpcomingLinks: upcomingLinks,
     setBracketRegistrationUpcomingLinks: setUpcomingLinks,
     bracketRegistrationSelectedUpcomingLink: selectedUpcomingLink,
@@ -179,6 +183,53 @@ function BracketRegistration() {
     return createMatchesFromSeeds(sortedRegistrationCompetitors, bracketSlots, bracketMatchCount, sideSwaps);
   }, [sortedRegistrationCompetitors, bracketSlots, bracketMatchCount, sideSwaps])
 
+  const nativeSeedByCompetitor = useMemo(() => {
+    const result = new Map<Competitor, number>();
+    if (!registrationCompetitors || !showRatings) return result;
+
+    [...registrationCompetitors]
+      .sort((a, b) => {
+        const aOrdinal = a.ordinal ?? Number.MAX_SAFE_INTEGER;
+        const bOrdinal = b.ordinal ?? Number.MAX_SAFE_INTEGER;
+        if (aOrdinal !== bOrdinal) return aOrdinal - bOrdinal;
+
+        const aRating = a.rating ?? Number.NEGATIVE_INFINITY;
+        const bRating = b.rating ?? Number.NEGATIVE_INFINITY;
+        if (aRating !== bRating) return bRating - aRating;
+
+        return a.name.localeCompare(b.name);
+      })
+      .forEach((competitor, index) => {
+        result.set(competitor, index + 1);
+      });
+
+    return result;
+  }, [registrationCompetitors, showRatings])
+
+  const idealBracket = useMemo(() => {
+    if (!registrationCompetitors || nativeSeedByCompetitor.size < 2) return null;
+    const snakeSlots = createSnakeBracketSlots(nativeSeedByCompetitor.size);
+    if (!snakeSlots) return null;
+
+    return createMatchesFromSeeds(
+      registrationCompetitors,
+      snakeSlots.bracketSlots,
+      snakeSlots.matchCount,
+      [],
+      competitor => nativeSeedByCompetitor.get(competitor),
+    );
+  }, [registrationCompetitors, nativeSeedByCompetitor])
+
+  useEffect(() => {
+    if (viewMode !== 'all') return;
+
+    if (bracketViewTab === 'Bracket' && seededBracket === null) {
+      setBracketViewTab(idealBracket !== null ? 'IdealBracket' : 'Table');
+    } else if (bracketViewTab === 'IdealBracket' && idealBracket === null) {
+      setBracketViewTab(seededBracket !== null ? 'Bracket' : 'Table');
+    }
+  }, [bracketViewTab, seededBracket, idealBracket, viewMode, setBracketViewTab])
+
   const seedHighlights = useMemo(() => {
     const result = new Map<string, SeedHighlight>();
     if (!sortedRegistrationCompetitors) return result;
@@ -243,6 +294,11 @@ function BracketRegistration() {
         setRegistrationEventName('')
         setRegistrationEventTotal(null)
         setRegistrationEventUrl('')
+        setRegistrationCompetitors(null)
+        setSideSwaps([])
+        setSideSwapBailoutTeams([])
+        setBracketSlots(null)
+        setBracketMatchCount(null)
         setError(data.error)
       } else if (data.categories && data.event_name) {
         setError(null)
@@ -279,6 +335,10 @@ function BracketRegistration() {
           } else {
             setSelectedRegistrationCategory(null)
             setRegistrationCompetitors(null)
+            setSideSwaps([])
+            setSideSwapBailoutTeams([])
+            setBracketSlots(null)
+            setBracketMatchCount(null)
           }
         }
       }
@@ -493,11 +553,16 @@ function BracketRegistration() {
             <div className="tabs bracket-view-tabs">
               <ul>
                 <li className={classNames({"is-active": bracketViewTab === 'Table'})} onClick={() => setBracketViewTab('Table')}>
-                  <a>{t("Table")}</a>
+                  <a>{t("List")}</a>
                 </li>
                 {seededBracket !== null && (
                   <li className={classNames({"is-active": bracketViewTab === 'Bracket'})} onClick={() => setBracketViewTab('Bracket')}>
                     <a>{t("Predicted Bracket")}</a>
+                  </li>
+                )}
+                {idealBracket !== null && (
+                  <li className={classNames({"is-active": bracketViewTab === 'IdealBracket'})} onClick={() => setBracketViewTab('IdealBracket')}>
+                    <a>{t("Ideal Bracket")}</a>
                   </li>
                 )}
               </ul>
@@ -529,6 +594,25 @@ function BracketRegistration() {
               showRatings={showRatings}
               belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
               seedHighlights={seedHighlights}
+              calculateClicked={() => {}}
+              calculateEnabled={() => false}
+            />
+          )
+        }
+        {
+          bracketViewTab === 'IdealBracket' &&
+          viewMode === 'all' &&
+          registrationEventUrl !== null &&
+          registrationCategories !== null &&
+          idealBracket !== null && (
+            <BracketTree
+              matches={idealBracket.matches}
+              matchCount={idealBracket.matchCount}
+              hasMatchNums={true}
+              showSeed={true}
+              showRefresh={false}
+              showRatings={showRatings}
+              belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
               calculateClicked={() => {}}
               calculateEnabled={() => false}
             />

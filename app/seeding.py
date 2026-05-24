@@ -1788,20 +1788,39 @@ _IBJJF_SEED_LAYOUTS = {
 }
 
 
+def _ibjjf_display_order(first_round):
+    """Return first-round rows in IBJJF's visual bracket order.
+
+    The seed layout tables are stored in a canonical tree order: seed 1's half
+    first, then seed 2's half. IBJJF's rendered brackets put seed 2's half on
+    top and seed 1's half underneath for 16-slot-and-larger brackets. Within
+    each quadrant, rows are mirrored so the tree geometry is unchanged: only
+    complete subtrees are moved.
+    """
+    count = len(first_round)
+    if count < 8 or count % 4 != 0:
+        return first_round
+
+    quadrant_size = count // 4
+    ordered = []
+    for start in (3 * quadrant_size, 2 * quadrant_size, 0, quadrant_size):
+        ordered.extend(reversed(first_round[start : start + quadrant_size]))
+    return ordered
+
+
 def _bracket_slots(n):
     """Return ``(first_round, bracket_size)`` for an n-person IBJJF bracket.
 
     ``first_round`` is an ordered list of ``(red_seed, blue_seed)`` pairs
-    covering every first-round slot, where ``None`` denotes a bye.  The first
-    half of the list is seed 1's side of the bracket; the second half is seed
-    2's side.  ``bracket_size`` is the theoretical full bracket size
-    (always a power of 2).
+    covering every first-round slot in IBJJF's visual display order, where
+    ``None`` denotes a bye.  ``bracket_size`` is the theoretical full bracket
+    size (always a power of 2).
 
     Returns ``(None, None)`` when n < 4 or the bracket is larger than the
     layout tables cover.
 
-    Mirrors the firstRoundSeeds construction in createMatchesFromSeeds
-    (BracketUtils.ts) and is the single source of truth for bracket layout.
+    This is the single source of truth for estimated bracket layout; the
+    frontend consumes these slots when constructing estimated matches.
     """
     if n < 4:
         return None, None
@@ -1866,7 +1885,7 @@ def _bracket_slots(n):
                 (b, play_in_pairs[b]) if b in play_in_pairs else (b, None)
             )
 
-    return first_round, bracket_size
+    return _ibjjf_display_order(first_round), bracket_size
 
 
 def _side(seed, n):
@@ -1883,9 +1902,25 @@ def _side(seed, n):
         return 0 if seed % 2 == 0 else 1
 
     half = len(first_round) // 2
+    seed1_half = None
+    seed2_half = None
+    target_half = None
+
     for i, (a, b) in enumerate(first_round):
+        row_half = 0 if i < half else 1
+        if a == 1 or b == 1:
+            seed1_half = row_half
+        if a == 2 or b == 2:
+            seed2_half = row_half
         if a == seed or (b is not None and b == seed):
-            return 0 if i < half else 1
+            target_half = row_half
+
+    if target_half is not None:
+        if seed1_half is not None and target_half == seed1_half:
+            return 0
+        if seed2_half is not None and target_half == seed2_half:
+            return 1
+        return target_half
 
     if seed == 1:
         return 0

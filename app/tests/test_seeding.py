@@ -1544,6 +1544,23 @@ class BracketSlotsTestCase(unittest.TestCase):
         self.assertEqual(slots, [(1, 8), (6, 4), (3, 5), (2, 7)])
         self.assertEqual(size, 8)
 
+    def test_n11_slots_match_ibjjf_visual_order(self):
+        slots, size = _bracket_slots(11)
+        self.assertEqual(
+            slots,
+            [
+                (7, 10),
+                (2, None),
+                (5, 9),
+                (3, None),
+                (8, 11),
+                (1, None),
+                (4, None),
+                (6, None),
+            ],
+        )
+        self.assertEqual(size, 16)
+
     def test_n5_play_in(self):
         # Seed 5 is the play-in partner of seed 4.
         slots, size = _bracket_slots(5)
@@ -1561,21 +1578,18 @@ class BracketSlotsTestCase(unittest.TestCase):
         # Seed 1 gets a bye (no partner in a 15-person bracket).
         self.assertIn((1, None), slots)
 
-    def test_seed_1_always_in_first_half(self):
+    def test_seed_1_and_seed_2_are_in_opposite_visual_halves(self):
         for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 32]:
             with self.subTest(n=n):
                 slots, _ = _bracket_slots(n)
                 half = len(slots) // 2
-                idx = next(i for i, (a, b) in enumerate(slots) if a == 1 or b == 1)
-                self.assertLess(idx, half)
-
-    def test_seed_2_always_in_second_half(self):
-        for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 32]:
-            with self.subTest(n=n):
-                slots, _ = _bracket_slots(n)
-                half = len(slots) // 2
-                idx = next(i for i, (a, b) in enumerate(slots) if a == 2 or b == 2)
-                self.assertGreaterEqual(idx, half)
+                seed1_idx = next(
+                    i for i, (a, b) in enumerate(slots) if a == 1 or b == 1
+                )
+                seed2_idx = next(
+                    i for i, (a, b) in enumerate(slots) if a == 2 or b == 2
+                )
+                self.assertNotEqual(seed1_idx < half, seed2_idx < half)
 
     def test_all_seeds_present(self):
         for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16]:

@@ -56,6 +56,13 @@ function BracketLive() {
   } = useAppContext()
 
   const navigate = useNavigate()
+  const supportedBracketViewTab = bracketViewTab === 'IdealBracket' ? 'Bracket' : bracketViewTab
+
+  useEffect(() => {
+    if (bracketViewTab === 'IdealBracket') {
+      setBracketViewTab('Bracket')
+    }
+  }, [bracketViewTab, setBracketViewTab])
 
   const columnClicked = (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => {
     ev.preventDefault()
@@ -465,10 +472,10 @@ function BracketLive() {
           (events !== null && categories !== null && competitors !== null) && (
             <div className="tabs bracket-view-tabs">
               <ul>
-                <li className={classNames({"is-active": bracketViewTab === 'Table'})} onClick={() => setBracketViewTab('Table')}>
-                  <a>{t("Table")}</a>
+                <li className={classNames({"is-active": supportedBracketViewTab === 'Table'})} onClick={() => setBracketViewTab('Table')}>
+                  <a>{t("List")}</a>
                 </li>
-                <li className={classNames({"is-active": bracketViewTab === 'Bracket'})} onClick={() => setBracketViewTab('Bracket')}>
+                <li className={classNames({"is-active": supportedBracketViewTab === 'Bracket'})} onClick={() => setBracketViewTab('Bracket')}>
                   <a>{t("Bracket")}</a>
                 </li>
               </ul>
@@ -476,7 +483,7 @@ function BracketLive() {
           )
         }
         {
-          bracketViewTab === 'Bracket' && (events !== null && categories !== null && matches !== null) && (
+          supportedBracketViewTab === 'Bracket' && (events !== null && categories !== null && matches !== null) && (
             <BracketTree
               matches={matches}
               matchCount={matches.length}
@@ -493,7 +500,7 @@ function BracketLive() {
           )
         }
         {
-          bracketViewTab === 'Table' && (events !== null && categories !== null && competitors !== null) && (
+          supportedBracketViewTab === 'Table' && (events !== null && categories !== null && competitors !== null) && (
             <BracketTable
               competitors={sortedCompetitors}
               matLinks={matLinks}
