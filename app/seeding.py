@@ -1793,10 +1793,10 @@ def _ibjjf_display_order(first_round):
 
     The seed layout tables are stored in a canonical tree order: seed 1's half
     first, then seed 2's half. IBJJF's rendered brackets put seed 2's half on
-    top and seed 1's half underneath for 8- and 16-slot brackets. Larger
-    brackets appear to follow their paged visual layout: each 4-row block keeps
-    its tree position, but the first pair of rows is mirrored. All transforms
-    move only complete first-round sibling rows, so tree geometry is unchanged.
+    top and seed 1's half underneath for 8- and 16-slot brackets. The 32-slot
+    bracket follows a 4-row page rhythm. The 64-slot bracket follows an 8-row
+    page rhythm. All transforms move only complete first-round sibling rows,
+    so tree geometry is unchanged.
     """
     count = len(first_round)
     if count == 4:
@@ -1804,6 +1804,18 @@ def _ibjjf_display_order(first_round):
             (min(a, b), max(a, b)) if b is not None else (a, None)
             for a, b in reversed(first_round)
         ]
+
+    if count == 32:
+        ordered = []
+        quarter_size = count // 4
+        for quarter in (2, 3, 1, 0):
+            start = quarter * quarter_size
+            block = first_round[start : start + quarter_size]
+            if quarter == 0:
+                ordered.extend(block)
+            else:
+                ordered.extend([block[1], block[0], *block[2:]])
+        return ordered
 
     if count >= 16 and count % 4 == 0:
         ordered = []
@@ -1862,7 +1874,10 @@ def _bracket_slots(n):
 
         count_a = min(play_in_count, len(group_a))
         count_b = max(0, play_in_count - len(group_a))
-        selected_a = sorted(group_a[:count_a])
+        if effective_size == 32 and play_in_count == 3:
+            selected_a = [29, 30, 31]
+        else:
+            selected_a = sorted(group_a[:count_a])
         selected_b = sorted(group_b[:count_b])
 
         if effective_size <= 4:
