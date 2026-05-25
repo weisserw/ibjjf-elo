@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 import requests
 import threading
+import os
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from pull import (
@@ -28,6 +29,7 @@ from models import (
     RegistrationLink,
     RegistrationLinkCompetitor,
     LiveRating,
+    Team,
 )
 import logging
 from normalize import normalize
@@ -318,7 +320,7 @@ def get_ratings(
             result["personal_name"] = athlete.personal_name
             result["profile_image_url"] = (
                 get_public_photo_url(s3_client, athlete)
-                if athlete.profile_image_saved_at
+                if s3_client and athlete.profile_image_saved_at
                 else None
             )
             result["country"] = athlete.country
@@ -343,7 +345,7 @@ def get_ratings(
                 result["personal_name"] = matched_athlete.personal_name
                 result["profile_image_url"] = (
                     get_public_photo_url(s3_client, matched_athlete)
-                    if matched_athlete.profile_image_saved_at
+                    if s3_client and matched_athlete.profile_image_saved_at
                     else None
                 )
                 result["country"] = matched_athlete.country
@@ -1306,6 +1308,114 @@ def internal_registration_competitors(link, divdata, gi):
     return rows
 
 
+def _registration_competitor_row(name, team, divdata, gi):
+    return {
+        "name": name,
+        "team": team,
+        "id": None,
+        "ibjjf_id": None,
+        "seed": 0,
+        "rating": None,
+        "match_count": None,
+        "rank": None,
+        "percentile": None,
+        "percentile_age": None,
+        "note": None,
+        "last_weight": None,
+        "slug": None,
+        "instagram_profile": None,
+        "personal_name": None,
+        "profile_image_url": None,
+        "country": None,
+        "country_note": None,
+        "country_note_pt": None,
+        "age": divdata["age"],
+        "belt": divdata["belt"],
+        "weight": divdata["weight"],
+        "gender": divdata["gender"],
+        "gi": gi,
+    }
+
+
+def _registration_rows_for_division(link, division, gi):
+    if link.startswith("internal:"):
+        divdata = parse_division(division)
+        return internal_registration_competitors(link, divdata, gi), divdata
+
+    m = validibjjfdblink.search(link)
+    if not m:
+        raise ValueError(
+            "Link should be in the format 'https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations'"
+        )
+
+    url = m.group(1) + "?lang=en-US"
+    divdata = parse_division(division)
+
+    soup = BeautifulSoup(
+        get_bracket_page(url, newer_than=datetime.now() - timedelta(minutes=10)),
+        "html.parser",
+    )
+    json_data = parse_registrations(soup)
+
+    rows = []
+    for entry in json_data:
+        division_name = entry["FriendlyName"]
+        division_name = weightre.sub("", division_name)
+
+        try:
+            parsed = parse_division(division_name)
+        except ValueError:
+            log.debug(f"Invalid division name: {division_name}")
+            continue
+
+        age_lower = parsed["age"].lower()
+        if not (
+            "master" in age_lower
+            or "adult" in age_lower
+            or "juven" in age_lower
+            or "teen" in age_lower
+        ):
+            continue
+
+        if format_division(parsed) == division:
+            for competitor in entry["RegistrationCategories"]:
+                team = competitor["AcademyTeamName"].strip()
+                name = competitor["AthleteName"].strip()
+                rows.append(_registration_competitor_row(name, team, divdata, gi))
+
+    return rows, divdata
+
+
+def _registration_seeding_context(link):
+    db_link = (
+        db.session.query(RegistrationLink.name, RegistrationLink.event_start_date)
+        .filter(RegistrationLink.link == link)
+        .first()
+    )
+    if db_link is None:
+        return None, None
+    return db_link.name, db_link.event_start_date
+
+
+def _optional_s3_client():
+    if not os.getenv("AWS_CREDS"):
+        return None
+    return get_s3_client()
+
+
+def _latest_athlete_team_name(athlete_id):
+    row = (
+        db.session.query(Team.name)
+        .select_from(MatchParticipant)
+        .join(Match)
+        .join(Team)
+        .filter(MatchParticipant.athlete_id == athlete_id)
+        .order_by(Match.happened_at.desc(), Match.id.desc())
+        .first()
+    )
+    return row.name if row else ""
+
+
 @brackets_route.route("/api/brackets/registrations/competitors")
 def registration_competitors():
     link = request.args.get("link")
@@ -1317,94 +1427,14 @@ def registration_competitors():
 
     gi = gi.lower() == "true"
 
-    s3_client = get_s3_client()
+    s3_client = _optional_s3_client()
 
-    if link.startswith("internal:"):
-        try:
-            divdata = parse_division(division)
-            rows = internal_registration_competitors(link, divdata, gi)
-        except Exception as e:
-            return jsonify({"error": str(e)}), 400
-    else:
-        m = validibjjfdblink.search(link)
-        if not m:
-            return (
-                jsonify(
-                    {
-                        "error": "Link should be in the format 'https://www.ibjjfdb.com/ChampionshipResults/NNNN/PublicRegistrations'"
-                    }
-                ),
-                400,
-            )
-
-        url = m.group(1) + "?lang=en-US"
-
-        try:
-            divdata = parse_division(division)
-
-            soup = BeautifulSoup(
-                get_bracket_page(
-                    url, newer_than=datetime.now() - timedelta(minutes=10)
-                ),
-                "html.parser",
-            )
-
-            json_data = parse_registrations(soup)
-        except Exception as e:
-            return jsonify({"error": str(e)})
-
-        rows = []
-        for entry in json_data:
-            division_name = entry["FriendlyName"]
-            division_name = weightre.sub("", division_name)
-
-            try:
-                parsed = parse_division(division_name)
-            except ValueError:
-                log.debug(f"Invalid division name: {division_name}")
-                continue
-
-            age_lower = parsed["age"].lower()
-            if not (
-                "master" in age_lower
-                or "adult" in age_lower
-                or "juven" in age_lower
-                or "teen" in age_lower
-            ):
-                continue
-
-            if format_division(parsed) == division:
-                for competitor in entry["RegistrationCategories"]:
-                    team = competitor["AcademyTeamName"].strip()
-                    name = competitor["AthleteName"].strip()
-                    rows.append(
-                        {
-                            "name": name,
-                            "team": team,
-                            "id": None,
-                            "ibjjf_id": None,
-                            "seed": 0,
-                            "rating": None,
-                            "match_count": None,
-                            "rank": None,
-                            "percentile": None,
-                            "percentile_age": None,
-                            "note": None,
-                            "last_weight": None,
-                            "slug": None,
-                            "instagram_profile": None,
-                            "personal_name": None,
-                            "profile_image_url": None,
-                            "country": None,
-                            "country_note": None,
-                            "country_note_pt": None,
-                            "age": divdata["age"],
-                            "belt": divdata["belt"],
-                            "weight": divdata["weight"],
-                            "gender": divdata["gender"],
-                            "gi": gi,
-                        }
-                    )
+    try:
+        rows, divdata = _registration_rows_for_division(link, division, gi)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
     get_ratings(
         rows,
@@ -1415,16 +1445,7 @@ def registration_competitors():
         s3_client,
     )
 
-    target_event_name = None
-    event_start_date = None
-    db_link = (
-        db.session.query(RegistrationLink.name, RegistrationLink.event_start_date)
-        .filter(RegistrationLink.link == link)
-        .first()
-    )
-    if db_link is not None:
-        target_event_name = db_link.name
-        event_start_date = db_link.event_start_date
+    target_event_name, event_start_date = _registration_seeding_context(link)
 
     if divdata["age"] in {JUVENILE, JUVENILE_1, JUVENILE_2}:
         slots, bracket_size = _bracket_slots(len(rows))
@@ -1451,6 +1472,95 @@ def registration_competitors():
             "side_swap_bailout_teams": swap_info["bailout_teams"],
             "bracket_slots": slots,
             "bracket_match_count": bracket_size - 1 if bracket_size else None,
+        }
+    )
+
+
+@brackets_route.route("/api/brackets/registrations/hypothetical_seed")
+def registration_hypothetical_seed():
+    link = request.args.get("link")
+    division = request.args.get("division")
+    gi = request.args.get("gi")
+    athlete_slug = request.args.get("athlete_slug")
+
+    if not link or not division or not gi or not athlete_slug:
+        return jsonify({"error": "Missing parameter"}), 400
+
+    gi = gi.lower() == "true"
+    s3_client = _optional_s3_client()
+
+    athlete = db.session.query(Athlete).filter(Athlete.slug == athlete_slug).first()
+    if athlete is None:
+        return jsonify({"error": "Athlete not found"}), 404
+
+    try:
+        rows, divdata = _registration_rows_for_division(link, division, gi)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+    get_ratings(
+        rows,
+        None,
+        gi,
+        datetime.now() + timedelta(days=1),
+        False,
+        s3_client,
+    )
+
+    display_name = (
+        athlete.personal_name
+        if athlete.hide_full_name and athlete.personal_name
+        else athlete.name
+    )
+    athlete_names = {normalize(athlete.name), normalize(display_name)}
+    if athlete.personal_name:
+        athlete_names.add(normalize(athlete.personal_name))
+    for row in rows:
+        if row.get("id") == athlete.id or row.get("slug") == athlete.slug:
+            return jsonify({"error": "Athlete is already registered"}), 409
+        row_names = {normalize(row.get("name", ""))}
+        if row.get("personal_name"):
+            row_names.add(normalize(row["personal_name"]))
+        if athlete_names.intersection(row_names):
+            return jsonify({"error": "Athlete is already registered"}), 409
+
+    hypothetical_row = _registration_competitor_row(
+        display_name,
+        _latest_athlete_team_name(athlete.id),
+        divdata,
+        gi,
+    )
+    hypothetical_row.update(
+        {
+            "id": athlete.id,
+            "ibjjf_id": athlete.ibjjf_id,
+            "slug": athlete.slug,
+            "instagram_profile": athlete.instagram_profile,
+            "personal_name": None if athlete.hide_full_name else athlete.personal_name,
+            "profile_image_url": (
+                get_public_photo_url(s3_client, athlete)
+                if s3_client and athlete.profile_image_saved_at
+                else None
+            ),
+            "country": athlete.country,
+            "country_note": athlete.country_note,
+            "country_note_pt": athlete.country_note_pt,
+            "hypothetical": True,
+        }
+    )
+
+    rows.append(hypothetical_row)
+
+    target_event_name, event_start_date = _registration_seeding_context(link)
+    add_seeding_data(rows, divdata, gi, target_event_name, now=event_start_date)
+    add_estimated_seeds(rows, divdata)
+
+    return jsonify(
+        {
+            "competitors": rows,
+            "hypothetical_athlete_id": athlete.id,
         }
     )
 

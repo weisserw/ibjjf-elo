@@ -357,6 +357,7 @@ const translations = {
     "Open Class Total": "Total Open Class",
     "Point Total": "Total de Pontos",
     "Show": "Mostrar",
+    "Add hypothetical athlete": "Adicionar atleta hipotético",
 };
 
 export type translationKeys = keyof typeof translations;
