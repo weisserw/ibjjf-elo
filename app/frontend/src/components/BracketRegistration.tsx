@@ -624,6 +624,16 @@ function BracketRegistration() {
           viewTab === 'IdealBracket' &&
           viewMode === 'all' &&
           registrationEventUrl !== null &&
+          registrationCategories !== null && (
+            <p className="mt-4">
+              {t("This view shows how our ratings and a standard seeding can create a better, fairer bracket. This illustration is not an official IBJJF bracket.")}
+            </p>
+          )
+        }
+        {
+          viewTab === 'IdealBracket' &&
+          viewMode === 'all' &&
+          registrationEventUrl !== null &&
           registrationCategories !== null &&
           idealBracket !== null && (
             <BracketTree

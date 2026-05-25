@@ -117,6 +117,7 @@ const translations = {
     "Ideal Bracket": "Chave Ideal",
     "Swaps": "Trocas",
     "Predicted brackets are a BETA feature and may vary from the actual brackets for the event. These brackets should not be mistaken for official IBJJF brackets.": "As chaves previstas são um recurso BETA e podem variar das chaves reais do evento. Essas chaves não devem ser confundidas com as chaves oficiais da IBJJF.",
+    "This view shows how our ratings and a standard seeding can create a better, fairer bracket. This illustration is not an official IBJJF bracket.": "Esta visualização mostra como nossas ratings e uma seed padrão podem criar uma chave melhor e mais justa. Esta ilustração não é uma chave oficial da IBJJF.",
     "Team Awards": "Premiação por Equipes",
     "Elite Athlete Lists": "Listas de Atletas de Elite",
     "Team Event Awards": "Premiação por Equipes do Evento",
