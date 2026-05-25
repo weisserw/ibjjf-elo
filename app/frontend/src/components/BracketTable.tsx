@@ -338,7 +338,7 @@ function BracketTable(props: BracketTableProps) {
                       <span
                         className="est-seed-swap-tied"
                         data-tooltip-id="est-seed-swap-tied-tooltip"
-                        data-tooltip-content={`${t("This athlete has swapped bracket positions due to a team conflict")}. ${t("The order of tied seeds may differ from what is shown")}.`}
+                        data-tooltip-content={`${t("This athlete will swap bracket positions due to a team conflict")}. ${t("The order of tied seeds may differ from what is shown")}.`}
                         data-tooltip-place="top"
                       >
                         {competitor.est_seed}
@@ -347,7 +347,7 @@ function BracketTable(props: BracketTableProps) {
                       <span
                         className="est-seed-swap"
                         data-tooltip-id="est-seed-swap-tooltip"
-                        data-tooltip-content={t("This athlete has swapped bracket positions due to a team conflict")}
+                        data-tooltip-content={t("This athlete will swap bracket positions due to a team conflict")}
                         data-tooltip-place="top"
                       >
                         {competitor.est_seed}

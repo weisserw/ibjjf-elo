@@ -253,6 +253,26 @@ function BracketRegistration() {
     return result;
   }, [sortedRegistrationCompetitors, sideSwaps, selectedRegistrationCategory])
 
+  const seedSwapDescriptions = useMemo(() => {
+    const result = new Map<string, string>();
+    if (!sortedRegistrationCompetitors) return result;
+
+    const competitorByName = new Map(sortedRegistrationCompetitors.map(c => [c.name, c]));
+    const describe = (name: string) => {
+      const competitor = competitorByName.get(name);
+      if (!competitor) return name;
+      const displayName = competitor.personal_name || competitor.name;
+      return competitor.est_seed != null ? `${displayName} (${competitor.est_seed})` : displayName;
+    }
+
+    for (const swap of sideSwaps) {
+      result.set(swap.name_a, describe(swap.name_b));
+      result.set(swap.name_b, describe(swap.name_a));
+    }
+
+    return result;
+  }, [sortedRegistrationCompetitors, sideSwaps])
+
   const divisionCount = useMemo(() => registrationCompetitors?.length ?? null, [registrationCompetitors])
   const elitesCount = useMemo(() => elites?.length ?? null, [elites])
 
@@ -594,6 +614,7 @@ function BracketRegistration() {
               showRatings={showRatings}
               belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
               seedHighlights={seedHighlights}
+              seedSwapDescriptions={seedSwapDescriptions}
               calculateClicked={() => {}}
               calculateEnabled={() => false}
             />
@@ -616,18 +637,6 @@ function BracketRegistration() {
               calculateClicked={() => {}}
               calculateEnabled={() => false}
             />
-          )
-        }
-        {
-          viewTab === 'Bracket' &&
-          viewMode === 'all' &&
-          sideSwaps.length > 0 && (
-            <p className="mt-2">
-              <strong>{t("Swaps")}:</strong>{' '}
-              {sideSwaps.map((s, i) => (
-                <span key={i}>{i > 0 ? ', ' : ''}{s.name_a} → {s.name_b}</span>
-              ))}
-            </p>
           )
         }
         {

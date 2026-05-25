@@ -26,6 +26,7 @@ interface BracketTreeMatchProps {
   matchIndex: number;
   showRatings: boolean;
   seedHighlights?: Map<string, SeedHighlight>;
+  seedSwapDescriptions?: Map<string, string>;
   calculateEnabled: (match: Match) => boolean;
   calculateClicked: (match: Match) => void;
 }
@@ -35,11 +36,14 @@ const seedHighlightClass = (h: SeedHighlight | undefined): string | undefined =>
   return `bracket-tree-seed-${h}`;
 }
 
-const seedHighlightTooltip = (h: SeedHighlight | undefined): string | undefined => {
+const seedHighlightTooltip = (h: SeedHighlight | undefined, swapDescription?: string): string | undefined => {
   if (!h) return undefined;
-  if (h === 'swap') return t("This athlete has swapped bracket positions due to a team conflict");
+  const swapTooltip = swapDescription
+    ? `${t("This athlete has swapped bracket positions with")} ${swapDescription}`
+    : t("This athlete has swapped bracket positions due to a team conflict");
+  if (h === 'swap') return swapTooltip;
   if (h === 'tied') return t("The order of tied seeds may differ from what is shown");
-  return `${t("This athlete has swapped bracket positions due to a team conflict")}. ${t("The order of tied seeds may differ from what is shown")}.`;
+  return `${swapTooltip}. ${t("The order of tied seeds may differ from what is shown")}.`;
 }
 
 const seedHighlightTooltipId = (h: SeedHighlight | undefined): string | undefined => {
@@ -53,6 +57,8 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
 
   const redHighlight = match.red_name ? props.seedHighlights?.get(match.red_name) : undefined;
   const blueHighlight = match.blue_name ? props.seedHighlights?.get(match.blue_name) : undefined;
+  const redSwapDescription = match.red_name ? props.seedSwapDescriptions?.get(match.red_name) : undefined;
+  const blueSwapDescription = match.blue_name ? props.seedSwapDescriptions?.get(match.blue_name) : undefined;
 
   const tooltip = (numMatches: number | null) => {
     const immature = immatureClass(numMatches);
@@ -148,7 +154,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                       <span
                         className="has-cursor-pointer"
                         data-tooltip-id={seedHighlightTooltipId(redHighlight)}
-                        data-tooltip-content={seedHighlightTooltip(redHighlight)}
+                        data-tooltip-content={seedHighlightTooltip(redHighlight, redSwapDescription)}
                         data-tooltip-place="top"
                       >
                         {match.red_personal_name ? match.red_personal_name : match.red_name}
@@ -231,7 +237,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                       <span
                         className="has-cursor-pointer"
                         data-tooltip-id={seedHighlightTooltipId(blueHighlight)}
-                        data-tooltip-content={seedHighlightTooltip(blueHighlight)}
+                        data-tooltip-content={seedHighlightTooltip(blueHighlight, blueSwapDescription)}
                         data-tooltip-place="top"
                       >
                         {match.blue_personal_name ? match.blue_personal_name : match.blue_name}
@@ -309,6 +315,7 @@ interface BracketTreeProps {
   onNumberModeChange?: (mode: NumberMode) => void;
   canShowSeedNumbers?: boolean;
   seedHighlights?: Map<string, SeedHighlight>;
+  seedSwapDescriptions?: Map<string, string>;
   calculateClicked: (match: Match) => void;
   refreshClicked?: () => void;
   calculateEnabled: (match: Match) => boolean;
@@ -434,6 +441,7 @@ function BracketTree(props: BracketTreeProps) {
                       belt={props.belt}
                       matchIndex={matchIndex}
                       seedHighlights={props.seedHighlights}
+                      seedSwapDescriptions={props.seedSwapDescriptions}
                     />
                   ))}
                   {

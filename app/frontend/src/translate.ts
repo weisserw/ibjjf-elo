@@ -320,6 +320,8 @@ const translations = {
     "Est. Seed": "Seed Est.",
     "About estimated seeding": "Sobre a estimativa de seeding",
     "The order of tied seeds may differ from what is shown": "A ordem das seeds empatadas pode diferir do que é mostrado",
+    "This athlete has swapped bracket positions with": "Este atleta trocou de posição na chave com",
+    "This athlete will swap bracket positions due to a team conflict": "Este atleta trocará de posição na chave devido a um conflito de equipe",
     "This athlete has swapped bracket positions due to a team conflict": "Este atleta trocou de posição na chave devido a um conflito de equipe",
     "Position swaps not calculated because more than two athletes are from the same team": "Trocas de posição não calculadas porque mais de dois atletas são da mesma equipe",
     "Estimated Seeding": "Estimativa de Seeding",
