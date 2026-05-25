@@ -228,9 +228,21 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
             "Campeonato Brasileiro de Jiu-Jitsu (Juvenil, Adulto e Master) 2023 (Flo)",
             datetime(2023, 4, 29),
         )
-        # Sul-Brasileiro — a CBJJ-only tournament (not also an IBJJF event).
+        # Tournaments whose medals do not count toward seeding.
         cls.sul_brasil_2025 = add_event(
             "Campeonato Sul-Brasileiro de Jiu-Jitsu 2025", datetime(2025, 7, 12)
+        )
+        cls.portuguese_championship_2026 = add_event(
+            "Campeonato Português de Jiu-Jitsu 2026", datetime(2026, 2, 7)
+        )
+        cls.portuguese_championship_ascii_2026 = add_event(
+            "Campeonato Portugues 2026", datetime(2026, 2, 8)
+        )
+        cls.portuguese_championship_2025 = add_event(
+            "Campeonato Português de Jiu-Jitsu 2025", datetime(2025, 2, 8)
+        )
+        cls.portuguese_championship_2024 = add_event(
+            "Campeonato Português de Jiu-Jitsu 2024", datetime(2024, 2, 10)
         )
 
         # A non-star local event (default 1x).
@@ -281,19 +293,12 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         db.session.flush()
         return medal
 
-    # Default target tournament for tests — a mixed (CBJJ + IBJJF) event so
-    # both CBJJ-source and IBJJF-source medals apply with their respective
-    # schedules, matching the pre-target-aware scoring behavior. Tests can
-    # override via the ``target_event_name`` kwarg.
-    DEFAULT_TARGET_EVENT_NAME = "Campeonato Brasileiro de Jiu-Jitsu 2026"
-
     def _seed_and_run(
         self,
         seed_fn,
         divdata,
         gi,
         now=NOW,
-        target_event_name=DEFAULT_TARGET_EVENT_NAME,
     ):
         """Open an app_context, let `seed_fn(self)` create athletes/medals
         and return the registration row(s) (single dict or list of dicts),
@@ -309,7 +314,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 rows = [_registration_row(a.id) for a in seeded]
             else:
                 rows = [_registration_row(seeded.id)]
-            add_seeding_data(rows, divdata, gi, target_event_name, now=now)
+            add_seeding_data(rows, divdata, gi, now=now)
         return rows[0] if not isinstance(seeded, list) else rows
 
     # ------------------------------------------------------------------
@@ -336,7 +341,6 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 rows,
                 _divdata(),
                 gi=True,
-                target_event_name=self.DEFAULT_TARGET_EVENT_NAME,
                 now=NOW,
             )
         self.assertEqual(rows[0]["points"], 0)
@@ -646,7 +650,6 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 pre_rows,
                 _divdata(),
                 gi=True,
-                target_event_name=self.IBJJF_ONLY_TARGET,
                 now=datetime(2026, 3, 17),
             )
 
@@ -655,7 +658,6 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 post_rows,
                 _divdata(),
                 gi=True,
-                target_event_name=self.IBJJF_ONLY_TARGET,
                 now=datetime(2026, 4, 1),
             )
 
@@ -717,7 +719,6 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 current_rows,
                 _divdata(),
                 gi=True,
-                target_event_name=self.DEFAULT_TARGET_EVENT_NAME,
                 now=NOW,
             )
 
@@ -726,7 +727,6 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 pre_rows,
                 _divdata(),
                 gi=True,
-                target_event_name=self.DEFAULT_TARGET_EVENT_NAME,
                 now=datetime(2025, 5, 28),
             )
 
@@ -750,7 +750,6 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
             _divdata(),
             gi=True,
             now=datetime(2026, 6, 1),
-            target_event_name=self.IBJJF_ONLY_TARGET,
         )
         self.assertEqual(row["points"], 126 + 63)
         # The registration-only Worlds 2026 row also consumes the newest
@@ -773,61 +772,50 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
             _divdata(),
             gi=True,
             now=datetime(2026, 5, 27),
-            target_event_name=self.IBJJF_ONLY_TARGET,
         )
         self.assertEqual(row["points"], 189 + 126 + 63)
 
     # ------------------------------------------------------------------
-    # Target tournament classification — cbjj-only / mixed / ibjjf-only
+    # Source tournament classification
     # ------------------------------------------------------------------
 
-    # Naming refs used by these tests
-    IBJJF_ONLY_TARGET = "Pan IBJJF Jiu-Jitsu Championship 2026"
-    MIXED_TARGET = "Campeonato Brasileiro de Jiu-Jitsu 2026"
-    CBJJ_ONLY_TARGET = "Campeonato Sul-Brasileiro de Jiu-Jitsu 2026"
-
-    def test_cbjj_only_source_excluded_from_ibjjf_only_target(self):
-        # Sul-Brasileiro is a CBJJ-only tournament. Its medals must not
-        # contribute when seeding for an IBJJF-only tournament.
+    def test_sul_brasileiro_source_never_scores(self):
+        # Sul-Brasileiro medals must not contribute.
         def seed(t):
-            a = t._make_athlete("sul-brasil-into-pan")
+            a = t._make_athlete("sul-brasil-never-scores")
             t._add_medal(a, t.sul_brasil_2025, place=1)
             return a
 
-        row = self._seed_and_run(
-            seed, _divdata(), gi=True, target_event_name=self.IBJJF_ONLY_TARGET
-        )
+        row = self._seed_and_run(seed, _divdata(), gi=True)
         self.assertEqual(row["points"], 0)
 
-    def test_cbjj_only_source_applies_to_mixed_target_with_cbjj_schedule(self):
-        # Sul-Brasileiro 2025 (2025-07-12) falls in the CBJJ 3x season
-        # (anchored to Brasileiros 2025). Default star rating = 1.
-        # Expected: 9 (gold) * 3 (cbjj 3x) * 1.0 (weight) * 1 (star) = 27.
+    def test_portuguese_championship_2026_and_later_source_never_scores(self):
+        # The 2026+ Portuguese Championship is excluded, including the
+        # accentless short spelling.
         def seed(t):
-            a = t._make_athlete("sul-brasil-into-brasileiros")
-            t._add_medal(a, t.sul_brasil_2025, place=1)
+            a = t._make_athlete("portuguese-2026-never-scores")
+            t._add_medal(a, t.portuguese_championship_2026, place=1)
+            t._add_medal(a, t.portuguese_championship_ascii_2026, place=1)
             return a
 
-        row = self._seed_and_run(
-            seed, _divdata(), gi=True, target_event_name=self.MIXED_TARGET
-        )
-        self.assertEqual(row["points"], 27)
+        row = self._seed_and_run(seed, _divdata(), gi=True)
+        self.assertEqual(row["points"], 0)
 
-    def test_cbjj_only_source_applies_to_cbjj_only_target(self):
-        # Same medal, target is also CBJJ-only (Sul-Brasileiro). Same
-        # CBJJ schedule applies.
+    def test_portuguese_championship_before_2026_still_scores(self):
+        # The exclusion starts with the 2026 edition; 2025 and 2024 remain
+        # normal 1-star tournaments. They fall in the 2x and 1x IBJJF
+        # seasons, respectively.
         def seed(t):
-            a = t._make_athlete("sul-brasil-into-sul-brasil")
-            t._add_medal(a, t.sul_brasil_2025, place=1)
+            a = t._make_athlete("portuguese-2025-still-scores")
+            t._add_medal(a, t.portuguese_championship_2025, place=1)
+            t._add_medal(a, t.portuguese_championship_2024, place=1)
             return a
 
-        row = self._seed_and_run(
-            seed, _divdata(), gi=True, target_event_name=self.CBJJ_ONLY_TARGET
-        )
+        row = self._seed_and_run(seed, _divdata(), gi=True)
         self.assertEqual(row["points"], 27)
 
-    def test_mixed_source_uses_ibjjf_schedule_for_ibjjf_only_target(self):
-        # Brasileiros 2025 (2025-04-26) for a Pan (IBJJF-only) target:
+    def test_brazilian_source_uses_ibjjf_schedule(self):
+        # Brasileiros 2025 (2025-04-26):
         # - Regular: IBJJF Worlds-anchored seasons; 2025-04-26 is before
         #   Worlds 2025 (2025-05-29) and after Worlds 2024 (2024-05-30) ->
         #   2x slot. Star=4. Points: 9 * 2 * 1.0 * 4 = 72.
@@ -838,37 +826,16 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
             t._add_medal(a, t.brasil_2025, place=1)
             return a
 
-        row = self._seed_and_run(
-            seed, _divdata(), gi=True, target_event_name=self.IBJJF_ONLY_TARGET
-        )
+        row = self._seed_and_run(seed, _divdata(), gi=True)
         self.assertEqual(row["points"], 72)
         self.assertEqual(row["grand_slam_points"], 108)
 
-    def test_mixed_source_uses_cbjj_schedule_for_mixed_target(self):
-        # Same medal, target is now mixed (Brasileiros). Both regular and
-        # GS multipliers come from the CBJJ schedule: brasil_2025 is in
-        # cbjj_seasons[0] -> 3x. Star=4.
-        # Regular: 9 * 3 * 1.0 * 4 = 108.
-        # Grand Slam (Brasileiros is a GS event): same 3x cbjj season
-        # applies in the GS calc -> 108.
-        def seed(t):
-            a = t._make_athlete("brasileiros-into-brasileiros")
-            t._add_medal(a, t.brasil_2025, place=1)
-            return a
-
-        row = self._seed_and_run(
-            seed, _divdata(), gi=True, target_event_name=self.MIXED_TARGET
-        )
-        self.assertEqual(row["points"], 108)
-        self.assertEqual(row["grand_slam_points"], 108)
-
-    def test_cbjj_registration_advances_cbjj_schedule_for_mixed_target(self):
-        # Rio is a mixed/Brazilian target, so Brazilian-source medals use
-        # the CBJJ/Brasileiros season calendar. A registration-only
-        # Brasileiros 2026 row should advance that calendar for targets after
-        # it starts, even without a pulled Event/Match row.
+    def test_brasileiros_registration_advances_grand_slam_slot_only(self):
+        # A registration-only Brasileiros 2026 row should advance the
+        # Brasileiros Grand Slam slot after it starts. Regular points still
+        # use the IBJJF Worlds-anchored season.
         with self.app_module.app.app_context():
-            cbjj_link = RegistrationLink(
+            brasileiros_link = RegistrationLink(
                 name="Campeonato Brasileiro de Jiu-Jitsu 2026",
                 normalized_name="campeonato brasileiro de jiu-jitsu 2026",
                 updated_at=datetime(2026, 4, 1),
@@ -877,7 +844,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 event_start_date=datetime(2026, 4, 24),
                 event_end_date=datetime(2026, 5, 3),
             )
-            db.session.add(cbjj_link)
+            db.session.add(brasileiros_link)
             a = self._make_athlete("brasileiros-registration-rollover")
             self._add_medal(a, self.brasil_2025, place=1)
             db.session.commit()
@@ -888,7 +855,6 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 pre_rows,
                 _divdata(),
                 gi=True,
-                target_event_name=self.MIXED_TARGET,
                 now=datetime(2026, 4, 23),
             )
 
@@ -897,37 +863,27 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 post_rows,
                 _divdata(),
                 gi=True,
-                target_event_name="Rio Fall International Open IBJJF Jiu-Jitsu Championship 2026",
-                now=datetime(2026, 6, 5),
+                now=datetime(2026, 4, 25),
             )
 
-            db.session.delete(cbjj_link)
+            db.session.delete(brasileiros_link)
             db.session.commit()
 
-        self.assertEqual(pre_rows[0]["points"], 108)
+        self.assertEqual(pre_rows[0]["points"], 72)
         self.assertEqual(pre_rows[0]["grand_slam_points"], 108)
         self.assertEqual(post_rows[0]["points"], 72)
         self.assertEqual(post_rows[0]["grand_slam_points"], 72)
 
-    def test_ibjjf_only_source_always_uses_ibjjf_schedule(self):
-        # Worlds 2025 (IBJJF-only) medal scores identically regardless of
-        # target type: it always uses the IBJJF schedule.
+    def test_ibjjf_only_source_uses_ibjjf_schedule(self):
+        # Worlds 2025 medal uses the IBJJF schedule.
         # 9 (gold) * 3 (regular season 3x) * 1.0 (weight) * 7 (star) = 189.
-        for i, target in enumerate(
-            (self.IBJJF_ONLY_TARGET, self.MIXED_TARGET, self.CBJJ_ONLY_TARGET)
-        ):
-            slug = f"worlds-only-target-{i}"
+        def seed(t):
+            a = t._make_athlete("worlds-only-source")
+            t._add_medal(a, t.worlds_2025, place=1)
+            return a
 
-            def seed(t, slug=slug):
-                a = t._make_athlete(slug)
-                t._add_medal(a, t.worlds_2025, place=1)
-                return a
-
-            with self.subTest(target=target):
-                row = self._seed_and_run(
-                    seed, _divdata(), gi=True, target_event_name=target
-                )
-                self.assertEqual(row["points"], 189)
+        row = self._seed_and_run(seed, _divdata(), gi=True)
+        self.assertEqual(row["points"], 189)
 
     # ------------------------------------------------------------------
     # Adult black-belt-only fields

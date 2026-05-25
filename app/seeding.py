@@ -189,124 +189,36 @@ def _bases_with_aliases(canonical_base):
     ]
 
 
-# Event-name keywords that identify a tournament held in Brazil. These
-# events run on the CBJJ season calendar (anchored to Brasileiros) rather
-# than the IBJJF Worlds-anchored calendar when scored for points. Only
-# applied to gi medals; no-gi tournaments always use the no-gi Worlds
-# calendar even when held in Brazil. Matched case-insensitively against
-# the normalized event name as whole words.
-_BRAZILIAN_EVENT_KEYWORDS = (
-    "brasileiro",  # Campeonato Brasileiro, Sul-Brasileiro
-    "sul-americano",
-    "south american",
-    "rio",
-    "sao paulo",
-    "são paulo",
-    "belo horizonte",
-    "curitiba",
-    "salvador",
-    "recife",
-    "fortaleza",
-    "manaus",
-    "floripa",
-    "florianópolis",
-    "brasília",
-    "brasilia",
-    "balneário camboriú",
-    "balneario camboriu",
-    "porto alegre",
-)
-_BRAZILIAN_EVENT_RE = re.compile(
-    r"(?:^|\W)(?:"
-    + "|".join(re.escape(k) for k in _BRAZILIAN_EVENT_KEYWORDS)
-    + r")(?:$|\W)"
-)
-
-
-def _is_brazilian_event(event_name):
-    """True if ``event_name`` looks like a tournament held in Brazil. The
-    caller is responsible for restricting this to gi divisions — the CBJJ
-    season rule only applies to gi.
-    """
-    if not event_name:
-        return False
-    return bool(_BRAZILIAN_EVENT_RE.search(_normalize_event_name(event_name)))
-
-
-# Keywords that identify a CBJJ-only tournament — one that runs on the CBJJ
-# calendar but is NOT also an IBJJF tournament. Currently the
-# Sul-Brasileiro.
-_CBJJ_ONLY_EVENT_KEYWORDS = ("sul-brasileiro",)
-_CBJJ_ONLY_EVENT_RE = re.compile(
-    r"(?:^|\W)(?:"
-    + "|".join(re.escape(k) for k in _CBJJ_ONLY_EVENT_KEYWORDS)
-    + r")(?:$|\W)"
-)
-
 # Keywords that identify a tournament whose medals never count toward
 # seeding points for any other tournament.
 _NONE_EVENT_KEYWORDS = ("portugal grand slam",)
 _NONE_EVENT_RE = re.compile(
     r"(?:^|\W)(?:" + "|".join(re.escape(k) for k in _NONE_EVENT_KEYWORDS) + r")(?:$|\W)"
 )
+_SUL_BRASILEIRO_RE = re.compile(r"(?:^|\W)sul\s*-?\s*brasileiro(?:$|\W)")
+_PORTUGUESE_CHAMPIONSHIP_RE = re.compile(
+    r"(?:^|\W)campeonato portugu[eê]s(?: de jiu-jitsu)?\s+(\d{4})(?:$|\W)"
+)
 
-# Four tournament classifications for scoring purposes:
-#   "none"       — Portugal Grand Slam. Medals from these events never
-#                  contribute to seeding points for any target tournament.
-#   "cbjj_only"  — Sul-Brasileiro / Campeonato Português. Medals from these
-#                  events DO NOT apply when seeding for an IBJJF-only
-#                  tournament; for cbjj-only/mixed targets they score on
-#                  the CBJJ season schedule.
-#   "mixed"      — Brazilian tournaments that are also IBJJF events (e.g.
-#                  Campeonato Brasileiro, Rio/São Paulo BJJ Pro, etc.).
-#                  Score on the CBJJ schedule for cbjj-only/mixed targets,
-#                  on the IBJJF schedule for ibjjf-only targets.
+# Tournament classifications for scoring purposes:
+#   "none"       — medals from these events never contribute to seeding
+#                  points for any target tournament.
 #   "ibjjf_only" — everything else. Always uses the IBJJF schedule.
 TOURNAMENT_TYPE_NONE = "none"
-TOURNAMENT_TYPE_CBJJ_ONLY = "cbjj_only"
-TOURNAMENT_TYPE_MIXED = "mixed"
 TOURNAMENT_TYPE_IBJJF_ONLY = "ibjjf_only"
 
 
 def _event_tournament_type(event_name):
-    """Classify ``event_name`` as none, cbjj-only, mixed, or ibjjf-only."""
+    """Classify ``event_name`` as none or ibjjf-only."""
     if not event_name:
         return TOURNAMENT_TYPE_IBJJF_ONLY
     normalized = _normalize_event_name(event_name)
-    if _NONE_EVENT_RE.search(normalized):
+    if _NONE_EVENT_RE.search(normalized) or _SUL_BRASILEIRO_RE.search(normalized):
         return TOURNAMENT_TYPE_NONE
-    if _CBJJ_ONLY_EVENT_RE.search(normalized):
-        return TOURNAMENT_TYPE_CBJJ_ONLY
-    if _BRAZILIAN_EVENT_RE.search(normalized):
-        return TOURNAMENT_TYPE_MIXED
+    portuguese_championship = _PORTUGUESE_CHAMPIONSHIP_RE.search(normalized)
+    if portuguese_championship and int(portuguese_championship.group(1)) >= 2026:
+        return TOURNAMENT_TYPE_NONE
     return TOURNAMENT_TYPE_IBJJF_ONLY
-
-
-_CBJJ_SEASON_BASE = "Campeonato Brasileiro de Jiu-Jitsu"
-
-
-def _cbjj_recent_seasons(today, n=3):
-    """CBJJ season boundaries — analogous to :func:`_recent_seasons` but
-    anchored to Brasileiros start dates rather than Worlds. Used as the
-    seasonal multiplier source for gi medals at Brazilian tournaments.
-    """
-    year_groups = _regular_season_year_groups(_CBJJ_SEASON_BASE, today)
-    if not year_groups:
-        return []
-
-    sorted_years = sorted(year_groups.keys(), reverse=True)[:n]
-    starts = [
-        year_groups[y][1].replace(hour=0, minute=0, second=0, microsecond=0)
-        for y in sorted_years
-    ]
-
-    far_future = datetime(9999, 12, 31)
-    seasons = []
-    next_start = far_future
-    for s in starts:
-        seasons.append((s, next_start))
-        next_start = s
-    return seasons
 
 
 def _season_multiplier(seasons, happened_at):
@@ -1131,9 +1043,7 @@ def _iter_regular_season_medal_rows(
     athlete_ids,
     divdata,
     gi,
-    target_type,
     seasons,
-    cbjj_seasons,
     suspension_ranges,
     now,
     common_filters=None,
@@ -1148,7 +1058,7 @@ def _iter_regular_season_medal_rows(
     points" set, so both the existing pipeline and the per-athlete
     drill-down endpoint can be driven from this generator.
     """
-    if not (seasons or cbjj_seasons):
+    if not seasons:
         return
     if not athlete_ids:
         return
@@ -1172,11 +1082,10 @@ def _iter_regular_season_medal_rows(
             Event.name.notilike(_IBJJF_CROWN_EVENT_NAME_PATTERN),
         )
 
-    earliest_candidates = [s[-1][0] for s in (seasons, cbjj_seasons) if s]
-    earliest_start = min(earliest_candidates)
+    earliest_start = seasons[-1][0]
     # Cap at `now` so medals on or after the tournament start date don't
     # leak into the in-progress season (whose end is a far-future sentinel).
-    latest_end = min((seasons or cbjj_seasons)[0][1], now)
+    latest_end = min(seasons[0][1], now)
 
     medal_rows = (
         db.session.query(
@@ -1202,20 +1111,7 @@ def _iter_regular_season_medal_rows(
         source_type = _event_tournament_type(r.event_name)
         if source_type == TOURNAMENT_TYPE_NONE:
             continue
-        if not gi:
-            source_type = TOURNAMENT_TYPE_IBJJF_ONLY
-        if (
-            source_type == TOURNAMENT_TYPE_CBJJ_ONLY
-            and target_type == TOURNAMENT_TYPE_IBJJF_ONLY
-        ):
-            continue
-        if (
-            source_type in (TOURNAMENT_TYPE_CBJJ_ONLY, TOURNAMENT_TYPE_MIXED)
-            and target_type != TOURNAMENT_TYPE_IBJJF_ONLY
-        ):
-            season_mult = _season_multiplier(cbjj_seasons, r.happened_at)
-        else:
-            season_mult = _season_multiplier(seasons, r.happened_at)
+        season_mult = _season_multiplier(seasons, r.happened_at)
         if season_mult is None:
             continue
         yield r, season_mult
@@ -1225,9 +1121,7 @@ def _iter_grand_slam_medal_rows(
     athlete_ids,
     divdata,
     gi,
-    target_type,
     gs_multipliers,
-    cbjj_seasons,
     suspension_ranges,
     now,
     common_filters=None,
@@ -1236,8 +1130,7 @@ def _iter_grand_slam_medal_rows(
     the ``grand_slam_points`` bucket for the given athletes.
 
     Parallels :func:`_iter_regular_season_medal_rows`. The Grand Slam
-    multiplier is driven by per-event-type recency from ``gs_multipliers``
-    (or the CBJJ season window when scoring a Brazilian/CBJJ target).
+    multiplier is driven by per-event-type recency from ``gs_multipliers``.
     """
     if not gs_multipliers:
         return
@@ -1288,22 +1181,7 @@ def _iter_grand_slam_medal_rows(
         source_type = _event_tournament_type(r.event_name)
         if source_type == TOURNAMENT_TYPE_NONE:
             continue
-        if not gi:
-            source_type = TOURNAMENT_TYPE_IBJJF_ONLY
-        if (
-            source_type == TOURNAMENT_TYPE_CBJJ_ONLY
-            and target_type == TOURNAMENT_TYPE_IBJJF_ONLY
-        ):
-            continue
-        if (
-            source_type in (TOURNAMENT_TYPE_CBJJ_ONLY, TOURNAMENT_TYPE_MIXED)
-            and target_type != TOURNAMENT_TYPE_IBJJF_ONLY
-        ):
-            gs_mult = _season_multiplier(cbjj_seasons, r.happened_at)
-            if gs_mult is None:
-                continue
-        else:
-            gs_mult = gs_multipliers[r.event_id]
+        gs_mult = gs_multipliers[r.event_id]
         yield r, gs_mult
 
 
@@ -1351,13 +1229,13 @@ def _collect_bucket_details(medal_iter, gi, weight_multipliers, division_is_open
     }
 
 
-def collect_athlete_medal_details(athlete_id, divdata, gi, target_event_name, now=None):
+def collect_athlete_medal_details(athlete_id, divdata, gi, now=None):
     """Return the per-medal breakdown that drives the modal drill-down for
     a single athlete, split into the regular ``points`` and
     ``grand_slam_points`` buckets.
 
-    Mirrors the setup ``add_seeding_data`` does — resolving target type,
-    season windows, weight multipliers, and suspension ranges — then walks
+    Mirrors the setup ``add_seeding_data`` does — resolving season windows,
+    weight multipliers, and suspension ranges — then walks
     :func:`_iter_regular_season_medal_rows` and
     :func:`_iter_grand_slam_medal_rows` for the athlete and computes each
     medal's contribution via :func:`_compute_medal_contribution`.
@@ -1371,10 +1249,6 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, target_event_name, no
     divisions, since open-class medals fold into the weight bucket there).
     """
     empty = {"medals": [], "points_total": 0, "open_class_points_total": 0}
-    target_type = _event_tournament_type(target_event_name)
-    if target_type == TOURNAMENT_TYPE_NONE:
-        target_type = TOURNAMENT_TYPE_IBJJF_ONLY
-
     age_filter = _seeding_category(divdata["age"], gi)
     if age_filter is None:
         return {"points": empty, "grand_slam": empty}
@@ -1388,7 +1262,6 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, target_event_name, no
     if now is None:
         now = datetime.now()
     seasons = _recent_seasons(divdata["age"], gi, now, n=3)
-    cbjj_seasons = _cbjj_recent_seasons(now, n=3) if gi else []
     gs_multipliers = _grand_slam_event_multipliers(divdata["age"], gi, now, n=3)
 
     suspension_ranges = _suspension_ranges_for_athlete_id(athlete_id)
@@ -1398,9 +1271,7 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, target_event_name, no
             [athlete_id],
             divdata,
             gi,
-            target_type,
             seasons,
-            cbjj_seasons,
             suspension_ranges,
             now,
         ),
@@ -1413,9 +1284,7 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, target_event_name, no
             [athlete_id],
             divdata,
             gi,
-            target_type,
             gs_multipliers,
-            cbjj_seasons,
             suspension_ranges,
             now,
         ),
@@ -1426,7 +1295,7 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, target_event_name, no
     return {"points": points, "grand_slam": grand_slam}
 
 
-def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
+def add_seeding_data(rows, divdata, gi, now=None):
     """Compute IBJJF seeding criteria for each competitor and attach to the row.
 
     Currently populates:
@@ -1465,10 +1334,9 @@ def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
     each level K = 1 .. current master level (see
     :func:`_master_black_belt_seeding`).
 
-    ``target_event_name`` is the name of the tournament being seeded for;
-    it determines whether medal sources score on the CBJJ schedule or the
-    IBJJF schedule (and whether CBJJ-only medals apply at all). See
-    :func:`_event_tournament_type` for the three classifications.
+    Each medal's own ``Event.name`` determines whether that source medal is
+    excluded from seeding points; all scoring medals use the IBJJF season
+    schedule.
 
     ``now`` is the reference date used for season-window construction;
     defaults to ``datetime.now()``. Tests can pass a fixed datetime to make
@@ -1476,13 +1344,6 @@ def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
 
     Final values are floored to integers.
     """
-    target_type = _event_tournament_type(target_event_name)
-    # A "none" target (Portugal Grand Slam) is not Brazilian; for the
-    # purpose of filtering which source medals apply, treat it like an
-    # IBJJF-only target so CBJJ-only sources are excluded and mixed
-    # sources score on the IBJJF calendar.
-    if target_type == TOURNAMENT_TYPE_NONE:
-        target_type = TOURNAMENT_TYPE_IBJJF_ONLY
     for row in rows:
         row["points"] = 0
         row["open_class_points"] = 0
@@ -1526,10 +1387,6 @@ def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
     if now is None:
         now = datetime.now()
     seasons = _recent_seasons(divdata["age"], gi, now, n=3)
-    # CBJJ (Brasileiros-anchored) seasons override the regular season
-    # multiplier for gi medals at Brazilian tournaments. Only relevant in
-    # gi; no-gi events always use the no-gi Worlds calendar.
-    cbjj_seasons = _cbjj_recent_seasons(now, n=3) if gi else []
     gs_multipliers = _grand_slam_event_multipliers(divdata["age"], gi, now, n=3)
     suspension_ranges = _suspension_ranges_by_athlete_id(rows)
 
@@ -1549,15 +1406,12 @@ def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
     )
 
     # Regular points: medals inside the rolling-Worlds-anchored season
-    # window (or the Brasileiros-anchored CBJJ window for gi Brazilian
-    # tournaments — they're scored on the CBJJ calendar instead).
+    # window.
     for r, season_mult in _iter_regular_season_medal_rows(
         athlete_ids,
         divdata,
         gi,
-        target_type,
         seasons,
-        cbjj_seasons,
         suspension_ranges,
         now,
         common_filters,
@@ -1583,9 +1437,7 @@ def add_seeding_data(rows, divdata, gi, target_event_name, now=None):
         athlete_ids,
         divdata,
         gi,
-        target_type,
         gs_multipliers,
-        cbjj_seasons,
         suspension_ranges,
         now,
         common_filters,

@@ -1386,7 +1386,7 @@ def _registration_rows_for_division(link, division, gi):
     return rows, divdata
 
 
-def _registration_seeding_context(link):
+def _registration_seeding_start_date(link):
     lookup_link = link
     if link and not link.startswith("internal:"):
         try:
@@ -1394,13 +1394,13 @@ def _registration_seeding_context(link):
         except ValueError:
             pass
     db_link = (
-        db.session.query(RegistrationLink.name, RegistrationLink.event_start_date)
+        db.session.query(RegistrationLink.event_start_date)
         .filter(RegistrationLink.link == lookup_link)
         .first()
     )
     if db_link is None:
-        return None, None
-    return db_link.name, db_link.event_start_date
+        return None
+    return db_link.event_start_date
 
 
 def _optional_s3_client():
@@ -1451,7 +1451,7 @@ def registration_competitors():
         s3_client,
     )
 
-    target_event_name, event_start_date = _registration_seeding_context(link)
+    event_start_date = _registration_seeding_start_date(link)
 
     if divdata["age"] in {JUVENILE, JUVENILE_1, JUVENILE_2}:
         slots, bracket_size = _bracket_slots(len(rows))
@@ -1465,7 +1465,7 @@ def registration_competitors():
             }
         )
 
-    add_seeding_data(rows, divdata, gi, target_event_name, now=event_start_date)
+    add_seeding_data(rows, divdata, gi, now=event_start_date)
     add_estimated_seeds(rows, divdata)
 
     swap_info = add_side_swaps(rows)
@@ -1559,8 +1559,8 @@ def registration_hypothetical_seed():
 
     rows.append(hypothetical_row)
 
-    target_event_name, event_start_date = _registration_seeding_context(link)
-    add_seeding_data(rows, divdata, gi, target_event_name, now=event_start_date)
+    event_start_date = _registration_seeding_start_date(link)
+    add_seeding_data(rows, divdata, gi, now=event_start_date)
     add_estimated_seeds(rows, divdata)
 
     return jsonify(
@@ -1595,10 +1595,10 @@ def registration_competitor_medal_breakdown():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-    target_event_name, event_start_date = _registration_seeding_context(link)
+    event_start_date = _registration_seeding_start_date(link)
 
     result = collect_athlete_medal_details(
-        athlete_uuid, divdata, gi, target_event_name, now=event_start_date
+        athlete_uuid, divdata, gi, now=event_start_date
     )
     return jsonify(result)
 

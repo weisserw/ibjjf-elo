@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from extensions import db
 from models import RegistrationLink
-from routes.brackets import _registration_seeding_context
+from routes.brackets import _registration_seeding_start_date
 from test_db import TestDbMixin
 
 
@@ -69,7 +69,7 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(links[0]["link"], "https://example.com/world")
         self.assertEqual(links[1]["link"], "https://example.com/local")
 
-    def test_registration_seeding_context_normalizes_ibjjf_link(self):
+    def test_registration_seeding_start_date_normalizes_ibjjf_link(self):
         with self.app_module.app.app_context():
             link = RegistrationLink(
                 name="Charlotte Spring International Open IBJJF Jiu-Jitsu Championship 2026",
@@ -83,14 +83,10 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
             db.session.add(link)
             db.session.commit()
 
-            name, start_date = _registration_seeding_context(
+            start_date = _registration_seeding_start_date(
                 "https://www.ibjjfdb.com/ChampionshipResults/3148/PublicRegistrations"
             )
 
-        self.assertEqual(
-            name,
-            "Charlotte Spring International Open IBJJF Jiu-Jitsu Championship 2026",
-        )
         self.assertEqual(start_date, datetime(2026, 6, 13))
 
 
