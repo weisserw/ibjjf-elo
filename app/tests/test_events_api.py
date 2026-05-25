@@ -104,6 +104,19 @@ class EventsApiTestCase(TestDbMixin, unittest.TestCase):
             ["Kids Open (idade 04 a 15 anos)", "Summer Open 2024"],
         )
 
+    def test_events_ordered_by_first_match_date_descending(self):
+        response = self.client.get("/api/events")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(
+            data,
+            [
+                "Kids Open (idade 04 a 15 anos)",
+                "Winter Classic (Results)",
+                "Summer Open 2024",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

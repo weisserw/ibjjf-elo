@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from sqlalchemy import func
 from sqlalchemy.sql import exists, or_
 from extensions import db
 from models import Event, Match, Division
@@ -18,7 +19,20 @@ def events():
     if gi is not None:
         gi = gi.lower() == "true"
 
-    query = db.session.query(Event.name).filter(Event.medals_only.isnot(True))
+    first_matches = (
+        db.session.query(
+            Match.event_id,
+            func.min(Match.happened_at).label("first_happened_at"),
+        )
+        .group_by(Match.event_id)
+        .subquery()
+    )
+
+    query = (
+        db.session.query(Event.name)
+        .join(first_matches, Event.id == first_matches.c.event_id)
+        .filter(Event.medals_only.isnot(True))
+    )
 
     if gi is not None:
         subquery_gi = (
@@ -36,7 +50,9 @@ def events():
         query = query.filter(
             or_(Event.name.not_like("%(%"), Event.name.like("%idade 04 a 15 anos%"))
         )
-    query = query.order_by(Event.name).limit(MAX_RESULTS)
+    query = query.order_by(
+        first_matches.c.first_happened_at.desc(), Event.name.asc()
+    ).limit(MAX_RESULTS)
     results = query.all()
 
     response = [result.name for result in results]
