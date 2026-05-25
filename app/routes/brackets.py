@@ -1387,9 +1387,15 @@ def _registration_rows_for_division(link, division, gi):
 
 
 def _registration_seeding_context(link):
+    lookup_link = link
+    if link and not link.startswith("internal:"):
+        try:
+            lookup_link = normalize_registration_link(link)
+        except ValueError:
+            pass
     db_link = (
         db.session.query(RegistrationLink.name, RegistrationLink.event_start_date)
-        .filter(RegistrationLink.link == link)
+        .filter(RegistrationLink.link == lookup_link)
         .first()
     )
     if db_link is None:
@@ -1589,16 +1595,7 @@ def registration_competitor_medal_breakdown():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-    target_event_name = None
-    event_start_date = None
-    db_link = (
-        db.session.query(RegistrationLink.name, RegistrationLink.event_start_date)
-        .filter(RegistrationLink.link == link)
-        .first()
-    )
-    if db_link is not None:
-        target_event_name = db_link.name
-        event_start_date = db_link.event_start_date
+    target_event_name, event_start_date = _registration_seeding_context(link)
 
     result = collect_athlete_medal_details(
         athlete_uuid, divdata, gi, target_event_name, now=event_start_date

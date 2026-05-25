@@ -15,7 +15,7 @@ from datetime import datetime
 from sqlalchemy.sql import func, or_
 
 from extensions import db
-from models import Medal, Match, Division, Event, Suspension
+from models import Medal, Match, Division, Event, RegistrationLink, Suspension
 from constants import (
     ADULT,
     BLACK,
@@ -290,7 +290,7 @@ def _cbjj_recent_seasons(today, n=3):
     anchored to Brasileiros start dates rather than Worlds. Used as the
     seasonal multiplier source for gi medals at Brazilian tournaments.
     """
-    year_groups = _event_year_groups(_CBJJ_SEASON_BASE, today)
+    year_groups = _regular_season_year_groups(_CBJJ_SEASON_BASE, today)
     if not year_groups:
         return []
 
@@ -546,6 +546,56 @@ def _event_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
     return result
 
 
+def _registration_link_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
+    """Like :func:`_event_year_groups`, but uses upcoming registration-link
+    start dates as season anchors.
+
+    This is intentionally used only for regular season boundaries. A
+    ``RegistrationLink`` does not represent a medal-results event, so it
+    must not create Grand Slam medal-scoring slots.
+    """
+    bases = [base] if isinstance(base, str) else list(base)
+    years = range(today.year - lookback + 1, today.year + 1)
+    candidate_by_norm = {
+        _normalize_event_name(f"{b} {year}"): year for b in bases for year in years
+    }
+
+    candidate_links = (
+        db.session.query(RegistrationLink.name, RegistrationLink.event_start_date)
+        .filter(
+            or_(*[RegistrationLink.name.like(f"{b}%") for b in bases]),
+            RegistrationLink.event_start_date.isnot(None),
+            RegistrationLink.event_start_date <= today,
+            or_(RegistrationLink.hidden.is_(False), RegistrationLink.hidden.is_(None)),
+        )
+        .all()
+    )
+
+    starts_by_year = {}
+    for link in candidate_links:
+        year = candidate_by_norm.get(_normalize_event_name(link.name))
+        if year is None:
+            continue
+        start = link.event_start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        current = starts_by_year.get(year)
+        if current is None or start < current:
+            starts_by_year[year] = start
+
+    return {year: ([], start) for year, start in starts_by_year.items()}
+
+
+def _regular_season_year_groups(base, today):
+    """Return event year groups for regular-season boundaries, preferring
+    pulled result events and filling missing anchors from registration links
+    when available.
+    """
+    result_groups = _event_year_groups(base, today)
+    registration_groups = _registration_link_year_groups(base, today)
+    for year, group in registration_groups.items():
+        result_groups.setdefault(year, group)
+    return result_groups
+
+
 def _recent_seasons(age, gi, today, n=3):
     """Return (start, end) datetime pairs for the n most recent seasons,
     using the actual start date of the relevant Worlds event as each season
@@ -558,7 +608,7 @@ def _recent_seasons(age, gi, today, n=3):
     sentinel) since the next Worlds hasn't happened yet. Returns ``[]`` if
     no usable Worlds events are found in the DB.
     """
-    year_groups = _event_year_groups(_worlds_base_name(age, gi), today)
+    year_groups = _regular_season_year_groups(_worlds_base_name(age, gi), today)
     if not year_groups:
         return []
 
@@ -600,7 +650,7 @@ def _grand_slam_event_multipliers(age, gi, today, n=3):
     """
     result = {}
     for base in _grand_slam_bases(age, gi):
-        year_groups = _event_year_groups(_bases_with_aliases(base), today)
+        year_groups = _regular_season_year_groups(_bases_with_aliases(base), today)
         if not year_groups:
             continue
         sorted_years = sorted(year_groups.keys(), reverse=True)[:n]

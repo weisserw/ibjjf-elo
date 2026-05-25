@@ -28,7 +28,7 @@ from constants import (
     OPEN_CLASS_HEAVY,
 )
 from extensions import db
-from models import Athlete, Division, Event, Match, Medal, Team
+from models import Athlete, Division, Event, Match, Medal, RegistrationLink, Team
 from seeding import (
     _bracket_slots,
     _side,
@@ -176,6 +176,22 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         )
         cls.nogi_worlds_2024 = add_event(
             "World IBJJF Jiu-Jitsu No-Gi Championship 2024", datetime(2024, 12, 12)
+        )
+
+        # Upcoming Worlds registration row. There is intentionally no
+        # corresponding Event/Match row for 2026 in this fixture; regular
+        # season boundaries should still advance for target tournaments that
+        # happen after this start date.
+        db.session.add(
+            RegistrationLink(
+                name="World IBJJF Jiu-Jitsu Championship 2026",
+                normalized_name="world ibjjf jiu-jitsu championship 2026",
+                updated_at=datetime(2026, 5, 1),
+                link="internal:worlds-2026",
+                hidden=False,
+                event_start_date=datetime(2026, 5, 28),
+                event_end_date=datetime(2026, 5, 31),
+            )
         )
 
         # Other Grand Slam events (gi).
@@ -605,6 +621,50 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         row = self._seed_and_run(seed, _divdata(), gi=True)
         self.assertEqual(row["grand_slam_points"], 216)
 
+    def test_grand_slam_registration_anchor_consumes_empty_event_slot(self):
+        # A registration-only Pans 2026 row should consume the newest Pans
+        # GS slot once it starts, pushing Pans 2025 from 3x to 2x without
+        # creating any fake medal-scoring event.
+        with self.app_module.app.app_context():
+            pans_link = RegistrationLink(
+                name="Pan IBJJF Jiu-Jitsu Championship 2026",
+                normalized_name="pan ibjjf jiujitsu championship 2026",
+                updated_at=datetime(2026, 2, 1),
+                link="internal:pans-2026",
+                hidden=False,
+                event_start_date=datetime(2026, 3, 18),
+                event_end_date=datetime(2026, 3, 22),
+            )
+            db.session.add(pans_link)
+            a = self._make_athlete("pans-registration-gs-rollover")
+            self._add_medal(a, self.pans_2025, place=1)
+            db.session.commit()
+            athlete_id = a.id
+
+            pre_rows = [_registration_row(athlete_id)]
+            add_seeding_data(
+                pre_rows,
+                _divdata(),
+                gi=True,
+                target_event_name=self.IBJJF_ONLY_TARGET,
+                now=datetime(2026, 3, 17),
+            )
+
+            post_rows = [_registration_row(athlete_id)]
+            add_seeding_data(
+                post_rows,
+                _divdata(),
+                gi=True,
+                target_event_name=self.IBJJF_ONLY_TARGET,
+                now=datetime(2026, 4, 1),
+            )
+
+            db.session.delete(pans_link)
+            db.session.commit()
+
+        self.assertEqual(pre_rows[0]["grand_slam_points"], 108)
+        self.assertEqual(post_rows[0]["grand_slam_points"], 72)
+
     def test_grand_slam_brasileiros_duplicate_year_collapses(self):
         # Two DB events represent the same year of Brasileiros (plain +
         # "(Juvenil, Adulto e Master) (Flo)" alt-source). They share a
@@ -672,6 +732,50 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(current_rows[0]["points"], 126 + 63)
         self.assertEqual(pre_rows[0]["points"], 189 + 126)
+
+    def test_upcoming_worlds_registration_advances_regular_season_anchor(self):
+        # There is no Worlds 2026 Event/Match row in the fixture, only a
+        # RegistrationLink starting 2026-05-28. For a target after that date,
+        # the regular season should advance: Worlds 2025 is now 2x, Worlds
+        # 2024 is 1x, and Worlds 2023 is outside the window.
+        def seed(t):
+            a = t._make_athlete("future-target-season-rollover")
+            t._add_medal(a, t.worlds_2025, place=1)
+            t._add_medal(a, t.worlds_2024, place=1)
+            t._add_medal(a, t.worlds_2023, place=1)
+            return a
+
+        row = self._seed_and_run(
+            seed,
+            _divdata(),
+            gi=True,
+            now=datetime(2026, 6, 1),
+            target_event_name=self.IBJJF_ONLY_TARGET,
+        )
+        self.assertEqual(row["points"], 126 + 63)
+        # The registration-only Worlds 2026 row also consumes the newest
+        # Worlds GS slot, but contributes no medals itself. Worlds 2025 drops
+        # to 2x, Worlds 2024 to 1x, and Worlds 2023 drops out.
+        self.assertEqual(row["grand_slam_points"], 126 + 63)
+
+    def test_upcoming_worlds_registration_does_not_advance_before_start_date(self):
+        # The same RegistrationLink should not matter for targets before
+        # Worlds 2026 starts.
+        def seed(t):
+            a = t._make_athlete("pre-worlds-season-still-current")
+            t._add_medal(a, t.worlds_2025, place=1)
+            t._add_medal(a, t.worlds_2024, place=1)
+            t._add_medal(a, t.worlds_2023, place=1)
+            return a
+
+        row = self._seed_and_run(
+            seed,
+            _divdata(),
+            gi=True,
+            now=datetime(2026, 5, 27),
+            target_event_name=self.IBJJF_ONLY_TARGET,
+        )
+        self.assertEqual(row["points"], 189 + 126 + 63)
 
     # ------------------------------------------------------------------
     # Target tournament classification — cbjj-only / mixed / ibjjf-only
@@ -757,6 +861,53 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(row["points"], 108)
         self.assertEqual(row["grand_slam_points"], 108)
+
+    def test_cbjj_registration_advances_cbjj_schedule_for_mixed_target(self):
+        # Rio is a mixed/Brazilian target, so Brazilian-source medals use
+        # the CBJJ/Brasileiros season calendar. A registration-only
+        # Brasileiros 2026 row should advance that calendar for targets after
+        # it starts, even without a pulled Event/Match row.
+        with self.app_module.app.app_context():
+            cbjj_link = RegistrationLink(
+                name="Campeonato Brasileiro de Jiu-Jitsu 2026",
+                normalized_name="campeonato brasileiro de jiu-jitsu 2026",
+                updated_at=datetime(2026, 4, 1),
+                link="internal:brasileiros-2026",
+                hidden=False,
+                event_start_date=datetime(2026, 4, 24),
+                event_end_date=datetime(2026, 5, 3),
+            )
+            db.session.add(cbjj_link)
+            a = self._make_athlete("brasileiros-registration-rollover")
+            self._add_medal(a, self.brasil_2025, place=1)
+            db.session.commit()
+            athlete_id = a.id
+
+            pre_rows = [_registration_row(athlete_id)]
+            add_seeding_data(
+                pre_rows,
+                _divdata(),
+                gi=True,
+                target_event_name=self.MIXED_TARGET,
+                now=datetime(2026, 4, 23),
+            )
+
+            post_rows = [_registration_row(athlete_id)]
+            add_seeding_data(
+                post_rows,
+                _divdata(),
+                gi=True,
+                target_event_name="Rio Fall International Open IBJJF Jiu-Jitsu Championship 2026",
+                now=datetime(2026, 6, 5),
+            )
+
+            db.session.delete(cbjj_link)
+            db.session.commit()
+
+        self.assertEqual(pre_rows[0]["points"], 108)
+        self.assertEqual(pre_rows[0]["grand_slam_points"], 108)
+        self.assertEqual(post_rows[0]["points"], 72)
+        self.assertEqual(post_rows[0]["grand_slam_points"], 72)
 
     def test_ibjjf_only_source_always_uses_ibjjf_schedule(self):
         # Worlds 2025 (IBJJF-only) medal scores identically regardless of
