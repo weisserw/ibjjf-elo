@@ -299,6 +299,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         divdata,
         gi,
         now=NOW,
+        medal_cutoff=None,
     ):
         """Open an app_context, let `seed_fn(self)` create athletes/medals
         and return the registration row(s) (single dict or list of dicts),
@@ -314,7 +315,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 rows = [_registration_row(a.id) for a in seeded]
             else:
                 rows = [_registration_row(seeded.id)]
-            add_seeding_data(rows, divdata, gi, now=now)
+            add_seeding_data(rows, divdata, gi, now=now, medal_cutoff=medal_cutoff)
         return rows[0] if not isinstance(seeded, list) else rows
 
     # ------------------------------------------------------------------
@@ -774,6 +775,28 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
             now=datetime(2026, 5, 27),
         )
         self.assertEqual(row["points"], 189 + 126 + 63)
+
+    def test_future_target_cutoff_does_not_advance_registration_anchor(self):
+        # Registration pages cap medals at the target event start, but season
+        # anchors should still be evaluated as of the current date. Before
+        # Worlds 2026 starts, its own RegistrationLink must not push Worlds
+        # 2025 down to 2x.
+        def seed(t):
+            a = t._make_athlete("future-worlds-target-still-current")
+            t._add_medal(a, t.worlds_2025, place=1)
+            t._add_medal(a, t.worlds_2024, place=1)
+            t._add_medal(a, t.worlds_2023, place=1)
+            return a
+
+        row = self._seed_and_run(
+            seed,
+            _divdata(),
+            gi=True,
+            now=datetime(2026, 5, 26),
+            medal_cutoff=datetime(2026, 5, 28),
+        )
+        self.assertEqual(row["points"], 189 + 126 + 63)
+        self.assertEqual(row["grand_slam_points"], 189 + 126 + 63)
 
     # ------------------------------------------------------------------
     # Source tournament classification

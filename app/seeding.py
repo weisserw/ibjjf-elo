@@ -1045,7 +1045,7 @@ def _iter_regular_season_medal_rows(
     gi,
     seasons,
     suspension_ranges,
-    now,
+    medal_cutoff,
     common_filters=None,
 ):
     """Yield ``(medal_row, season_mult)`` for every medal that contributes
@@ -1083,9 +1083,9 @@ def _iter_regular_season_medal_rows(
         )
 
     earliest_start = seasons[-1][0]
-    # Cap at `now` so medals on or after the tournament start date don't
-    # leak into the in-progress season (whose end is a far-future sentinel).
-    latest_end = min(seasons[0][1], now)
+    # Cap at `medal_cutoff` so medals on or after the tournament start date
+    # don't leak into the in-progress season (whose end is a far-future sentinel).
+    latest_end = min(seasons[0][1], medal_cutoff)
 
     medal_rows = (
         db.session.query(
@@ -1123,7 +1123,7 @@ def _iter_grand_slam_medal_rows(
     gi,
     gs_multipliers,
     suspension_ranges,
-    now,
+    medal_cutoff,
     common_filters=None,
 ):
     """Yield ``(medal_row, gs_mult)`` for every medal that contributes to
@@ -1171,7 +1171,7 @@ def _iter_grand_slam_medal_rows(
         .filter(
             *common_filters,
             Medal.event_id.in_(list(gs_multipliers.keys())),
-            Medal.happened_at < now,
+            Medal.happened_at < medal_cutoff,
         )
         .all()
     )
@@ -1229,7 +1229,7 @@ def _collect_bucket_details(medal_iter, gi, weight_multipliers, division_is_open
     }
 
 
-def collect_athlete_medal_details(athlete_id, divdata, gi, now=None):
+def collect_athlete_medal_details(athlete_id, divdata, gi, now=None, medal_cutoff=None):
     """Return the per-medal breakdown that drives the modal drill-down for
     a single athlete, split into the regular ``points`` and
     ``grand_slam_points`` buckets.
@@ -1261,6 +1261,8 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, now=None):
 
     if now is None:
         now = datetime.now()
+    if medal_cutoff is None:
+        medal_cutoff = now
     seasons = _recent_seasons(divdata["age"], gi, now, n=3)
     gs_multipliers = _grand_slam_event_multipliers(divdata["age"], gi, now, n=3)
 
@@ -1273,7 +1275,7 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, now=None):
             gi,
             seasons,
             suspension_ranges,
-            now,
+            medal_cutoff,
         ),
         gi,
         weight_multipliers,
@@ -1286,7 +1288,7 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, now=None):
             gi,
             gs_multipliers,
             suspension_ranges,
-            now,
+            medal_cutoff,
         ),
         gi,
         weight_multipliers,
@@ -1295,7 +1297,7 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, now=None):
     return {"points": points, "grand_slam": grand_slam}
 
 
-def add_seeding_data(rows, divdata, gi, now=None):
+def add_seeding_data(rows, divdata, gi, now=None, medal_cutoff=None):
     """Compute IBJJF seeding criteria for each competitor and attach to the row.
 
     Currently populates:
@@ -1339,8 +1341,12 @@ def add_seeding_data(rows, divdata, gi, now=None):
     schedule.
 
     ``now`` is the reference date used for season-window construction;
-    defaults to ``datetime.now()``. Tests can pass a fixed datetime to make
-    season rollover deterministic.
+    defaults to ``datetime.now()``. ``medal_cutoff`` is the exclusive upper
+    bound for medals included in the score and defaults to ``now``. The two
+    dates differ for future registration pages: the season should be evaluated
+    as of today, while medals still need to be capped at the target event
+    start. Tests can pass fixed datetimes to make season rollover
+    deterministic.
 
     Final values are floored to integers.
     """
@@ -1386,6 +1392,8 @@ def add_seeding_data(rows, divdata, gi, now=None):
 
     if now is None:
         now = datetime.now()
+    if medal_cutoff is None:
+        medal_cutoff = now
     seasons = _recent_seasons(divdata["age"], gi, now, n=3)
     gs_multipliers = _grand_slam_event_multipliers(divdata["age"], gi, now, n=3)
     suspension_ranges = _suspension_ranges_by_athlete_id(rows)
@@ -1413,7 +1421,7 @@ def add_seeding_data(rows, divdata, gi, now=None):
         gi,
         seasons,
         suspension_ranges,
-        now,
+        medal_cutoff,
         common_filters,
     ):
         _score_medal(
@@ -1439,7 +1447,7 @@ def add_seeding_data(rows, divdata, gi, now=None):
         gi,
         gs_multipliers,
         suspension_ranges,
-        now,
+        medal_cutoff,
         common_filters,
     ):
         _score_medal(

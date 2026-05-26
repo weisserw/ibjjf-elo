@@ -1403,6 +1403,13 @@ def _registration_seeding_start_date(link):
     return db_link.event_start_date
 
 
+def _registration_seeding_reference_date(event_start_date):
+    now = datetime.now()
+    if event_start_date is None:
+        return now
+    return min(now, event_start_date)
+
+
 def _optional_s3_client():
     if not os.getenv("AWS_CREDS"):
         return None
@@ -1452,6 +1459,7 @@ def registration_competitors():
     )
 
     event_start_date = _registration_seeding_start_date(link)
+    seeding_reference_date = _registration_seeding_reference_date(event_start_date)
 
     if divdata["age"] in {JUVENILE, JUVENILE_1, JUVENILE_2}:
         slots, bracket_size = _bracket_slots(len(rows))
@@ -1465,7 +1473,13 @@ def registration_competitors():
             }
         )
 
-    add_seeding_data(rows, divdata, gi, now=event_start_date)
+    add_seeding_data(
+        rows,
+        divdata,
+        gi,
+        now=seeding_reference_date,
+        medal_cutoff=event_start_date,
+    )
     add_estimated_seeds(rows, divdata)
 
     swap_info = add_side_swaps(rows)
@@ -1560,7 +1574,14 @@ def registration_hypothetical_seed():
     rows.append(hypothetical_row)
 
     event_start_date = _registration_seeding_start_date(link)
-    add_seeding_data(rows, divdata, gi, now=event_start_date)
+    seeding_reference_date = _registration_seeding_reference_date(event_start_date)
+    add_seeding_data(
+        rows,
+        divdata,
+        gi,
+        now=seeding_reference_date,
+        medal_cutoff=event_start_date,
+    )
     add_estimated_seeds(rows, divdata)
 
     return jsonify(
@@ -1596,9 +1617,14 @@ def registration_competitor_medal_breakdown():
         return jsonify({"error": str(e)}), 400
 
     event_start_date = _registration_seeding_start_date(link)
+    seeding_reference_date = _registration_seeding_reference_date(event_start_date)
 
     result = collect_athlete_medal_details(
-        athlete_uuid, divdata, gi, now=event_start_date
+        athlete_uuid,
+        divdata,
+        gi,
+        now=seeding_reference_date,
+        medal_cutoff=event_start_date,
     )
     return jsonify(result)
 
