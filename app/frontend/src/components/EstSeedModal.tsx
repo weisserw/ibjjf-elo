@@ -63,7 +63,7 @@ function columnsForDivision(selectedCategory: string | null): ColumnSpec[] {
       bool('world_champion_4_years_ago', t('WC 4y Ago')),
       bool('world_champion_5_years_ago', t('WC 5y Ago')),
       bool('previous_brown_world_champion', t('Brown WC')),
-      bool('former_world_champion', t('Former WC')),
+      year('former_world_champion', t('Former WC')),
       num('open_class_points', t('Open Pts')),
       num('points', t('Pts')),
     ]
@@ -76,7 +76,7 @@ function columnsForDivision(selectedCategory: string | null): ColumnSpec[] {
       bool('world_champion_4_years_ago', t('WC 4y Ago')),
       bool('world_champion_5_years_ago', t('WC 5y Ago')),
       bool('previous_brown_world_champion', t('Brown WC')),
-      bool('former_world_champion', t('Former WC')),
+      year('former_world_champion', t('Former WC')),
       num('points', t('Pts')),
     ]
   }

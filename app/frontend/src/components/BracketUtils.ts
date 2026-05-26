@@ -37,7 +37,7 @@ export interface Competitor {
   world_champion_4_years_ago?: boolean
   world_champion_5_years_ago?: boolean
   previous_brown_world_champion?: boolean
-  former_world_champion?: boolean
+  former_world_champion?: number | null
   adult_world_champion?: boolean
   master_1_world_champion?: boolean
   master_2_world_champion?: boolean

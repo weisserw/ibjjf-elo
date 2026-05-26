@@ -924,8 +924,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(row["last_world_title_year"], 2025)
         self.assertFalse(row["world_champion_4_years_ago"])
         self.assertFalse(row["world_champion_5_years_ago"])
-        # Only a recent title -> not a 6+-year "former" champion.
-        self.assertFalse(row["former_world_champion"])
+        self.assertEqual(row["former_world_champion"], 2025)
         self.assertFalse(row["previous_brown_world_champion"])
 
     def test_adult_black_belt_4_years_ago(self):
@@ -942,8 +941,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertIsNone(row["last_world_title_year"])
         self.assertTrue(row["world_champion_4_years_ago"])
         self.assertFalse(row["world_champion_5_years_ago"])
-        # Title is exactly 4 years ago, not 6+ -> not "former".
-        self.assertFalse(row["former_world_champion"])
+        self.assertEqual(row["former_world_champion"], 2022)
 
     def test_adult_black_belt_5_years_ago_legacy_name(self):
         # Gold at Worlds 2021 (rank 4) — the "5 years ago" slot. Also
@@ -959,12 +957,11 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertIsNone(row["last_world_title_year"])
         self.assertFalse(row["world_champion_4_years_ago"])
         self.assertTrue(row["world_champion_5_years_ago"])
-        # Title is exactly 5 years ago, not 6+ -> not "former".
-        self.assertFalse(row["former_world_champion"])
+        self.assertEqual(row["former_world_champion"], 2021)
 
     def test_adult_black_belt_former_champion_only(self):
         # Gold at Worlds 2020 (rank 5) — older than any tracked slot, so
-        # only ``former_world_champion`` should be set.
+        # only ``former_world_champion`` should have a value.
         def seed(t):
             a = t._make_athlete("bb-former-only")
             t._add_medal(a, t.worlds_2020, place=1)
@@ -976,12 +973,13 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertIsNone(row["last_world_title_year"])
         self.assertFalse(row["world_champion_4_years_ago"])
         self.assertFalse(row["world_champion_5_years_ago"])
-        self.assertTrue(row["former_world_champion"])
+        self.assertEqual(row["former_world_champion"], 2020)
 
     def test_adult_black_belt_last_world_title_year_takes_max(self):
         # Multiple Worlds titles — ``last_world_title_year`` should report
-        # the most recent year. Recency flags are mutually exclusive: only
-        # the highest-priority one (``world_champion_recent``) should be set.
+        # the most recent year among the 3 most-recent past Worlds. Older
+        # tracked-year flags are independent, and former_world_champion is
+        # the most-recent title in any weight.
         def seed(t):
             a = t._make_athlete("bb-multi-titles")
             t._add_medal(a, t.worlds_2023, place=1)
@@ -991,10 +989,24 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         row = self._seed_and_run(seed, _divdata(belt=BLACK), gi=True)
         self.assertEqual(row["last_world_title_year"], 2023)
         self.assertTrue(row["world_champion_recent"])  # 2023 is rank 2
-        # Mutually exclusive: a recent title suppresses the older-rank flags.
         self.assertFalse(row["world_champion_4_years_ago"])
-        self.assertFalse(row["world_champion_5_years_ago"])
-        self.assertFalse(row["former_world_champion"])
+        self.assertTrue(row["world_champion_5_years_ago"])
+        self.assertEqual(row["former_world_champion"], 2023)
+
+    def test_adult_black_belt_title_flags_are_independent(self):
+        def seed(t):
+            a = t._make_athlete("bb-independent-title-flags")
+            t._add_medal(a, t.worlds_2025, place=1)
+            t._add_medal(a, t.worlds_2022, place=1)
+            t._add_medal(a, t.worlds_2021, place=1)
+            return a
+
+        row = self._seed_and_run(seed, _divdata(belt=BLACK), gi=True)
+        self.assertTrue(row["world_champion_recent"])
+        self.assertEqual(row["last_world_title_year"], 2025)
+        self.assertTrue(row["world_champion_4_years_ago"])
+        self.assertTrue(row["world_champion_5_years_ago"])
+        self.assertEqual(row["former_world_champion"], 2025)
 
     def test_adult_black_belt_no_titles(self):
         # An adult black athlete with no Worlds golds — all flags should be
@@ -1007,7 +1019,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertIsNone(row["last_world_title_year"])
         self.assertFalse(row["world_champion_4_years_ago"])
         self.assertFalse(row["world_champion_5_years_ago"])
-        self.assertFalse(row["former_world_champion"])
+        self.assertIsNone(row["former_world_champion"])
         self.assertFalse(row["previous_brown_world_champion"])
 
     def test_adult_black_belt_previous_brown_world_champion(self):
@@ -1021,7 +1033,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertTrue(row["previous_brown_world_champion"])
         # Brown gold isn't a black-belt title, so the black flags stay false.
         self.assertFalse(row["world_champion_recent"])
-        self.assertFalse(row["former_world_champion"])
+        self.assertIsNone(row["former_world_champion"])
         self.assertIsNone(row["last_world_title_year"])
 
     def test_adult_black_belt_brown_gold_older_does_not_count(self):
@@ -1049,7 +1061,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertIsNone(row["last_world_title_year"])
         self.assertFalse(row["world_champion_4_years_ago"])
         self.assertFalse(row["world_champion_5_years_ago"])
-        self.assertTrue(row["former_world_champion"])
+        self.assertEqual(row["former_world_champion"], 2025)
 
     def test_adult_black_belt_brown_title_in_different_weight_does_not_count(self):
         # Brown gold in HEAVY at the most-recent past Worlds should NOT trigger
@@ -1403,7 +1415,7 @@ class EstimatedSeedsTestCase(unittest.TestCase):
                 world_champion_4_years_ago=False,
                 world_champion_5_years_ago=False,
                 previous_brown_world_champion=False,
-                former_world_champion=False,
+                former_world_champion=None,
                 points=9999,
             ),
             _seed_row(
@@ -1414,7 +1426,7 @@ class EstimatedSeedsTestCase(unittest.TestCase):
                 world_champion_4_years_ago=False,
                 world_champion_5_years_ago=False,
                 previous_brown_world_champion=False,
-                former_world_champion=True,
+                former_world_champion=2025,
                 points=0,
             ),
         ]
@@ -1431,7 +1443,7 @@ class EstimatedSeedsTestCase(unittest.TestCase):
                 world_champion_4_years_ago=False,
                 world_champion_5_years_ago=False,
                 previous_brown_world_champion=False,
-                former_world_champion=True,
+                former_world_champion=2024,
                 points=0,
             ),
             _seed_row(
@@ -1442,7 +1454,7 @@ class EstimatedSeedsTestCase(unittest.TestCase):
                 world_champion_4_years_ago=False,
                 world_champion_5_years_ago=False,
                 previous_brown_world_champion=False,
-                former_world_champion=True,
+                former_world_champion=2025,
                 points=0,
             ),
         ]
@@ -1460,7 +1472,7 @@ class EstimatedSeedsTestCase(unittest.TestCase):
                 world_champion_4_years_ago=False,
                 world_champion_5_years_ago=False,
                 previous_brown_world_champion=False,
-                former_world_champion=False,
+                former_world_champion=None,
                 points=0,
             ),
             _seed_row(
@@ -1471,7 +1483,35 @@ class EstimatedSeedsTestCase(unittest.TestCase):
                 world_champion_4_years_ago=False,
                 world_champion_5_years_ago=False,
                 previous_brown_world_champion=False,
-                former_world_champion=True,
+                former_world_champion=2018,
+                points=0,
+            ),
+        ]
+        add_estimated_seeds(rows, {"age": ADULT, "belt": BLACK, "weight": LIGHT})
+        self.assertEqual(self._seeds(rows), [2, 1])
+
+    def test_adult_black_former_world_champion_year_tiebreak(self):
+        rows = [
+            _seed_row(
+                1,
+                world_champion_recent=False,
+                last_world_title_year=None,
+                grand_slam_points=0,
+                world_champion_4_years_ago=False,
+                world_champion_5_years_ago=False,
+                previous_brown_world_champion=False,
+                former_world_champion=2021,
+                points=0,
+            ),
+            _seed_row(
+                2,
+                world_champion_recent=False,
+                last_world_title_year=None,
+                grand_slam_points=0,
+                world_champion_4_years_ago=False,
+                world_champion_5_years_ago=False,
+                previous_brown_world_champion=False,
+                former_world_champion=2024,
                 points=0,
             ),
         ]
@@ -1495,7 +1535,7 @@ class EstimatedSeedsTestCase(unittest.TestCase):
                 world_champion_4_years_ago=False,
                 world_champion_5_years_ago=False,
                 previous_brown_world_champion=False,
-                former_world_champion=True,
+                former_world_champion=2025,
                 open_class_points=0,
                 points=0,
             ),
@@ -1508,7 +1548,7 @@ class EstimatedSeedsTestCase(unittest.TestCase):
                 world_champion_4_years_ago=False,
                 world_champion_5_years_ago=False,
                 previous_brown_world_champion=False,
-                former_world_champion=True,
+                former_world_champion=2025,
                 open_class_points=0,
                 points=0,
             ),

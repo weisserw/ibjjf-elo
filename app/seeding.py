@@ -661,7 +661,7 @@ def _title_weight_filter(weight):
 
 
 def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges):
-    """Compute the six adult-black-belt-only seeding flags per athlete.
+    """Compute the six adult-black-belt-only seeding fields per athlete.
 
     Returns ``{athlete_id: {field: value, ...}}``; only athletes who have at
     least one of the flags set appear in the dict. Athletes not present in
@@ -671,29 +671,21 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
     ``world_champion_4_years_ago``, ``world_champion_5_years_ago``) and for
     ``previous_brown_world_champion`` are scoped to the current division's
     weight class — regular weights match exactly, open-class divisions match
-    any open-class variant. ``former_world_champion`` matches a black-belt
-    Worlds gold in **any** weight class.
-
-    The four black-belt flags are mutually exclusive: at most one of
-    ``world_champion_recent``, ``world_champion_4_years_ago``,
-    ``world_champion_5_years_ago``, ``former_world_champion`` is true, in
-    that priority order.
+    any open-class variant. ``former_world_champion`` is the athlete's
+    most-recent black-belt Worlds gold year in **any** weight class.
 
     Fields:
       - ``world_champion_recent`` — gold at any of the 3 most-recent past
         Worlds, at the current weight class.
       - ``world_champion_4_years_ago`` — gold at the 4th most-recent past
-        Worlds at the current weight class; suppressed if
-        ``world_champion_recent`` is true.
+        Worlds at the current weight class.
       - ``world_champion_5_years_ago`` — gold at the 5th most-recent past
-        Worlds at the current weight class; suppressed if either of the
-        above is true.
+        Worlds at the current weight class.
       - ``last_world_title_year`` — year of the athlete's most-recent Worlds
         gold at the current weight class, restricted to the 3 most-recent
         past Worlds (``None`` otherwise).
-      - ``former_world_champion`` — has a black-belt Worlds gold at any past
-        Worlds, in any weight class; suppressed if any recency flag above
-        is true.
+      - ``former_world_champion`` — most-recent black-belt Worlds gold year
+        at any past Worlds, in any weight class (``None`` otherwise).
       - ``previous_brown_world_champion`` — gold at the single most-recent past
         Worlds in the **brown belt** adult division, at the current weight class.
     """
@@ -730,9 +722,9 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
     )
 
     # Black-belt adult golds at any past Worlds, in *any* weight class — drives
-    # ``former_world_champion`` (when no recency flag applies).
+    # ``former_world_champion``.
     any_weight_rows = (
-        db.session.query(Medal.athlete_id, Medal.happened_at)
+        db.session.query(Medal.athlete_id, Medal.event_id, Medal.happened_at)
         .join(Division, Medal.division_id == Division.id)
         .filter(
             Medal.athlete_id.in_(athlete_ids),
@@ -777,23 +769,27 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
             eid_to_year[r.event_id]
         )
 
-    any_weight_winners = {
-        r.athlete_id
-        for r in any_weight_rows
-        if not _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at)
-    }
+    any_weight_years_by_athlete = {}
+    for r in any_weight_rows:
+        if _medal_during_suspension(suspension_ranges, r.athlete_id, r.happened_at):
+            continue
+        any_weight_years_by_athlete.setdefault(r.athlete_id, set()).add(
+            eid_to_year[r.event_id]
+        )
 
     result = {}
-    affected = set(weight_years_by_athlete) | any_weight_winners | brown_winners
+    affected = (
+        set(weight_years_by_athlete) | set(any_weight_years_by_athlete) | brown_winners
+    )
     for aid in affected:
         years_won = weight_years_by_athlete.get(aid, set())
+        any_weight_years_won = any_weight_years_by_athlete.get(aid, set())
         ranks_won = {year_to_rank[y] for y in years_won}
         recent_years_won = {y for y in years_won if year_to_rank[y] <= 2}
 
         recent = bool(ranks_won & {0, 1, 2})
-        four_yr = (not recent) and (3 in ranks_won)
-        five_yr = (not recent) and (not four_yr) and (4 in ranks_won)
-        former = (aid in any_weight_winners) and not (recent or four_yr or five_yr)
+        four_yr = 3 in ranks_won
+        five_yr = 4 in ranks_won
 
         result[aid] = {
             "world_champion_recent": recent,
@@ -802,7 +798,9 @@ def _adult_black_belt_seeding(athlete_ids, divdata, gi, today, suspension_ranges
             ),
             "world_champion_4_years_ago": four_yr,
             "world_champion_5_years_ago": five_yr,
-            "former_world_champion": former,
+            "former_world_champion": (
+                max(any_weight_years_won) if any_weight_years_won else None
+            ),
             "previous_brown_world_champion": aid in brown_winners,
         }
     return result
@@ -1326,7 +1324,7 @@ def add_seeding_data(rows, divdata, gi, now=None, medal_cutoff=None):
         window based on the recency of that specific event.
 
     Only for Adult / BLACK belt divisions, also populates six
-    black-belt-specific flags (see :func:`_adult_black_belt_seeding`):
+    black-belt-specific fields (see :func:`_adult_black_belt_seeding`):
     ``world_champion_recent``, ``last_world_title_year``,
     ``world_champion_4_years_ago``, ``world_champion_5_years_ago``,
     ``former_world_champion``, ``previous_brown_world_champion``.
@@ -1368,7 +1366,7 @@ def add_seeding_data(rows, divdata, gi, now=None, medal_cutoff=None):
             row["last_world_title_year"] = None
             row["world_champion_4_years_ago"] = False
             row["world_champion_5_years_ago"] = False
-            row["former_world_champion"] = False
+            row["former_world_champion"] = None
             row["previous_brown_world_champion"] = False
     elif is_master_black:
         for row in rows:
@@ -1509,13 +1507,13 @@ def add_estimated_seeds(rows, divdata):
       3. adult black belt: ``world_champion_recent``,
          ``last_world_title_year``, ``grand_slam_points``,
          ``world_champion_4_years_ago``, ``world_champion_5_years_ago``,
-         ``previous_brown_world_champion``, ``former_world_champion``,
+         ``previous_brown_world_champion``, ``former_world_champion`` year,
          ``points``.
       4. adult black belt open class: ``world_champion_recent``,
          ``last_world_title_year``, ``grand_slam_open_class_points``,
          ``grand_slam_points``, ``world_champion_4_years_ago``,
          ``world_champion_5_years_ago``, ``previous_brown_world_champion``,
-         ``former_world_champion``, ``open_class_points``, ``points``.
+         ``former_world_champion`` year, ``open_class_points``, ``points``.
       5. master black belt: ``adult_world_champion``,
          ``master_1_world_champion`` .. ``master_K_world_champion`` (K = this
          division's master level), ``grand_slam_points``, ``points``.
@@ -1548,7 +1546,7 @@ def add_estimated_seeds(rows, divdata):
                 bool(r.get("world_champion_4_years_ago")),
                 bool(r.get("world_champion_5_years_ago")),
                 bool(r.get("previous_brown_world_champion")),
-                bool(r.get("former_world_champion")),
+                r.get("former_world_champion") or 0,
                 r.get("open_class_points", 0),
                 r.get("points", 0),
                 tie_break(r),
@@ -1564,7 +1562,7 @@ def add_estimated_seeds(rows, divdata):
                 bool(r.get("world_champion_4_years_ago")),
                 bool(r.get("world_champion_5_years_ago")),
                 bool(r.get("previous_brown_world_champion")),
-                bool(r.get("former_world_champion")),
+                r.get("former_world_champion") or 0,
                 r.get("points", 0),
                 tie_break(r),
             )
