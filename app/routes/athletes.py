@@ -494,6 +494,8 @@ def get_athlete_data(identifier, gi_param=None, all_medals=False):
             rating = _apply_promotion_rating_bump(
                 rating, elo_history[-1]["belt"], highest_belt, elo_history[-1]["age"]
             )
+            # _apply_promotion_rating_bump can return a non-integer if the rating is default for a belt/age
+            rating = round(rating) if rating is not None else None
 
         filtered_registrations = filter_registrations(registrations, highest_belt)
 
