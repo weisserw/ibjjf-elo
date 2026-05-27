@@ -13,6 +13,35 @@
             <div class="notification is-info">{{ session.pop('scan_flash') }}</div>
         {% endif %}
 
+        <div class="notification is-light">
+            <div class="is-flex is-justify-content-space-between is-align-items-center is-flex-wrap-wrap">
+                <div class="mb-2">
+                    <h2 class="title is-6 mb-1">Result medals source data</h2>
+                    <div class="content is-small mb-0">
+                        Latest scraped row:
+                        {% if latest_result_medal_scraped_at %}
+                            {{ latest_result_medal_scraped_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC
+                        {% else %}
+                            <span class="has-text-grey">none</span>
+                        {% endif %}
+                        {% if latest_update_task %}
+                            <br>
+                            Latest update task:
+                            <a href="{{ url_for('task_detail', task_id=latest_update_task.id) }}">
+                                {{ latest_update_task.status }}
+                                {% if latest_update_task.created_at %}
+                                    at {{ latest_update_task.created_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC
+                                {% endif %}
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <form method="POST" action="{{ url_for('missing_medals_scan_update_result_medals') }}">
+                    <button class="button is-info" type="submit">Update result medals</button>
+                </form>
+            </div>
+        </div>
+
         <form method="GET" action="{{ url_for('missing_medals_scan') }}">
             <div class="field is-grouped">
                 <div class="field">
@@ -116,9 +145,16 @@
                                         <a href="{{ url_for('athlete_edit', id=entry.matched_athlete.id) }}">{{ entry.matched_athlete.name }}</a>
                                     {% elif entry.alternatives %}
                                         {% for alt in entry.alternatives[:3] %}
-                                            <div>
-                                                <a href="{{ url_for('athlete_edit', id=alt.athlete.id) }}">{{ alt.athlete.name }}</a>
-                                                <span class="has-text-grey">({{ alt.score }}{% if alt.get('reason') %} {{ alt.reason }}{% endif %})</span>
+                                            <div class="field mb-1">
+                                                <label class="radio">
+                                                    {% if entry.status == 'ambiguous' %}
+                                                        <input type="radio"
+                                                               name="ambiguous_{{ rm.id }}"
+                                                               value="{{ alt.athlete.id }}">
+                                                    {% endif %}
+                                                    <a href="{{ url_for('athlete_edit', id=alt.athlete.id) }}">{{ alt.athlete.name }}</a>
+                                                    <span class="has-text-grey">({{ alt.score }}{% if alt.get('reason') %} {{ alt.reason }}{% endif %})</span>
+                                                </label>
                                             </div>
                                         {% endfor %}
                                     {% else %}

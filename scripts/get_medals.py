@@ -459,27 +459,36 @@ def parse_result_page(url, html):
 # ---------------------------------------------------------------------------
 
 
-def scrape(args):
-    session = make_session()
+def log_stderr(message):
+    print(message, file=sys.stderr)
 
-    sources_to_fetch = ["ibjjf", "cbjj"] if args.source == "all" else [args.source]
+
+def build_result_links(
+    source="all",
+    year=None,
+    tournament=None,
+    limit=None,
+    session=None,
+    log=log_stderr,
+):
+    """Return result-page links after source/year/tournament filtering."""
+    session = session or make_session()
+
+    sources_to_fetch = ["ibjjf", "cbjj"] if source == "all" else [source]
 
     all_links = []
     ibjjf_links = []
     cbjj_links = []
     if "ibjjf" in sources_to_fetch:
-        print(f"Fetching IBJJF index {IBJJF_RESULTS_URL} ...", file=sys.stderr)
+        log(f"Fetching IBJJF index {IBJJF_RESULTS_URL} ...")
         ibjjf_links = parse_index_page(fetch(IBJJF_RESULTS_URL, session), "ibjjf")
-        print(f"  found {len(ibjjf_links)} event-year links", file=sys.stderr)
+        log(f"  found {len(ibjjf_links)} event-year links")
         ibjjf_links.extend(EXTRA_IBJJF_LINKS)
-        print(
-            f"  added {len(EXTRA_IBJJF_LINKS)} extra hard-coded IBJJF links",
-            file=sys.stderr,
-        )
+        log(f"  added {len(EXTRA_IBJJF_LINKS)} extra hard-coded IBJJF links")
     if "cbjj" in sources_to_fetch:
-        print(f"Fetching CBJJ index {CBJJ_RESULTS_URL} ...", file=sys.stderr)
+        log(f"Fetching CBJJ index {CBJJ_RESULTS_URL} ...")
         cbjj_links = parse_index_page(fetch(CBJJ_RESULTS_URL, session), "cbjj")
-        print(f"  found {len(cbjj_links)} event-year links", file=sys.stderr)
+        log(f"  found {len(cbjj_links)} event-year links")
 
     if "ibjjf" in sources_to_fetch and "cbjj" in sources_to_fetch:
         all_links = dedup_links(ibjjf_links, cbjj_links)
@@ -505,16 +514,15 @@ def scrape(args):
     for link in all_links:
         cid = extract_championship_id(link["url"])
         if cid and (link["tournament"], link["year"], cid) in KNOWN_BAD_LINKS:
-            print(
+            log(
                 f"NOTICE: skipping known-mislabeled IBJJF index entry: "
-                f"'{link['tournament']} {link['year']}' -> {link['url']}",
-                file=sys.stderr,
+                f"'{link['tournament']} {link['year']}' -> {link['url']}"
             )
             skipped_known_bad += 1
             continue
         filtered.append(link)
     if skipped_known_bad:
-        print(f"KNOWN_BAD_LINKS: skipped {skipped_known_bad} entries", file=sys.stderr)
+        log(f"KNOWN_BAD_LINKS: skipped {skipped_known_bad} entries")
     all_links = filtered
 
     deduped = []
@@ -539,20 +547,107 @@ def scrape(args):
         )
     all_links = deduped
 
-    if args.year:
-        all_links = [link for link in all_links if link["year"] == args.year]
-        print(f"Filtered to year={args.year}: {len(all_links)} links", file=sys.stderr)
+    if year:
+        all_links = [link for link in all_links if link["year"] == str(year)]
+        log(f"Filtered to year={year}: {len(all_links)} links")
 
-    if args.tournament:
-        needle = args.tournament.lower()
+    if tournament:
+        needle = tournament.lower()
         all_links = [link for link in all_links if needle in link["tournament"].lower()]
-        print(
-            f"Filtered to tournament~='{args.tournament}': {len(all_links)} links",
-            file=sys.stderr,
-        )
+        log(f"Filtered to tournament~='{tournament}': {len(all_links)} links")
 
-    if args.limit:
-        all_links = all_links[: args.limit]
+    if limit:
+        all_links = all_links[:limit]
+
+    return all_links
+
+
+def default_scraped_at():
+    # One scraped_at value for the whole run, so all rows from this scrape sort
+    # together and `MAX(scraped_at)` in the admin UI shows the last scrape time.
+    # Naive UTC ISO timestamp matches the table's `DateTime` (no tz) column.
+    return datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0).isoformat()
+
+
+def iter_result_medal_rows(
+    links,
+    session=None,
+    scraped_at=None,
+    stats=None,
+    delay_seconds=REQUEST_DELAY_SECONDS,
+    log=log_stderr,
+):
+    """Yield result_medals-shaped row dicts for already-enumerated links."""
+    session = session or make_session()
+    scraped_at = scraped_at or default_scraped_at()
+    if stats is None:
+        stats = {}
+    stats.update(
+        {
+            "total_rows": 0,
+            "ok_events": 0,
+            "failed_events": 0,
+            "empty_events": 0,
+            "events": len(links),
+        }
+    )
+
+    for i, link in enumerate(links, 1):
+        event_name = f"{link['tournament']} {link['year']}"
+        url = link["url"]
+        championship_id = extract_championship_id(url) or ""
+
+        log(f"[{i}/{len(links)}] {link['source']} {event_name} -> {url}")
+
+        try:
+            html = fetch(url, session)
+        except requests.RequestException as exc:
+            log(f"  ! fetch failed: {exc}")
+            stats["failed_events"] += 1
+            time.sleep(delay_seconds)
+            continue
+
+        try:
+            rows = parse_result_page(url, html)
+        except Exception as exc:  # noqa: BLE001
+            log(f"  ! parse failed: {exc}")
+            stats["failed_events"] += 1
+            time.sleep(delay_seconds)
+            continue
+
+        if not rows:
+            stats["empty_events"] += 1
+        else:
+            stats["ok_events"] += 1
+
+        for division, athlete, team, place in rows:
+            row = {
+                "event_name": event_name,
+                "event_ibjjf_id": championship_id,
+                "division": division,
+                "athlete_name": athlete,
+                "team_name": team,
+                "place": place,
+                "source": link["source"],
+                "event_url": url,
+                "scraped_at": scraped_at,
+            }
+            row["id"] = str(deterministic_id(row))
+            stats["total_rows"] += 1
+            yield row
+
+        time.sleep(delay_seconds)
+
+
+def scrape(args):
+    session = make_session()
+    all_links = build_result_links(
+        source=args.source,
+        year=args.year,
+        tournament=args.tournament,
+        limit=args.limit,
+        session=session,
+    )
 
     # Column order matches the result_medals table so `\copy ... FROM file CSV HEADER`
     # loads without an explicit column list.
@@ -568,74 +663,22 @@ def scrape(args):
         "event_url",
         "scraped_at",
     ]
-    # One scraped_at value for the whole run, so all rows from this scrape sort
-    # together and `MAX(scraped_at)` in the admin UI shows the last scrape time.
-    # Naive UTC ISO timestamp matches the table's `DateTime` (no tz) column.
-    scraped_at = (
-        datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0).isoformat()
-    )
+    scraped_at = default_scraped_at()
 
     with open(args.output, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
 
-        total_rows = 0
-        ok_events = 0
-        failed_events = 0
-        empty_events = 0
-
-        for i, link in enumerate(all_links, 1):
-            event_name = f"{link['tournament']} {link['year']}"
-            url = link["url"]
-            championship_id = extract_championship_id(url) or ""
-
-            print(
-                f"[{i}/{len(all_links)}] {link['source']} {event_name} -> {url}",
-                file=sys.stderr,
-            )
-
-            try:
-                html = fetch(url, session)
-            except requests.RequestException as exc:
-                print(f"  ! fetch failed: {exc}", file=sys.stderr)
-                failed_events += 1
-                time.sleep(REQUEST_DELAY_SECONDS)
-                continue
-
-            try:
-                rows = parse_result_page(url, html)
-            except Exception as exc:  # noqa: BLE001
-                print(f"  ! parse failed: {exc}", file=sys.stderr)
-                failed_events += 1
-                time.sleep(REQUEST_DELAY_SECONDS)
-                continue
-
-            if not rows:
-                empty_events += 1
-            else:
-                ok_events += 1
-
-            for division, athlete, team, place in rows:
-                row = {
-                    "event_name": event_name,
-                    "event_ibjjf_id": championship_id,
-                    "division": division,
-                    "athlete_name": athlete,
-                    "team_name": team,
-                    "place": place,
-                    "source": link["source"],
-                    "event_url": url,
-                    "scraped_at": scraped_at,
-                }
-                row["id"] = str(deterministic_id(row))
-                writer.writerow(row)
-                total_rows += 1
-
-            time.sleep(REQUEST_DELAY_SECONDS)
+        stats = {}
+        for row in iter_result_medal_rows(
+            all_links, session=session, scraped_at=scraped_at, stats=stats
+        ):
+            writer.writerow(row)
 
     print(
-        f"\nDone: {ok_events} events with rows, {empty_events} empty, "
-        f"{failed_events} failed. Wrote {total_rows} rows to {args.output}.",
+        f"\nDone: {stats['ok_events']} events with rows, "
+        f"{stats['empty_events']} empty, {stats['failed_events']} failed. "
+        f"Wrote {stats['total_rows']} rows to {args.output}.",
         file=sys.stderr,
     )
 

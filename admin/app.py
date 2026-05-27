@@ -233,6 +233,37 @@ def _run_recompute_ranks_task(task_id, gi_mode):
             db.session.commit()
 
 
+def _run_update_result_medals_task(task_id, args):
+    with app.app_context():
+        task = BackgroundTask.query.get(task_id)
+        if not task:
+            return
+        task.status = "running"
+        task.started_at = datetime.utcnow()
+        db.session.commit()
+
+        try:
+            update_cmd = ["python3", "scripts/update_result_medals.py"] + args
+            _append_task_log(task, f"$ {' '.join(update_cmd)}\n")
+            db.session.commit()
+            return_code = _run_logged_process(task, update_cmd, env=os.environ.copy())
+
+            task.exit_code = return_code
+            task.finished_at = datetime.utcnow()
+            task.status = "success" if return_code == 0 else "error"
+            task.pid = None
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            _append_task_log(task, f"\nUnexpected error: {exc}\n")
+            _append_task_log(task, traceback.format_exc())
+            task.exit_code = -1
+            task.finished_at = datetime.utcnow()
+            task.status = "error"
+            task.pid = None
+            db.session.commit()
+
+
 # Simple authentication
 @app.before_request
 def require_login():
@@ -307,7 +338,12 @@ def tasks_index():
     page = request.args.get("page", 1, type=int)
     selected_task_type = (request.args.get("task_type") or "all").strip()
 
-    default_task_types = ["import_results", "set_match_winner", "recompute_ranks"]
+    default_task_types = [
+        "import_results",
+        "set_match_winner",
+        "recompute_ranks",
+        "update_result_medals",
+    ]
     db_task_types = [
         row[0]
         for row in db.session.query(BackgroundTask.task_type)
@@ -1396,6 +1432,14 @@ def missing_medals_scan():
     until = _parse_date_form(request.args.get("until"), now)
     until_eod = until.replace(hour=23, minute=59, second=59)
     has_scanned = "scan" in request.args
+    latest_result_medal_scraped_at = db.session.query(
+        func.max(ResultMedal.scraped_at)
+    ).scalar()
+    latest_update_task = (
+        BackgroundTask.query.filter(BackgroundTask.task_type == "update_result_medals")
+        .order_by(BackgroundTask.created_at.desc())
+        .first()
+    )
 
     events_data = []
     summary = {
@@ -1431,7 +1475,35 @@ def missing_medals_scan():
         has_scanned=has_scanned,
         events_data=events_data,
         summary=summary,
+        latest_result_medal_scraped_at=latest_result_medal_scraped_at,
+        latest_update_task=latest_update_task,
     )
+
+
+@app.route("/missing_medals_scan/update_result_medals", methods=["POST"])
+def missing_medals_scan_update_result_medals():
+    year = str(datetime.utcnow().year)
+
+    params = {
+        "year": year,
+        "source": "all",
+    }
+    task = BackgroundTask(
+        task_type="update_result_medals",
+        status="queued",
+        params_json=json.dumps(params),
+    )
+    db.session.add(task)
+    db.session.commit()
+
+    thread = threading.Thread(
+        target=_run_update_result_medals_task,
+        args=(task.id, ["--year", year]),
+        daemon=True,
+    )
+    thread.start()
+
+    return redirect(url_for("task_detail", task_id=task.id))
 
 
 @app.route("/missing_medals_scan/import", methods=["POST"])
@@ -1444,15 +1516,36 @@ def missing_medals_scan_import():
     skipped = 0
     errors = []
 
-    # Parse selections up front so we can bulk-fetch everything by id.
-    pairs = []  # (rm_id, athlete_id)
+    # Parse selections up front so we can bulk-fetch everything by id. Matched
+    # rows arrive as checkboxes; ambiguous rows arrive as one radio value per
+    # result medal. Enforce one athlete per result medal server-side too.
+    selected_by_rm = {}  # rm_id -> athlete_id
+
+    def _add_selection(rm_id, athlete_id, label):
+        existing = selected_by_rm.get(rm_id)
+        if existing is not None and existing != athlete_id:
+            errors.append(f"Multiple athletes selected for result medal {rm_id}")
+            return
+        selected_by_rm[rm_id] = athlete_id
+
     for sel in selections:
         try:
             rm_id_raw, athlete_id_raw = sel.split(":", 1)
-            pairs.append((uuid.UUID(rm_id_raw), uuid.UUID(athlete_id_raw)))
+            _add_selection(uuid.UUID(rm_id_raw), uuid.UUID(athlete_id_raw), sel)
         except (ValueError, AttributeError):
             errors.append(f"Invalid selection: {sel}")
 
+    for key, value in request.form.items():
+        if not key.startswith("ambiguous_") or not value:
+            continue
+        try:
+            rm_id = uuid.UUID(key[len("ambiguous_") :])
+            athlete_id = uuid.UUID(value)
+            _add_selection(rm_id, athlete_id, f"{key}={value}")
+        except ValueError:
+            errors.append(f"Invalid ambiguous selection: {key}={value}")
+
+    pairs = list(selected_by_rm.items())  # (rm_id, athlete_id)
     rm_ids = list({p[0] for p in pairs})
     athlete_ids = list({p[1] for p in pairs})
 
