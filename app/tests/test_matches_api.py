@@ -156,6 +156,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
                 seed=2,
                 red=False,
                 winner=False,
+                note="Disqualified by technical desc.",
                 start_rating=1290.0,
                 end_rating=1280.0,
                 start_match_count=4,
@@ -345,6 +346,23 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         data = response.get_json()
         self.assertEqual(len(data["rows"]), 1)
         self.assertEqual(data["rows"][0]["winner"], "Test Athlete")
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_disqualified_only(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        response = self.client.get(
+            "/api/matches",
+            query_string={
+                "gi": "true",
+                "disqualified_only": "true",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["winner"], "Guest Competitor")
+        self.assertEqual(data["rows"][0]["notes"], "Disqualified by technical desc.")
 
     def test_matches_requires_gi(self):
         response = self.client.get("/api/matches")

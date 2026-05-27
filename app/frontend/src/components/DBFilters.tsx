@@ -78,6 +78,7 @@ export interface FilterValues {
   date_start?: string;
   date_end?: string;
   mat_number?: number;
+  disqualified_only?: boolean;
   rating_start?: number;
   rating_end?: number;
   elite_only?: boolean;
@@ -458,7 +459,8 @@ function DBFilters() {
                         !!filters.event_name ||
                         !!filters.date_start ||
                         !!filters.date_end ||
-                        filters.mat_number !== undefined
+                        filters.mat_number !== undefined ||
+                        !!filters.disqualified_only
                      }>
               <div className="field is-grouped">
                 <div className="control is-expanded">
@@ -521,6 +523,14 @@ function DBFilters() {
                 <div className="control">
                   <button className="button is-small is-light" onClick={onClearProps.bind(null, ['mat_number'])}>{t("Clear")}</button>
                 </div>
+                <label className="checkbox checkbox-filter disqualified-only-filter">
+                  <input
+                    type="checkbox"
+                    checked={!!filters.disqualified_only}
+                    onChange={(e) => onChange('disqualified_only', e.target.checked)}
+                  />
+                  {t("Disqualified only")}
+                </label>
               </div>
             </Section>
             <Section title={t("Division")}

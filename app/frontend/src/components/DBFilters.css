@@ -82,6 +82,18 @@
   width: 100px;
 }
 
+.mat-number-field {
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.disqualified-only-filter {
+  align-items: center;
+  display: inline-flex;
+  white-space: nowrap;
+}
+
 .db-country-autosuggest .react-autosuggest__input {
   width: auto;
   flex: 1 1 auto;

@@ -100,6 +100,7 @@ const translations = {
     "All": "Todos",
     "Tournament": "Torneio",
     "Tournament Name": "Nome do Torneio",
+    "Disqualified only": "Somente desclassificados",
     "Search for any past tournament by name": "Pesquise por qualquer torneio passado pelo nome",
     "Division": "Divisão",
     "Winner": "Vencedor",
