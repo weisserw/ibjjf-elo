@@ -136,19 +136,25 @@ def create_or_update_medal(session, place, event, division, match, athlete, team
         .first()
     )
 
-    if existing_medal and existing_medal.happened_at < match.happened_at:
-        existing_medal.happened_at = match.happened_at
-    else:
-        medal = Medal(
-            happened_at=match.happened_at,
-            event_id=event.id,
-            division_id=division.id,
-            athlete_id=athlete.id,
-            team_id=team.id,
-            place=place,
-            default_gold=False,
-        )
-        session.add(medal)
+    if existing_medal:
+        if existing_medal.happened_at < match.happened_at:
+            existing_medal.happened_at = match.happened_at
+        existing_medal.team_id = team.id
+        existing_medal.place = place
+        existing_medal.default_gold = False
+        session.flush()
+        return
+
+    medal = Medal(
+        happened_at=match.happened_at,
+        event_id=event.id,
+        division_id=division.id,
+        athlete_id=athlete.id,
+        team_id=team.id,
+        place=place,
+        default_gold=False,
+    )
+    session.add(medal)
 
     session.flush()
 
