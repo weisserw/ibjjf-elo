@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import axios from 'axios'
-import classNames from 'classnames'
 import { useAppContext } from '../AppContext'
 import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
@@ -50,8 +49,6 @@ function BracketArchive() {
     setBracketArchiveSortColumn: setSortColumn,
     bracketArchiveEventTotal: eventTotal,
     setBracketArchiveEventTotal: setEventTotal,
-    bracketViewTab,
-    setBracketViewTab,
     setActiveTab,
     setCalcFirstAthlete,
     setCalcSecondAthlete,
@@ -64,13 +61,6 @@ function BracketArchive() {
   } = useAppContext()
 
   const navigate = useNavigate()
-  const supportedBracketViewTab = bracketViewTab === 'IdealBracket' ? 'Bracket' : bracketViewTab
-
-  useEffect(() => {
-    if (bracketViewTab === 'IdealBracket') {
-      setBracketViewTab('Bracket')
-    }
-  }, [bracketViewTab, setBracketViewTab])
 
   const getEventSuggestions = async ({ value }: { value: string }) => {
     try {
@@ -467,29 +457,12 @@ function BracketArchive() {
           error && <div className="notification is-danger mt-4">{error}</div>
         }
         {
-          (!!eventNameFetch && categories !== null && competitors !== null) && (
-            <div className="tabs bracket-view-tabs">
-              <ul>
-                <li className={classNames({"is-active": supportedBracketViewTab === 'Table'})} onClick={() => setBracketViewTab('Table')}>
-                  <a>{t("List")}</a>
-                </li>
-                <li className={classNames({"is-active": supportedBracketViewTab === 'Bracket'})} onClick={() => setBracketViewTab('Bracket')}>
-                  <a>{t("Bracket")}</a>
-                </li>
-              </ul>
-            </div>
-          )
-        }
-        {
-          supportedBracketViewTab === 'Bracket' && (!!eventNameFetch && categories !== null && matches !== null) && (
+          (!!eventNameFetch && categories !== null && matches !== null) && (
             <BracketTree matches={matches}
                          matchCount={expectedMatchCount}
                          hasMatchNums={hasMatchNums}
                          showSeed={usableSortColumn === 'seed'}
                          showRefresh={false}
-                         numberMode={showSeed ? (usableSortColumn === 'seed' ? 'seed' : 'rating') : undefined}
-                         onNumberModeChange={showSeed ? setSortColumn : undefined}
-                         canShowSeedNumbers={showSeed}
                          showRatings={showRatings}
                          belt={belt}
                          calculateClicked={calculateMatch}
@@ -497,7 +470,7 @@ function BracketArchive() {
           )
         }
         {
-          supportedBracketViewTab === 'Table' && (!!eventNameFetch && categories !== null && competitors !== null) && (
+          (!!eventNameFetch && categories !== null && competitors !== null) && (
             <BracketTable competitors={sortedCompetitors}
                           sortColumn={usableSortColumn}
                           showSeed={showSeed}

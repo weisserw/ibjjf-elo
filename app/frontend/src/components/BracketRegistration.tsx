@@ -220,15 +220,20 @@ function BracketRegistration() {
     );
   }, [registrationCompetitors, nativeSeedByCompetitor])
 
+  const activeBracketViewTab = useMemo(() => {
+    if (viewTab === 'Bracket' && seededBracket !== null) return 'Bracket';
+    if (viewTab === 'IdealBracket' && idealBracket !== null) return 'IdealBracket';
+    if (seededBracket !== null) return 'Bracket';
+    if (idealBracket !== null) return 'IdealBracket';
+    return null;
+  }, [viewTab, seededBracket, idealBracket])
+
   useEffect(() => {
     if (viewMode !== 'all') return;
-
-    if (viewTab === 'Bracket' && seededBracket === null) {
-      setViewTab(idealBracket !== null ? 'IdealBracket' : 'Table');
-    } else if (viewTab === 'IdealBracket' && idealBracket === null) {
-      setViewTab(seededBracket !== null ? 'Bracket' : 'Table');
+    if (activeBracketViewTab !== null && viewTab !== activeBracketViewTab) {
+      setViewTab(activeBracketViewTab);
     }
-  }, [viewTab, seededBracket, idealBracket, viewMode, setViewTab])
+  }, [viewTab, activeBracketViewTab, viewMode, setViewTab])
 
   const seedHighlights = useMemo(() => {
     const result = new Map<string, SeedHighlight>();
@@ -569,19 +574,16 @@ function BracketRegistration() {
           )
         }
         {
-          viewMode === 'all' && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
+          viewMode === 'all' && activeBracketViewTab !== null && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
             <div className="tabs bracket-view-tabs">
               <ul>
-                <li className={classNames({"is-active": viewTab === 'Table'})} onClick={() => setViewTab('Table')}>
-                  <a>{t("List")}</a>
-                </li>
                 {seededBracket !== null && (
-                  <li className={classNames({"is-active": viewTab === 'Bracket'})} onClick={() => setViewTab('Bracket')}>
+                  <li className={classNames({"is-active": activeBracketViewTab === 'Bracket'})} onClick={() => setViewTab('Bracket')}>
                     <a>{t("Predicted Bracket")}</a>
                   </li>
                 )}
                 {idealBracket !== null && (
-                  <li className={classNames({"is-active": viewTab === 'IdealBracket'})} onClick={() => setViewTab('IdealBracket')}>
+                  <li className={classNames({"is-active": activeBracketViewTab === 'IdealBracket'})} onClick={() => setViewTab('IdealBracket')}>
                     <a>{t("Ideal Bracket")}</a>
                   </li>
                 )}
@@ -590,7 +592,7 @@ function BracketRegistration() {
           )
         }
         {
-          viewTab === 'Bracket' &&
+          activeBracketViewTab === 'Bracket' &&
           viewMode === 'all' &&
           registrationEventUrl !== null &&
           registrationCategories !== null && (
@@ -600,7 +602,7 @@ function BracketRegistration() {
           )
         }
         {
-          viewTab === 'Bracket' &&
+          activeBracketViewTab === 'Bracket' &&
           viewMode === 'all' &&
           registrationEventUrl !== null &&
           registrationCategories !== null &&
@@ -621,7 +623,7 @@ function BracketRegistration() {
           )
         }
         {
-          viewTab === 'IdealBracket' &&
+          activeBracketViewTab === 'IdealBracket' &&
           viewMode === 'all' &&
           registrationEventUrl !== null &&
           registrationCategories !== null && (
@@ -631,7 +633,7 @@ function BracketRegistration() {
           )
         }
         {
-          viewTab === 'IdealBracket' &&
+          activeBracketViewTab === 'IdealBracket' &&
           viewMode === 'all' &&
           registrationEventUrl !== null &&
           registrationCategories !== null &&
@@ -650,7 +652,7 @@ function BracketRegistration() {
           )
         }
         {
-          viewTab === 'Table' && viewMode === 'all' && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
+          viewMode === 'all' && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
             <BracketTable competitors={sortedRegistrationCompetitors}
                           sortColumn={usableSortColumn}
                           showSeed={false}
