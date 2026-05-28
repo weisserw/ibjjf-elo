@@ -150,10 +150,14 @@
                                                     {% if entry.status == 'ambiguous' %}
                                                         <input type="radio"
                                                                name="ambiguous_{{ rm.id }}"
-                                                               value="{{ alt.athlete.id }}">
+                                                               value="{{ alt.athlete.id }}"
+                                                               {% if alt.get('already_imported') %}disabled{% endif %}>
                                                     {% endif %}
                                                     <a href="{{ url_for('athlete_edit', id=alt.athlete.id) }}">{{ alt.athlete.name }}</a>
                                                     <span class="has-text-grey">({{ alt.score }}{% if alt.get('reason') %} {{ alt.reason }}{% endif %})</span>
+                                                    {% if alt.get('already_imported') %}
+                                                        <span class="tag is-light is-small">already imported</span>
+                                                    {% endif %}
                                                 </label>
                                             </div>
                                         {% endfor %}

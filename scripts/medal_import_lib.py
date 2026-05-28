@@ -1106,7 +1106,14 @@ def scan_event_for_missing_medals(
                 if len(with_ibjjf) == 1:
                     matched_athlete = with_ibjjf[0]
                 else:
-                    alternatives = [{"athlete": a, "score": 100} for a in exact_hits]
+                    alternatives = [
+                        {
+                            "athlete": a,
+                            "score": 100,
+                            "already_imported": (a.id, division.id) in existing_pairs,
+                        }
+                        for a in exact_hits
+                    ]
         else:
             # Fuzzy mode pre-filters by plausibility to bound the scoring work.
             plausible_candidates = [
@@ -1135,9 +1142,30 @@ def scan_event_for_missing_medals(
                 soft = best_score >= soft_threshold and gap >= soft_gap_threshold
                 if high or soft:
                     matched_athlete = best
-                alternatives = [{"athlete": a, "score": s} for s, a in scored[:5]]
+                alternatives = [
+                    {
+                        "athlete": a,
+                        "score": s,
+                        "already_imported": (a.id, division.id) in existing_pairs,
+                    }
+                    for s, a in scored[:5]
+                ]
 
         if matched_athlete is None:
+            importable_alternatives = [
+                alt for alt in alternatives if not alt.get("already_imported")
+            ]
+            if alternatives and not importable_alternatives:
+                entries.append(
+                    {
+                        "result_medal": rm,
+                        "division": division,
+                        "status": "already_imported",
+                        "matched_athlete": None,
+                        "alternatives": alternatives,
+                    }
+                )
+                continue
             status = "ambiguous" if len(alternatives) > 1 else "no_match"
             entries.append(
                 {

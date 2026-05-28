@@ -972,6 +972,99 @@ class LibDbTestCase(TestDbMixin, unittest.TestCase):
             self.assertIn("already_imported", statuses)
             self.assertNotIn("no_division", statuses)
 
+    def test_scan_marks_already_imported_ambiguous_candidates(self):
+        with self.app_module.app.app_context():
+            event = Event(
+                name="Duplicate Name Open 2024",
+                normalized_name="duplicate name open 2024",
+                slug="duplicate-name-open-2024",
+                ibjjf_id="DUP_NAMES",
+                medals_only=False,
+            )
+            duplicate = Athlete(
+                name="Maria Silva",
+                normalized_name="maria silva",
+                slug="maria-silva-duplicate-scan-test",
+            )
+            db.session.add_all([event, duplicate])
+            db.session.flush()
+
+            match = Match(
+                event_id=event.id,
+                division_id=self.black_div_id,
+                happened_at=datetime(2024, 9, 1, 12, 0, 0),
+                rated=True,
+            )
+            db.session.add(match)
+            db.session.flush()
+            db.session.add_all(
+                [
+                    MatchParticipant(
+                        match_id=match.id,
+                        athlete_id=self.athlete_id,
+                        team_id=self.team_id,
+                        seed=1,
+                        red=True,
+                        winner=True,
+                        start_rating=1500.0,
+                        end_rating=1510.0,
+                        start_match_count=1,
+                        end_match_count=2,
+                    ),
+                    MatchParticipant(
+                        match_id=match.id,
+                        athlete_id=duplicate.id,
+                        team_id=self.team_id,
+                        seed=2,
+                        red=False,
+                        winner=False,
+                        start_rating=1500.0,
+                        end_rating=1490.0,
+                        start_match_count=1,
+                        end_match_count=2,
+                    ),
+                ]
+            )
+            db.session.add(
+                Medal(
+                    happened_at=datetime(2024, 9, 1, 12, 0, 0),
+                    event_id=event.id,
+                    division_id=self.black_div_id,
+                    athlete_id=self.athlete_id,
+                    team_id=self.team_id,
+                    place=1,
+                    default_gold=False,
+                )
+            )
+            rm = ResultMedal(
+                id=uuid.uuid4(),
+                event_name=event.name,
+                event_ibjjf_id=event.ibjjf_id,
+                division="BLACK / Adult / Male / Feather",
+                team_name="Test Team",
+                athlete_name="Maria Silva",
+                place=1,
+                source="ibjjf",
+                scraped_at=datetime(2025, 1, 1),
+            )
+            db.session.add(rm)
+            db.session.flush()
+
+            try:
+                entries = lib.scan_event_for_missing_medals(
+                    db.session, event, fuzzy=False
+                )
+                entry = next(e for e in entries if e["result_medal"].id == rm.id)
+                self.assertEqual(entry["status"], "ambiguous")
+                imported_flags = {
+                    alt["athlete"].id: alt.get("already_imported")
+                    for alt in entry["alternatives"]
+                }
+                self.assertTrue(imported_flags[self.athlete_id])
+                self.assertFalse(imported_flags[duplicate.id])
+            finally:
+                db.session.rollback()
+
     def test_find_events_in_range_includes_null_medals_only(self):
         # Bracket-imported events from before the medals_only column existed
         # have NULL — they must still be included in the scan.
