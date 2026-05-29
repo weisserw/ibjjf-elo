@@ -39,6 +39,8 @@ function Section(props: SectionProps) {
   );
 }
 
+export type DqType = "technical" | "disciplinary" | "no_show" | "overweight" | "withdraw";
+
 export interface FilterValues {
   athlete_name?: string;
   team_name?: string;
@@ -79,6 +81,7 @@ export interface FilterValues {
   date_end?: string;
   mat_number?: number;
   disqualified_only?: boolean;
+  dq_type?: DqType;
   rating_start?: number;
   rating_end?: number;
   elite_only?: boolean;
@@ -310,6 +313,22 @@ function DBFilters() {
 
   const debouncedGetEventSuggestions = useCallback(debounce(getEventSuggestions, 300, {trailing: true}), [gi]);
 
+  const DQ_TYPE_LABELS: Record<DqType, translationKeys> = {
+    technical:    "Technical",
+    disciplinary: "Disciplinary",
+    no_show:      "No Show",
+    overweight:   "Overweight",
+    withdraw:     "Withdraw",
+  };
+
+  const onDisqualifiedOnlyChange = (checked: boolean) => {
+    if (!checked) {
+      onClearProps(['disqualified_only', 'dq_type']);
+    } else {
+      onChange('disqualified_only', true);
+    }
+  };
+
   return (
     <div className={classNames("box accordion-box", {"open": isOpen})}>
       <div className="accordion">
@@ -527,11 +546,36 @@ function DBFilters() {
                   <input
                     type="checkbox"
                     checked={!!filters.disqualified_only}
-                    onChange={(e) => onChange('disqualified_only', e.target.checked)}
+                    onChange={(e) => onDisqualifiedOnlyChange(e.target.checked)}
                   />
                   {t("Disqualified only")}
                 </label>
               </div>
+              {filters.disqualified_only && (
+                <div className="dq-type-filter">
+                  {(["technical", "disciplinary", "no_show", "overweight", "withdraw"] as DqType[]).map((value) => {
+                    const labelKey = DQ_TYPE_LABELS[value];
+                    return (
+                      <label key={value} className="radio radio-filter">
+                        <input
+                          type="radio"
+                          name="dq_type"
+                          value={value}
+                          checked={filters.dq_type === value}
+                          onChange={() => onChange('dq_type', value)}
+                        />
+                        {t(labelKey)}
+                      </label>
+                    );
+                  })}
+                  <button
+                    className="button is-small is-light"
+                    onClick={() => onClearProps(['dq_type'])}
+                  >
+                    {t("Clear")}
+                  </button>
+                </div>
+              )}
             </Section>
             <Section title={t("Division")}
                      isOpen={openFilters.division}

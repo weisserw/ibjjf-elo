@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useCallback, ReactNode, useRef } from 'react';
+import { createContext, useState, useContext, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { useLocalStorage } from '@uidotdev/usehooks';
 import type { FilterValues, OpenFilters } from './components/DBFilters';
 import type { TabName } from './components/GiTabs';
@@ -184,6 +184,8 @@ function applyArchiveDeepLinkOverrides() {
   }
 }
 
+const VALID_DQ_TYPES = new Set(["technical", "disciplinary", "no_show", "overweight", "withdraw"]);
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const archiveDeepLinkAppliedRef = useRef(false);
   if (!archiveDeepLinkAppliedRef.current) {
@@ -192,6 +194,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const [filters, setFilters] = useLocalStorage<FilterValues>('filters', {});
+
+  useEffect(() => {
+    if (filters.dq_type !== undefined && !VALID_DQ_TYPES.has(filters.dq_type)) {
+      const sanitised = { ...filters };
+      delete sanitised.dq_type;
+      setFilters(sanitised);
+    }
+  }, []); // run once on mount
   const [openFilters, setOpenFilters] = useLocalStorage<OpenFilters>('openFilters', { athlete: true, event: false, division: false });
   const [activeTab, setActiveTab] = useLocalStorage<TabName>('activeTab', 'Gi');
   const [rankingGender, setRankingGender] = useLocalStorage('rankingGender', 'Male');

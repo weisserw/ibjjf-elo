@@ -67,6 +67,14 @@ DISQUALIFICATION_NOTES = (
     "Disqualified by technical desc.",
     "Disqualified by desc disciplinar",
 )
+DQ_TYPE_NOTES: dict[str, tuple[str, ...]] = {
+    "technical":    ("Disqualified by technical desc.", "Disqualified by desc técnica"),
+    "disciplinary": ("Disqualified by disciplinary desc.", "Disqualified by desc disciplinar"),
+    "no_show":      ("Disqualified by no show", "Desclassificado por no show"),
+    "overweight":   ("Disqualified by overweight", "Desclassificado por sobrepeso"),
+    "withdraw":     ("Disqualified by withdraw", "Desclassificado por desistência"),
+}
+VALID_DQ_TYPES = set(DQ_TYPE_NOTES.keys())
 client_requests = defaultdict(list)
 client_penalties = {}
 
@@ -148,6 +156,7 @@ def matches():
     date_end = request.args.get("date_end")
     mat_number = request.args.get("mat_number")
     disqualified_only = request.args.get("disqualified_only")
+    dq_type = request.args.get("dq_type")
     rating_start = request.args.get("rating_start")
     rating_end = request.args.get("rating_end")
     elite_only = request.args.get("elite_only")
@@ -155,6 +164,15 @@ def matches():
 
     if gi is None:
         return jsonify({"error": "Missing mandatory query parameter"}), 400
+
+    if dq_type is not None:
+        dq_type = dq_type.lower()
+        if dq_type == "":
+            dq_type = None
+        elif dq_type not in VALID_DQ_TYPES:
+            return jsonify({
+                "error": f"Invalid dq_type. Valid values: {', '.join(sorted(VALID_DQ_TYPES))}"
+            }), 400
 
     try:
         page = int(page)
@@ -514,6 +532,24 @@ def matches():
         )
         """
         params.update(disqualification_note_params)
+
+    if dq_type:
+        notes = DQ_TYPE_NOTES[dq_type]
+        dq_type_note_params = {
+            f"dq_type_note_{i}": f"%{note}%"
+            for i, note in enumerate(notes)
+        }
+        dq_type_note_clause = " OR ".join(
+            f"mp.note LIKE :{key}" for key in dq_type_note_params
+        )
+        filters += f"""AND EXISTS (
+            SELECT 1
+            FROM match_participants mp
+            WHERE mp.match_id = m.id
+            AND ({dq_type_note_clause})
+        )
+        """
+        params.update(dq_type_note_params)
 
     if rating_start is not None:
         rating_start_int = int(rating_start)
