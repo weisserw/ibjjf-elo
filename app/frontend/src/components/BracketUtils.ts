@@ -186,9 +186,13 @@ export const isGi = (name: string) => {
   return !/no[ -]gi/.test(name.toLowerCase()) && !/sem kimono/.test(name.toLowerCase());
 }
 
-export const handleError = (err: any, errFunc: (error: string) => void) => {
+interface ErrorResponse {
+  error?: string
+}
+
+export const handleError = (err: unknown, errFunc: (error: string) => void) => {
   if (axios.isAxiosError(err)) {
-    const axiosError = err as AxiosError<any>;
+    const axiosError = err as AxiosError<ErrorResponse>;
     if (axiosError.response?.data?.error) {
       errFunc(axiosError.response.data.error);
     } else {
@@ -455,20 +459,147 @@ export const createTreeFromMatchNums = (matches: Match[], matchCount: number): M
 }
 
 
-const ADVANCING_ATHLETE_FIELDS = [
-  'id', 'seed', 'name', 'team', 'note', 'ordinal', 'rating', 'match_count',
-  'instagram_profile', 'personal_name', 'profile_image_url', 'country',
-  'country_note', 'country_note_pt', 'percentile', 'percentile_age',
-  'weight', 'medal',
-] as const;
+interface AdvancingAthlete {
+  id: string | null
+  seed: number | null
+  name: string | null
+  team: string | null
+  note: string | null
+  ordinal: number | null
+  rating: number | null
+  match_count: number | null
+  instagram_profile: string | null
+  personal_name: string | null
+  profile_image_url: string | null
+  country: string | null
+  country_note: string | null
+  country_note_pt: string | null
+  percentile: number | null
+  percentile_age: string | null
+  weight: string | null
+  medal: string | null
+}
+
+const getAdvancingAthlete = (source: Match, sourceSide: MatchSide): AdvancingAthlete => {
+  if (sourceSide === 'red') {
+    return {
+      id: source.red_id,
+      seed: source.red_seed,
+      name: source.red_name,
+      team: source.red_team,
+      note: source.red_note,
+      ordinal: source.red_ordinal,
+      rating: source.red_rating,
+      match_count: source.red_match_count,
+      instagram_profile: source.red_instagram_profile,
+      personal_name: source.red_personal_name,
+      profile_image_url: source.red_profile_image_url,
+      country: source.red_country,
+      country_note: source.red_country_note,
+      country_note_pt: source.red_country_note_pt,
+      percentile: source.red_percentile,
+      percentile_age: source.red_percentile_age,
+      weight: source.red_weight,
+      medal: source.red_medal,
+    };
+  }
+
+  return {
+    id: source.blue_id,
+    seed: source.blue_seed,
+    name: source.blue_name,
+    team: source.blue_team,
+    note: source.blue_note,
+    ordinal: source.blue_ordinal,
+    rating: source.blue_rating,
+    match_count: source.blue_match_count,
+    instagram_profile: source.blue_instagram_profile,
+    personal_name: source.blue_personal_name,
+    profile_image_url: source.blue_profile_image_url,
+    country: source.blue_country,
+    country_note: source.blue_country_note,
+    country_note_pt: source.blue_country_note_pt,
+    percentile: source.blue_percentile,
+    percentile_age: source.blue_percentile_age,
+    weight: source.blue_weight,
+    medal: source.blue_medal,
+  };
+}
+
+const setAdvancingAthlete = (target: Match, targetSide: MatchSide, athlete: AdvancingAthlete) => {
+  if (targetSide === 'red') {
+    target.red_id = athlete.id;
+    target.red_seed = athlete.seed;
+    target.red_name = athlete.name;
+    target.red_team = athlete.team;
+    target.red_note = athlete.note;
+    target.red_ordinal = athlete.ordinal;
+    target.red_rating = athlete.rating;
+    target.red_match_count = athlete.match_count;
+    target.red_instagram_profile = athlete.instagram_profile;
+    target.red_personal_name = athlete.personal_name;
+    target.red_profile_image_url = athlete.profile_image_url;
+    target.red_country = athlete.country;
+    target.red_country_note = athlete.country_note;
+    target.red_country_note_pt = athlete.country_note_pt;
+    target.red_percentile = athlete.percentile;
+    target.red_percentile_age = athlete.percentile_age;
+    target.red_weight = athlete.weight;
+    target.red_medal = athlete.medal;
+    return;
+  }
+
+  target.blue_id = athlete.id;
+  target.blue_seed = athlete.seed;
+  target.blue_name = athlete.name;
+  target.blue_team = athlete.team;
+  target.blue_note = athlete.note;
+  target.blue_ordinal = athlete.ordinal;
+  target.blue_rating = athlete.rating;
+  target.blue_match_count = athlete.match_count;
+  target.blue_instagram_profile = athlete.instagram_profile;
+  target.blue_personal_name = athlete.personal_name;
+  target.blue_profile_image_url = athlete.profile_image_url;
+  target.blue_country = athlete.country;
+  target.blue_country_note = athlete.country_note;
+  target.blue_country_note_pt = athlete.country_note_pt;
+  target.blue_percentile = athlete.percentile;
+  target.blue_percentile_age = athlete.percentile_age;
+  target.blue_weight = athlete.weight;
+  target.blue_medal = athlete.medal;
+}
+
+type MatchSide = 'red' | 'blue';
 
 const copyAdvancingAthlete = (
-  target: Match, targetSide: 'red' | 'blue',
-  source: Match, sourceSide: 'red' | 'blue',
+  target: Match, targetSide: MatchSide,
+  source: Match, sourceSide: MatchSide,
 ) => {
-  for (const f of ADVANCING_ATHLETE_FIELDS) {
-    (target as any)[`${targetSide}_${f}`] = (source as any)[`${sourceSide}_${f}`];
+  setAdvancingAthlete(target, targetSide, getAdvancingAthlete(source, sourceSide));
+}
+
+const sideHasCompetitor = (match: Match, side: MatchSide) => {
+  if (side === 'red') {
+    return !match.red_bye && (
+      match.red_id !== null ||
+      match.red_seed !== null ||
+      match.red_name !== null
+    );
   }
+
+  return !match.blue_bye && (
+    match.blue_id !== null ||
+    match.blue_seed !== null ||
+    match.blue_name !== null
+  );
+}
+
+const sideHasEntry = (match: Match, side: MatchSide) => {
+  if (side === 'red') {
+    return sideHasCompetitor(match, side) || match.red_next_description !== null;
+  }
+
+  return sideHasCompetitor(match, side) || match.blue_next_description !== null;
 }
 
 const fillSideFromParent = (target: Match, targetSide: 'red' | 'blue', parent: Match) => {
@@ -480,10 +611,12 @@ const fillSideFromParent = (target: Match, targetSide: 'red' | 'blue', parent: M
     }
     return;
   }
-  const parentRedFilled = parent.red_id !== null || parent.red_next_description !== null;
-  const parentBlueFilled = parent.blue_id !== null || parent.blue_next_description !== null;
+  const parentRedCompetitor = sideHasCompetitor(parent, 'red');
+  const parentBlueCompetitor = sideHasCompetitor(parent, 'blue');
+  const parentRedFilled = parentRedCompetitor || parent.red_next_description !== null;
+  const parentBlueFilled = parentBlueCompetitor || parent.blue_next_description !== null;
   if (parentRedFilled && !parentBlueFilled) {
-    if (parent.red_id !== null) {
+    if (parentRedCompetitor) {
       copyAdvancingAthlete(target, targetSide, parent, 'red');
     } else if (targetSide === 'red') {
       target.red_next_description = parent.red_next_description;
@@ -491,7 +624,7 @@ const fillSideFromParent = (target: Match, targetSide: 'red' | 'blue', parent: M
       target.blue_next_description = parent.red_next_description;
     }
   } else if (parentBlueFilled && !parentRedFilled) {
-    if (parent.blue_id !== null) {
+    if (parentBlueCompetitor) {
       copyAdvancingAthlete(target, targetSide, parent, 'blue');
     } else if (targetSide === 'red') {
       target.red_next_description = parent.blue_next_description;
@@ -607,7 +740,7 @@ export const createMatchesFromSeeds = (
   });
 
   for (const m of firstRound) {
-    if (m.red_id !== null && m.blue_id !== null) {
+    if (sideHasCompetitor(m, 'red') && sideHasCompetitor(m, 'blue')) {
       m.fight_num = nextFightNum++;
     }
   }
@@ -624,8 +757,8 @@ export const createMatchesFromSeeds = (
       fillSideFromParent(m, 'red', redParent);
       fillSideFromParent(m, 'blue', blueParent);
 
-      const redFilled = m.red_id !== null || m.red_next_description !== null;
-      const blueFilled = m.blue_id !== null || m.blue_next_description !== null;
+      const redFilled = sideHasEntry(m, 'red');
+      const blueFilled = sideHasEntry(m, 'blue');
       if (redFilled && blueFilled) {
         m.fight_num = nextFightNum++;
       } else if (redFilled && !blueFilled) {
