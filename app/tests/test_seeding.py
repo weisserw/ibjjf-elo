@@ -1016,6 +1016,50 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(post_rows[0]["points"], 72)
         self.assertEqual(post_rows[0]["grand_slam_points"], 72)
 
+    def test_brasileiros_kids_registration_does_not_delay_adult_grand_slam_slot(self):
+        # Parenthetical qualifiers are stripped for duplicate-source matching,
+        # but the separate age-4-to-15 event must not share the adult
+        # Brasileiros anchor.
+        with self.app_module.app.app_context():
+            adult_link = RegistrationLink(
+                name="Campeonato Brasileiro de Jiu-Jitsu 2026",
+                normalized_name="campeonato brasileiro de jiu-jitsu 2026",
+                updated_at=datetime(2026, 4, 1),
+                link="internal:brasileiros-adult-2026",
+                hidden=False,
+                event_start_date=datetime(2026, 4, 24),
+                event_end_date=datetime(2026, 5, 3),
+            )
+            kids_link = RegistrationLink(
+                name="Campeonato Brasileiro de Jiu-Jitsu (idade 04 a 15 anos) 2026",
+                normalized_name="campeonato brasileiro de jiu-jitsu idade 04 a 15 anos 2026",
+                updated_at=datetime(2026, 5, 1),
+                link="internal:brasileiros-kids-2026",
+                hidden=False,
+                event_start_date=datetime(2026, 6, 12),
+                event_end_date=datetime(2026, 6, 14),
+            )
+            db.session.add(adult_link)
+            db.session.add(kids_link)
+            a = self._make_athlete("brasileiros-kids-link-does-not-delay")
+            self._add_medal(a, self.brasil_2025, place=1)
+            db.session.commit()
+            athlete_id = a.id
+
+            rows = [_registration_row(athlete_id)]
+            add_seeding_data(
+                rows,
+                _divdata(),
+                gi=True,
+                now=datetime(2026, 5, 4),
+            )
+
+            db.session.delete(adult_link)
+            db.session.delete(kids_link)
+            db.session.commit()
+
+        self.assertEqual(rows[0]["grand_slam_points"], 72)
+
     def test_ibjjf_only_source_uses_ibjjf_schedule(self):
         # Worlds 2025 medal uses the IBJJF schedule.
         # 9 (gold) * 3 (regular season 3x) * 1.0 (weight) * 7 (star) = 189.

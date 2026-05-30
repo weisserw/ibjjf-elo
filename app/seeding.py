@@ -125,6 +125,10 @@ _EVENT_YEAR_LOOKBACK = 4
 
 # Exclude IBJJF Crown events, which aren't real medals / don't count for points
 _IBJJF_CROWN_EVENT_NAME_PATTERN = "ibjjf crown %"
+_KIDS_EVENT_QUALIFIER_RE = re.compile(
+    r"\((?:age\s*4\s*to\s*15|idade\s*0?4\s*a\s*15\s*anos)\)",
+    re.IGNORECASE,
+)
 
 
 def _start_of_day(dt):
@@ -143,6 +147,10 @@ def _anchor_effective_at(start, end=None):
     if end is None:
         return _start_of_day(start)
     return _start_of_day(end) + timedelta(days=1)
+
+
+def _is_kids_only_event_name(name):
+    return bool(name and _KIDS_EVENT_QUALIFIER_RE.search(name))
 
 
 def _normalize_event_name(name):
@@ -445,6 +453,8 @@ def _event_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
     )
     events_by_year = {}
     for e in candidate_events:
+        if _is_kids_only_event_name(e.name):
+            continue
         year = candidate_by_norm.get(_normalize_event_name(e.name))
         if year is not None:
             events_by_year.setdefault(year, []).append(e.id)
@@ -517,6 +527,8 @@ def _registration_link_anchor_dates_by_year(base, today, lookback=_EVENT_YEAR_LO
 
     anchors = {}
     for link in candidate_links:
+        if _is_kids_only_event_name(link.name):
+            continue
         year = candidate_by_norm.get(_normalize_event_name(link.name))
         if year is None:
             continue
@@ -659,6 +671,8 @@ def _past_worlds_year_groups(patterns, today):
     events_by_year = {}
     year_re = re.compile(r"\s(\d{4})$")
     for e in candidate_events:
+        if _is_kids_only_event_name(e.name):
+            continue
         norm = _normalize_event_name(e.name)
         if _event_base(norm) not in valid_bases:
             continue
