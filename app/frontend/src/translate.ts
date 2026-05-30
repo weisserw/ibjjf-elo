@@ -267,7 +267,7 @@ const translations = {
     "Possible Team Overlaps": "Possíveis Sobreposições de Equipe",
     "No possible team overlaps found for the selected athletes.": "Nenhuma possível sobreposição de equipe encontrada para os atletas selecionados.",
     "Present": "Presente",
-    "Our open class seeding uses a combination of weight and skill": "Nossa seed do absoluto usa uma combinação de peso e nível técnico",
+    "Our open class ranking uses a combination of weight and skill": "Nossa classificação do absoluto usa uma combinação de peso e nível técnico",
     "Rating over time": "Rating ao longo do tempo",
     "No matches found": "Nenhum resultado encontrado",
     "Percentile": "Percentil",
