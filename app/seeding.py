@@ -10,7 +10,7 @@ import math
 import re
 import zlib
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy.sql import func, or_
 
@@ -125,6 +125,24 @@ _EVENT_YEAR_LOOKBACK = 4
 
 # Exclude IBJJF Crown events, which aren't real medals / don't count for points
 _IBJJF_CROWN_EVENT_NAME_PATTERN = "ibjjf crown %"
+
+
+def _start_of_day(dt):
+    return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _anchor_effective_at(start, end=None):
+    """Return when a season / Grand Slam anchor should affect multipliers.
+
+    Medals from an anchor event belong to the new season starting on the
+    event's first day, but IBJJF does not roll the previous season down while
+    that anchor event is still running. Registration dates are stored as
+    date-only midnights, so an event ending on May 31 becomes effective on
+    June 1.
+    """
+    if end is None:
+        return _start_of_day(start)
+    return _start_of_day(end) + timedelta(days=1)
 
 
 def _normalize_event_name(name):
@@ -399,8 +417,11 @@ def _event_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
     """For events whose normalized name matches ``{base} {year}`` for some
     `year` in the lookback window ending at ``today.year``, group them by
     year and return ``{year: (event_ids, earliest_start_datetime)}`` for
-    years that have started (at least one matching event with a recorded
-    start <= today).
+    active year anchors.
+
+    The returned datetime is still the event's start date, because that is
+    the boundary used to classify medals. The year itself is not active for
+    multiplier recency until the event has ended when an end date is known.
 
     ``base`` may be a single raw base name or an iterable of equivalent
     bases (e.g. canonical + aliases); events matching any of them share
@@ -431,40 +452,48 @@ def _event_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
         return {}
 
     all_ids = [eid for eids in events_by_year.values() for eid in eids]
-    # Earliest match per event = the day that edition started. Aggregation
-    # collapses to one row per event (no cartesian product despite many
-    # matches per event).
-    start_rows = (
+    # Earliest match per event = the day that edition started. Latest match
+    # is a fallback effective date when we do not have a registration end
+    # date. Aggregation collapses to one row per event.
+    date_rows = (
         db.session.query(
             Match.event_id,
             func.min(Match.happened_at).label("start"),
+            func.max(Match.happened_at).label("end"),
         )
         .filter(Match.event_id.in_(all_ids))
         .group_by(Match.event_id)
         .all()
     )
-    eid_to_start = {r.event_id: r.start for r in start_rows if r.start is not None}
+    eid_to_dates = {
+        r.event_id: (r.start, r.end) for r in date_rows if r.start is not None
+    }
+    link_anchor_dates = _registration_link_anchor_dates_by_year(base, today, lookback)
 
     result = {}
     for year, eids in events_by_year.items():
-        starts_in_year = [
-            eid_to_start[eid]
-            for eid in eids
-            if eid in eid_to_start and eid_to_start[eid] <= today
-        ]
+        link_anchor = link_anchor_dates.get(year)
+        starts_in_year = []
+        for eid in eids:
+            dates = eid_to_dates.get(eid)
+            if dates is None:
+                continue
+            effective_at = (
+                link_anchor[1] if link_anchor else _anchor_effective_at(*dates)
+            )
+            if effective_at <= today:
+                starts_in_year.append(dates[0])
         if not starts_in_year:
             continue
         result[year] = (eids, min(starts_in_year))
     return result
 
 
-def _registration_link_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
-    """Like :func:`_event_year_groups`, but uses upcoming registration-link
-    start dates as season anchors.
+def _registration_link_anchor_dates_by_year(base, today, lookback=_EVENT_YEAR_LOOKBACK):
+    """Return ``{year: (start, effective_at)}`` from registration links.
 
-    This is intentionally used only for regular season boundaries. A
-    ``RegistrationLink`` does not represent a medal-results event, so it
-    must not create Grand Slam medal-scoring slots.
+    ``start`` is the date that partitions medal seasons. ``effective_at`` is
+    when the anchor should occupy the newest multiplier slot.
     """
     bases = [base] if isinstance(base, str) else list(base)
     years = range(today.year - lookback + 1, today.year + 1)
@@ -473,27 +502,50 @@ def _registration_link_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
     }
 
     candidate_links = (
-        db.session.query(RegistrationLink.name, RegistrationLink.event_start_date)
+        db.session.query(
+            RegistrationLink.name,
+            RegistrationLink.event_start_date,
+            RegistrationLink.event_end_date,
+        )
         .filter(
             or_(*[RegistrationLink.name.like(f"{b}%") for b in bases]),
             RegistrationLink.event_start_date.isnot(None),
-            RegistrationLink.event_start_date <= today,
             or_(RegistrationLink.hidden.is_(False), RegistrationLink.hidden.is_(None)),
         )
         .all()
     )
 
-    starts_by_year = {}
+    anchors = {}
     for link in candidate_links:
         year = candidate_by_norm.get(_normalize_event_name(link.name))
         if year is None:
             continue
-        start = link.event_start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-        current = starts_by_year.get(year)
-        if current is None or start < current:
-            starts_by_year[year] = start
+        start = _start_of_day(link.event_start_date)
+        effective_at = _anchor_effective_at(start, link.event_end_date)
+        current = anchors.get(year)
+        if current is None:
+            anchors[year] = (start, effective_at)
+        else:
+            anchors[year] = (min(current[0], start), max(current[1], effective_at))
+    return anchors
 
-    return {year: ([], start) for year, start in starts_by_year.items()}
+
+def _registration_link_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
+    """Like :func:`_event_year_groups`, but uses upcoming registration-link
+    dates as season anchors.
+
+    This is intentionally used only for regular season boundaries. A
+    ``RegistrationLink`` does not represent a medal-results event, so it
+    must not create Grand Slam medal-scoring slots. Registration-only anchors
+    become active after their event end date, while still using the start date
+    as the medal-season boundary.
+    """
+    anchors = _registration_link_anchor_dates_by_year(base, today, lookback)
+    return {
+        year: ([], start)
+        for year, (start, effective_at) in anchors.items()
+        if effective_at <= today
+    }
 
 
 def _regular_season_year_groups(base, today):
@@ -513,7 +565,8 @@ def _recent_seasons(age, gi, today, n=3):
     using the actual start date of the relevant Worlds event as each season
     boundary. A season begins at midnight of the day Worlds starts: a medal
     earned on that day is in the new season; one earned the day before is in
-    the previous season.
+    the previous season. A new Worlds anchor does not become the newest
+    multiplier slot until after the event ends.
 
     seasons[0] is the in-progress / most recent season; seasons[-1] is the
     oldest. The end of the in-progress season is left open (a far-future
@@ -525,10 +578,7 @@ def _recent_seasons(age, gi, today, n=3):
         return []
 
     sorted_years = sorted(year_groups.keys(), reverse=True)[:n]
-    starts = [
-        year_groups[y][1].replace(hour=0, minute=0, second=0, microsecond=0)
-        for y in sorted_years
-    ]
+    starts = [_start_of_day(year_groups[y][1]) for y in sorted_years]
 
     far_future = datetime(9999, 12, 31)
     seasons = []
@@ -620,28 +670,39 @@ def _past_worlds_year_groups(patterns, today):
         return {}
 
     all_ids = [eid for eids in events_by_year.values() for eid in eids]
-    start_rows = (
+    date_rows = (
         db.session.query(
             Match.event_id,
             func.min(Match.happened_at).label("start"),
+            func.max(Match.happened_at).label("end"),
         )
         .filter(Match.event_id.in_(all_ids))
         .group_by(Match.event_id)
         .all()
     )
-    eid_to_start = {r.event_id: r.start for r in start_rows if r.start is not None}
+    eid_to_dates = {
+        r.event_id: (r.start, r.end) for r in date_rows if r.start is not None
+    }
+    link_anchor_dates = _registration_link_anchor_dates_by_year(patterns, today)
 
     result = {}
     for year, eids in events_by_year.items():
         starts_in_year = []
+        link_anchor = link_anchor_dates.get(year)
         for eid in eids:
-            start = eid_to_start.get(eid)
-            if start is None:
+            dates = eid_to_dates.get(eid)
+            if dates is None:
                 # Legacy Worlds edition with no per-match timestamps in
                 # the DB — assume it ran in early June of its named year
                 # so historical titles still register.
                 start = datetime(year, 6, 1)
-            if start <= today:
+                effective_at = _anchor_effective_at(start)
+            else:
+                start = dates[0]
+                effective_at = (
+                    link_anchor[1] if link_anchor else _anchor_effective_at(*dates)
+                )
+            if effective_at <= today:
                 starts_in_year.append(start)
         if not starts_in_year:
             continue

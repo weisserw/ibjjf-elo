@@ -626,10 +626,10 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         row = self._seed_and_run(seed, _divdata(), gi=True)
         self.assertEqual(row["grand_slam_points"], 216)
 
-    def test_grand_slam_registration_anchor_consumes_empty_event_slot(self):
+    def test_grand_slam_registration_anchor_consumes_empty_event_slot_after_end(self):
         # A registration-only Pans 2026 row should consume the newest Pans
-        # GS slot once it starts, pushing Pans 2025 from 3x to 2x without
-        # creating any fake medal-scoring event.
+        # GS slot after the event ends, pushing Pans 2025 from 3x to 2x
+        # without creating any fake medal-scoring event.
         with self.app_module.app.app_context():
             pans_link = RegistrationLink(
                 name="Pan IBJJF Jiu-Jitsu Championship 2026",
@@ -654,18 +654,27 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 now=datetime(2026, 3, 17),
             )
 
+            during_rows = [_registration_row(athlete_id)]
+            add_seeding_data(
+                during_rows,
+                _divdata(),
+                gi=True,
+                now=datetime(2026, 3, 20),
+            )
+
             post_rows = [_registration_row(athlete_id)]
             add_seeding_data(
                 post_rows,
                 _divdata(),
                 gi=True,
-                now=datetime(2026, 4, 1),
+                now=datetime(2026, 3, 23),
             )
 
             db.session.delete(pans_link)
             db.session.commit()
 
         self.assertEqual(pre_rows[0]["grand_slam_points"], 108)
+        self.assertEqual(during_rows[0]["grand_slam_points"], 108)
         self.assertEqual(post_rows[0]["grand_slam_points"], 72)
 
     def test_grand_slam_brasileiros_duplicate_year_collapses(self):
@@ -736,9 +745,10 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
 
     def test_upcoming_worlds_registration_advances_regular_season_anchor(self):
         # There is no Worlds 2026 Event/Match row in the fixture, only a
-        # RegistrationLink starting 2026-05-28. For a target after that date,
-        # the regular season should advance: Worlds 2025 is now 2x, Worlds
-        # 2024 is 1x, and Worlds 2023 is outside the window.
+        # RegistrationLink running 2026-05-28 through 2026-05-31. For a
+        # target after that event ends, the regular season should advance:
+        # Worlds 2025 is now 2x, Worlds 2024 is 1x, and Worlds 2023 is
+        # outside the window.
         def seed(t):
             a = t._make_athlete("future-target-season-rollover")
             t._add_medal(a, t.worlds_2025, place=1)
@@ -757,6 +767,64 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         # Worlds GS slot, but contributes no medals itself. Worlds 2025 drops
         # to 2x, Worlds 2024 to 1x, and Worlds 2023 drops out.
         self.assertEqual(row["grand_slam_points"], 126 + 63)
+
+    def test_worlds_registration_does_not_advance_while_event_is_running(self):
+        # During a multi-day Worlds event, IBJJF open-class seeding still uses
+        # the previous season's multipliers. The new Worlds start date becomes
+        # a medal boundary later, but it does not occupy the 3x multiplier slot
+        # until after the event end date.
+        def seed(t):
+            a = t._make_athlete("in-progress-worlds-season-still-current")
+            t._add_medal(a, t.worlds_2025, place=1)
+            t._add_medal(a, t.worlds_2024, place=1)
+            t._add_medal(a, t.worlds_2023, place=1)
+            return a
+
+        row = self._seed_and_run(
+            seed,
+            _divdata(),
+            gi=True,
+            now=datetime(2026, 5, 30),
+        )
+        self.assertEqual(row["points"], 189 + 126 + 63)
+        self.assertEqual(row["grand_slam_points"], 189 + 126 + 63)
+
+    def test_worlds_result_event_does_not_advance_while_event_is_running(self):
+        # Even if match records have started arriving for the current Worlds,
+        # the matching registration end date keeps the multiplier rollover
+        # from happening mid-event.
+        with self.app_module.app.app_context():
+            event = Event(
+                name="World IBJJF Jiu-Jitsu Championship 2026",
+                normalized_name="world ibjjf jiu-jitsu championship 2026",
+                slug="world-ibjjf-jiu-jitsu-championship-2026-in-progress-test",
+                medals_only=False,
+            )
+            db.session.add(event)
+            db.session.flush()
+            match = Match(
+                event_id=event.id,
+                division_id=self.anchor_div_id,
+                happened_at=datetime(2026, 5, 28),
+                rated=True,
+            )
+            db.session.add(match)
+            a = self._make_athlete("in-progress-worlds-result-event-still-current")
+            self._add_medal(a, self.worlds_2025, place=1)
+            self._add_medal(a, self.worlds_2024, place=1)
+            self._add_medal(a, self.worlds_2023, place=1)
+            db.session.commit()
+            athlete_id = a.id
+
+            rows = [_registration_row(athlete_id)]
+            add_seeding_data(rows, _divdata(), gi=True, now=datetime(2026, 5, 30))
+
+            db.session.delete(match)
+            db.session.delete(event)
+            db.session.commit()
+
+        self.assertEqual(rows[0]["points"], 189 + 126 + 63)
+        self.assertEqual(rows[0]["grand_slam_points"], 189 + 126 + 63)
 
     def test_upcoming_worlds_registration_does_not_advance_before_start_date(self):
         # The same RegistrationLink should not matter for targets before
@@ -797,6 +865,47 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(row["points"], 189 + 126 + 63)
         self.assertEqual(row["grand_slam_points"], 189 + 126 + 63)
+
+    def test_worlds_medals_from_first_day_count_in_new_season_after_event_ends(self):
+        with self.app_module.app.app_context():
+            event = Event(
+                name="World IBJJF Jiu-Jitsu Championship 2026",
+                normalized_name="world ibjjf jiu-jitsu championship 2026",
+                slug="world-ibjjf-jiu-jitsu-championship-2026-test",
+                medals_only=False,
+            )
+            db.session.add(event)
+            db.session.flush()
+            match = Match(
+                event_id=event.id,
+                division_id=self.anchor_div_id,
+                happened_at=datetime(2026, 5, 28),
+                rated=True,
+            )
+            db.session.add(match)
+            a = self._make_athlete("worlds-2026-first-day-counts-after-end")
+            medal = self._add_medal(
+                a,
+                _EventRef(event.id, datetime(2026, 5, 28)),
+                place=1,
+                happened_at=datetime(2026, 5, 28),
+            )
+            db.session.commit()
+            athlete_id = a.id
+
+            rows = [_registration_row(athlete_id)]
+            add_seeding_data(rows, _divdata(), gi=True, now=datetime(2026, 6, 1))
+
+            medal_division = db.session.get(Division, medal.division_id)
+            db.session.delete(medal)
+            if medal_division is not None:
+                db.session.delete(medal_division)
+            db.session.delete(match)
+            db.session.delete(event)
+            db.session.commit()
+
+        self.assertEqual(rows[0]["points"], 189)
+        self.assertEqual(rows[0]["grand_slam_points"], 189)
 
     # ------------------------------------------------------------------
     # Source tournament classification
@@ -855,7 +964,7 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
 
     def test_brasileiros_registration_advances_grand_slam_slot_only(self):
         # A registration-only Brasileiros 2026 row should advance the
-        # Brasileiros Grand Slam slot after it starts. Regular points still
+        # Brasileiros Grand Slam slot after it ends. Regular points still
         # use the IBJJF Worlds-anchored season.
         with self.app_module.app.app_context():
             brasileiros_link = RegistrationLink(
@@ -881,12 +990,20 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
                 now=datetime(2026, 4, 23),
             )
 
+            during_rows = [_registration_row(athlete_id)]
+            add_seeding_data(
+                during_rows,
+                _divdata(),
+                gi=True,
+                now=datetime(2026, 4, 25),
+            )
+
             post_rows = [_registration_row(athlete_id)]
             add_seeding_data(
                 post_rows,
                 _divdata(),
                 gi=True,
-                now=datetime(2026, 4, 25),
+                now=datetime(2026, 5, 4),
             )
 
             db.session.delete(brasileiros_link)
@@ -894,6 +1011,8 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(pre_rows[0]["points"], 72)
         self.assertEqual(pre_rows[0]["grand_slam_points"], 108)
+        self.assertEqual(during_rows[0]["points"], 72)
+        self.assertEqual(during_rows[0]["grand_slam_points"], 108)
         self.assertEqual(post_rows[0]["points"], 72)
         self.assertEqual(post_rows[0]["grand_slam_points"], 72)
 
