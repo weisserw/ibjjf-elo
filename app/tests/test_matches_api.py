@@ -109,7 +109,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             match_location="Mat 2",
             video_link=None,
         )
-        # Five DQ-type matches, one per DQ type
+        # Two DQ-type matches, one per DQ type
         match_dq_technical = Match(
             event_id=event1.id,
             division_id=division1.id,
@@ -126,34 +126,9 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             match_location="Mat 4",
             video_link=None,
         )
-        match_dq_no_show = Match(
-            event_id=event1.id,
-            division_id=division1.id,
-            happened_at=datetime(2024, 2, 3, 12, 0, 0),
-            rated=True,
-            match_location="Mat 5",
-            video_link=None,
-        )
-        match_dq_overweight = Match(
-            event_id=event1.id,
-            division_id=division1.id,
-            happened_at=datetime(2024, 2, 4, 12, 0, 0),
-            rated=True,
-            match_location="Mat 6",
-            video_link=None,
-        )
-        match_dq_withdraw = Match(
-            event_id=event1.id,
-            division_id=division1.id,
-            happened_at=datetime(2024, 2, 5, 12, 0, 0),
-            rated=True,
-            match_location="Mat 7",
-            video_link=None,
-        )
         db.session.add_all([
             match1, match2,
-            match_dq_technical, match_dq_disciplinary, match_dq_no_show,
-            match_dq_overweight, match_dq_withdraw,
+            match_dq_technical, match_dq_disciplinary,
         ])
         db.session.flush()
 
@@ -259,84 +234,6 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
                 start_match_count=11,
                 end_match_count=12,
             ),
-            # DQ-type match: no_show
-            MatchParticipant(
-                match_id=match_dq_no_show.id,
-                athlete_id=athlete1.id,
-                team_id=team1.id,
-                seed=1,
-                red=True,
-                winner=True,
-                start_rating=1510.0,
-                end_rating=1515.0,
-                start_match_count=13,
-                end_match_count=14,
-            ),
-            MatchParticipant(
-                match_id=match_dq_no_show.id,
-                athlete_id=athlete2.id,
-                team_id=team1.id,
-                seed=2,
-                red=False,
-                winner=False,
-                note="Disqualified by no show",
-                start_rating=1430.0,
-                end_rating=1425.0,
-                start_match_count=12,
-                end_match_count=13,
-            ),
-            # DQ-type match: overweight
-            MatchParticipant(
-                match_id=match_dq_overweight.id,
-                athlete_id=athlete1.id,
-                team_id=team1.id,
-                seed=1,
-                red=True,
-                winner=True,
-                start_rating=1515.0,
-                end_rating=1520.0,
-                start_match_count=14,
-                end_match_count=15,
-            ),
-            MatchParticipant(
-                match_id=match_dq_overweight.id,
-                athlete_id=athlete2.id,
-                team_id=team1.id,
-                seed=2,
-                red=False,
-                winner=False,
-                note="Disqualified by overweight",
-                start_rating=1425.0,
-                end_rating=1420.0,
-                start_match_count=13,
-                end_match_count=14,
-            ),
-            # DQ-type match: withdraw
-            MatchParticipant(
-                match_id=match_dq_withdraw.id,
-                athlete_id=athlete1.id,
-                team_id=team1.id,
-                seed=1,
-                red=True,
-                winner=True,
-                start_rating=1520.0,
-                end_rating=1525.0,
-                start_match_count=15,
-                end_match_count=16,
-            ),
-            MatchParticipant(
-                match_id=match_dq_withdraw.id,
-                athlete_id=athlete2.id,
-                team_id=team1.id,
-                seed=2,
-                red=False,
-                winner=False,
-                note="Disqualified by withdraw",
-                start_rating=1420.0,
-                end_rating=1415.0,
-                start_match_count=14,
-                end_match_count=15,
-            ),
         ]
         db.session.add_all(participants)
 
@@ -401,8 +298,8 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         response = self.client.get("/api/matches?gi=true&athlete_name=Test%20Athlete")
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        # athlete1 ("Test Athlete") participates in match1 + 5 DQ-type matches = 6 total
-        self.assertEqual(len(data["rows"]), 6)
+        # athlete1 ("Test Athlete") participates in match1 + 2 DQ-type matches = 3 total
+        self.assertEqual(len(data["rows"]), 3)
         winners = {row["winner"] for row in data["rows"]}
         self.assertIn("Test Athlete", winners)
 
@@ -436,8 +333,8 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        # team1 ("Test Team") is in match1 + 5 DQ-type matches = 6 total
-        self.assertEqual(len(data["rows"]), 6)
+        # team1 ("Test Team") is in match1 + 2 DQ-type matches = 3 total
+        self.assertEqual(len(data["rows"]), 3)
         winners = {row["winner"] for row in data["rows"]}
         self.assertIn("Test Athlete", winners)
 
@@ -523,8 +420,8 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        # athlete1 (elite, percentile=0.104) is in match1 + 5 DQ-type matches = 6 total
-        self.assertEqual(len(data["rows"]), 6)
+        # athlete1 (elite, percentile=0.104) is in match1 + 2 DQ-type matches = 3 total
+        self.assertEqual(len(data["rows"]), 3)
         winners = {row["winner"] for row in data["rows"]}
         self.assertIn("Test Athlete", winners)
 
@@ -551,7 +448,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
     @mock.patch("routes.matches.load_livestream_links")
     def test_dq_type_technical(self, mock_livestreams, _mock_s3):
         mock_livestreams.return_value = self._patch_livestreams()
-        response = self.client.get("/api/matches?gi=true&dq_type=technical")
+        response = self.client.get("/api/matches?gi=true&dq_type_technical=true")
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         notes = {row["notes"] for row in data["rows"]}
@@ -560,20 +457,9 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
-    def test_dq_type_no_show(self, mock_livestreams, _mock_s3):
-        mock_livestreams.return_value = self._patch_livestreams()
-        response = self.client.get("/api/matches?gi=true&dq_type=no_show")
-        self.assertEqual(response.status_code, 200)
-        data = response.get_json()
-        notes = {row["notes"] for row in data["rows"]}
-        self.assertIn("Disqualified by no show", notes)
-        self.assertNotIn("Disqualified by technical desc.", notes)
-
-    @mock.patch("routes.matches.get_s3_client", return_value=None)
-    @mock.patch("routes.matches.load_livestream_links")
     def test_dq_type_disciplinary(self, mock_livestreams, _mock_s3):
         mock_livestreams.return_value = self._patch_livestreams()
-        response = self.client.get("/api/matches?gi=true&dq_type=disciplinary")
+        response = self.client.get("/api/matches?gi=true&dq_type_disciplinary=true")
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         notes = {row["notes"] for row in data["rows"]}
@@ -582,34 +468,24 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
-    def test_dq_type_overweight(self, mock_livestreams, _mock_s3):
+    def test_dq_type_both(self, mock_livestreams, _mock_s3):
         mock_livestreams.return_value = self._patch_livestreams()
-        response = self.client.get("/api/matches?gi=true&dq_type=overweight")
+        response = self.client.get(
+            "/api/matches?gi=true&dq_type_technical=true&dq_type_disciplinary=true"
+        )
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         notes = {row["notes"] for row in data["rows"]}
-        self.assertIn("Disqualified by overweight", notes)
-        self.assertNotIn("Disqualified by technical desc.", notes)
-
-    @mock.patch("routes.matches.get_s3_client", return_value=None)
-    @mock.patch("routes.matches.load_livestream_links")
-    def test_dq_type_withdraw(self, mock_livestreams, _mock_s3):
-        mock_livestreams.return_value = self._patch_livestreams()
-        response = self.client.get("/api/matches?gi=true&dq_type=withdraw")
-        self.assertEqual(response.status_code, 200)
-        data = response.get_json()
-        notes = {row["notes"] for row in data["rows"]}
-        self.assertIn("Disqualified by withdraw", notes)
-        self.assertNotIn("Disqualified by technical desc.", notes)
+        self.assertIn("Disqualified by technical desc.", notes)
+        self.assertIn("Disqualified by disciplinary desc.", notes)
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
     def test_dq_type_invalid(self, mock_livestreams, _mock_s3):
+        # dq_type_technical/disciplinary are booleans; an unrecognised value is treated as falsy
         mock_livestreams.return_value = self._patch_livestreams()
-        response = self.client.get("/api/matches?gi=true&dq_type=badvalue")
-        self.assertEqual(response.status_code, 400)
-        data = response.get_json()
-        self.assertIn("error", data)
+        response = self.client.get("/api/matches?gi=true&dq_type_technical=false")
+        self.assertEqual(response.status_code, 200)
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
@@ -624,9 +500,6 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
                 all_notes.add(row["notes"])
         self.assertIn("Disqualified by technical desc.", all_notes)
         self.assertIn("Disqualified by disciplinary desc.", all_notes)
-        self.assertIn("Disqualified by no show", all_notes)
-        self.assertIn("Disqualified by overweight", all_notes)
-        self.assertIn("Disqualified by withdraw", all_notes)
 
     def test_matches_requires_gi(self):
         response = self.client.get("/api/matches")

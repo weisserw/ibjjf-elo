@@ -39,8 +39,6 @@ function Section(props: SectionProps) {
   );
 }
 
-export type DqType = "technical" | "disciplinary" | "no_show" | "overweight" | "withdraw";
-
 export interface FilterValues {
   athlete_name?: string;
   team_name?: string;
@@ -81,7 +79,8 @@ export interface FilterValues {
   date_end?: string;
   mat_number?: number;
   disqualified_only?: boolean;
-  dq_type?: DqType;
+  dq_type_technical?: boolean;
+  dq_type_disciplinary?: boolean;
   rating_start?: number;
   rating_end?: number;
   elite_only?: boolean;
@@ -313,19 +312,11 @@ function DBFilters() {
 
   const debouncedGetEventSuggestions = useCallback(debounce(getEventSuggestions, 300, {trailing: true}), [gi]);
 
-  const DQ_TYPE_LABELS: Record<DqType, translationKeys> = {
-    technical:    "Technical",
-    disciplinary: "Disciplinary",
-    no_show:      "No Show",
-    overweight:   "Overweight",
-    withdraw:     "Withdraw",
-  };
-
   const onDisqualifiedOnlyChange = (checked: boolean) => {
     if (!checked) {
-      onClearProps(['disqualified_only', 'dq_type']);
+      onClearProps(['disqualified_only', 'dq_type_technical', 'dq_type_disciplinary']);
     } else {
-      onChange('disqualified_only', true);
+      setFilters({ ...filters, disqualified_only: true, dq_type_technical: true, dq_type_disciplinary: true });
     }
   };
 
@@ -552,27 +543,28 @@ function DBFilters() {
                 </label>
               </div>
               {filters.disqualified_only && (
-                <div className="dq-type-filter">
-                  {(["technical", "disciplinary", "no_show", "overweight", "withdraw"] as DqType[]).map((value) => {
-                    const labelKey = DQ_TYPE_LABELS[value];
-                    return (
-                      <label key={value} className="radio radio-filter">
-                        <input
-                          type="radio"
-                          name="dq_type"
-                          value={value}
-                          checked={filters.dq_type === value}
-                          onChange={() => onChange('dq_type', value)}
-                        />
-                        {t(labelKey)}
-                      </label>
-                    );
-                  })}
+                <div className="dq-type-filter checkbox-filters checkboxes">
+                  <label className="checkbox checkbox-filter">
+                    <input
+                      type="checkbox"
+                      checked={!!filters.dq_type_technical}
+                      onChange={(e) => onChange('dq_type_technical', e.target.checked)}
+                    />
+                    {t("Technical")}
+                  </label>
+                  <label className="checkbox checkbox-filter">
+                    <input
+                      type="checkbox"
+                      checked={!!filters.dq_type_disciplinary}
+                      onChange={(e) => onChange('dq_type_disciplinary', e.target.checked)}
+                    />
+                    {t("Disciplinary")}
+                  </label>
                   <button
                     className="button is-small is-light"
-                    onClick={() => onClearProps(['dq_type'])}
+                    onClick={() => setFilters({ ...filters, dq_type_technical: true, dq_type_disciplinary: true })}
                   >
-                    {t("Clear")}
+                    {t("All")}
                   </button>
                 </div>
               )}
