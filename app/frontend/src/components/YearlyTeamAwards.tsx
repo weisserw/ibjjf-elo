@@ -31,7 +31,7 @@ function YearlyTeamAwards() {
       <p className="mb-4">
         {t('The yearly team awards use the same criteria as our ')}
         <Link to="/teams">{t('per-event awards')}</Link>
-        {t(', but are a combination of the four "Grand Slam" events (Euros, Pans, Brasileiros and Worlds). Teams must have at least 15 participants in two of the four events to qualify.')}
+        {t(', but from a combination of the four "Grand Slam" events (Euros, Pans, Brasileiros and Worlds). Teams must have at least 15 participants in two of the four events to qualify.')}
       </p>
       <div className="table-container">
         <table className="table is-fullwidth bracket-table">
