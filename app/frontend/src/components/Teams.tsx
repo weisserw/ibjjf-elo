@@ -7,7 +7,7 @@ import { axiosErrorToast } from '../utils'
 import { t } from '../translate'
 import { countryNames, countryNamesPt } from '../countries'
 import { useAppContext } from '../AppContext'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { isGi } from './BracketUtils'
 import '/node_modules/flag-icons/css/flag-icons.min.css'
 import './Teams.css'
@@ -237,6 +237,12 @@ function Teams() {
 
   return (
     <div className="container pl-2 pr-2">
+      <h2 className="title is-4 mt-6 mb-3">
+        <Link to="/teams/yearly/2026">Yearly Team Awards - 2026 Gi</Link>
+      </h2>
+      <p className="mb-4">
+        {t('Click to see our top-ranked teams for the 2026 gi season')}
+      </p>
       <h2 className="title is-4 mt-6 mb-3">{t('Elite Athlete Lists')}</h2>
       <p className="mb-4">
         {t("Search for a team to view elite athletes who have represented that team.")}

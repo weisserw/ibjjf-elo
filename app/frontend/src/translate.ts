@@ -122,6 +122,7 @@ const translations = {
     "Team Awards": "Premiação por Equipes",
     "Elite Athlete Lists": "Listas de Atletas de Elite",
     "Team Event Awards": "Premiação por Equipes do Evento",
+    "Click to see our top-ranked teams for the 2026 gi season": "Clique para ver nossas equipes melhor classificadas da temporada de kimono de 2026",
     "Search for a team to view elite athletes who have represented that team.": "Pesquise por uma equipe para ver os atletas de elite que representaram essa equipe.",
     "Search for a past event in our database to view our team rankings based on match outcomes and opponent rating. To encourage competitive participation without pressure, white belts and teens are not included in team rankings.": "Pesquise um evento passado em nosso banco de dados para ver nossas classificações por equipes com base nos resultados das lutas e na rating dos oponentes. Para incentivar a participação competitiva sem pressão, faixas brancas e adolescentes não estão incluídos nas classificações por equipes.",
     "Countries": "Países",
