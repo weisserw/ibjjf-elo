@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { t } from '../translate'
 import { teamSlugFromName } from '../utils'
 
 type YearlyTeamAward = {
@@ -27,6 +28,11 @@ function YearlyTeamAwards() {
   return (
     <div className="container pl-2 pr-2">
       <h1 className="title is-4 mt-6 mb-4">Yearly Team Awards - 2026 Gi</h1>
+      <p className="mb-4">
+        {t('The yearly team awards use the same criteria as our ')}
+        <Link to="/teams">{t('per-event awards')}</Link>
+        {t(', but are a combination of the four "Grand Slam" events (Euros, Pans, Brasileiros and Worlds). Teams must have at least 15 participants in two of the four events to qualify.')}
+      </p>
       <div className="table-container">
         <table className="table is-fullwidth bracket-table">
           <thead>

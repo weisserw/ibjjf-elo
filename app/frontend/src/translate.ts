@@ -123,6 +123,9 @@ const translations = {
     "Elite Athlete Lists": "Listas de Atletas de Elite",
     "Team Event Awards": "Premiação por Equipes do Evento",
     "Click to see our top-ranked teams for the 2026 gi season": "Clique para ver nossas equipes melhor classificadas da temporada de kimono de 2026",
+    "The yearly team awards use the same criteria as our ": "A premiação anual por equipes usa os mesmos critérios das nossas ",
+    "per-event awards": "premiações por evento",
+    ", but are a combination of the four \"Grand Slam\" events (Euros, Pans, Brasileiros and Worlds). Teams must have at least 15 participants in two of the four events to qualify.": ", mas combina os quatro eventos \"Grand Slam\" (Europeu, Pan, Brasileiro e Mundial). As equipes precisam ter pelo menos 15 participantes em dois dos quatro eventos para se qualificarem.",
     "Search for a team to view elite athletes who have represented that team.": "Pesquise por uma equipe para ver os atletas de elite que representaram essa equipe.",
     "Search for a past event in our database to view our team rankings based on match outcomes and opponent rating. To encourage competitive participation without pressure, white belts and teens are not included in team rankings.": "Pesquise um evento passado em nosso banco de dados para ver nossas classificações por equipes com base nos resultados das lutas e na rating dos oponentes. Para incentivar a participação competitiva sem pressão, faixas brancas e adolescentes não estão incluídos nas classificações por equipes.",
     "Countries": "Países",
@@ -372,7 +375,7 @@ export const language = (): 'en' | 'pt' => {
         if (stored === 'pt' || stored === 'en') {
             language = stored;
         }
-    } catch (e) {
+    } catch {
         // localStorage not available, fallback to 'en'
     }
     return language;
