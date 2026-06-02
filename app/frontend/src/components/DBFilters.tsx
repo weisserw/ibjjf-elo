@@ -78,7 +78,8 @@ export interface FilterValues {
   date_start?: string;
   date_end?: string;
   mat_number?: number;
-  disqualified_only?: boolean;
+  dq_type_technical?: boolean;
+  dq_type_disciplinary?: boolean;
   rating_start?: number;
   rating_end?: number;
   elite_only?: boolean;
@@ -149,7 +150,7 @@ function DBFilters() {
     setFilters(newFilters);
   }
 
-  const onClearOrAll = (propnames: DivisionFilterKeys[]) => {
+  const onClearOrAll = (propnames: FilterKeys[]) => {
     if (propnames.some(prop => filters[prop])) {
       onClearProps(propnames);
     } else {
@@ -460,7 +461,8 @@ function DBFilters() {
                         !!filters.date_start ||
                         !!filters.date_end ||
                         filters.mat_number !== undefined ||
-                        !!filters.disqualified_only
+                        !!filters.dq_type_technical ||
+                        !!filters.dq_type_disciplinary
                      }>
               <div className="field is-grouped">
                 <div className="control is-expanded">
@@ -523,14 +525,27 @@ function DBFilters() {
                 <div className="control">
                   <button className="button is-small is-light" onClick={onClearProps.bind(null, ['mat_number'])}>{t("Clear")}</button>
                 </div>
-                <label className="checkbox checkbox-filter disqualified-only-filter">
+              </div>
+              <div className="dq-type-filter checkbox-filters checkboxes">
+                <label className="checkbox checkbox-filter">
                   <input
                     type="checkbox"
-                    checked={!!filters.disqualified_only}
-                    onChange={(e) => onChange('disqualified_only', e.target.checked)}
+                    checked={!!filters.dq_type_technical}
+                    onChange={(e) => onChange('dq_type_technical', e.target.checked)}
                   />
-                  {t("Disqualified only")}
+                  {t("Technical DQ")}
                 </label>
+                <label className="checkbox checkbox-filter">
+                  <input
+                    type="checkbox"
+                    checked={!!filters.dq_type_disciplinary}
+                    onChange={(e) => onChange('dq_type_disciplinary', e.target.checked)}
+                  />
+                  {t("Disciplinary DQ")}
+                </label>
+                <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['dq_type_technical', 'dq_type_disciplinary'])}>
+                  {(filters.dq_type_technical || filters.dq_type_disciplinary) ? t("Clear") : t("All")}
+                </button>
               </div>
             </Section>
             <Section title={t("Division")}

@@ -88,10 +88,11 @@
   row-gap: 8px;
 }
 
-.disqualified-only-filter {
-  align-items: center;
-  display: inline-flex;
-  white-space: nowrap;
+.dq-type-filter {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 12px;
+  row-gap: 8px;
 }
 
 .db-country-autosuggest .react-autosuggest__input {
@@ -173,5 +174,24 @@
   .rating-range-elite-only {
     flex: 0 0 100%;
     width: 100%;
+  }
+
+  .dq-type-filter {
+    display: grid;
+    grid-template-columns: max-content auto;
+    align-items: center;
+  }
+
+  .dq-type-filter label.checkbox-filter:first-of-type {
+    grid-column: 1 / -1;
+  }
+
+  .dq-type-filter label.checkbox-filter:last-of-type {
+    grid-column: 1;
+  }
+
+  .dq-type-filter .button {
+    grid-column: 2;
+    justify-self: start;
   }
 }

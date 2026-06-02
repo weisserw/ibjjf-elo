@@ -109,7 +109,31 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             match_location="Mat 2",
             video_link=None,
         )
-        db.session.add_all([match1, match2])
+        # Two DQ-type matches, one per DQ type
+        match_dq_technical = Match(
+            event_id=event1.id,
+            division_id=division1.id,
+            happened_at=datetime(2024, 2, 1, 12, 0, 0),
+            rated=True,
+            match_location="Mat 3",
+            video_link=None,
+        )
+        match_dq_disciplinary = Match(
+            event_id=event1.id,
+            division_id=division1.id,
+            happened_at=datetime(2024, 2, 2, 12, 0, 0),
+            rated=True,
+            match_location="Mat 4",
+            video_link=None,
+        )
+        db.session.add_all(
+            [
+                match1,
+                match2,
+                match_dq_technical,
+                match_dq_disciplinary,
+            ]
+        )
         db.session.flush()
 
         participants = [
@@ -161,6 +185,58 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
                 end_rating=1280.0,
                 start_match_count=4,
                 end_match_count=5,
+            ),
+            # DQ-type match: technical
+            MatchParticipant(
+                match_id=match_dq_technical.id,
+                athlete_id=athlete1.id,
+                team_id=team1.id,
+                seed=1,
+                red=True,
+                winner=True,
+                start_rating=1500.0,
+                end_rating=1505.0,
+                start_match_count=11,
+                end_match_count=12,
+            ),
+            MatchParticipant(
+                match_id=match_dq_technical.id,
+                athlete_id=athlete2.id,
+                team_id=team1.id,
+                seed=2,
+                red=False,
+                winner=False,
+                note="Disqualified by technical desc.",
+                start_rating=1440.0,
+                end_rating=1435.0,
+                start_match_count=10,
+                end_match_count=11,
+            ),
+            # DQ-type match: disciplinary
+            MatchParticipant(
+                match_id=match_dq_disciplinary.id,
+                athlete_id=athlete1.id,
+                team_id=team1.id,
+                seed=1,
+                red=True,
+                winner=True,
+                start_rating=1505.0,
+                end_rating=1510.0,
+                start_match_count=12,
+                end_match_count=13,
+            ),
+            MatchParticipant(
+                match_id=match_dq_disciplinary.id,
+                athlete_id=athlete2.id,
+                team_id=team1.id,
+                seed=2,
+                red=False,
+                winner=False,
+                note="Disqualified by disciplinary desc.",
+                start_rating=1435.0,
+                end_rating=1430.0,
+                start_match_count=11,
+                end_match_count=12,
             ),
         ]
         db.session.add_all(participants)
@@ -226,8 +302,10 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         response = self.client.get("/api/matches?gi=true&athlete_name=Test%20Athlete")
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        self.assertEqual(len(data["rows"]), 1)
-        self.assertEqual(data["rows"][0]["winner"], "Test Athlete")
+        # athlete1 ("Test Athlete") participates in match1 + 2 DQ-type matches = 3 total
+        self.assertEqual(len(data["rows"]), 3)
+        winners = {row["winner"] for row in data["rows"]}
+        self.assertIn("Test Athlete", winners)
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
@@ -259,8 +337,10 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        self.assertEqual(len(data["rows"]), 1)
-        self.assertEqual(data["rows"][0]["winner"], "Test Athlete")
+        # team1 ("Test Team") is in match1 + 2 DQ-type matches = 3 total
+        self.assertEqual(len(data["rows"]), 3)
+        winners = {row["winner"] for row in data["rows"]}
+        self.assertIn("Test Athlete", winners)
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
@@ -344,25 +424,70 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        self.assertEqual(len(data["rows"]), 1)
-        self.assertEqual(data["rows"][0]["winner"], "Test Athlete")
+        # athlete1 (elite, percentile=0.104) is in match1 + 2 DQ-type matches = 3 total
+        self.assertEqual(len(data["rows"]), 3)
+        winners = {row["winner"] for row in data["rows"]}
+        self.assertIn("Test Athlete", winners)
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
-    def test_matches_filter_by_disqualified_only(self, mock_livestreams, _mock_s3):
+    def test_dq_type_technical(self, mock_livestreams, _mock_s3):
         mock_livestreams.return_value = self._patch_livestreams()
-        response = self.client.get(
-            "/api/matches",
-            query_string={
-                "gi": "true",
-                "disqualified_only": "true",
-            },
-        )
+        response = self.client.get("/api/matches?gi=true&dq_type_technical=true")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["rows"]), 2)
+        notes = {row["notes"] for row in data["rows"]}
+        self.assertIn("Disqualified by technical desc.", notes)
+        self.assertNotIn("Disqualified by disciplinary desc.", notes)
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_dq_type_disciplinary(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        response = self.client.get("/api/matches?gi=true&dq_type_disciplinary=true")
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         self.assertEqual(len(data["rows"]), 1)
-        self.assertEqual(data["rows"][0]["winner"], "Guest Competitor")
-        self.assertEqual(data["rows"][0]["notes"], "Disqualified by technical desc.")
+        notes = {row["notes"] for row in data["rows"]}
+        self.assertIn("Disqualified by disciplinary desc.", notes)
+        self.assertNotIn("Disqualified by technical desc.", notes)
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_dq_type_both(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        response = self.client.get(
+            "/api/matches?gi=true&dq_type_technical=true&dq_type_disciplinary=true"
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["rows"]), 3)
+        notes = {row["notes"] for row in data["rows"]}
+        self.assertIn("Disqualified by technical desc.", notes)
+        self.assertIn("Disqualified by disciplinary desc.", notes)
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_dq_type_invalid(self, mock_livestreams, _mock_s3):
+        # dq_type_technical/disciplinary are booleans; an unrecognised value is treated as falsy
+        mock_livestreams.return_value = self._patch_livestreams()
+        response = self.client.get("/api/matches?gi=true&dq_type_technical=false")
+        self.assertEqual(response.status_code, 200)
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_dq_type_omitted(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        response = self.client.get("/api/matches?gi=true")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        all_notes = set()
+        for row in data["rows"]:
+            if row.get("notes"):
+                all_notes.add(row["notes"])
+        self.assertIn("Disqualified by technical desc.", all_notes)
+        self.assertIn("Disqualified by disciplinary desc.", all_notes)
 
     def test_matches_requires_gi(self):
         response = self.client.get("/api/matches")

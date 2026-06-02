@@ -61,12 +61,13 @@ ATHLETES_MATCH_PAGE_SIZE = 100
 INITIAL_RATE_LIMIT = 15
 RATE_LIMIT_WINDOW = 10
 PENALTY_PERIOD = 60
-DISQUALIFICATION_NOTES = (
-    "Disqualified by desc técnica",
-    "Disqualified by disciplinary desc.",
-    "Disqualified by technical desc.",
-    "Disqualified by desc disciplinar",
-)
+DQ_TYPE_NOTES: dict[str, tuple[str, ...]] = {
+    "technical": ("Disqualified by technical desc.", "Disqualified by desc técnica"),
+    "disciplinary": (
+        "Disqualified by disciplinary desc.",
+        "Disqualified by desc disciplinar",
+    ),
+}
 client_requests = defaultdict(list)
 client_penalties = {}
 
@@ -147,7 +148,8 @@ def matches():
     date_start = request.args.get("date_start")
     date_end = request.args.get("date_end")
     mat_number = request.args.get("mat_number")
-    disqualified_only = request.args.get("disqualified_only")
+    dq_type_technical = request.args.get("dq_type_technical")
+    dq_type_disciplinary = request.args.get("dq_type_disciplinary")
     rating_start = request.args.get("rating_start")
     rating_end = request.args.get("rating_end")
     elite_only = request.args.get("elite_only")
@@ -227,8 +229,8 @@ def matches():
         weight_ultra_heavy = weight_ultra_heavy.lower() == "true"
     if weight_open_class:
         weight_open_class = weight_open_class.lower() == "true"
-    if disqualified_only:
-        disqualified_only = disqualified_only.lower() == "true"
+    dq_type_technical = (dq_type_technical or "").lower() == "true"
+    dq_type_disciplinary = (dq_type_disciplinary or "").lower() == "true"
     if elite_only:
         elite_only = elite_only.lower() == "true"
 
@@ -498,22 +500,24 @@ def matches():
         filters += """AND m.match_location IS NOT NULL AND m.match_location LIKE :mat_number
         """
         params["mat_number"] = f"% {mat_number}"
-    if disqualified_only:
-        disqualification_note_params = {
-            f"disqualification_note_{index}": f"%{note}%"
-            for index, note in enumerate(DISQUALIFICATION_NOTES)
+    if dq_type_technical or dq_type_disciplinary:
+        dq_notes = []
+        if dq_type_technical:
+            dq_notes.extend(DQ_TYPE_NOTES["technical"])
+        if dq_type_disciplinary:
+            dq_notes.extend(DQ_TYPE_NOTES["disciplinary"])
+        dq_note_params = {
+            f"dq_note_{index}": f"%{note}%" for index, note in enumerate(dq_notes)
         }
-        disqualification_note_clause = " OR ".join(
-            f"mp.note LIKE :{key}" for key in disqualification_note_params
-        )
+        dq_note_clause = " OR ".join(f"mp.note LIKE :{key}" for key in dq_note_params)
         filters += f"""AND EXISTS (
             SELECT 1
             FROM match_participants mp
             WHERE mp.match_id = m.id
-            AND ({disqualification_note_clause})
+            AND ({dq_note_clause})
         )
         """
-        params.update(disqualification_note_params)
+        params.update(dq_note_params)
 
     if rating_start is not None:
         rating_start_int = int(rating_start)
