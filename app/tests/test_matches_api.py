@@ -126,10 +126,14 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             match_location="Mat 4",
             video_link=None,
         )
-        db.session.add_all([
-            match1, match2,
-            match_dq_technical, match_dq_disciplinary,
-        ])
+        db.session.add_all(
+            [
+                match1,
+                match2,
+                match_dq_technical,
+                match_dq_disciplinary,
+            ]
+        )
         db.session.flush()
 
         participants = [
@@ -427,30 +431,12 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
-    def test_matches_filter_by_disqualified_only(self, mock_livestreams, _mock_s3):
-        mock_livestreams.return_value = self._patch_livestreams()
-        response = self.client.get(
-            "/api/matches",
-            query_string={
-                "gi": "true",
-                "disqualified_only": "true",
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.get_json()
-        # match2 (technical), match_dq_technical, and match_dq_disciplinary all match
-        self.assertEqual(len(data["rows"]), 3)
-        notes = {row["notes"] for row in data["rows"]}
-        self.assertIn("Disqualified by technical desc.", notes)
-        self.assertIn("Disqualified by disciplinary desc.", notes)
-
-    @mock.patch("routes.matches.get_s3_client", return_value=None)
-    @mock.patch("routes.matches.load_livestream_links")
     def test_dq_type_technical(self, mock_livestreams, _mock_s3):
         mock_livestreams.return_value = self._patch_livestreams()
         response = self.client.get("/api/matches?gi=true&dq_type_technical=true")
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
+        self.assertEqual(len(data["rows"]), 2)
         notes = {row["notes"] for row in data["rows"]}
         self.assertIn("Disqualified by technical desc.", notes)
         self.assertNotIn("Disqualified by disciplinary desc.", notes)
@@ -462,6 +448,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         response = self.client.get("/api/matches?gi=true&dq_type_disciplinary=true")
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
+        self.assertEqual(len(data["rows"]), 1)
         notes = {row["notes"] for row in data["rows"]}
         self.assertIn("Disqualified by disciplinary desc.", notes)
         self.assertNotIn("Disqualified by technical desc.", notes)
@@ -475,6 +462,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
+        self.assertEqual(len(data["rows"]), 3)
         notes = {row["notes"] for row in data["rows"]}
         self.assertIn("Disqualified by technical desc.", notes)
         self.assertIn("Disqualified by disciplinary desc.", notes)
