@@ -91,6 +91,10 @@ type DivisionFilterKeys = {
   [K in FilterKeys]: K extends `gender_${string}` | `age_${string}` | `belt_${string}` | `weight_${string}` ? K : never
 }[FilterKeys];
 
+type BooleanFilterKeys = {
+  [K in FilterKeys]: FilterValues[K] extends boolean | undefined ? K : never
+}[FilterKeys];
+
 export interface OpenFilters {
   athlete: boolean;
   event: boolean;
@@ -150,7 +154,7 @@ function DBFilters() {
     setFilters(newFilters);
   }
 
-  const onClearOrAll = (propnames: FilterKeys[]) => {
+  const onClearOrAll = (propnames: BooleanFilterKeys[]) => {
     if (propnames.some(prop => filters[prop])) {
       onClearProps(propnames);
     } else {
