@@ -47,7 +47,7 @@ const WEIGHT_CLASSES: Record<string, number> = {
   'Ultra Heavy': 8
 }
 
-const JUVENILE_ARCHIVE_CUTOVER = dayjs('2026-06-06');
+const JUVENILE_ARCHIVE_CUTOVER = dayjs('2026-06-05');
 
 interface DBTableRowsProps {
   data: Row[]

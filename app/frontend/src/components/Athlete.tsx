@@ -30,7 +30,7 @@ import {
 
 import './Athlete.css';
 
-const JUVENILE_ARCHIVE_CUTOVER = dayjs('2026-06-06');
+const JUVENILE_ARCHIVE_CUTOVER = dayjs('2026-06-05');
 
 interface Athlete {
   id: string;
