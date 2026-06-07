@@ -171,6 +171,8 @@ age_order = [
     TEEN_1,
     TEEN_2,
     TEEN_3,
+    JUVENILE_1,
+    JUVENILE_2,
     JUVENILE,
     ADULT,
     MASTER_1,
@@ -229,6 +231,31 @@ rated_ages = [
 ]
 
 rated_ages_in = ", ".join(f"'{age}'" for age in rated_ages)
+
+JUVENILE_AGES = (JUVENILE, JUVENILE_1, JUVENILE_2)
+
+
+def is_juvenile_age(age: str) -> bool:
+    return age in JUVENILE_AGES
+
+
+def canonical_rating_age(age: str) -> str:
+    if is_juvenile_age(age):
+        return JUVENILE
+    return age
+
+
+def age_progression_index(age: str) -> int:
+    return age_order.index(canonical_rating_age(age))
+
+
+def same_or_higher_progression_ages(age: str) -> list[str]:
+    index = age_progression_index(age)
+    return [
+        candidate
+        for candidate in age_order
+        if age_progression_index(candidate) >= index
+    ]
 
 
 def translate_age(age: str) -> str:

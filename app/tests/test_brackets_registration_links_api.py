@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from extensions import db
-from models import RegistrationLink
-from routes.brackets import _registration_seeding_start_date
+from constants import JUVENILE, JUVENILE_1
+from models import Division, RegistrationLink, RegistrationLinkCompetitor
+from routes.brackets import _registration_seeding_start_date, save_competitors
 from test_db import TestDbMixin
 
 
@@ -88,6 +89,61 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
             )
 
         self.assertEqual(start_date, datetime(2026, 6, 13))
+
+    def test_save_competitors_allows_same_athlete_in_overlapping_juvenile_divisions(
+        self,
+    ):
+        with self.app_module.app.app_context():
+            link = RegistrationLink(
+                name="Juvenile Registration Open 2026",
+                normalized_name="juvenile registration open 2026",
+                updated_at=datetime(2026, 5, 1),
+                link="https://www.ibjjfdb.com/ChampionshipResults/9999/PublicRegistrations?lang=en-US",
+                hidden=False,
+                event_start_date=datetime(2026, 6, 13),
+                event_end_date=datetime(2026, 6, 14),
+            )
+            db.session.add(link)
+            db.session.commit()
+
+            json_data = [
+                {
+                    "FriendlyName": "BLUE / Juvenile / Female / Light",
+                    "RegistrationCategories": [
+                        {
+                            "AthleteName": "Overlapping Juvenile",
+                            "AcademyTeamName": "Team A",
+                        }
+                    ],
+                },
+                {
+                    "FriendlyName": "BLUE / Juvenile 1 / Female / Light",
+                    "RegistrationCategories": [
+                        {
+                            "AthleteName": "Overlapping Juvenile",
+                            "AcademyTeamName": "Team A",
+                        }
+                    ],
+                },
+            ]
+            division_set = {
+                "BLUE / Juvenile / Female / Light",
+                "BLUE / Juvenile 1 / Female / Light",
+            }
+
+            save_competitors(link.id, json_data, division_set)
+
+            rows = (
+                db.session.query(RegistrationLinkCompetitor, Division.age)
+                .join(Division)
+                .filter(RegistrationLinkCompetitor.registration_link_id == link.id)
+                .all()
+            )
+            self.assertEqual(len(rows), 2)
+            self.assertEqual({age for _, age in rows}, {JUVENILE, JUVENILE_1})
+            self.assertEqual(
+                {row.athlete_name for row, _ in rows}, {"Overlapping Juvenile"}
+            )
 
 
 if __name__ == "__main__":

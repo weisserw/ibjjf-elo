@@ -14,7 +14,7 @@ import psycopg2.extras
 
 sys.path.append(str(Path(__file__).resolve().parent.parent / "app"))
 from constants import (
-    translate_age,
+    translate_age_keep_juvenile,
     translate_belt,
     translate_gender,
     translate_weight,
@@ -152,7 +152,7 @@ def parse_division(division_text):
         )
 
     belt = translate_belt(parts[0])
-    age = translate_age(parts[1])
+    age = translate_age_keep_juvenile(parts[1])
     gender = translate_gender(parts[2])
     weight = translate_weight(parts[3])
 

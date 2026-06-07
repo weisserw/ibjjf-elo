@@ -19,6 +19,7 @@ from constants import (
     JUVENILE,
     JUVENILE_1,
     JUVENILE_2,
+    JUVENILE_AGES,
     TEEN_1,
     TEEN_2,
     TEEN_3,
@@ -430,7 +431,7 @@ def matches():
     if age_master7:
         ages.append(MASTER_7)
     if age_juvenile:
-        ages.append(JUVENILE)
+        ages.extend(JUVENILE_AGES)
     if age_teen:
         ages.append(TEEN_1)
         ages.append(TEEN_2)

@@ -34,8 +34,9 @@ from models import (
 import logging
 from normalize import normalize
 from constants import (
-    translate_age,
     translate_age_keep_juvenile,
+    canonical_rating_age,
+    same_or_higher_progression_ages,
     translate_belt,
     translate_weight,
     translate_gender,
@@ -43,7 +44,6 @@ from constants import (
     age_order_all,
     weight_class_order_all,
     gender_order,
-    age_order,
     age_order_adult_first,
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
@@ -81,6 +81,7 @@ from seeding import (
 log = logging.getLogger("ibjjf")
 
 brackets_route = Blueprint("brackets_route", __name__)
+JUVENILE_ARCHIVE_CUTOVER = datetime(2026, 6, 6)
 
 validlink = re.compile(r"^/tournaments/(\d+)/categories/\d+$")
 validibjjfdblink = re.compile(
@@ -101,7 +102,7 @@ def parse_division(name):
     age = None
     for part in parts:
         try:
-            age = translate_age(part)
+            age = translate_age_keep_juvenile(part)
             break
         except ValueError:
             pass
@@ -362,7 +363,7 @@ def get_ratings(
                 result["id"],
                 result["belt"],
                 result["gender"],
-                result["age"],
+                canonical_rating_age(result["age"]),
                 gi,
             )
         )
@@ -472,7 +473,7 @@ def get_ratings(
                 or_(
                     and_(
                         AthleteRating.athlete_id == result["id"],
-                        AthleteRating.age == result["age"],
+                        AthleteRating.age == canonical_rating_age(result["age"]),
                         AthleteRating.belt == result["belt"],
                         AthleteRating.weight == result["weight"],
                         AthleteRating.gender == result["gender"],
@@ -543,9 +544,11 @@ def get_ratings(
             .first()
         )
         if match_result:
-            same_or_higher_ages = age_order[age_order.index(age) :]
+            same_or_higher_ages = same_or_higher_progression_ages(age)
             division = Division(age=age, belt=belt, gi=gi, gender=gender, weight=weight)
-            if match_result.belt != belt or match_result.age != age:
+            if match_result.belt != belt or canonical_rating_age(
+                match_result.age
+            ) != canonical_rating_age(age):
                 last_match = (
                     db.session.query(MatchParticipant)
                     .join(Match)
@@ -752,7 +755,7 @@ def elite_sort(results):
     # sort by belt in descending order of belt rank, then age, then gender, then weight, then rating
     results.sort(
         key=lambda x: (
-            -age_order_adult_first.index(x["age"]),
+            -age_order_adult_first.index(canonical_rating_age(x["age"])),
             belt_order.index(x["belt"]),
             -gender_order.index(x["gender"]),
             -weight_class_order_all.index(x["weight"]),
@@ -926,6 +929,7 @@ def save_competitors(link_id, json_data, division_set):
         gi = is_gi(link.name)
 
         added_row = False
+        imported_divisions = []
         for entry in json_data:
             division_name = entry["FriendlyName"]
             division_name_clean = weightre.sub("", division_name)
@@ -943,11 +947,36 @@ def save_competitors(link_id, json_data, division_set):
                 log.debug(f"Invalid division name: {division_name_clean}")
                 continue
             if db_division is not None:
-                for competitor in entry["RegistrationCategories"]:
-                    name = competitor["AthleteName"].strip()
-                    team = competitor["AcademyTeamName"].strip()
-                    if save_registration_link_competitor(link, db_division, name, team):
-                        added_row = True
+                imported_divisions.append(
+                    (db_division, entry["RegistrationCategories"])
+                )
+
+        division_ids = [db_division.id for db_division, _ in imported_divisions]
+        if division_ids:
+            deleted = (
+                db.session.query(RegistrationLinkCompetitor)
+                .filter(
+                    RegistrationLinkCompetitor.registration_link_id == link.id,
+                    RegistrationLinkCompetitor.division_id.in_(division_ids),
+                )
+                .delete(synchronize_session=False)
+            )
+            if deleted:
+                added_row = True
+
+        for db_division, competitors in imported_divisions:
+            for competitor in competitors:
+                name = competitor["AthleteName"].strip()
+                team = competitor["AcademyTeamName"].strip()
+                db.session.add(
+                    RegistrationLinkCompetitor(
+                        registration_link_id=link.id,
+                        athlete_name=name,
+                        team_name=team,
+                        division_id=db_division.id,
+                    )
+                )
+                added_row = True
     if added_row:
         db.session.commit()
 
@@ -1141,48 +1170,6 @@ def get_db_division(gi, divdata):
         db.session.flush()
 
     return db_division, added_row
-
-
-def save_registration_link_competitor(db_link, db_division, name, team):
-    if db_link is None or db_division is None:
-        return False
-
-    updated = False
-
-    competitor_entries = (
-        db.session.query(RegistrationLinkCompetitor)
-        .filter(
-            RegistrationLinkCompetitor.registration_link_id == db_link.id,
-            RegistrationLinkCompetitor.athlete_name == name,
-        )
-        .all()
-    )
-
-    if not competitor_entries or len(competitor_entries) > 1:
-        if len(competitor_entries) > 1:
-            for entry in competitor_entries:
-                db.session.delete(entry)
-        competitor_entry = RegistrationLinkCompetitor(
-            registration_link_id=db_link.id,
-            athlete_name=name,
-            team_name=team,
-            division_id=db_division.id,
-        )
-        db.session.add(competitor_entry)
-        updated = True
-    elif len(competitor_entries) == 1:
-        competitor_entry = competitor_entries[0]
-        if competitor_entry.division_id != db_division.id:
-            competitor_entry.division_id = db_division.id
-            updated = True
-        if competitor_entry.team_name != team:
-            competitor_entry.team_name = team
-            updated = True
-
-    if updated:
-        db.session.flush()
-
-    return updated
 
 
 def internal_registration_competitors_elites(link):
@@ -2256,7 +2243,7 @@ def competitors():
     if not link or not age or not gender or not gi or not belt or not weight:
         return jsonify({"error": "Missing parameter"}), 400
 
-    age = translate_age(age)
+    age = translate_age_keep_juvenile(age)
     belt = translate_belt(belt)
     weight = translate_weight(weight)
 
@@ -2646,7 +2633,12 @@ def archive_categories():
         .join(Event)
         .join(Division)
         .filter(Event.name == event_name)
-        .filter(Division.age != JUVENILE)
+        .filter(
+            or_(
+                Division.age != JUVENILE,
+                Match.happened_at >= JUVENILE_ARCHIVE_CUTOVER,
+            )
+        )
         .all()
     )
 

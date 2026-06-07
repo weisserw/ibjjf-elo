@@ -47,6 +47,8 @@ const WEIGHT_CLASSES: Record<string, number> = {
   'Ultra Heavy': 8
 }
 
+const JUVENILE_ARCHIVE_CUTOVER = dayjs('2026-06-06');
+
 interface DBTableRowsProps {
   data: Row[]
   loading: boolean
@@ -130,6 +132,10 @@ function DBTableRows(props: DBTableRowsProps) {
 
   const showRating = (row: Row) => {
     return !row.age.startsWith('Teen')
+  }
+
+  const showBracketLink = (row: Row) => {
+    return row.age !== "Juvenile" || !dayjs(row.date).isBefore(JUVENILE_ARCHIVE_CUTOVER, 'day')
   }
 
   const noMatch = (r: Row) => {
@@ -245,7 +251,7 @@ function DBTableRows(props: DBTableRowsProps) {
                         <a href="#" onClick={e => divisionClicked?.(e, row)}>{t(row.age as translationKeys)} / {t(row.gender as translationKeys)} / {t(row.belt as translationKeys)} / {t(row.weight as translationKeys)}</a>
                       }
                       {
-                        !isHistorical(row.event) && row.age !== "Juvenile" &&
+                        !isHistorical(row.event) && showBracketLink(row) &&
                         <button className="button is-small is-tiny" onClick={() => divisionBracketClicked?.(row)}>
                           <span className="icon has-text-info">
                             <i className="fas fa-project-diagram"/>

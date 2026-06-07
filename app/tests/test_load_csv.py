@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 import unittest
 from datetime import datetime
 
@@ -10,6 +11,7 @@ sys.path.insert(
 )
 
 from extensions import db
+from constants import JUVENILE_1
 from models import Athlete, Division, Event, Match, Medal, Team
 from test_db import TestDbMixin
 
@@ -128,6 +130,82 @@ class LoadCsvTestCase(TestDbMixin, unittest.TestCase):
         medals = db.session.query(Medal).all()
         self.assertEqual(len(medals), 1)
         self.assertEqual(medals[0].happened_at, later_happened_at)
+
+    def test_process_file_preserves_juvenile_variant_age(self):
+        fieldnames = [
+            "Tournament ID",
+            "Tournament Name",
+            "Partial Tournament",
+            "Gi",
+            "Date",
+            "Age",
+            "Belt",
+            "Weight",
+            "Gender",
+            "Red Winner",
+            "Blue Winner",
+            "Red Medal",
+            "Blue Medal",
+            "Red ID",
+            "Red Name",
+            "Red Team",
+            "Red Seed",
+            "Red Note",
+            "Blue ID",
+            "Blue Name",
+            "Blue Team",
+            "Blue Seed",
+            "Blue Note",
+            "Match Number",
+            "Match Location",
+            "Fight Number",
+        ]
+        row = {
+            "Tournament ID": "juvenile-event-1",
+            "Tournament Name": "Juvenile Split Open",
+            "Partial Tournament": "false",
+            "Gi": "true",
+            "Date": "2026-01-01T10:00:00",
+            "Age": "Juvenile 1",
+            "Belt": "BLUE",
+            "Weight": "Light",
+            "Gender": "Male",
+            "Red Winner": "true",
+            "Blue Winner": "false",
+            "Red Medal": "",
+            "Blue Medal": "",
+            "Red ID": "red-1",
+            "Red Name": "Red Juvenile",
+            "Red Team": "Red Team",
+            "Red Seed": "1",
+            "Red Note": "",
+            "Blue ID": "blue-1",
+            "Blue Name": "Blue Juvenile",
+            "Blue Team": "Blue Team",
+            "Blue Seed": "2",
+            "Blue Note": "",
+            "Match Number": "1",
+            "Match Location": "Mat 1",
+            "Fight Number": "1",
+        }
+
+        with tempfile.NamedTemporaryFile(
+            "w", newline="", suffix=".csv", delete=False
+        ) as handle:
+            import csv
+
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerow(row)
+            path = handle.name
+        try:
+            load_csv.app = self.app_module.app
+            load_csv.process_file(path, no_scores=True)
+        finally:
+            os.unlink(path)
+
+        division = db.session.query(Division).one()
+        self.assertEqual(division.age, JUVENILE_1)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,8 @@ from constants import (
     OPEN_CLASS_HEAVY,
     OPEN_CLASS_LIGHT,
     JUVENILE,
+    JUVENILE_1,
+    JUVENILE_2,
     ADULT,
     MASTER_1,
     MASTER_2,
@@ -33,8 +35,9 @@ from constants import (
     TEEN_3,
     weight_class_order,
     belt_order,
-    age_order,
     rated_ages,
+    same_or_higher_progression_ages,
+    age_progression_index,
 )
 
 log = logging.getLogger("ibjjf")
@@ -108,6 +111,8 @@ BROWN_DEFAULT_RATINGS = {
 
 PURPLE_DEFAULT_RATINGS = {
     JUVENILE: 1600,
+    JUVENILE_1: 1600,
+    JUVENILE_2: 1600,
     ADULT: 1600,
     MASTER_1: 1502.15,
     MASTER_2: 1491.11,
@@ -120,6 +125,8 @@ PURPLE_DEFAULT_RATINGS = {
 
 BLUE_DEFAULT_RATINGS = {
     JUVENILE: 1400,
+    JUVENILE_1: 1400,
+    JUVENILE_2: 1400,
     ADULT: 1400,
     MASTER_1: 1302.15,
     MASTER_2: 1291.11,
@@ -132,6 +139,8 @@ BLUE_DEFAULT_RATINGS = {
 
 WHITE_DEFAULT_RATINGS = {
     JUVENILE: 1200,
+    JUVENILE_1: 1200,
+    JUVENILE_2: 1200,
     ADULT: 1200,
     MASTER_1: 1102.15,
     MASTER_2: 1091.11,
@@ -431,7 +440,8 @@ def compute_start_rating(
             start_rating = last_match.end_rating + promotion_rating_bump
         rating_note = f"Promoted from {last_match.match.division.belt} to {division.belt} (+{promotion_rating_bump})"
     elif (
-        age_order.index(last_match.match.division.age) < age_order.index(division.age)
+        age_progression_index(last_match.match.division.age)
+        < age_progression_index(division.age)
         and not has_same_or_higher_age_match
         and last_match.end_rating
         < DEFAULT_RATINGS[last_match.match.division.belt][last_match.match.division.age]
@@ -449,7 +459,7 @@ def compute_start_rating(
 
 
 def get_last_matches(db, division, athlete_id, happened_at, match_id):
-    same_or_higher_ages = age_order[age_order.index(division.age) :]
+    same_or_higher_ages = same_or_higher_progression_ages(division.age)
 
     last_match = (
         db.session.query(MatchParticipant)

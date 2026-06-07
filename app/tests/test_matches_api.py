@@ -15,6 +15,9 @@ from constants import (
     LIGHT_FEATHER,
     MALE,
     MASTER_1,
+    JUVENILE,
+    JUVENILE_1,
+    JUVENILE_2,
 )
 from extensions import db
 from models import (
@@ -35,7 +38,8 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
     def _seed_data(cls):
         team1 = Team(name="Test Team", normalized_name="test team")
         team2 = Team(name="Another Squad", normalized_name="another squad")
-        db.session.add_all([team1, team2])
+        team3 = Team(name="Juvenile Team", normalized_name="juvenile team")
+        db.session.add_all([team1, team2, team3])
 
         event1 = Event(
             name="Test Open",
@@ -63,7 +67,38 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             belt=BLUE,
             weight=LIGHT_FEATHER,
         )
-        db.session.add_all([event1, event2, division1, division2])
+        division_juvenile = Division(
+            gi=True,
+            gender=MALE,
+            age=JUVENILE,
+            belt=BLUE,
+            weight=LIGHT,
+        )
+        division_juvenile_1 = Division(
+            gi=True,
+            gender=MALE,
+            age=JUVENILE_1,
+            belt=BLUE,
+            weight=LIGHT,
+        )
+        division_juvenile_2 = Division(
+            gi=True,
+            gender=MALE,
+            age=JUVENILE_2,
+            belt=BLUE,
+            weight=LIGHT,
+        )
+        db.session.add_all(
+            [
+                event1,
+                event2,
+                division1,
+                division2,
+                division_juvenile,
+                division_juvenile_1,
+                division_juvenile_2,
+            ]
+        )
         db.session.flush()
 
         athlete1 = Athlete(
@@ -90,7 +125,16 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             slug="another-opponent",
             country="br",
         )
-        db.session.add_all([athlete1, athlete2, athlete3, athlete4])
+        juvenile_athletes = [
+            Athlete(
+                name=f"Juvenile Athlete {index}",
+                normalized_name=f"juvenile athlete {index}",
+                slug=f"juvenile-athlete-{index}",
+                country="us",
+            )
+            for index in range(1, 7)
+        ]
+        db.session.add_all([athlete1, athlete2, athlete3, athlete4, *juvenile_athletes])
         db.session.flush()
 
         match1 = Match(
@@ -126,12 +170,27 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             match_location="Mat 4",
             video_link=None,
         )
+        juvenile_matches = [
+            Match(
+                event_id=event1.id,
+                division_id=division.id,
+                happened_at=datetime(2024, 3, index, 12, 0, 0),
+                rated=True,
+                match_location=f"Mat {index + 4}",
+                video_link=None,
+            )
+            for index, division in enumerate(
+                [division_juvenile, division_juvenile_1, division_juvenile_2],
+                start=1,
+            )
+        ]
         db.session.add_all(
             [
                 match1,
                 match2,
                 match_dq_technical,
                 match_dq_disciplinary,
+                *juvenile_matches,
             ]
         )
         db.session.flush()
@@ -239,6 +298,37 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
                 end_match_count=12,
             ),
         ]
+        for index, match in enumerate(juvenile_matches):
+            red_athlete = juvenile_athletes[index * 2]
+            blue_athlete = juvenile_athletes[index * 2 + 1]
+            participants.extend(
+                [
+                    MatchParticipant(
+                        match_id=match.id,
+                        athlete_id=red_athlete.id,
+                        team_id=team3.id,
+                        seed=1,
+                        red=True,
+                        winner=True,
+                        start_rating=1200.0,
+                        end_rating=1210.0,
+                        start_match_count=1,
+                        end_match_count=2,
+                    ),
+                    MatchParticipant(
+                        match_id=match.id,
+                        athlete_id=blue_athlete.id,
+                        team_id=team3.id,
+                        seed=2,
+                        red=False,
+                        winner=False,
+                        start_rating=1200.0,
+                        end_rating=1190.0,
+                        start_match_count=1,
+                        end_match_count=2,
+                    ),
+                ]
+            )
         db.session.add_all(participants)
 
         ratings = [
@@ -474,6 +564,19 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         mock_livestreams.return_value = self._patch_livestreams()
         response = self.client.get("/api/matches?gi=true&dq_type_technical=false")
         self.assertEqual(response.status_code, 200)
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_juvenile_filter_includes_all_juvenile_variants(
+        self, mock_livestreams, _mock_s3
+    ):
+        mock_livestreams.return_value = self._patch_livestreams()
+        response = self.client.get("/api/matches?gi=true&age_juvenile=true")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["rows"]), 3)
+        ages = {row["age"] for row in data["rows"]}
+        self.assertEqual(ages, {JUVENILE, JUVENILE_1, JUVENILE_2})
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")

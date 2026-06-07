@@ -25,6 +25,13 @@ import logging
 log = logging.getLogger("ibjjf")
 
 
+def _public_age_sql(alias: str) -> str:
+    return (
+        f"CASE WHEN {alias}.age IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2) "
+        f"THEN :JUVENILE ELSE {alias}.age END"
+    )
+
+
 def create_ratings_tables(
     session,
     gi_in: str,
@@ -192,7 +199,7 @@ def create_ratings_tables(
                 mp.athlete_id,
                 d.gi,
                 d.gender,
-                d.age,
+                {_public_age_sql("d")} AS age,
                 d.belt,
                 d.weight
             FROM match_participants mp
@@ -235,7 +242,7 @@ def create_ratings_tables(
                 mp.athlete_id,
                 d.gi,
                 d.gender,
-                d.age,
+                {_public_age_sql("d")} AS age,
                 d.belt,
                 d.weight
             FROM match_participants mp
@@ -279,7 +286,7 @@ def create_ratings_tables(
                     a.id AS athlete_id,
                     d.gi,
                     d.gender,
-                    d.age,
+                    {_public_age_sql("d")} AS age,
                     d.belt,
                     d.weight
                 FROM registration_link_competitors r
@@ -310,7 +317,7 @@ def create_ratings_tables(
                     mp.athlete_id,
                     d.gi,
                     d.gender,
-                    d.age,
+                    {_public_age_sql("d")} AS age,
                     d.weight
                 FROM match_participants mp
                 JOIN matches m ON m.id = mp.match_id
@@ -323,7 +330,7 @@ def create_ratings_tables(
                         WHERE wm.athlete_id = mp.athlete_id
                         AND wm.gi = d.gi
                         AND wm.gender = d.gender
-                        AND wm.age = d.age
+                        AND wm.age = {_public_age_sql("d")}
                         AND wm.belt = d.belt
                         AND wm.weight = d.weight
                     ) OR (
@@ -334,7 +341,7 @@ def create_ratings_tables(
                             WHERE lm.athlete_id = mp.athlete_id
                             AND lm.gi = d.gi
                             AND lm.gender = d.gender
-                            AND lm.age = d.age
+                            AND lm.age = {_public_age_sql("d")}
                             AND lm.belt = d.belt
                             AND lm.weight = d.weight
                         ) AND NOT EXISTS (
@@ -343,7 +350,7 @@ def create_ratings_tables(
                             WHERE wm.athlete_id = mp.athlete_id
                             AND wm.gi = d.gi
                             AND wm.gender = d.gender
-                            AND wm.age = d.age
+                            AND wm.age = {_public_age_sql("d")}
                             AND wm.belt = d.belt
                             AND wm.weight != d.weight
                         )
@@ -550,10 +557,8 @@ def generate_current_ratings(
         id_generate = "gen_random_uuid()"
         id_generate_avg = "gen_random_uuid()"
     else:
-        id_generate = "c.athlete_id || '-' || c.gender || '-' || c.age || '-' || c.gi || '-' || c.weight"
-        id_generate_avg = (
-            "gender || '-' || age || '-' || belt || '-' || gi || '-' || weight"
-        )
+        id_generate = "lower(hex(randomblob(16)))"
+        id_generate_avg = "lower(hex(randomblob(16)))"
 
     banned = (
         db.session.query(Suspension.athlete_name)

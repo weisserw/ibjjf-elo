@@ -41,7 +41,7 @@ from constants import (  # noqa: E402
     TEEN_2,
     TEEN_3,
     belt_order,
-    translate_age,
+    translate_age_keep_juvenile,
     translate_belt,
     translate_gender,
     translate_weight,
@@ -50,8 +50,8 @@ from constants import (  # noqa: E402
 # Once an athlete has competed/medaled in any of ADULT_OR_MASTERS, they cannot
 # legitimately appear in TEEN_AGES or JUVENILE_AGES. Once they have JUVENILE
 # history, they cannot appear in TEEN_AGES. ADULT <-> MASTERS is fine in both
-# directions. JUVENILE_1 / JUVENILE_2 are folded to JUVENILE by translate_age,
-# but include them in the set for robustness against raw stored values.
+# directions. Juvenile variants share plausibility rules even though they are
+# stored separately.
 TEEN_AGES = {TEEN_1, TEEN_2, TEEN_3}
 JUVENILE_AGES = {JUVENILE, JUVENILE_1, JUVENILE_2}
 ADULT_OR_MASTERS = {
@@ -169,7 +169,7 @@ def parse_division_parts(raw_division: str) -> Optional[tuple]:
     for part in parts:
         if age is None:
             try:
-                age = translate_age(part)
+                age = translate_age_keep_juvenile(part)
                 continue
             except ValueError:
                 pass

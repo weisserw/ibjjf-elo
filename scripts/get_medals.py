@@ -50,7 +50,7 @@ from bs4 import BeautifulSoup
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 from constants import (  # noqa: E402
-    translate_age,
+    translate_age_keep_juvenile,
     translate_belt,
     translate_gender,
     translate_weight,
@@ -317,7 +317,7 @@ def parse_division(name):
     for part in parts:
         if age is None:
             try:
-                age = translate_age(part)
+                age = translate_age_keep_juvenile(part)
                 continue
             except ValueError:
                 pass

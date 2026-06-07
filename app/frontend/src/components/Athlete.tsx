@@ -30,6 +30,8 @@ import {
 
 import './Athlete.css';
 
+const JUVENILE_ARCHIVE_CUTOVER = dayjs('2026-06-06');
+
 interface Athlete {
   id: string;
   name: string;
@@ -276,6 +278,19 @@ function Athlete() {
     setBracketArchiveEventNameFetch('"' + medal.event_name + '"')
     setBracketArchiveSelectedCategory(medal.division)
     navigate('/tournaments/archive')
+  }
+
+  const showMedalBracketLink = (medal: Medal) => {
+    if (medal.event_medals_only || isHistorical(medal.event_name)) {
+      return false;
+    }
+    if (!medal.division.includes('Juvenile')) {
+      return true;
+    }
+    if (medal.division.includes('Juvenile 1') || medal.division.includes('Juvenile 2')) {
+      return true;
+    }
+    return !dayjs(medal.happened_at).isBefore(JUVENILE_ARCHIVE_CUTOVER, 'day');
   }
 
   const isWorlds = (eventName: string) => {
@@ -842,7 +857,7 @@ function Athlete() {
                             </div>
                           </td>
                           <td className="medal-division-cell">
-                            {(!medal.event_medals_only && !isHistorical(medal.event_name) && !medal.division.includes('Juvenile')) ?
+                            {showMedalBracketLink(medal) ?
                               <a href="#" onClick={(e) => medalBracketClicked(e, medal)}>
                                 {translateMulti(medal.division)}
                               </a> : <span>{translateMulti(medal.division)}</span>

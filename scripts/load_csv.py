@@ -17,7 +17,7 @@ from constants import (
     translate_belt,
     translate_weight,
     translate_gender,
-    translate_age,
+    translate_age_keep_juvenile,
 )
 from normalize import normalize
 from elo import match_didnt_happen
@@ -225,7 +225,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                             bar.next()
 
                             try:
-                                age = translate_age(row["Age"])
+                                age = translate_age_keep_juvenile(row["Age"])
                             except ValueError:
                                 continue  # < teen 1 ages raise ValueError
 
