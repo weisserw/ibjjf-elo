@@ -85,6 +85,14 @@ interface Suspension {
   suspending_org: string;
 }
 
+interface MediaCoverage {
+  id: string;
+  date: string;
+  type: 'feature' | 'news' | 'video' | 'podcast';
+  url: string;
+  title: string;
+}
+
 interface ResponseData {
   athlete: Athlete;
   eloHistory: Elo[];
@@ -93,6 +101,7 @@ interface ResponseData {
   medals: Medal[];
   teamHistory: TeamHistoryEntry[];
   suspensions: Suspension[];
+  mediaCoverage: MediaCoverage[];
 }
 
 const ageOrder = (age: string): number => {
@@ -185,6 +194,7 @@ function Athlete() {
   const [reloading, setReloading] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
   const [showAllMedals, setShowAllMedals] = useState(false);
+  const [mediaCoverageOpen, setMediaCoverageOpen] = useState(true);
 
   const {
     activeTab,
@@ -484,6 +494,21 @@ function Athlete() {
     }
 
     return parsed.locale(language).format('MMM YYYY');
+  };
+
+  const formatMediaCoverageDate = (rawDate: string) => {
+    const parsed = dayjs(rawDate);
+    if (!parsed.isValid()) {
+      return '';
+    }
+    return parsed.locale(language).format('MMM D, YYYY');
+  };
+
+  const mediaCoverageTypeLabel = (type: MediaCoverage['type']) => {
+    if (type === 'video') return t("Video");
+    if (type === 'news') return t("News");
+    if (type === 'podcast') return t("Podcast");
+    return t("Feature");
   };
 
   const isSuspended = useMemo(() => {
@@ -807,6 +832,42 @@ function Athlete() {
         }
       </div>
       {
+        responseData.mediaCoverage.length > 0 && (
+          <div className={classNames("box accordion-box mt-5 athlete-media-box", {"open": mediaCoverageOpen})}>
+            <div className="accordion">
+              <header className="accordion-header" onClick={() => setMediaCoverageOpen(!mediaCoverageOpen)}>
+                <p><strong>{t("Media Coverage")} 📺</strong></p>
+                <span className={`accordion-icon ${mediaCoverageOpen ? 'is-active' : ''}`}>
+                  <i className={`fas fa-angle-${mediaCoverageOpen ? 'up' : 'down'}`}></i>
+                </span>
+              </header>
+              {mediaCoverageOpen && (
+                <div className="accordion-body athlete-media-body">
+                  <div className="athlete-media-list">
+                    {responseData.mediaCoverage.map((item) => (
+                      <div key={item.id} className="athlete-media-item">
+                        <span className="athlete-media-date">{formatMediaCoverageDate(item.date)}</span>
+                        <span className={`tag athlete-media-type-tag athlete-media-type-tag--${item.type}`}>
+                          {mediaCoverageTypeLabel(item.type)}
+                        </span>
+                        <a
+                          className="athlete-media-title"
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {item.title}
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      }
+      {
         sortedMedals.length > 0 && (
           <div className={classNames("box accordion-box mt-5", {"open": medalCaseOpen})}>
             <div className="accordion">
@@ -878,7 +939,7 @@ function Athlete() {
           <div className={classNames("box accordion-box mt-5", {"open": teamHistoryCaseOpen})}>
             <div className="accordion">
               <header className="accordion-header" onClick={() => setTeamHistoryCaseOpen(!teamHistoryCaseOpen)}>
-                <p><strong>{t("Team History")}</strong></p>
+                <p><strong>{t("Team History")} 📅</strong></p>
                 <span className={`accordion-icon ${teamHistoryCaseOpen ? 'is-active' : ''}`}>
                   <i className={`fas fa-angle-${teamHistoryCaseOpen ? 'up' : 'down'}`}></i>
                 </span>

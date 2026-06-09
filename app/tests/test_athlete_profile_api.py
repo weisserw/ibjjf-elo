@@ -1,7 +1,7 @@
 import os
 import sys
 import unittest
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -9,6 +9,7 @@ from constants import ADULT, BLACK, LIGHT, MALE
 from extensions import db
 from models import (
     Athlete,
+    AthleteMediaCoverage,
     AthleteRating,
     AthleteRatingAverage,
     Division,
@@ -37,7 +38,17 @@ class AthleteProfileApiTestCase(TestDbMixin, unittest.TestCase):
             slug="test-athlete",
             country="US",
         )
-        db.session.add(athlete)
+        other_athlete = Athlete(
+            name="Other Athlete",
+            normalized_name="other athlete",
+            slug="other-athlete",
+        )
+        no_media_athlete = Athlete(
+            name="No Media Athlete",
+            normalized_name="no media athlete",
+            slug="no-media-athlete",
+        )
+        db.session.add_all([athlete, other_athlete, no_media_athlete])
 
         event = Event(
             name="Test Open",
@@ -138,6 +149,56 @@ class AthleteProfileApiTestCase(TestDbMixin, unittest.TestCase):
         )
         db.session.add(registration_competitor)
 
+        db.session.add_all(
+            [
+                AthleteMediaCoverage(
+                    athlete_id=athlete.id,
+                    covered_at=date(2024, 5, 1),
+                    coverage_type="feature",
+                    url="https://example.com/feature",
+                    title="Feature Story",
+                    created_at=datetime(2024, 5, 1, 10, 0, 0),
+                    updated_at=datetime(2024, 5, 1, 10, 0, 0),
+                ),
+                AthleteMediaCoverage(
+                    athlete_id=athlete.id,
+                    covered_at=date(2024, 6, 1),
+                    coverage_type="news",
+                    url="https://example.com/news",
+                    title="News Story",
+                    created_at=datetime(2024, 6, 1, 10, 0, 0),
+                    updated_at=datetime(2024, 6, 1, 10, 0, 0),
+                ),
+                AthleteMediaCoverage(
+                    athlete_id=athlete.id,
+                    covered_at=date(2024, 6, 1),
+                    coverage_type="video",
+                    url="https://example.com/video",
+                    title="Video Story",
+                    created_at=datetime(2024, 6, 1, 11, 0, 0),
+                    updated_at=datetime(2024, 6, 1, 11, 0, 0),
+                ),
+                AthleteMediaCoverage(
+                    athlete_id=athlete.id,
+                    covered_at=date(2024, 6, 2),
+                    coverage_type="podcast",
+                    url="https://example.com/podcast",
+                    title="Podcast Story",
+                    created_at=datetime(2024, 6, 2, 10, 0, 0),
+                    updated_at=datetime(2024, 6, 2, 10, 0, 0),
+                ),
+                AthleteMediaCoverage(
+                    athlete_id=other_athlete.id,
+                    covered_at=date(2024, 7, 1),
+                    coverage_type="news",
+                    url="https://example.com/other",
+                    title="Other Athlete Story",
+                    created_at=datetime(2024, 7, 1, 10, 0, 0),
+                    updated_at=datetime(2024, 7, 1, 10, 0, 0),
+                ),
+            ]
+        )
+
         suspension = Suspension(
             athlete_name=athlete.name,
             start_date=datetime(2024, 1, 10, 0, 0, 0),
@@ -164,6 +225,43 @@ class AthleteProfileApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(len(data["registrations"]), 1)
         self.assertEqual(len(data["medals"]), 1)
         self.assertEqual(len(data["suspensions"]), 1)
+        self.assertEqual(
+            [
+                (row["date"], row["type"], row["title"], row["url"])
+                for row in data["mediaCoverage"]
+            ],
+            [
+                (
+                    "2024-06-02",
+                    "podcast",
+                    "Podcast Story",
+                    "https://example.com/podcast",
+                ),
+                (
+                    "2024-06-01",
+                    "video",
+                    "Video Story",
+                    "https://example.com/video",
+                ),
+                ("2024-06-01", "news", "News Story", "https://example.com/news"),
+                (
+                    "2024-05-01",
+                    "feature",
+                    "Feature Story",
+                    "https://example.com/feature",
+                ),
+            ],
+        )
+        self.assertNotIn(
+            "Other Athlete Story",
+            [row["title"] for row in data["mediaCoverage"]],
+        )
+
+    def test_get_athlete_profile_without_media_coverage(self):
+        response = self.client.get("/api/athlete/no-media-athlete")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data["mediaCoverage"], [])
 
     def test_get_athlete_profile_not_found(self):
         response = self.client.get("/api/athlete/missing-athlete")

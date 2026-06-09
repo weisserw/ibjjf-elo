@@ -13,6 +13,7 @@ from sqlalchemy import (
     Float,
     Index,
     UniqueConstraint,
+    CheckConstraint,
     BigInteger,
 )
 from sqlalchemy.orm import relationship
@@ -129,6 +130,45 @@ class Athlete(db.Model):
             "ix_athletes_normalized_personal_name_tsvector",
             "normalized_personal_name_tsvector",
             postgresql_using="gin",
+        ),
+    )
+
+
+class AthleteMediaCoverage(db.Model):
+    __tablename__ = "athlete_media_coverage"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    athlete_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("athletes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    covered_at = Column(Date, nullable=False)
+    coverage_type = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    athlete = relationship("Athlete", lazy="select", viewonly=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "coverage_type IN ('feature', 'news', 'video', 'podcast')",
+            name="ck_athlete_media_coverage_type",
+        ),
+        Index("ix_athlete_media_coverage_athlete_id", "athlete_id"),
+        Index(
+            "ix_athlete_media_coverage_athlete_date",
+            "athlete_id",
+            "covered_at",
+        ),
+        UniqueConstraint(
+            "athlete_id",
+            "url",
+            name="uq_athlete_media_coverage_athlete_url",
         ),
     )
 

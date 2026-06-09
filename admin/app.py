@@ -9,7 +9,7 @@ import traceback
 import signal
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from flask import Flask, render_template, redirect, url_for, request, session, jsonify
 from urllib.parse import urlparse, urlencode, urlunparse
 from sqlalchemy import or_, func
@@ -34,6 +34,7 @@ from models import (
     BackgroundTask,
     FloSearchName,
     TeamNameMapping,
+    AthleteMediaCoverage,
 )
 from normalize import normalize
 from elo import WINNER_NOT_RECORDED
@@ -60,6 +61,8 @@ db.init_app(app)
 # Admin password
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
 MAX_PROFILE_PHOTO_BYTES = 1 * 1024 * 1024
+MEDIA_COVERAGE_TYPES = ("feature", "news", "video", "podcast")
+MAX_MEDIA_TITLE_SCAN_BYTES = 4 * 1024 * 1024
 
 
 def _append_task_log(task, text):
@@ -328,6 +331,95 @@ def bjjcompsystem_tournaments():
             if value:
                 options.append({"id": value, "name": label})
         return jsonify({"tournaments": options})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+def _is_http_url(url):
+    parsed = urlparse(url)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def _parse_media_coverage_date(raw_date):
+    if not raw_date:
+        return None
+    try:
+        return datetime.strptime(raw_date, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _media_coverage_form_values(form):
+    return {
+        "covered_at": (form.get("covered_at") or "").strip(),
+        "coverage_type": (form.get("coverage_type") or "").strip(),
+        "url": (form.get("url") or "").strip(),
+        "title": (form.get("title") or "").strip(),
+    }
+
+
+def _validate_media_coverage_values(values):
+    errors = []
+    covered_at = _parse_media_coverage_date(values["covered_at"])
+    if covered_at is None:
+        errors.append("Date must be a valid YYYY-MM-DD date.")
+    if values["coverage_type"] not in MEDIA_COVERAGE_TYPES:
+        errors.append("Type must be Feature, News, Video, or Podcast.")
+    if not values["url"] or not _is_http_url(values["url"]):
+        errors.append("URL must start with http:// or https://.")
+    if not values["title"]:
+        errors.append("Title is required.")
+    return covered_at, errors
+
+
+def _fetch_media_title(url):
+    with requests.get(
+        url,
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=10,
+        allow_redirects=True,
+        stream=True,
+    ) as response:
+        response.raise_for_status()
+        content_type = (response.headers.get("Content-Type") or "").lower()
+        if content_type and (
+            "text/html" not in content_type
+            and "application/xhtml+xml" not in content_type
+        ):
+            raise ValueError("URL did not return an HTML page.")
+
+        html_buffer = bytearray()
+        total_bytes = 0
+        for chunk in response.iter_content(chunk_size=16384):
+            if not chunk:
+                continue
+            total_bytes += len(chunk)
+            html_buffer.extend(chunk)
+            if b"</title" in html_buffer.lower():
+                break
+            if total_bytes > MAX_MEDIA_TITLE_SCAN_BYTES:
+                raise ValueError("No <title> found near the start of the HTML page.")
+
+    soup = BeautifulSoup(bytes(html_buffer), "html.parser")
+    title = soup.find("title")
+    if not title:
+        raise ValueError("No <title> found.")
+
+    title_text = " ".join(title.get_text(" ", strip=True).split())
+    if not title_text:
+        raise ValueError("No title text found.")
+    return title_text
+
+
+@app.route("/api/media_title", methods=["POST"])
+def media_title():
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    if not _is_http_url(url):
+        return jsonify({"error": "URL must start with http:// or https://."}), 400
+
+    try:
+        return jsonify({"title": _fetch_media_title(url)})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 502
 
@@ -1322,6 +1414,105 @@ def athlete_edit():
         message=message,
         error_message=error_message,
         photo_url=photo_url,
+    )
+
+
+@app.route("/athlete_media", methods=["GET", "POST"])
+def athlete_media():
+    athlete_id = request.values.get("id") or request.values.get("athlete_id")
+    athlete = None
+    media_coverage = []
+    message = None
+    error_message = None
+    add_values = {
+        "covered_at": date.today().strftime("%Y-%m-%d"),
+        "coverage_type": "feature",
+        "url": "",
+        "title": "",
+    }
+
+    if athlete_id:
+        try:
+            athlete = Athlete.query.get(uuid.UUID(athlete_id))
+        except ValueError:
+            athlete = None
+
+    if request.method == "POST" and athlete:
+        action = (request.form.get("action") or "").strip()
+
+        if action == "delete":
+            media_id = request.form.get("media_id")
+            try:
+                media_item = AthleteMediaCoverage.query.get(uuid.UUID(media_id))
+            except (TypeError, ValueError):
+                media_item = None
+            if media_item and media_item.athlete_id == athlete.id:
+                db.session.delete(media_item)
+                db.session.commit()
+                message = "Media coverage deleted."
+            else:
+                error_message = "Media coverage item not found."
+
+        elif action in {"add", "update"}:
+            values = _media_coverage_form_values(request.form)
+            covered_at, errors = _validate_media_coverage_values(values)
+            if action == "add":
+                add_values = values
+
+            if errors:
+                error_message = " ".join(errors)
+            else:
+                try:
+                    if action == "add":
+                        media_item = AthleteMediaCoverage(athlete_id=athlete.id)
+                        db.session.add(media_item)
+                        success_message = "Media coverage added."
+                    else:
+                        media_id = request.form.get("media_id")
+                        media_item = AthleteMediaCoverage.query.get(uuid.UUID(media_id))
+                        if not media_item or media_item.athlete_id != athlete.id:
+                            raise ValueError("Media coverage item not found.")
+                        success_message = "Media coverage updated."
+
+                    media_item.covered_at = covered_at
+                    media_item.coverage_type = values["coverage_type"]
+                    media_item.url = values["url"]
+                    media_item.title = values["title"]
+                    db.session.commit()
+                    message = success_message
+                    add_values = {
+                        "covered_at": date.today().strftime("%Y-%m-%d"),
+                        "coverage_type": "feature",
+                        "url": "",
+                        "title": "",
+                    }
+                except IntegrityError:
+                    db.session.rollback()
+                    error_message = (
+                        "This athlete already has media coverage with that URL."
+                    )
+                except (TypeError, ValueError) as exc:
+                    db.session.rollback()
+                    error_message = str(exc)
+
+    if athlete:
+        media_coverage = (
+            AthleteMediaCoverage.query.filter_by(athlete_id=athlete.id)
+            .order_by(
+                AthleteMediaCoverage.covered_at.desc(),
+                AthleteMediaCoverage.created_at.desc(),
+            )
+            .all()
+        )
+
+    return render_template(
+        "athlete_media.html",
+        athlete=athlete,
+        media_coverage=media_coverage,
+        media_types=MEDIA_COVERAGE_TYPES,
+        add_values=add_values,
+        message=message,
+        error_message=error_message,
     )
 
 

@@ -20,6 +20,7 @@ from models import (
     Medal,
     Event,
     Suspension,
+    AthleteMediaCoverage,
 )
 from normalize import normalize
 from team_name_mapping import load_team_name_mappings, resolve_dupe_team_name
@@ -598,6 +599,24 @@ def get_athlete_data(identifier, gi_param=None, all_medals=False):
         .all()
     ]
     team_history = _get_athlete_team_history(id_uuid)
+    media_coverage = [
+        {
+            "id": str(row.id),
+            "date": row.covered_at.strftime("%Y-%m-%d"),
+            "type": row.coverage_type,
+            "url": row.url,
+            "title": row.title,
+        }
+        for row in (
+            db.session.query(AthleteMediaCoverage)
+            .filter(AthleteMediaCoverage.athlete_id == id_uuid)
+            .order_by(
+                AthleteMediaCoverage.covered_at.desc(),
+                AthleteMediaCoverage.created_at.desc(),
+            )
+            .all()
+        )
+    ]
 
     return {
         "athlete": athlete_json,
@@ -607,6 +626,7 @@ def get_athlete_data(identifier, gi_param=None, all_medals=False):
         "medals": medals,
         "teamHistory": team_history,
         "suspensions": suspensions,
+        "mediaCoverage": media_coverage,
     }
 
 

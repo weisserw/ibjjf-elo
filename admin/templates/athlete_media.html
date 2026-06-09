@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Media Coverage for {{ athlete.name if athlete else "Athlete" }}{% endblock %}
+{% block content %}
+<div class="container mt-6">
+  <div class="box">
+    {% if athlete %}
+      <h1 class="title is-4 has-text-centered">Media Coverage for {{ athlete.name }}</h1>
+
+      {% if message %}
+        <div class="notification is-success is-light">{{ message }}</div>
+      {% endif %}
+      {% if error_message %}
+        <div class="notification is-danger is-light">{{ error_message }}</div>
+      {% endif %}
+
+      <div class="buttons">
+        <a class="button is-link is-light" href="{{ url_for('athlete_edit', id=athlete.id) }}">Back to Athlete</a>
+      </div>
+
+      <h2 class="title is-5 mt-5">Add Link</h2>
+      <form method="POST" action="{{ url_for('athlete_media') }}" class="box">
+        <input type="hidden" name="athlete_id" value="{{ athlete.id }}">
+        <input type="hidden" name="action" value="add">
+        <div class="columns">
+          <div class="column is-2">
+            <label class="label">Date</label>
+            <input class="input" type="date" name="covered_at" value="{{ add_values.covered_at }}" required>
+          </div>
+          <div class="column is-2">
+            <label class="label">Type</label>
+            <div class="select is-fullwidth">
+              <select name="coverage_type" required>
+                {% for media_type in media_types %}
+                  <option value="{{ media_type }}" {% if add_values.coverage_type == media_type %}selected{% endif %}>{{ media_type|title }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="column">
+            <label class="label">URL</label>
+            <input class="input media-url-input" type="url" name="url" value="{{ add_values.url }}" placeholder="https://example.com/story" required>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Title</label>
+          <div class="field has-addons">
+            <div class="control is-expanded">
+              <input class="input media-title-input" type="text" name="title" value="{{ add_values.title }}" required>
+            </div>
+            <div class="control">
+              <button class="button is-link is-light fetch-title-button" type="button">Fetch Title</button>
+            </div>
+          </div>
+          <p class="help is-danger media-title-error"></p>
+        </div>
+        <button class="button is-primary" type="submit">Add Media Coverage</button>
+      </form>
+
+      <h2 class="title is-5 mt-5">Existing Links</h2>
+      {% if media_coverage %}
+        <div class="table-container">
+          <table class="table is-fullwidth is-striped">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>URL</th>
+                <th>Title</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in media_coverage %}
+                {% set form_id = "media-form-" ~ item.id %}
+                <tr>
+                  <td>
+                    <input form="{{ form_id }}" class="input" type="date" name="covered_at" value="{{ item.covered_at.strftime('%Y-%m-%d') }}" required>
+                  </td>
+                  <td>
+                    <div class="select">
+                      <select form="{{ form_id }}" name="coverage_type" required>
+                        {% for media_type in media_types %}
+                          <option value="{{ media_type }}" {% if item.coverage_type == media_type %}selected{% endif %}>{{ media_type|title }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                  </td>
+                  <td>
+                    <input form="{{ form_id }}" class="input media-url-input" type="url" name="url" value="{{ item.url }}" required>
+                    <a class="is-size-7" href="{{ item.url }}" target="_blank" rel="noopener noreferrer">Open</a>
+                  </td>
+                  <td>
+                    <div class="field has-addons">
+                      <div class="control is-expanded">
+                        <input form="{{ form_id }}" class="input media-title-input" type="text" name="title" value="{{ item.title }}" required>
+                      </div>
+                      <div class="control">
+                        <button class="button is-link is-light fetch-title-button" type="button">Fetch</button>
+                      </div>
+                    </div>
+                    <p class="help is-danger media-title-error"></p>
+                  </td>
+                  <td class="has-text-right">
+                    <form id="{{ form_id }}" method="POST" action="{{ url_for('athlete_media') }}">
+                      <input type="hidden" name="athlete_id" value="{{ athlete.id }}">
+                      <input type="hidden" name="media_id" value="{{ item.id }}">
+                      <input type="hidden" name="action" value="update">
+                      <button class="button is-small is-primary" type="submit">Save</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('athlete_media') }}" class="mt-2">
+                      <input type="hidden" name="athlete_id" value="{{ athlete.id }}">
+                      <input type="hidden" name="media_id" value="{{ item.id }}">
+                      <input type="hidden" name="action" value="delete">
+                      <button class="button is-small is-danger is-light" type="submit">Delete</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="has-text-grey">No media coverage links yet.</p>
+      {% endif %}
+    {% else %}
+      <p class="has-text-danger">Athlete not found.</p>
+      <a class="button is-link is-light mt-4" href="{{ url_for('athletes') }}">Back to Search</a>
+    {% endif %}
+  </div>
+</div>
+<script>
+  document.querySelectorAll('.fetch-title-button').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const container = button.closest('form') || button.closest('tr');
+      const urlInput = container.querySelector('.media-url-input');
+      const titleInput = container.querySelector('.media-title-input');
+      const errorText = container.querySelector('.media-title-error');
+      const url = urlInput.value.trim();
+
+      errorText.textContent = '';
+      button.classList.add('is-loading');
+      button.disabled = true;
+
+      try {
+        const response = await fetch('{{ url_for("media_title") }}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({url}),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || 'Unable to fetch title.');
+        }
+        titleInput.value = payload.title;
+      } catch (error) {
+        errorText.textContent = error.message || 'Unable to fetch title.';
+      } finally {
+        button.classList.remove('is-loading');
+        button.disabled = false;
+      }
+    });
+  });
+</script>
+{% endblock %}
