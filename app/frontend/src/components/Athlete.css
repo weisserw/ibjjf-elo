@@ -162,8 +162,9 @@
 
 .athlete-media-item {
   display: grid;
-  grid-template-columns: 110px 72px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 110px 72px 10px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 8px;
   align-items: center;
   padding-bottom: 10px;
   border-bottom: 1px solid #e5e5e5;
@@ -214,8 +215,8 @@
 }
 
 .tag.athlete-media-type-tag--technique {
-  background-color: #e9f8f5;
-  color: #126b5b;
+  background-color: #eaf2ff;
+  color: #2457b8;
 }
 
 .tag.athlete-media-type-tag--interview {
@@ -236,6 +237,7 @@
 }
 
 .athlete-media-title-cell {
+  grid-column: 4;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -279,7 +281,12 @@
   }
   .athlete-media-item {
     grid-template-columns: 1fr;
-    gap: 2px;
+    column-gap: 0;
+    row-gap: 2px;
+    justify-items: start;
+  }
+  .athlete-media-title-cell {
+    grid-column: auto;
   }
 }
 
