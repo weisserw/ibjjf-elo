@@ -53,6 +53,12 @@
           </div>
           <p class="help is-danger media-title-error"></p>
         </div>
+        <div class="field">
+          <label class="checkbox">
+            <input type="checkbox" name="portuguese" {% if add_values.portuguese %}checked{% endif %}>
+            Portuguese
+          </label>
+        </div>
         <button class="button is-primary" type="submit">Add Media Coverage</button>
       </form>
 
@@ -66,6 +72,7 @@
                 <th>Type</th>
                 <th>URL</th>
                 <th>Title</th>
+                <th>Portuguese</th>
                 <th></th>
               </tr>
             </thead>
@@ -99,6 +106,11 @@
                       </div>
                     </div>
                     <p class="help is-danger media-title-error"></p>
+                  </td>
+                  <td>
+                    <label class="checkbox">
+                      <input form="{{ form_id }}" type="checkbox" name="portuguese" {% if item.portuguese %}checked{% endif %}>
+                    </label>
                   </td>
                   <td class="has-text-right">
                     <form id="{{ form_id }}" method="POST" action="{{ url_for('athlete_media') }}">

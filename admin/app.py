@@ -61,7 +61,16 @@ db.init_app(app)
 # Admin password
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
 MAX_PROFILE_PHOTO_BYTES = 1 * 1024 * 1024
-MEDIA_COVERAGE_TYPES = ("feature", "news", "video", "podcast")
+MEDIA_COVERAGE_TYPES = (
+    "feature",
+    "news",
+    "video",
+    "podcast",
+    "highlight",
+    "technique",
+    "interview",
+    "breakdown",
+)
 MAX_MEDIA_TITLE_SCAN_BYTES = 4 * 1024 * 1024
 
 
@@ -355,6 +364,7 @@ def _media_coverage_form_values(form):
         "coverage_type": (form.get("coverage_type") or "").strip(),
         "url": (form.get("url") or "").strip(),
         "title": (form.get("title") or "").strip(),
+        "portuguese": form.get("portuguese") == "on",
     }
 
 
@@ -364,7 +374,9 @@ def _validate_media_coverage_values(values):
     if covered_at is None:
         errors.append("Date must be a valid YYYY-MM-DD date.")
     if values["coverage_type"] not in MEDIA_COVERAGE_TYPES:
-        errors.append("Type must be Feature, News, Video, or Podcast.")
+        errors.append(
+            "Type must be Feature, News, Video, Podcast, Highlight, Technique, Interview, or Breakdown."
+        )
     if not values["url"] or not _is_http_url(values["url"]):
         errors.append("URL must start with http:// or https://.")
     if not values["title"]:
@@ -1429,6 +1441,7 @@ def athlete_media():
         "coverage_type": "feature",
         "url": "",
         "title": "",
+        "portuguese": False,
     }
 
     if athlete_id:
@@ -1478,6 +1491,7 @@ def athlete_media():
                     media_item.coverage_type = values["coverage_type"]
                     media_item.url = values["url"]
                     media_item.title = values["title"]
+                    media_item.portuguese = values["portuguese"]
                     db.session.commit()
                     message = success_message
                     add_values = {
@@ -1485,6 +1499,7 @@ def athlete_media():
                         "coverage_type": "feature",
                         "url": "",
                         "title": "",
+                        "portuguese": False,
                     }
                 except IntegrityError:
                     db.session.rollback()

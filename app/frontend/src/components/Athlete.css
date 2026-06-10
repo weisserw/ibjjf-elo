@@ -181,8 +181,10 @@
 }
 
 .athlete-media-type-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   justify-self: start;
-  min-width: 64px;
   font-weight: 600;
 }
 
@@ -204,6 +206,40 @@
 .tag.athlete-media-type-tag--podcast {
   background-color: #f5f0ff;
   color: #6b2fb9;
+}
+
+.tag.athlete-media-type-tag--highlight {
+  background-color: #fff8db;
+  color: #8a5b00;
+}
+
+.tag.athlete-media-type-tag--technique {
+  background-color: #e9f8f5;
+  color: #126b5b;
+}
+
+.tag.athlete-media-type-tag--interview {
+  background-color: #f1f3f5;
+  color: #495057;
+}
+
+.tag.athlete-media-type-tag--breakdown {
+  background-color: #fff4e6;
+  color: #b35c00;
+}
+
+.athlete-media-language-flag {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 13px;
+  border: 1px solid #d0d0d0;
+}
+
+.athlete-media-title-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .athlete-media-title {

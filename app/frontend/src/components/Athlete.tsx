@@ -88,9 +88,18 @@ interface Suspension {
 interface MediaCoverage {
   id: string;
   date: string;
-  type: 'feature' | 'news' | 'video' | 'podcast';
+  type:
+    | 'feature'
+    | 'news'
+    | 'video'
+    | 'podcast'
+    | 'highlight'
+    | 'technique'
+    | 'interview'
+    | 'breakdown';
   url: string;
   title: string;
+  portuguese: boolean;
 }
 
 interface ResponseData {
@@ -508,6 +517,10 @@ function Athlete() {
     if (type === 'video') return t("Video");
     if (type === 'news') return t("News");
     if (type === 'podcast') return t("Podcast");
+    if (type === 'highlight') return t("Highlight");
+    if (type === 'technique') return t("Technique");
+    if (type === 'interview') return t("Interview");
+    if (type === 'breakdown') return t("Breakdown");
     return t("Feature");
   };
 
@@ -849,15 +862,20 @@ function Athlete() {
                         <span className="athlete-media-date">{formatMediaCoverageDate(item.date)}</span>
                         <span className={`tag athlete-media-type-tag athlete-media-type-tag--${item.type}`}>
                           {mediaCoverageTypeLabel(item.type)}
+                          {item.portuguese && (
+                            <span className="fi fi-br athlete-media-language-flag" title="Portuguese" aria-label="Portuguese" />
+                          )}
                         </span>
-                        <a
-                          className="athlete-media-title"
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {item.title}
-                        </a>
+                        <span className="athlete-media-title-cell">
+                          <a
+                            className="athlete-media-title"
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {item.title}
+                          </a>
+                        </span>
                       </div>
                     ))}
                   </div>

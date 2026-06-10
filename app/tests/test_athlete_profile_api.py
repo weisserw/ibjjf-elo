@@ -184,8 +184,45 @@ class AthleteProfileApiTestCase(TestDbMixin, unittest.TestCase):
                     coverage_type="podcast",
                     url="https://example.com/podcast",
                     title="Podcast Story",
+                    portuguese=True,
                     created_at=datetime(2024, 6, 2, 10, 0, 0),
                     updated_at=datetime(2024, 6, 2, 10, 0, 0),
+                ),
+                AthleteMediaCoverage(
+                    athlete_id=athlete.id,
+                    covered_at=date(2024, 6, 3),
+                    coverage_type="highlight",
+                    url="https://example.com/highlight",
+                    title="Highlight Story",
+                    created_at=datetime(2024, 6, 3, 10, 0, 0),
+                    updated_at=datetime(2024, 6, 3, 10, 0, 0),
+                ),
+                AthleteMediaCoverage(
+                    athlete_id=athlete.id,
+                    covered_at=date(2024, 6, 4),
+                    coverage_type="technique",
+                    url="https://example.com/technique",
+                    title="Technique Story",
+                    created_at=datetime(2024, 6, 4, 10, 0, 0),
+                    updated_at=datetime(2024, 6, 4, 10, 0, 0),
+                ),
+                AthleteMediaCoverage(
+                    athlete_id=athlete.id,
+                    covered_at=date(2024, 6, 5),
+                    coverage_type="interview",
+                    url="https://example.com/interview",
+                    title="Interview Story",
+                    created_at=datetime(2024, 6, 5, 10, 0, 0),
+                    updated_at=datetime(2024, 6, 5, 10, 0, 0),
+                ),
+                AthleteMediaCoverage(
+                    athlete_id=athlete.id,
+                    covered_at=date(2024, 6, 6),
+                    coverage_type="breakdown",
+                    url="https://example.com/breakdown",
+                    title="Breakdown Story",
+                    created_at=datetime(2024, 6, 6, 10, 0, 0),
+                    updated_at=datetime(2024, 6, 6, 10, 0, 0),
                 ),
                 AthleteMediaCoverage(
                     athlete_id=other_athlete.id,
@@ -227,28 +264,71 @@ class AthleteProfileApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(len(data["suspensions"]), 1)
         self.assertEqual(
             [
-                (row["date"], row["type"], row["title"], row["url"])
+                (
+                    row["date"],
+                    row["type"],
+                    row["title"],
+                    row["url"],
+                    row["portuguese"],
+                )
                 for row in data["mediaCoverage"]
             ],
             [
+                (
+                    "2024-06-06",
+                    "breakdown",
+                    "Breakdown Story",
+                    "https://example.com/breakdown",
+                    False,
+                ),
+                (
+                    "2024-06-05",
+                    "interview",
+                    "Interview Story",
+                    "https://example.com/interview",
+                    False,
+                ),
+                (
+                    "2024-06-04",
+                    "technique",
+                    "Technique Story",
+                    "https://example.com/technique",
+                    False,
+                ),
+                (
+                    "2024-06-03",
+                    "highlight",
+                    "Highlight Story",
+                    "https://example.com/highlight",
+                    False,
+                ),
                 (
                     "2024-06-02",
                     "podcast",
                     "Podcast Story",
                     "https://example.com/podcast",
+                    True,
                 ),
                 (
                     "2024-06-01",
                     "video",
                     "Video Story",
                     "https://example.com/video",
+                    False,
                 ),
-                ("2024-06-01", "news", "News Story", "https://example.com/news"),
+                (
+                    "2024-06-01",
+                    "news",
+                    "News Story",
+                    "https://example.com/news",
+                    False,
+                ),
                 (
                     "2024-05-01",
                     "feature",
                     "Feature Story",
                     "https://example.com/feature",
+                    False,
                 ),
             ],
         )

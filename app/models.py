@@ -147,6 +147,7 @@ class AthleteMediaCoverage(db.Model):
     coverage_type = Column(String, nullable=False)
     url = Column(String, nullable=False)
     title = Column(String, nullable=False)
+    portuguese = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -156,7 +157,10 @@ class AthleteMediaCoverage(db.Model):
 
     __table_args__ = (
         CheckConstraint(
-            "coverage_type IN ('feature', 'news', 'video', 'podcast')",
+            "coverage_type IN ("
+            "'feature', 'news', 'video', 'podcast', "
+            "'highlight', 'technique', 'interview', 'breakdown'"
+            ")",
             name="ck_athlete_media_coverage_type",
         ),
         Index("ix_athlete_media_coverage_athlete_id", "athlete_id"),

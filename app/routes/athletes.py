@@ -606,6 +606,7 @@ def get_athlete_data(identifier, gi_param=None, all_medals=False):
             "type": row.coverage_type,
             "url": row.url,
             "title": row.title,
+            "portuguese": row.portuguese,
         }
         for row in (
             db.session.query(AthleteMediaCoverage)

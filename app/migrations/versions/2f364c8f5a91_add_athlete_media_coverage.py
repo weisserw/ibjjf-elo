@@ -29,7 +29,7 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.CheckConstraint(
-            "coverage_type IN ('feature', 'news', 'video', 'podcast')",
+            "coverage_type IN ('feature', 'news', 'video')",
             name="ck_athlete_media_coverage_type",
         ),
         sa.ForeignKeyConstraint(["athlete_id"], ["athletes.id"], ondelete="CASCADE"),
