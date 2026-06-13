@@ -249,6 +249,7 @@ class Match(db.Model):
     rated = Column(Boolean, nullable=False)
     rated_winner_only = Column(Boolean, nullable=True)
     match_number = Column(Integer, nullable=True)
+    division_size = Column(Integer, nullable=True)
     match_location = Column(String, nullable=True)
     fight_number = Column(Integer, nullable=True)
     video_link = Column(String, nullable=True)

@@ -21,6 +21,7 @@ from constants import (
 )
 from normalize import normalize
 from elo import match_didnt_happen
+from match_division_sizes import refresh_match_division_sizes
 from slug import generate_slug
 
 
@@ -186,6 +187,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                 ) as bar:
                     for rows in rows_by_tournament.values():
                         rows = sorted(rows, key=lambda row: (row["Date"]))
+                        affected_event_ids = set()
 
                         tournament_id = rows[0]["Tournament ID"]
                         tournament_name = rows[0]["Tournament Name"]
@@ -355,6 +357,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                             )
                             db.session.add(match)
                             db.session.flush()
+                            affected_event_ids.add(event.id)
 
                             if red_medal is not None:
                                 create_or_update_medal(
@@ -405,6 +408,8 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 end_match_count=0,
                             )
                             db.session.add(blue_participant)
+
+                        refresh_match_division_sizes(db.session, affected_event_ids)
 
                 if has_gi and not no_scores:
                     recompute_all_ratings(

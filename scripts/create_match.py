@@ -13,6 +13,7 @@ import argparse
 from app import db, app
 from models import Match, MatchParticipant, Medal, Division
 from ratings import recompute_all_ratings
+from match_division_sizes import refresh_match_division_sizes
 from photos import get_s3_client, bucket_name
 
 
@@ -206,6 +207,7 @@ if __name__ == "__main__":
         )
         db.session.add(participant1)
         db.session.add(participant2)
+        refresh_match_division_sizes(db.session, [event_uuid])
         db.session.commit()
 
         # Handle medals

@@ -543,7 +543,8 @@ def matches():
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name, e.ibjjf_id,
             mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating,
             a.id as athlete_id, a.name, a.slug, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.personal_name, a.profile_image_saved_at,
-            mp.note, m.rated, mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location, m.video_link
+            mp.note, m.rated, mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location, m.video_link,
+            m.match_number, m.division_size
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
         JOIN events e ON m.event_id = e.id
@@ -604,6 +605,8 @@ def matches():
                 rated=row["rated"],
                 match_location=row["match_location"],
                 video_link=row["video_link"],
+                match_number=row["match_number"],
+                division_size=row["division_size"],
             )
 
         current_match.participants.append(
@@ -699,6 +702,8 @@ def matches():
                     "matchLocation": current_match.match_location,
                     "event_ibjjf_id": current_match.event.ibjjf_id,
                     "date_happened_at": current_match.happened_at,
+                    "match_number": current_match.match_number,
+                    "division_size": current_match.division_size,
                 }
             )
 
@@ -724,9 +729,17 @@ def matches():
                 match["loser"],
                 match["date_happened_at"],
                 match["matchLocation"],
+                match["belt"],
+                match["age"],
+                match["division_size"],
+                match["match_number"],
+                match["winnerPersonalName"],
+                match["loserPersonalName"],
             )
 
         del match["event_ibjjf_id"]
         del match["date_happened_at"]
+        del match["match_number"]
+        del match["division_size"]
 
     return jsonify({"rows": response, "totalPages": totalPages})

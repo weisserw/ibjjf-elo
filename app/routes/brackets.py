@@ -2465,6 +2465,12 @@ def competitors():
                 m["red_name"],
                 datetime.fromisoformat(m["when"]),
                 m["where"],
+                belt,
+                age,
+                len(parsed_matches),
+                m["match_num"],
+                m["blue_personal_name"],
+                m["red_personal_name"],
             )
 
     mat_links = {}
@@ -2794,6 +2800,7 @@ def archive_competitors():
         parsed_matches.append(
             {
                 "match_num": match.match_number,
+                "division_size": match.division_size,
                 "final": False,
                 "when": match.happened_at.isoformat(),
                 "where": match.match_location,
@@ -2984,6 +2991,12 @@ def archive_competitors():
                 match["red_name"],
                 datetime.fromisoformat(match["when"]),
                 match["where"],
+                belt,
+                age,
+                match["division_size"],
+                match["match_num"],
+                match["blue_personal_name"],
+                match["red_personal_name"],
             )
 
     return jsonify(

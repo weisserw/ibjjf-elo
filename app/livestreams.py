@@ -1,6 +1,9 @@
-from sqlalchemy.sql import text
 from datetime import datetime
+import re
 from urllib.parse import quote
+
+from constants import ADULT, BLACK
+from sqlalchemy.sql import text
 
 
 def _load_special_search_names(session):
@@ -151,16 +154,54 @@ def name_components(name):
     ]
 
 
-def get_search_name(full_name, special_search_names):
-    if full_name in special_search_names:
-        return special_search_names[full_name]
-    names = name_components(full_name)
-    if len(full_name) > 32:
+def without_nicknames(name):
+    return re.sub(r'"[^"]*"', "", name).strip()
+
+
+def regular_search_name(name):
+    names = name_components(name)
+    if len(name) > 32:
         # use first two names only to avoid cutoff
         return " ".join(names[:2])
     else:
         # use first and last name
         return " ".join([names[0], names[-1]])
+
+
+def is_quarterfinal_or_above(division_size, match_number):
+    if division_size is None or match_number is None:
+        return False
+    return division_size - match_number <= 6
+
+
+def should_use_special_search_name(
+    division_belt,
+    division_age,
+    division_size,
+    match_number,
+):
+    return (
+        division_belt == BLACK
+        and division_age == ADULT
+        and is_quarterfinal_or_above(division_size, match_number)
+    )
+
+
+def get_search_name(
+    full_name,
+    special_search_names,
+    personal_name,
+    use_special_search_name,
+):
+    if not use_special_search_name:
+        return regular_search_name(full_name)
+    if full_name in special_search_names:
+        return special_search_names[full_name]
+    if personal_name is not None:
+        personal_name_without_nicknames = without_nicknames(personal_name)
+        if personal_name_without_nicknames:
+            return regular_search_name(personal_name_without_nicknames)
+    return regular_search_name(full_name)
 
 
 def get_livestream_link(
@@ -170,6 +211,12 @@ def get_livestream_link(
     loser_name,
     happened_at_datetime,
     match_location,
+    division_belt,
+    division_age,
+    division_size,
+    match_number,
+    winner_personal_name,
+    loser_personal_name,
 ):
     tournament_days = livestream_links["tournament_days"]
     live_streams = livestream_links["live_streams"]
@@ -179,15 +226,25 @@ def get_livestream_link(
     if ibjjf_id in flo_event_tags and winner_name and loser_name:
         tag = flo_event_tags[ibjjf_id]
         if winner_name and loser_name:
-            winner_last_name = get_search_name(
+            use_special_search_name = should_use_special_search_name(
+                division_belt,
+                division_age,
+                division_size,
+                match_number,
+            )
+            winner_search_name = get_search_name(
                 winner_name,
                 special_search_names,
+                winner_personal_name,
+                use_special_search_name,
             )
-            loser_last_name = get_search_name(
+            loser_search_name = get_search_name(
                 loser_name,
                 special_search_names,
+                loser_personal_name,
+                use_special_search_name,
             )
-            return f"https://www.flograppling.com/events/{tag}/videos?openInBrowser=1&search={quote(winner_last_name)}%20vs%20{quote(loser_last_name)}"
+            return f"https://www.flograppling.com/events/{tag}/videos?openInBrowser=1&search={quote(winner_search_name)}%20vs%20{quote(loser_search_name)}"
     elif len(live_streams):
         event_start_day = tournament_days.get(ibjjf_id)
         if event_start_day:
