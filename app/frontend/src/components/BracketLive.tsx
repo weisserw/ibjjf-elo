@@ -331,6 +331,13 @@ function BracketLive() {
     return Math.round(sum / ratings.length)
   }, [competitors])
 
+  const liveBracketMatchCount = useMemo(() => {
+    if (!matches?.length) return 0;
+    return matches.reduce((max, match) => {
+      return Math.max(max, match.display_match_num ?? match.match_num ?? 0);
+    }, 0);
+  }, [matches])
+
   const calculateEnabled = (match: BracketMatch) => {
     if (!match.red_id || !match.blue_id) {
       return false
@@ -463,7 +470,7 @@ function BracketLive() {
           (events !== null && categories !== null && matches !== null) && (
             <BracketTree
               matches={matches}
-              matchCount={matches.length}
+              matchCount={liveBracketMatchCount || matches.length}
               hasMatchNums={true}
               showSeed={usableSortColumn === 'seed'}
               showRefresh={true}

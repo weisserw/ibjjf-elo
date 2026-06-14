@@ -1771,162 +1771,20 @@ _IBJJF_SEED_LAYOUTS = {
 }
 
 
-def _ibjjf_display_order(first_round, play_in_count=0):
-    """Return first-round rows in IBJJF's visual bracket order.
-
-    The seed layout tables are stored in a canonical tree order: seed 1's half
-    first, then seed 2's half. IBJJF's rendered brackets put seed 2's half on
-    top and seed 1's half underneath for 8- and 16-slot brackets. The 32-slot
-    bracket follows a 4-row page rhythm. The 64-slot bracket follows an 8-row
-    page rhythm. All transforms move only complete first-round sibling rows,
-    so tree geometry is unchanged.
-    """
-    count = len(first_round)
-    if count == 4:
-        return [
-            (min(a, b), max(a, b)) if b is not None else (a, None)
-            for a, b in reversed(first_round)
-        ]
-
-    if count == 32:
-        if play_in_count == 23:
-            ordered = []
-            for start in range(0, count, 8):
-                block = first_round[start : start + 8]
-                if start == 24:
-                    ordered.extend(
-                        [
-                            block[2],
-                            block[3],
-                            block[1],
-                            block[0],
-                            block[5],
-                            block[4],
-                            block[7],
-                            block[6],
-                        ]
-                    )
-                else:
-                    ordered.extend(
-                        [
-                            block[2],
-                            block[3],
-                            block[1],
-                            block[0],
-                            block[6],
-                            block[7],
-                            block[5],
-                            block[4],
-                        ]
-                    )
-            return ordered
-
-        if play_in_count == 20:
-            ordered = []
-            for start in range(0, count, 8):
-                block = first_round[start : start + 8]
-                ordered.extend(
-                    [
-                        block[2],
-                        block[3],
-                        block[1],
-                        block[0],
-                        block[5],
-                        block[4],
-                        block[7],
-                        block[6],
-                    ]
-                )
-            return ordered
-
-        if play_in_count == 12:
-            ordered = []
-            for start in range(0, count, 8):
-                first = first_round[start : start + 4]
-                second = first_round[start + 4 : start + 8]
-                ordered.extend([second[1], second[0], second[3], second[2]])
-                ordered.extend([first[1], first[0], first[2], first[3]])
-            return ordered
-
-        if play_in_count >= 8:
-            ordered = []
-            for start in range(0, count, 4):
-                block = first_round[start : start + 4]
-                ordered.extend([block[1], block[0], block[2], block[3]])
-            return ordered
-
-        quarter_orders = {
-            1: (3, 2, 0, 1),
-            3: (2, 3, 1, 0),
-            4: (0, 1, 2, 3),
-        }
-        quarters_to_swap = {
-            1: {3},
-            3: {1, 2, 3},
-            4: {0, 1, 2, 3},
-        }
-        quarter_order = quarter_orders.get(play_in_count, (2, 3, 1, 0))
-        swap_quarters = quarters_to_swap.get(play_in_count, {1, 2, 3})
-        ordered = []
-        quarter_size = count // 4
-        for quarter in quarter_order:
-            start = quarter * quarter_size
-            block = first_round[start : start + quarter_size]
-            if quarter in swap_quarters:
-                ordered.extend([block[1], block[0], *block[2:]])
-            else:
-                ordered.extend(block)
-        return ordered
-
-    if count == 64 and play_in_count == 8:
-        ordered = []
-        for start in range(0, count, 8):
-            block = first_round[start : start + 8]
-            ordered.extend([block[1], block[0], *block[2:]])
-        return ordered
-
-    if count == 64 and play_in_count == 2:
-        ordered = []
-        block_size = 8
-        for block_index in (3, 2, 0, 1, 7, 6, 4, 5):
-            start = block_index * block_size
-            block = first_round[start : start + block_size]
-            if block_index in {3, 7}:
-                ordered.extend([block[1], block[0], *block[2:]])
-            else:
-                ordered.extend(block)
-        return ordered
-
-    if count >= 16 and count % 4 == 0:
-        ordered = []
-        for start in range(0, count, 4):
-            block = first_round[start : start + 4]
-            ordered.extend([block[1], block[0], block[2], block[3]])
-        return ordered
-
-    if count < 8 or count % 4 != 0:
-        return first_round
-
-    quadrant_size = count // 4
-    ordered = []
-    for start in (3 * quadrant_size, 2 * quadrant_size, 0, quadrant_size):
-        ordered.extend(reversed(first_round[start : start + quadrant_size]))
-    return ordered
-
-
 def _bracket_slots(n):
     """Return ``(first_round, bracket_size)`` for an n-person IBJJF bracket.
 
     ``first_round`` is an ordered list of ``(red_seed, blue_seed)`` pairs
-    covering every first-round slot in IBJJF's visual display order, where
-    ``None`` denotes a bye.  ``bracket_size`` is the theoretical full bracket
-    size (always a power of 2).
+    covering every first-round slot in canonical tree order, where ``None``
+    denotes a bye. ``bracket_size`` is the theoretical full bracket size
+    (always a power of 2).
 
     Returns ``(None, None)`` when n < 4 or the bracket is larger than the
     layout tables cover.
 
-    This is the single source of truth for estimated bracket layout; the
-    frontend consumes these slots when constructing estimated matches.
+    This is the single source of truth for estimated bracket pairings and
+    display layout; the frontend consumes these slots when constructing
+    estimated matches.
     """
     if n < 4:
         return None, None
@@ -2003,7 +1861,7 @@ def _bracket_slots(n):
                 (b, play_in_pairs[b]) if b in play_in_pairs else (b, None)
             )
 
-    return _ibjjf_display_order(first_round, play_in_count), bracket_size
+    return first_round, bracket_size
 
 
 def _side(seed, n):

@@ -51,6 +51,7 @@ export interface Competitor {
 
 export interface Match {
   match_num: number | null
+  display_match_num?: number | null
   final: boolean
   when: string | null
   where: string | null
@@ -382,27 +383,38 @@ const createEmptyMatch = (match_num: number): Match => {
   }
 }
 
+const treeMatchNum = (match: Match): number | null => {
+  return match.display_match_num ?? match.match_num;
+}
+
 export const createTreeFromMatchNums = (matches: Match[], matchCount: number): Match[][] => {
   const levels: Match[][] = [];
 
-  // sort in order by match_num
-  const allMatches = [...matches].sort((a, b) => {
-    return (a.match_num ?? 0) - (b.match_num ?? 0);
+  // sort in order by display_match_num when present, falling back to the
+  // official IBJJF match number.
+  const sortedMatches = [...matches].sort((a, b) => {
+    return (treeMatchNum(a) ?? 0) - (treeMatchNum(b) ?? 0);
   });
 
-  // insert empty matches if any match_num is missing
-  for (let i = 0; i < allMatches.length; i++) {
-    while (allMatches[i].match_num !== i + 1) {
-      const emptyMatch = createEmptyMatch(i + 1);
-      allMatches.splice(i, 0, emptyMatch);
-      i++;
+  const targetMatchCount = Math.max(matchCount, matches.length);
+  const positionedMatches: Array<Match | null> = Array(targetMatchCount).fill(null);
+  const overflowMatches: Match[] = [];
+
+  for (const match of sortedMatches) {
+    const n = treeMatchNum(match);
+    if (n !== null && n >= 1 && n <= targetMatchCount && positionedMatches[n - 1] === null) {
+      positionedMatches[n - 1] = match;
+    } else {
+      overflowMatches.push(match);
     }
   }
 
-  // insert empty matches at the end if there are any missing
-  for (let i = allMatches.length; i < matchCount; i++) {
-    const emptyMatch = createEmptyMatch(i + 1);
-    allMatches.push(emptyMatch);
+  const allMatches: Match[] = positionedMatches.map((match, index) => {
+    return match ?? overflowMatches.shift() ?? createEmptyMatch(index + 1);
+  });
+
+  for (const match of overflowMatches) {
+    allMatches.push(match);
   }
 
   const levelCount = numLevels(allMatches.length);

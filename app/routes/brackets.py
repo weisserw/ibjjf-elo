@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 import requests
 import threading
 import os
+from collections import Counter
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from pull import (
@@ -2147,6 +2148,227 @@ def parse_match(match, weight):
     }
 
 
+def _match_side_has_competitor(match, side):
+    return match[f"{side}_id"] is not None and not match[f"{side}_bye"]
+
+
+def _match_side_seed(match, side):
+    seed = match.get(f"{side}_seed")
+    return seed if seed not in (None, 0) else None
+
+
+def _next_description_references_match(description, match):
+    if not description or match["fight_num"] is None or match["where"] is None:
+        return False
+    normalized = description.lower()
+    where = match["where"].lower()
+    return normalized.endswith(f"of fight {match['fight_num']}, {where}") or (
+        normalized.endswith(f"da luta {match['fight_num']}, {where}")
+    )
+
+
+def _side_references_child(parent, side, child):
+    description = parent.get(f"{side}_next_description")
+    if _next_description_references_match(description, child):
+        return True
+
+    seed = _match_side_seed(parent, side)
+    if seed is None:
+        return False
+
+    return (_match_side_has_competitor(child, "red") and child["red_seed"] == seed) or (
+        _match_side_has_competitor(child, "blue") and child["blue_seed"] == seed
+    )
+
+
+def _matches_latest_first(matches):
+    return sorted(
+        matches,
+        key=lambda match: (
+            match["when"] or "",
+            match["match_num"] if match["match_num"] is not None else 0,
+        ),
+        reverse=True,
+    )
+
+
+def _live_match_children(matches):
+    """Infer each live match's child matches from IBJJF winner references.
+
+    IBJJF's CSS match numbers are useful identifiers, but their visual order is
+    inconsistent across events. This builds the actual dependency graph so a
+    separate display number can be assigned in a stable canonical order.
+    """
+    if not matches:
+        return None
+
+    root = next((m for m in matches if m["final"]), None)
+    if root is None:
+        return None
+
+    children_by_id = {id(m): [] for m in matches}
+    available = [m for m in _matches_latest_first(matches) if m is not root]
+    level = [root]
+    found_child = False
+
+    while available and level:
+        next_level = []
+        removed = 0
+
+        for parent in level:
+            for side in ("red", "blue"):
+                child_index = next(
+                    (
+                        i
+                        for i, child in enumerate(available)
+                        if _side_references_child(parent, side, child)
+                    ),
+                    -1,
+                )
+                if child_index == -1:
+                    continue
+                child = available.pop(child_index)
+                children_by_id[id(parent)].append(child)
+                next_level.append(child)
+                removed += 1
+                found_child = True
+
+        if removed == 0:
+            break
+
+        level = next_level
+
+    return children_by_id if found_child else None
+
+
+def _canonical_first_round_slot(match, slot_by_seed_set):
+    seeds = frozenset(
+        seed
+        for seed in (
+            _match_side_seed(match, "red"),
+            _match_side_seed(match, "blue"),
+        )
+        if seed is not None
+    )
+    if not seeds:
+        return None
+    return slot_by_seed_set.get(seeds)
+
+
+def _canonical_position_from_seeds(match, seed_to_slot):
+    slots = [
+        seed_to_slot[seed]
+        for seed in (
+            _match_side_seed(match, "red"),
+            _match_side_seed(match, "blue"),
+        )
+        if seed in seed_to_slot
+    ]
+    if len(slots) == 0:
+        return None
+    if len(slots) == 1:
+        if not (match["red_bye"] or match["blue_bye"]):
+            return None
+        return 0, slots[0]
+
+    slot_min = min(slots)
+    slot_max = max(slots)
+    level = 0
+    while slot_min // (2**level) != slot_max // (2**level):
+        level += 1
+    return level, slot_min
+
+
+def add_canonical_display_match_numbers(matches, competitor_count):
+    """Attach ``display_match_num`` without changing IBJJF ``match_num``."""
+    slots, bracket_size = _bracket_slots(competitor_count)
+    if not slots or not bracket_size:
+        return
+
+    children_by_id = _live_match_children(matches)
+    seed_to_slot = {
+        seed: index
+        for index, pair in enumerate(slots)
+        for seed in pair
+        if seed is not None
+    }
+    slot_by_seed_set = {
+        frozenset(seed for seed in pair if seed is not None): index
+        for index, pair in enumerate(slots)
+    }
+
+    first_round_count = bracket_size // 2
+    leaf_matches = (
+        [m for m in matches if not children_by_id.get(id(m))]
+        if children_by_id is not None
+        else []
+    )
+    leaf_slots = {}
+    used_slots = set()
+
+    for match in leaf_matches:
+        slot = _canonical_first_round_slot(match, slot_by_seed_set)
+        if slot is None or slot in used_slots:
+            continue
+        leaf_slots[id(match)] = slot
+        used_slots.add(slot)
+
+    fallback_slots = [i for i in range(first_round_count) if i not in used_slots]
+    fallback_leaves = sorted(
+        [m for m in leaf_matches if id(m) not in leaf_slots],
+        key=lambda match: (
+            match["match_num"] if match["match_num"] is not None else first_round_count,
+            match["when"] or "",
+        ),
+    )
+    for match, slot in zip(fallback_leaves, fallback_slots):
+        leaf_slots[id(match)] = slot
+
+    def match_position(match):
+        seed_position = _canonical_position_from_seeds(match, seed_to_slot)
+        if seed_position is not None:
+            return seed_position
+
+        if children_by_id is None:
+            return None
+
+        children = children_by_id.get(id(match), [])
+        if not children:
+            slot = leaf_slots.get(id(match))
+            if slot is None:
+                return None
+            return 0, slot
+
+        child_positions = [
+            pos for child in children if (pos := match_position(child)) is not None
+        ]
+        if not child_positions:
+            return None
+
+        level = max(pos[0] for pos in child_positions) + 1
+        slot = min(pos[1] for pos in child_positions)
+        return level, slot
+
+    def display_match_num(level, slot):
+        base = sum(bracket_size // (2 ** (i + 1)) for i in range(level))
+        return base + (slot // (2**level)) + 1
+
+    assignments = {}
+    for match in matches:
+        position = match_position(match)
+        if position is None:
+            continue
+        level, slot = position
+        assignments[id(match)] = display_match_num(level, slot)
+
+    number_counts = Counter(assignments.values())
+
+    for match in matches:
+        number = assignments.get(id(match))
+        if number is not None and number_counts[number] == 1:
+            match["display_match_num"] = number
+
+
 def is_finished_match(match):
     # one winner, one loser, match did happen
     return (
@@ -2552,6 +2774,8 @@ def competitors():
             args=(gi, results, division.id, last_match_whens),
         )
         thread.start()
+
+    add_canonical_display_match_numbers(parsed_matches, len(results))
 
     return jsonify(
         {
