@@ -1560,6 +1560,28 @@ def registration_hypothetical_seed():
 
     rows.append(hypothetical_row)
 
+    get_ratings(
+        rows,
+        None,
+        gi,
+        datetime.now() + timedelta(days=1),
+        False,
+        s3_client,
+    )
+
+    for row in rows:
+        if row.get("id") == athlete.id:
+            row.update(
+                {
+                    "name": display_name,
+                    "personal_name": (
+                        None if athlete.hide_full_name else athlete.personal_name
+                    ),
+                    "hypothetical": True,
+                }
+            )
+            break
+
     event_start_date = _registration_seeding_start_date(link)
     seeding_reference_date = _registration_seeding_reference_date(event_start_date)
     add_seeding_data(
@@ -1571,10 +1593,21 @@ def registration_hypothetical_seed():
     )
     add_estimated_seeds(rows, divdata)
 
+    if divdata["age"] in {JUVENILE, JUVENILE_1, JUVENILE_2}:
+        swap_info = {"swaps": [], "bailout_teams": []}
+    else:
+        swap_info = add_side_swaps(rows)
+
+    slots, bracket_size = _bracket_slots(len(rows))
+
     return jsonify(
         {
             "competitors": rows,
             "hypothetical_athlete_id": athlete.id,
+            "side_swaps": swap_info["swaps"],
+            "side_swap_bailout_teams": swap_info["bailout_teams"],
+            "bracket_slots": slots,
+            "bracket_match_count": bracket_size - 1 if bracket_size else None,
         }
     )
 

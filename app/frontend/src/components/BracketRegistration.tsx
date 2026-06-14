@@ -6,8 +6,8 @@ import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree, { type SeedHighlight } from './BracketTree'
 import EliteTable, { type EliteAthlete } from './EliteTable'
-import EstSeedModal from './EstSeedModal'
-import { isGi, handleError, createMatchesFromSeeds, createSnakeBracketSlots, type CompetitorsResponse, type Competitor } from './BracketUtils'
+import EstSeedModal, { type HypotheticalSeedResponse } from './EstSeedModal'
+import { isGi, handleError, createMatchesFromSeeds, createSnakeBracketSlots, type CompetitorsResponse, type Competitor, type SideSwap } from './BracketUtils'
 import { translateMulti, t } from '../translate'
 
 interface RegistrationCategoriesResponse {
@@ -26,6 +26,14 @@ interface UpcomingLinksResponse {
   links?: UpcomingLink[]
 }
 
+interface HypotheticalRegistrationState {
+  competitors: Competitor[]
+  sideSwaps: SideSwap[]
+  sideSwapBailoutTeams: string[]
+  bracketSlots: [number, number | null][] | null
+  bracketMatchCount: number | null
+}
+
 function BracketRegistration() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -33,6 +41,7 @@ function BracketRegistration() {
   const [elites, setElites] = useState<EliteAthlete[] | null>(null)
   const [eliteNote, setEliteNote] = useState<string | null>(null);
   const [estSeedModalOpen, setEstSeedModalOpen] = useState(false)
+  const [hypotheticalRegistration, setHypotheticalRegistration] = useState<HypotheticalRegistrationState | null>(null)
   const [elitesByLink, setElitesByLink] = useState<
     Record<string, { data: {elites: EliteAthlete[]; note: string | null; }; fetchedAt: number }>
   >({})
@@ -75,6 +84,7 @@ function BracketRegistration() {
 
   const getRegistrationCompetitors = async () => {
     setLoading(true)
+    setHypotheticalRegistration(null)
     try {
       const { data } = await axios.get<CompetitorsResponse>('/api/brackets/registrations/competitors', {
         params: {
@@ -156,11 +166,17 @@ function BracketRegistration() {
     return column
   }, [sortColumn, showRatings])
 
+  const effectiveRegistrationCompetitors = hypotheticalRegistration?.competitors ?? registrationCompetitors
+  const effectiveSideSwaps = hypotheticalRegistration?.sideSwaps ?? sideSwaps
+  const effectiveSideSwapBailoutTeams = hypotheticalRegistration?.sideSwapBailoutTeams ?? sideSwapBailoutTeams
+  const effectiveBracketSlots = hypotheticalRegistration?.bracketSlots ?? bracketSlots
+  const effectiveBracketMatchCount = hypotheticalRegistration?.bracketMatchCount ?? bracketMatchCount
+
   const sortedRegistrationCompetitors = useMemo(() => {
-    if (registrationCompetitors === null) {
+    if (effectiveRegistrationCompetitors === null) {
       return null
     }
-    return [...registrationCompetitors].sort((a, b) => {
+    return [...effectiveRegistrationCompetitors].sort((a, b) => {
       const aRating = a.ordinal ?? -1;
       const bRating = b.ordinal ?? -1;
       const aEst = a.est_seed ?? Number.MAX_SAFE_INTEGER;
@@ -176,18 +192,18 @@ function BracketRegistration() {
       }
       return aRating - bRating
     });
-  }, [registrationCompetitors, usableSortColumn])
+  }, [effectiveRegistrationCompetitors, usableSortColumn])
 
   const seededBracket = useMemo(() => {
-    if (!sortedRegistrationCompetitors || !bracketSlots || bracketMatchCount == null) return null;
-    return createMatchesFromSeeds(sortedRegistrationCompetitors, bracketSlots, bracketMatchCount, sideSwaps);
-  }, [sortedRegistrationCompetitors, bracketSlots, bracketMatchCount, sideSwaps])
+    if (!sortedRegistrationCompetitors || !effectiveBracketSlots || effectiveBracketMatchCount == null) return null;
+    return createMatchesFromSeeds(sortedRegistrationCompetitors, effectiveBracketSlots, effectiveBracketMatchCount, effectiveSideSwaps);
+  }, [sortedRegistrationCompetitors, effectiveBracketSlots, effectiveBracketMatchCount, effectiveSideSwaps])
 
   const nativeSeedByCompetitor = useMemo(() => {
     const result = new Map<Competitor, number>();
-    if (!registrationCompetitors || !showRatings) return result;
+    if (!effectiveRegistrationCompetitors || !showRatings) return result;
 
-    [...registrationCompetitors]
+    [...effectiveRegistrationCompetitors]
       .sort((a, b) => {
         const aOrdinal = a.ordinal ?? Number.MAX_SAFE_INTEGER;
         const bOrdinal = b.ordinal ?? Number.MAX_SAFE_INTEGER;
@@ -204,21 +220,26 @@ function BracketRegistration() {
       });
 
     return result;
-  }, [registrationCompetitors, showRatings])
+  }, [effectiveRegistrationCompetitors, showRatings])
 
   const idealBracket = useMemo(() => {
-    if (!registrationCompetitors || nativeSeedByCompetitor.size < 2) return null;
+    if (!effectiveRegistrationCompetitors || nativeSeedByCompetitor.size < 4) return null;
     const snakeSlots = createSnakeBracketSlots(nativeSeedByCompetitor.size);
     if (!snakeSlots) return null;
 
     return createMatchesFromSeeds(
-      registrationCompetitors,
+      effectiveRegistrationCompetitors,
       snakeSlots.bracketSlots,
       snakeSlots.matchCount,
       [],
       competitor => nativeSeedByCompetitor.get(competitor),
     );
-  }, [registrationCompetitors, nativeSeedByCompetitor])
+  }, [effectiveRegistrationCompetitors, nativeSeedByCompetitor])
+
+  const isOpenRegistrationCategory = useMemo(() => {
+    const weight = selectedRegistrationCategory?.split(' / ')[3] ?? '';
+    return /Open/i.test(weight);
+  }, [selectedRegistrationCategory])
 
   const activeBracketViewTab = useMemo(() => {
     if (viewTab === 'Bracket' && seededBracket !== null) return 'Bracket';
@@ -243,12 +264,16 @@ function BracketRegistration() {
     if (isJuvenile) return result;
 
     const swappedNames = new Set<string>();
-    for (const swap of sideSwaps) {
+    for (const swap of effectiveSideSwaps) {
       swappedNames.add(swap.name_a);
       swappedNames.add(swap.name_b);
     }
     for (const c of sortedRegistrationCompetitors) {
       if (c.est_seed == null) continue;
+      if (c.hypothetical) {
+        result.set(c.name, 'hypothetical');
+        continue;
+      }
       const isSwap = swappedNames.has(c.name);
       const isTied = !!c.est_seed_tied;
       if (isSwap && isTied) result.set(c.name, 'swap-tied');
@@ -256,7 +281,7 @@ function BracketRegistration() {
       else if (isTied) result.set(c.name, 'tied');
     }
     return result;
-  }, [sortedRegistrationCompetitors, sideSwaps, selectedRegistrationCategory])
+  }, [sortedRegistrationCompetitors, effectiveSideSwaps, selectedRegistrationCategory])
 
   const seedSwapDescriptions = useMemo(() => {
     const result = new Map<string, string>();
@@ -270,13 +295,13 @@ function BracketRegistration() {
       return competitor.est_seed != null ? `${displayName} (${competitor.est_seed})` : displayName;
     }
 
-    for (const swap of sideSwaps) {
+    for (const swap of effectiveSideSwaps) {
       result.set(swap.name_a, describe(swap.name_b));
       result.set(swap.name_b, describe(swap.name_a));
     }
 
     return result;
-  }, [sortedRegistrationCompetitors, sideSwaps])
+  }, [sortedRegistrationCompetitors, effectiveSideSwaps])
 
   const divisionCount = useMemo(() => registrationCompetitors?.length ?? null, [registrationCompetitors])
   const elitesCount = useMemo(() => elites?.length ?? null, [elites])
@@ -308,6 +333,7 @@ function BracketRegistration() {
   const getRegistrationCategories = async (url: string) => {
     setLoading(true)
     setElites(null)
+    setHypotheticalRegistration(null)
     try {
       const { data } = await axios.get<RegistrationCategoriesResponse>('/api/brackets/registrations/categories', {
         params: {
@@ -376,6 +402,17 @@ function BracketRegistration() {
 
   const calculateEnabledAthlete = (athlete: Competitor) => {
     return athlete.rating !== null && athlete.match_count !== null && athlete.match_count > 0
+  }
+
+  const handleHypotheticalSeed = (data: HypotheticalSeedResponse) => {
+    if (!data.competitors) return;
+    setHypotheticalRegistration({
+      competitors: data.competitors,
+      sideSwaps: data.side_swaps ?? [],
+      sideSwapBailoutTeams: data.side_swap_bailout_teams ?? [],
+      bracketSlots: data.bracket_slots ?? null,
+      bracketMatchCount: data.bracket_match_count ?? null,
+    })
   }
 
   useEffect(() => {
@@ -629,6 +666,17 @@ function BracketRegistration() {
           registrationCategories !== null && (
             <p className="mt-4">
               {t("This view shows how our ratings and a standard seeding can create a better, fairer bracket. This illustration is not an official IBJJF bracket.")}
+              {
+                activeBracketViewTab !== null &&
+                viewMode === 'all' &&
+                registrationEventUrl !== null &&
+                registrationCategories !== null &&
+                isOpenRegistrationCategory && (
+                  <span>
+                    {' '}{t("Win probabilities in open weight registrations do not include weight adjustments because competitors' event weights are not known until the tournament starts.")}
+                  </span>
+                )
+              }
             </p>
           )
         }
@@ -646,6 +694,7 @@ function BracketRegistration() {
               showRefresh={false}
               showRatings={showRatings}
               belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
+              seedHighlights={seedHighlights}
               calculateClicked={() => {}}
               calculateEnabled={() => false}
             />
@@ -663,8 +712,8 @@ function BracketRegistration() {
                           showRatings={showRatings}
                           belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
                           isGi={isGi(registrationEventName ?? '')}
-                          sideSwaps={sideSwaps}
-                          sideSwapBailoutTeams={sideSwapBailoutTeams}
+                          sideSwaps={effectiveSideSwaps}
+                          sideSwapBailoutTeams={effectiveSideSwapBailoutTeams}
                           columnClicked={columnClicked}
                           athleteClicked={registrationAthleteClicked}
                           calculateEnabled={calculateEnabledAthlete} />
@@ -686,9 +735,10 @@ function BracketRegistration() {
             <EstSeedModal
               competitors={sortedRegistrationCompetitors}
               selectedCategory={selectedRegistrationCategory}
-              sideSwaps={sideSwaps}
+              sideSwaps={effectiveSideSwaps}
               link={registrationEventUrl ?? ''}
               gi={isGi(registrationEventName ?? '')}
+              onHypotheticalSeed={handleHypotheticalSeed}
               onClose={() => setEstSeedModalOpen(false)}
             />
           )

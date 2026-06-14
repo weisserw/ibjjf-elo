@@ -7,7 +7,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from constants import ADULT, BLUE, LIGHT, MALE
 from extensions import db
-from models import Athlete, Division, RegistrationLink, RegistrationLinkCompetitor
+from models import (
+    Athlete,
+    Division,
+    Event,
+    Match,
+    MatchParticipant,
+    RegistrationLink,
+    RegistrationLinkCompetitor,
+    Team,
+)
 from test_db import TestDbMixin
 
 
@@ -62,7 +71,43 @@ class BracketsHypotheticalSeedApiTestCase(TestDbMixin, unittest.TestCase):
             normalized_name="registered one",
             slug="registered-one",
         )
-        db.session.add_all([cls.hypothetical_athlete, cls.registered_athlete])
+        team = Team(name="Hypothetical Team", normalized_name="hypothetical team")
+        event = Event(
+            name="Prior Test Event",
+            normalized_name="prior test event",
+            slug="prior-test-event",
+            medals_only=False,
+        )
+        db.session.add_all(
+            [cls.hypothetical_athlete, cls.registered_athlete, team, event]
+        )
+        db.session.flush()
+
+        prior_match = Match(
+            event_id=event.id,
+            division_id=division.id,
+            happened_at=datetime(2025, 1, 1, 10, 0, 0),
+            rated=True,
+            match_location="Mat 1",
+            video_link=None,
+        )
+        db.session.add(prior_match)
+        db.session.flush()
+
+        db.session.add(
+            MatchParticipant(
+                match_id=prior_match.id,
+                athlete_id=cls.hypothetical_athlete.id,
+                team_id=team.id,
+                seed=1,
+                red=True,
+                winner=True,
+                start_rating=1200.0,
+                end_rating=1375.0,
+                start_match_count=11,
+                end_match_count=12,
+            )
+        )
         db.session.commit()
 
     def setUp(self):
@@ -92,6 +137,9 @@ class BracketsHypotheticalSeedApiTestCase(TestDbMixin, unittest.TestCase):
         ]
         self.assertEqual(len(hypothetical_rows), 1)
         self.assertIsNotNone(hypothetical_rows[0]["est_seed"])
+        self.assertEqual(hypothetical_rows[0]["rating"], 1375.0)
+        self.assertEqual(hypothetical_rows[0]["match_count"], 12)
+        self.assertIsNotNone(hypothetical_rows[0]["ordinal"])
 
         regular_response = self.client.get(
             "/api/brackets/registrations/competitors",

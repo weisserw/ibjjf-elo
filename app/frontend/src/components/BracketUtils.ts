@@ -46,6 +46,7 @@ export interface Competitor {
   master_5_world_champion?: boolean
   master_6_world_champion?: boolean
   master_7_world_champion?: boolean
+  hypothetical?: boolean
 }
 
 export interface Match {
@@ -634,6 +635,12 @@ const fillSideFromParent = (target: Match, targetSide: 'red' | 'blue', parent: M
   }
 }
 
+const expectedScore = (rating: number, opponentRating: number) => {
+  const transformedRating = 10 ** (rating / 400);
+  const transformedOpponentRating = 10 ** (opponentRating / 400);
+  return transformedRating / (transformedRating + transformedOpponentRating);
+}
+
 export const createMatchesFromSeeds = (
   competitors: Competitor[],
   bracketSlots: [number, number | null][],
@@ -681,6 +688,13 @@ export const createMatchesFromSeeds = (
   }
 
   const firstRound: Match[] = firstRoundSlots.map(([red, blue]) => {
+    const redExpected = red?.rating != null && blue?.rating != null
+      ? expectedScore(red.rating, blue.rating)
+      : null;
+    const blueExpected = red?.rating != null && blue?.rating != null
+      ? expectedScore(blue.rating, red.rating)
+      : null;
+
     return {
       match_num: nextMatchNum++,
       final: false,
@@ -701,7 +715,7 @@ export const createMatchesFromSeeds = (
       red_ordinal: red?.ordinal ?? null,
       red_weight: red?.last_weight ?? null,
       red_handicap: 0,
-      red_expected: null,
+      red_expected: redExpected,
       red_rating: red?.rating ?? null,
       red_match_count: red?.match_count ?? null,
       red_instagram_profile: red?.instagram_profile ?? null,
@@ -725,7 +739,7 @@ export const createMatchesFromSeeds = (
       blue_ordinal: blue?.ordinal ?? null,
       blue_weight: blue?.last_weight ?? null,
       blue_handicap: 0,
-      blue_expected: null,
+      blue_expected: blueExpected,
       blue_rating: blue?.rating ?? null,
       blue_match_count: blue?.match_count ?? null,
       blue_instagram_profile: blue?.instagram_profile ?? null,

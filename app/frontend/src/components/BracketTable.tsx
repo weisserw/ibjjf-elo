@@ -149,7 +149,7 @@ function BracketTable(props: BracketTableProps) {
       return 'has-text-right';
     }
 
-    let diff = end - start;
+    const diff = end - start;
 
     if (diff > 0) {
       return 'has-text-right has-text-success';
@@ -313,9 +313,18 @@ function BracketTable(props: BracketTableProps) {
             competitors?.map(competitor => {
               const [badge, badgeDesc] = badgeForPercentile(competitor.percentile, belt, competitor.percentile_age);
               const matLink = (competitor.next_where && competitor.next_when) ? getMatLink(competitor.next_where, competitor.next_when, props.matLinks) : null;
+              const hypotheticalTooltip = competitor.hypothetical
+                ? t("This athlete is hypothetical and not currently registered in this division")
+                : undefined;
               
               return (
-              <tr key={competitor.name}>
+              <tr
+                key={`${competitor.id ?? competitor.name}-${competitor.hypothetical ? 'hypothetical' : 'registered'}`}
+                className={classNames({"est-seed-hypothetical-row": competitor.hypothetical})}
+                data-tooltip-id={hypotheticalTooltip ? "hypothetical-athlete-tooltip" : undefined}
+                data-tooltip-content={hypotheticalTooltip}
+                data-tooltip-place="top"
+              >
                 {
                   props.showRatings &&
                   <td>
@@ -499,6 +508,7 @@ function BracketTable(props: BracketTableProps) {
       <Tooltip id="est-seed-swap-tooltip" className="tooltip-normal" />
       <Tooltip id="est-seed-swap-tied-tooltip" className="tooltip-multiline" />
       <Tooltip id="team-bailout-tooltip" className="tooltip-multiline" />
+      <Tooltip id="hypothetical-athlete-tooltip" className="tooltip-normal" />
     </div>
   );
 }

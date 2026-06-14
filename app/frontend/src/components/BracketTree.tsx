@@ -15,7 +15,7 @@ import "/node_modules/flag-icons/css/flag-icons.min.css";
 
 import "./BracketTree.css";
 
-export type SeedHighlight = 'swap' | 'tied' | 'swap-tied';
+export type SeedHighlight = 'swap' | 'tied' | 'swap-tied' | 'hypothetical';
 type NumberMode = 'rating' | 'seed';
 
 interface BracketTreeMatchProps {
@@ -43,6 +43,7 @@ const seedHighlightTooltip = (h: SeedHighlight | undefined, swapDescription?: st
     : t("This athlete has swapped bracket positions due to a team conflict");
   if (h === 'swap') return swapTooltip;
   if (h === 'tied') return t("The order of tied seeds may differ from what is shown");
+  if (h === 'hypothetical') return t("This athlete is hypothetical and not currently registered in this division");
   return `${swapTooltip}. ${t("The order of tied seeds may differ from what is shown")}.`;
 }
 

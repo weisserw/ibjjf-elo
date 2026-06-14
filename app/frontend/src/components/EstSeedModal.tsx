@@ -13,6 +13,7 @@ interface EstSeedModalProps {
   sideSwaps: SideSwap[]
   link: string
   gi: boolean
+  onHypotheticalSeed?: (data: HypotheticalSeedResponse) => void
   onClose: () => void
 }
 
@@ -24,7 +25,7 @@ interface ColumnSpec {
   type: ColumnType
 }
 
-interface HypotheticalSeedResponse extends CompetitorsResponse {
+export interface HypotheticalSeedResponse extends CompetitorsResponse {
   hypothetical_athlete_id?: string
 }
 
@@ -127,7 +128,7 @@ function normalizedAthleteKey(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-function EstSeedModal({ competitors, selectedCategory, link, gi, onClose }: EstSeedModalProps) {
+function EstSeedModal({ competitors, selectedCategory, link, gi, onHypotheticalSeed, onClose }: EstSeedModalProps) {
   const columns = useMemo(() => columnsForDivision(selectedCategory), [selectedCategory])
   const [selectedAthlete, setSelectedAthlete] = useState<Competitor | null>(null)
   const [athleteSearchValue, setAthleteSearchValue] = useState('')
@@ -254,6 +255,7 @@ function EstSeedModal({ competitors, selectedCategory, link, gi, onClose }: EstS
       } else if (data.competitors) {
         setHypotheticalCompetitors(data.competitors as HypotheticalCompetitor[])
         setHypotheticalAthleteId(data.hypothetical_athlete_id ?? null)
+        onHypotheticalSeed?.(data)
         setAthleteSearchValue('')
       }
     } catch (error) {
