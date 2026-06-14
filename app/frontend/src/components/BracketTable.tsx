@@ -3,7 +3,7 @@ import { noMatchStrings } from '../constants';
 import classNames from 'classnames';
 import dayjs from 'dayjs'
 import { useAppContext } from '../AppContext'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Competitor, MatLinks, MatLinkEntry, SideSwap } from './BracketUtils'
 import { Tooltip } from 'react-tooltip';
@@ -29,9 +29,11 @@ interface BracketTableProps {
   belt: string;
   sideSwaps?: SideSwap[];
   sideSwapBailoutTeams?: string[];
+  afterTableContent?: ReactNode;
   columnClicked?: (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => void;
   athleteClicked: (ev: React.MouseEvent<HTMLAnchorElement>, slug: string) => void;
   calculateEnabled: (athlete: Competitor) => boolean;
+  onClearHypotheticalAthlete?: () => void;
 }
 
 export type SortColumn = 'rating' | 'seed' | 'est_seed' | 'next'
@@ -195,7 +197,7 @@ function BracketTable(props: BracketTableProps) {
           {t("Our open class ranking uses a combination of weight and skill")}
         </div>
       }
-      <table className="table is-fullwidth bracket-table">
+      <table className={classNames("table is-fullwidth bracket-table", {"bracket-table-with-after-content": props.afterTableContent})}>
         <thead>
           <tr>
             {
@@ -313,17 +315,11 @@ function BracketTable(props: BracketTableProps) {
             competitors?.map(competitor => {
               const [badge, badgeDesc] = badgeForPercentile(competitor.percentile, belt, competitor.percentile_age);
               const matLink = (competitor.next_where && competitor.next_when) ? getMatLink(competitor.next_where, competitor.next_when, props.matLinks) : null;
-              const hypotheticalTooltip = competitor.hypothetical
-                ? t("This athlete is hypothetical and not currently registered in this division")
-                : undefined;
               
               return (
               <tr
                 key={`${competitor.id ?? competitor.name}-${competitor.hypothetical ? 'hypothetical' : 'registered'}`}
                 className={classNames({"est-seed-hypothetical-row": competitor.hypothetical})}
-                data-tooltip-id={hypotheticalTooltip ? "hypothetical-athlete-tooltip" : undefined}
-                data-tooltip-content={hypotheticalTooltip}
-                data-tooltip-place="top"
               >
                 {
                   props.showRatings &&
@@ -401,6 +397,16 @@ function BracketTable(props: BracketTableProps) {
                                       country={competitor.country} country_note={competitor.country_note} country_note_pt={competitor.country_note_pt}
                                       medal={competitor.medal} />
                           </div>
+                          {competitor.hypothetical && props.onClearHypotheticalAthlete && (
+                            <button
+                              type="button"
+                              className="bracket-table-clear-hypothetical"
+                              aria-label={t('Clear')}
+                              onClick={props.onClearHypotheticalAthlete}
+                            >
+                              <i className="fas fa-xmark" aria-hidden="true"></i>
+                            </button>
+                          )}
                         </div>
                       </td>
                       <td className="is-visible-mobile-table-cell cell-no-bottom-padding">
@@ -419,6 +425,16 @@ function BracketTable(props: BracketTableProps) {
                           <div className="is-hidden-mobile">
                             <NameInfo instagram_profile={null} profile_image_url={null} country={null} country_note={null} country_note_pt={null} medal={competitor.medal} />
                           </div>
+                          {competitor.hypothetical && props.onClearHypotheticalAthlete && (
+                            <button
+                              type="button"
+                              className="bracket-table-clear-hypothetical"
+                              aria-label={t('Clear')}
+                              onClick={props.onClearHypotheticalAthlete}
+                            >
+                              <i className="fas fa-xmark" aria-hidden="true"></i>
+                            </button>
+                          )}
                         </div>
                       </td>
                       <td className="is-visible-mobile-table-cell">
@@ -493,10 +509,11 @@ function BracketTable(props: BracketTableProps) {
           }
         </tbody>
       </table>
+      {props.afterTableContent}
       {
         props.showRatings &&
         <button
-          className="button is-info mt-2"
+          className={classNames("button is-info", props.afterTableContent ? "mt-4" : "mt-2")}
           onClick={calculateMatchResult}
           disabled={calculateDisabled()}>
           {t("Calculate Expected Match Result")}

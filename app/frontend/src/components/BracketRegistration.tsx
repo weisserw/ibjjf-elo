@@ -6,7 +6,8 @@ import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree, { type SeedHighlight } from './BracketTree'
 import EliteTable, { type EliteAthlete } from './EliteTable'
-import EstSeedModal, { type HypotheticalSeedResponse } from './EstSeedModal'
+import EstSeedModal from './EstSeedModal'
+import HypotheticalAthleteSearch, { type HypotheticalSeedResponse } from './HypotheticalAthleteSearch'
 import { isGi, handleError, createMatchesFromSeeds, createSnakeBracketSlots, type CompetitorsResponse, type Competitor, type SideSwap } from './BracketUtils'
 import { translateMulti, t } from '../translate'
 
@@ -415,6 +416,10 @@ function BracketRegistration() {
     })
   }
 
+  const clearHypotheticalRegistration = () => {
+    setHypotheticalRegistration(null)
+  }
+
   useEffect(() => {
     if (selectedUpcomingLink) {
       getRegistrationCategories(selectedUpcomingLink)
@@ -714,9 +719,19 @@ function BracketRegistration() {
                           isGi={isGi(registrationEventName ?? '')}
                           sideSwaps={effectiveSideSwaps}
                           sideSwapBailoutTeams={effectiveSideSwapBailoutTeams}
+                          afterTableContent={
+                            <HypotheticalAthleteSearch
+                              competitors={registrationCompetitors}
+                              selectedCategory={selectedRegistrationCategory}
+                              link={registrationEventUrl}
+                              gi={isGi(registrationEventName ?? '')}
+                              onHypotheticalSeed={handleHypotheticalSeed}
+                            />
+                          }
                           columnClicked={columnClicked}
                           athleteClicked={registrationAthleteClicked}
-                          calculateEnabled={calculateEnabledAthlete} />
+                          calculateEnabled={calculateEnabledAthlete}
+                          onClearHypotheticalAthlete={clearHypotheticalRegistration} />
           )
         }
         {
@@ -738,7 +753,6 @@ function BracketRegistration() {
               sideSwaps={effectiveSideSwaps}
               link={registrationEventUrl ?? ''}
               gi={isGi(registrationEventName ?? '')}
-              onHypotheticalSeed={handleHypotheticalSeed}
               onClose={() => setEstSeedModalOpen(false)}
             />
           )

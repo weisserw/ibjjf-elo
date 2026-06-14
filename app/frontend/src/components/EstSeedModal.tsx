@@ -1,11 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import axios from 'axios'
-import Autosuggest from 'react-autosuggest'
-import debounce from 'lodash/debounce'
-import type { Competitor, CompetitorsResponse, SideSwap } from './BracketUtils'
+import { useEffect, useMemo, useState } from 'react'
+import type { Competitor, SideSwap } from './BracketUtils'
 import AthleteMedalBreakdown from './AthleteMedalBreakdown'
 import { t, type translationKeys } from '../translate'
-import { axiosErrorToast, renderAthleteSuggestion, type AthleteSuggestion } from '../utils'
 
 interface EstSeedModalProps {
   competitors: Competitor[]
@@ -13,7 +9,6 @@ interface EstSeedModalProps {
   sideSwaps: SideSwap[]
   link: string
   gi: boolean
-  onHypotheticalSeed?: (data: HypotheticalSeedResponse) => void
   onClose: () => void
 }
 
@@ -23,10 +18,6 @@ interface ColumnSpec {
   key: keyof Competitor
   label: string
   type: ColumnType
-}
-
-export interface HypotheticalSeedResponse extends CompetitorsResponse {
-  hypothetical_athlete_id?: string
 }
 
 interface HypotheticalCompetitor extends Competitor {
@@ -124,74 +115,17 @@ function renderCell(value: unknown, type: ColumnType): string {
   return String(value)
 }
 
-function normalizedAthleteKey(value: string | null | undefined): string {
-  return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
-}
-
-function EstSeedModal({ competitors, selectedCategory, link, gi, onHypotheticalSeed, onClose }: EstSeedModalProps) {
+function EstSeedModal({ competitors, selectedCategory, link, gi, onClose }: EstSeedModalProps) {
   const columns = useMemo(() => columnsForDivision(selectedCategory), [selectedCategory])
   const [selectedAthlete, setSelectedAthlete] = useState<Competitor | null>(null)
-  const [athleteSearchValue, setAthleteSearchValue] = useState('')
-  const [athleteSuggestions, setAthleteSuggestions] = useState<AthleteSuggestion[]>([])
-  const [hypotheticalCompetitors, setHypotheticalCompetitors] = useState<HypotheticalCompetitor[] | null>(null)
-  const [hypotheticalAthleteId, setHypotheticalAthleteId] = useState<string | null>(null)
-  const [hypotheticalLoading, setHypotheticalLoading] = useState(false)
-  const requestSeq = useRef(0)
-
-  const divisionGender = selectedCategory ? selectedCategory.split(' / ')[2] : null
-
-  const registeredAthleteKeys = useMemo(() => {
-    const names = new Set<string>()
-    const slugs = new Set<string>()
-    for (const competitor of competitors) {
-      const name = normalizedAthleteKey(competitor.name)
-      const personalName = normalizedAthleteKey(competitor.personal_name)
-      if (name) names.add(name)
-      if (personalName) names.add(personalName)
-      if (competitor.slug) slugs.add(competitor.slug)
-    }
-    return { names, slugs }
-  }, [competitors])
-
-  const isRegisteredSuggestion = useCallback((suggestion: AthleteSuggestion) => {
-    if (suggestion.slug && registeredAthleteKeys.slugs.has(suggestion.slug)) return true
-    const name = normalizedAthleteKey(suggestion.name)
-    const personalName = normalizedAthleteKey(suggestion.personal_name)
-    return (name !== '' && registeredAthleteKeys.names.has(name)) || (
-      personalName !== '' && registeredAthleteKeys.names.has(personalName)
-    )
-  }, [registeredAthleteKeys])
 
   const sorted = useMemo(() => {
-    return [...(hypotheticalCompetitors ?? competitors)].sort((a, b) => {
+    return [...competitors].sort((a, b) => {
       const aSeed = a.est_seed ?? Number.MAX_SAFE_INTEGER
       const bSeed = b.est_seed ?? Number.MAX_SAFE_INTEGER
       return aSeed - bSeed
     })
-  }, [competitors, hypotheticalCompetitors])
-
-  const debouncedGetAthleteSuggestions = useMemo(
-    () => debounce(async ({ value }: { value: string }) => {
-      if (!value.trim() || !divisionGender) {
-        setAthleteSuggestions([])
-        return
-      }
-
-      try {
-        const response = await axios.get<AthleteSuggestion[]>('/api/athletes', {
-          params: {
-            search: value,
-            gender: divisionGender,
-            gi: gi ? 'true' : 'false',
-          },
-        })
-        setAthleteSuggestions(response.data.filter(suggestion => !isRegisteredSuggestion(suggestion)))
-      } catch (error) {
-        axiosErrorToast(error)
-      }
-    }, 300, { trailing: true }),
-    [divisionGender, gi, isRegisteredSuggestion],
-  )
+  }, [competitors])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -206,74 +140,6 @@ function EstSeedModal({ competitors, selectedCategory, link, gi, onHypotheticalS
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, selectedAthlete])
-
-  useEffect(() => {
-    return () => {
-      debouncedGetAthleteSuggestions.cancel()
-    }
-  }, [debouncedGetAthleteSuggestions])
-
-  useEffect(() => {
-    setHypotheticalCompetitors(null)
-    setHypotheticalAthleteId(null)
-    setAthleteSearchValue('')
-    setAthleteSuggestions([])
-  }, [selectedCategory, link, gi])
-
-  const onAthleteSuggestionSelected = async (suggestion: AthleteSuggestion) => {
-    if (!suggestion.slug || !selectedCategory) return
-    if (isRegisteredSuggestion(suggestion)) {
-      setAthleteSuggestions([])
-      return
-    }
-
-    const currentRequest = requestSeq.current + 1
-    requestSeq.current = currentRequest
-    setAthleteSearchValue(renderAthleteSuggestion(suggestion))
-    setAthleteSuggestions([])
-    setHypotheticalLoading(true)
-
-    try {
-      const { data } = await axios.get<HypotheticalSeedResponse>(
-        '/api/brackets/registrations/hypothetical_seed',
-        {
-          params: {
-            link,
-            division: selectedCategory,
-            gi: gi ? 'true' : 'false',
-            athlete_slug: suggestion.slug,
-          },
-        },
-      )
-
-      if (currentRequest !== requestSeq.current) return
-
-      if (data.error) {
-        setHypotheticalCompetitors(null)
-        setHypotheticalAthleteId(null)
-        axiosErrorToast({ response: { data } })
-      } else if (data.competitors) {
-        setHypotheticalCompetitors(data.competitors as HypotheticalCompetitor[])
-        setHypotheticalAthleteId(data.hypothetical_athlete_id ?? null)
-        onHypotheticalSeed?.(data)
-        setAthleteSearchValue('')
-      }
-    } catch (error) {
-      if (currentRequest === requestSeq.current) {
-        axiosErrorToast(error)
-      }
-    } finally {
-      if (currentRequest === requestSeq.current) {
-        setHypotheticalLoading(false)
-      }
-    }
-  }
-
-  const renderSearchSuggestion = (suggestion: AthleteSuggestion) => (
-    <div className="est-seed-athlete-suggestion">
-      {renderAthleteSuggestion(suggestion)}
-    </div>
-  )
 
   return (
     <div className="modal is-active est-seed-modal">
@@ -335,9 +201,7 @@ function EstSeedModal({ competitors, selectedCategory, link, gi, onHypotheticalS
                   <tbody>
                     {sorted.map((c, i) => {
                       const displayName = c.personal_name ? c.personal_name : c.name
-                      const isHypothetical = Boolean((c as HypotheticalCompetitor).hypothetical) || (
-                        hypotheticalAthleteId !== null && c.id === hypotheticalAthleteId
-                      )
+                      const isHypothetical = Boolean((c as HypotheticalCompetitor).hypothetical)
                       return (
                         <tr
                           key={`${c.name}-${c.est_seed ?? ''}-${isHypothetical ? 'hypothetical' : 'registered'}`}
@@ -371,26 +235,6 @@ function EstSeedModal({ competitors, selectedCategory, link, gi, onHypotheticalS
                     })}
                   </tbody>
                 </table>
-              </div>
-              <div className="est-seed-hypothetical-search">
-                <Autosuggest
-                  suggestions={athleteSuggestions}
-                  onSuggestionsFetchRequested={debouncedGetAthleteSuggestions}
-                  onSuggestionsClearRequested={() => setAthleteSuggestions([])}
-                  multiSection={false}
-                  getSuggestionValue={(suggestion) => renderAthleteSuggestion(suggestion)}
-                  renderSuggestion={renderSearchSuggestion}
-                  onSuggestionSelected={(_event: FormEvent<HTMLElement>, { suggestion }: { suggestion: AthleteSuggestion }) => {
-                    void onAthleteSuggestionSelected(suggestion)
-                  }}
-                  inputProps={{
-                    className: 'input est-seed-hypothetical-input',
-                    value: athleteSearchValue,
-                    placeholder: t('Add hypothetical athlete') + '...',
-                    onChange: (_event: FormEvent<HTMLElement>, { newValue }: { newValue: string }) => setAthleteSearchValue(newValue),
-                  }}
-                />
-                {hypotheticalLoading && <span className="loader est-seed-hypothetical-loader"></span>}
               </div>
             </>
           )}
