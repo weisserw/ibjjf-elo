@@ -1398,6 +1398,11 @@ def _registration_seeding_reference_date(event_start_date):
     return min(now, event_start_date)
 
 
+def _registration_rating_date(link):
+    event_start_date = _registration_seeding_start_date(link)
+    return event_start_date, _registration_seeding_reference_date(event_start_date)
+
+
 def _optional_s3_client():
     if not os.getenv("AWS_CREDS"):
         return None
@@ -1437,16 +1442,17 @@ def registration_competitors():
     except Exception as e:
         return jsonify({"error": str(e)})
 
+    event_start_date, rating_date = _registration_rating_date(link)
+
     get_ratings(
         rows,
         None,
         gi,
-        datetime.now() + timedelta(days=1),
+        rating_date,
         False,
         s3_client,
     )
 
-    event_start_date = _registration_seeding_start_date(link)
     seeding_reference_date = _registration_seeding_reference_date(event_start_date)
 
     if divdata["age"] in {JUVENILE, JUVENILE_1, JUVENILE_2}:
@@ -1508,11 +1514,13 @@ def registration_hypothetical_seed():
     except Exception as e:
         return jsonify({"error": str(e)})
 
+    event_start_date, rating_date = _registration_rating_date(link)
+
     get_ratings(
         rows,
         None,
         gi,
-        datetime.now() + timedelta(days=1),
+        rating_date,
         False,
         s3_client,
     )
@@ -1565,7 +1573,7 @@ def registration_hypothetical_seed():
         rows,
         None,
         gi,
-        datetime.now() + timedelta(days=1),
+        rating_date,
         False,
         s3_client,
     )
@@ -1583,7 +1591,6 @@ def registration_hypothetical_seed():
             )
             break
 
-    event_start_date = _registration_seeding_start_date(link)
     seeding_reference_date = _registration_seeding_reference_date(event_start_date)
     add_seeding_data(
         rows,
@@ -1753,11 +1760,13 @@ def registration_elites():
     if not rows:
         return jsonify({"elites": []})
 
+    _, rating_date = _registration_rating_date(link)
+
     elite_note = get_ratings(
         rows,
         None,
         gi,
-        datetime.now() + timedelta(days=1),
+        rating_date,
         False,
         s3_client,
         elite_only=True,

@@ -108,6 +108,60 @@ class BracketsHypotheticalSeedApiTestCase(TestDbMixin, unittest.TestCase):
                 end_match_count=12,
             )
         )
+        db.session.add(
+            MatchParticipant(
+                match_id=prior_match.id,
+                athlete_id=cls.registered_athlete.id,
+                team_id=team.id,
+                seed=2,
+                red=False,
+                winner=False,
+                start_rating=1200.0,
+                end_rating=1300.0,
+                start_match_count=8,
+                end_match_count=9,
+            )
+        )
+
+        event_day_match = Match(
+            event_id=event.id,
+            division_id=division.id,
+            happened_at=datetime(2026, 6, 1, 10, 0, 0),
+            rated=True,
+            match_location="Mat 1",
+            video_link=None,
+        )
+        db.session.add(event_day_match)
+        db.session.flush()
+
+        db.session.add(
+            MatchParticipant(
+                match_id=event_day_match.id,
+                athlete_id=cls.hypothetical_athlete.id,
+                team_id=team.id,
+                seed=1,
+                red=True,
+                winner=True,
+                start_rating=1375.0,
+                end_rating=1500.0,
+                start_match_count=12,
+                end_match_count=13,
+            )
+        )
+        db.session.add(
+            MatchParticipant(
+                match_id=event_day_match.id,
+                athlete_id=cls.registered_athlete.id,
+                team_id=team.id,
+                seed=2,
+                red=False,
+                winner=False,
+                start_rating=1300.0,
+                end_rating=1450.0,
+                start_match_count=9,
+                end_match_count=10,
+            )
+        )
         db.session.commit()
 
     def setUp(self):
@@ -153,6 +207,13 @@ class BracketsHypotheticalSeedApiTestCase(TestDbMixin, unittest.TestCase):
             row["name"] for row in regular_response.get_json()["competitors"]
         ]
         self.assertCountEqual(regular_names, ["Registered One", "Registered Two"])
+        registered_one = next(
+            row
+            for row in regular_response.get_json()["competitors"]
+            if row["name"] == "Registered One"
+        )
+        self.assertEqual(registered_one["rating"], 1300.0)
+        self.assertEqual(registered_one["match_count"], 9)
 
     def test_hypothetical_seed_rejects_registered_athlete(self):
         response = self.client.get(
