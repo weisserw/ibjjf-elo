@@ -240,6 +240,37 @@ class ResultMedal(db.Model):
     )
 
 
+class YoutubeMatchVideo(db.Model):
+    __tablename__ = "youtube_match_videos"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    youtube_video_id = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    published_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+    thumbnail_url = Column(String, nullable=True)
+    scraped_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    ignored = Column(Boolean, nullable=False, default=False)
+    imported_match_id = Column(
+        UUID(as_uuid=True), ForeignKey("matches.id"), nullable=True
+    )
+    imported_at = Column(DateTime, nullable=True)
+
+    imported_match = relationship("Match", lazy="select", viewonly=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "youtube_video_id",
+            name="uq_youtube_match_videos_youtube_video_id",
+        ),
+        Index("ix_youtube_match_videos_published_at", "published_at"),
+        Index("ix_youtube_match_videos_scraped_at", "scraped_at"),
+        Index("ix_youtube_match_videos_ignored", "ignored"),
+        Index("ix_youtube_match_videos_imported_match_id", "imported_match_id"),
+    )
+
+
 class Match(db.Model):
     __tablename__ = "matches"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

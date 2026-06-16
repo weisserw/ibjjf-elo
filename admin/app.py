@@ -28,6 +28,7 @@ from models import (
     MatchParticipant,
     Medal,
     ResultMedal,
+    YoutubeMatchVideo,
     Team,
     FloEventTag,
     FloMatLink,
@@ -276,6 +277,37 @@ def _run_update_result_medals_task(task_id, args):
             db.session.commit()
 
 
+def _run_update_youtube_match_videos_task(task_id, args):
+    with app.app_context():
+        task = BackgroundTask.query.get(task_id)
+        if not task:
+            return
+        task.status = "running"
+        task.started_at = datetime.utcnow()
+        db.session.commit()
+
+        try:
+            update_cmd = ["python3", "scripts/update_youtube_match_videos.py"] + args
+            _append_task_log(task, f"$ {' '.join(update_cmd)}\n")
+            db.session.commit()
+            return_code = _run_logged_process(task, update_cmd, env=os.environ.copy())
+
+            task.exit_code = return_code
+            task.finished_at = datetime.utcnow()
+            task.status = "success" if return_code == 0 else "error"
+            task.pid = None
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            _append_task_log(task, f"\nUnexpected error: {exc}\n")
+            _append_task_log(task, traceback.format_exc())
+            task.exit_code = -1
+            task.finished_at = datetime.utcnow()
+            task.status = "error"
+            task.pid = None
+            db.session.commit()
+
+
 # Simple authentication
 @app.before_request
 def require_login():
@@ -447,6 +479,7 @@ def tasks_index():
         "set_match_winner",
         "recompute_ranks",
         "update_result_medals",
+        "update_youtube_match_videos",
     ]
     db_task_types = [
         row[0]
@@ -1619,6 +1652,7 @@ _SCRIPTS_PATH = os.path.abspath(
 if _SCRIPTS_PATH not in sys.path:
     sys.path.insert(0, _SCRIPTS_PATH)
 import medal_import_lib as medal_lib  # noqa: E402
+import youtube_match_import_lib as youtube_match_lib  # noqa: E402
 
 
 def _parse_date_form(s, default):
@@ -1957,6 +1991,150 @@ def missing_medals_scan_import():
     session["scan_flash"] = flash_msg
 
     return redirect(url_for("missing_medals_scan", since=since, until=until, scan="1"))
+
+
+# ---------------------------------------------------------------------------
+# YouTube match video scanner
+# ---------------------------------------------------------------------------
+
+
+@app.route("/youtube_match_videos_scan", methods=["GET"])
+def youtube_match_videos_scan():
+    now = datetime.utcnow()
+    default_since = now - timedelta(days=14)
+    since = _parse_date_form(request.args.get("since"), default_since)
+    until = _parse_date_form(request.args.get("until"), now)
+    until_eod = until.replace(hour=23, minute=59, second=59)
+    has_scanned = "scan" in request.args
+    latest_youtube_scraped_at = db.session.query(
+        func.max(YoutubeMatchVideo.scraped_at)
+    ).scalar()
+    latest_update_task = (
+        BackgroundTask.query.filter(
+            BackgroundTask.task_type == "update_youtube_match_videos"
+        )
+        .order_by(BackgroundTask.created_at.desc())
+        .first()
+    )
+
+    entries = []
+    summary = {
+        "videos": 0,
+        "matched": 0,
+        "ambiguous": 0,
+        "already_imported": 0,
+        "conflict": 0,
+        "no_match": 0,
+        "no_event": 0,
+        "event_review": 0,
+        "unparseable": 0,
+    }
+    if has_scanned:
+        entries = youtube_match_lib.scan_youtube_match_videos(
+            db.session, since, until_eod
+        )
+        summary["videos"] = len(entries)
+        for entry in entries:
+            summary[entry["status"]] = summary.get(entry["status"], 0) + 1
+
+    return render_template(
+        "youtube_match_videos_scan.html",
+        since=since.strftime("%Y-%m-%d"),
+        until=until.strftime("%Y-%m-%d"),
+        has_scanned=has_scanned,
+        entries=entries,
+        summary=summary,
+        latest_youtube_scraped_at=latest_youtube_scraped_at,
+        latest_update_task=latest_update_task,
+    )
+
+
+@app.route("/youtube_match_videos_scan/update", methods=["POST"])
+def youtube_match_videos_scan_update():
+    source = request.form.get("source", "auto")
+    if source not in ("auto", "rss", "channel"):
+        source = "auto"
+    try:
+        pages = max(1, min(20, int(request.form.get("pages", "2"))))
+    except ValueError:
+        pages = 2
+
+    args = ["--source", source]
+    params = {"source": source, "pages": pages}
+    if source in ("auto", "channel"):
+        args.extend(["--pages", str(pages)])
+
+    task = BackgroundTask(
+        task_type="update_youtube_match_videos",
+        status="queued",
+        params_json=json.dumps(params),
+    )
+    db.session.add(task)
+    db.session.commit()
+
+    thread = threading.Thread(
+        target=_run_update_youtube_match_videos_task,
+        args=(task.id, args),
+        daemon=True,
+    )
+    thread.start()
+
+    return redirect(url_for("task_detail", task_id=task.id))
+
+
+@app.route("/youtube_match_videos_scan/import", methods=["POST"])
+def youtube_match_videos_scan_import():
+    since = request.form.get("since", "")
+    until = request.form.get("until", "")
+    selected_by_video = {}
+    errors = []
+
+    def _add_selection(video_id, match_id):
+        existing = selected_by_video.get(video_id)
+        if existing is not None and existing != match_id:
+            errors.append(f"Multiple matches selected for video {video_id}")
+            return
+        selected_by_video[video_id] = match_id
+
+    for sel in request.form.getlist("match"):
+        try:
+            video_id_raw, match_id_raw = sel.split(":", 1)
+            _add_selection(uuid.UUID(video_id_raw), uuid.UUID(match_id_raw))
+        except (ValueError, AttributeError):
+            errors.append(f"Invalid selection: {sel}")
+
+    for key, value in request.form.items():
+        if not key.startswith("ambiguous_") or not value:
+            continue
+        try:
+            video_id = uuid.UUID(key[len("ambiguous_") :])
+            match_id = uuid.UUID(value)
+            _add_selection(video_id, match_id)
+        except ValueError:
+            errors.append(f"Invalid ambiguous selection: {key}={value}")
+
+    imported = 0
+    skipped = 0
+    if errors:
+        db.session.rollback()
+    else:
+        imported, skipped, import_errors = (
+            youtube_match_lib.import_youtube_match_video_links(
+                db.session, selected_by_video.items()
+            )
+        )
+        errors.extend(import_errors)
+
+    flash_msg = f"Imported {imported} video link(s)"
+    if skipped:
+        flash_msg += f"; skipped {skipped}"
+    if errors:
+        flash_msg += f"; {len(errors)} error(s): " + "; ".join(errors[:3])
+    session["youtube_scan_flash"] = flash_msg
+
+    return redirect(
+        url_for("youtube_match_videos_scan", since=since, until=until, scan="1")
+    )
 
 
 # ---------------------------------------------------------------------------

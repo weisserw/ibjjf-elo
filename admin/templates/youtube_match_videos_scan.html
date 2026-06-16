@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}YouTube match videos scan{% endblock %}
+{% block content %}
+<div class="container mt-6">
+    <div class="box">
+        <h1 class="title is-4">Scan YouTube match videos</h1>
+        <p class="subtitle is-6">
+            Finds recent IBJJF YouTube match uploads and matches them to imported bracket matches.
+        </p>
+
+        {% if session.get('youtube_scan_flash') %}
+            <div class="notification is-info">{{ session.pop('youtube_scan_flash') }}</div>
+        {% endif %}
+
+        <div class="notification is-light">
+            <div class="is-flex is-justify-content-space-between is-align-items-center is-flex-wrap-wrap">
+                <div class="mb-2">
+                    <h2 class="title is-6 mb-1">YouTube source data</h2>
+                    <div class="content is-small mb-0">
+                        Latest scraped row:
+                        {% if latest_youtube_scraped_at %}
+                            {{ latest_youtube_scraped_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC
+                        {% else %}
+                            <span class="has-text-grey">none</span>
+                        {% endif %}
+                        {% if latest_update_task %}
+                            <br>
+                            Latest update task:
+                            <a href="{{ url_for('task_detail', task_id=latest_update_task.id) }}">
+                                {{ latest_update_task.status }}
+                                {% if latest_update_task.created_at %}
+                                    at {{ latest_update_task.created_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC
+                                {% endif %}
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="buttons">
+                    <form method="POST" action="{{ url_for('youtube_match_videos_scan_update') }}">
+                        <input type="hidden" name="source" value="auto">
+                        <input type="hidden" name="pages" value="2">
+                        <button class="button is-info" type="submit">Update YouTube videos</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <form method="GET" action="{{ url_for('youtube_match_videos_scan') }}">
+            <div class="field is-grouped">
+                <div class="field">
+                    <label class="label">Since</label>
+                    <div class="control">
+                        <input class="input" type="date" name="since" value="{{ since }}">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Until</label>
+                    <div class="control">
+                        <input class="input" type="date" name="until" value="{{ until }}">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">&nbsp;</label>
+                    <div class="control">
+                        <input type="hidden" name="scan" value="1">
+                        <button class="button is-link" type="submit">Scan</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        {% if has_scanned %}
+            <div class="content mt-5">
+                <strong>Summary:</strong>
+                {{ summary.videos }} videos scanned;
+                <span class="has-text-success">{{ summary.matched }} matched</span>,
+                {{ summary.already_imported }} already imported,
+                <span class="has-text-warning">{{ summary.ambiguous }} ambiguous</span>,
+                <span class="has-text-danger">{{ summary.conflict }} conflicts</span>,
+                {{ summary.no_match }} no match,
+                {{ summary.event_review }} event review,
+                {{ summary.no_event }} no event,
+                {{ summary.unparseable }} unparseable.
+            </div>
+        {% endif %}
+
+        {% if entries %}
+            <form method="POST" action="{{ url_for('youtube_match_videos_scan_import') }}">
+                <input type="hidden" name="since" value="{{ since }}">
+                <input type="hidden" name="until" value="{{ until }}">
+
+                <div class="buttons mt-4">
+                    <button class="button is-link" type="submit">Import selected</button>
+                    <button class="button is-light" type="button"
+                            onclick="document.querySelectorAll('input.match-cbx:not(:disabled)').forEach(c => c.checked = true)">
+                        Select all matched
+                    </button>
+                </div>
+
+                <table class="table is-fullwidth is-striped is-narrow">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Status</th>
+                            <th>Published</th>
+                            <th>YouTube video</th>
+                            <th>Parsed division</th>
+                            <th>Matched event</th>
+                            <th>Matched match</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for entry in entries %}
+                        {% set video = entry.video %}
+                        {% set top = entry.matched_candidate %}
+                        <tr>
+                            <td>
+                                {% if entry.status == 'matched' and top %}
+                                    <input class="match-cbx" type="checkbox"
+                                           name="match"
+                                           value="{{ video.id }}:{{ top.match.id }}">
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if entry.status == 'matched' %}
+                                    <span class="tag is-success">matched</span>
+                                {% elif entry.status == 'ambiguous' %}
+                                    <span class="tag is-warning">ambiguous</span>
+                                {% elif entry.status == 'already_imported' %}
+                                    <span class="tag is-light">already imported</span>
+                                {% elif entry.status == 'conflict' %}
+                                    <span class="tag is-danger">conflict</span>
+                                {% elif entry.status == 'no_match' %}
+                                    <span class="tag is-danger">no match</span>
+                                {% elif entry.status == 'event_review' %}
+                                    <span class="tag is-warning is-light">event review</span>
+                                {% elif entry.status == 'no_event' %}
+                                    <span class="tag is-danger is-light">no event</span>
+                                {% elif entry.status == 'unparseable' %}
+                                    <span class="tag is-light">unparseable</span>
+                                {% endif %}
+                            </td>
+                            <td class="nowrap">
+                                {% if video.published_at %}
+                                    {{ video.published_at.strftime('%Y-%m-%d') }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ video.url }}" target="_blank" rel="noopener noreferrer">{{ video.title }}</a>
+                                {% if entry.parsed_title %}
+                                    <div class="is-size-7 has-text-grey">
+                                        {{ entry.parsed_title.athlete1 }} vs {{ entry.parsed_title.athlete2 }}
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% set div = entry.parsed_division %}
+                                {% if div.age or div.belt or div.gender or div.weight %}
+                                    {{ div.age or '?' }} / {{ div.belt or '?' }} /
+                                    {{ div.gender or '?' }} / {{ div.weight or '?' }}
+                                    {% if div.round_name %}
+                                        <div class="is-size-7 has-text-grey">{{ div.round_name }}</div>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="has-text-grey">(none)</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if entry.event %}
+                                    {{ entry.event.name }}
+                                    <div class="is-size-7 has-text-grey">
+                                        event {{ entry.event_score }}; gap {{ entry.event_gap }}
+                                    </div>
+                                {% elif entry.event_alternatives %}
+                                    {% for event, score in entry.event_alternatives[:3] %}
+                                        <div>{{ event.name }} <span class="has-text-grey">({{ score }})</span></div>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="has-text-grey">(none)</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if top %}
+                                    {% set participants = top.match.participants %}
+                                    <div>
+                                        {% for participant in participants %}
+                                            <a href="{{ url_for('athlete_edit', id=participant.athlete.id) }}">{{ participant.athlete.name }}</a>{% if not loop.last %} vs {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    <div class="is-size-7 has-text-grey">
+                                        score {{ top.score }}; gap {{ top.score_gap }};
+                                        {{ top.match.division.display_name() }}
+                                    </div>
+                                    {% if top.match.video_link and top.match.video_link != video.url %}
+                                        <div class="is-size-7 has-text-danger">existing link: {{ top.match.video_link }}</div>
+                                    {% endif %}
+                                {% elif entry.alternatives %}
+                                    {% for candidate in entry.alternatives[:5] %}
+                                        <div class="field mb-1">
+                                            <label class="radio">
+                                                <input type="radio"
+                                                       name="ambiguous_{{ video.id }}"
+                                                       value="{{ candidate.match.id }}"
+                                                       {% if candidate.match.video_link and candidate.match.video_link != video.url %}disabled{% endif %}>
+                                                {% for participant in candidate.match.participants %}
+                                                    {{ participant.athlete.name }}{% if not loop.last %} vs {% endif %}
+                                                {% endfor %}
+                                                <span class="has-text-grey">
+                                                    ({{ candidate.score }}, gap {{ candidate.score_gap }})
+                                                </span>
+                                            </label>
+                                            <div class="is-size-7 has-text-grey ml-4">
+                                                {{ candidate.match.division.display_name() }}
+                                                {% if candidate.match.video_link and candidate.match.video_link != video.url %}
+                                                    <span class="has-text-danger">existing link</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="has-text-grey">(none)</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="buttons mt-4">
+                    <button class="button is-link" type="submit">Import selected</button>
+                </div>
+            </form>
+        {% elif has_scanned %}
+            <p class="mt-5 has-text-grey">No YouTube match videos found in this range.</p>
+        {% endif %}
+
+        <a class="button is-light mt-5" href="{{ url_for('index') }}">Back to dashboard</a>
+    </div>
+</div>
+{% endblock %}
