@@ -95,6 +95,10 @@
                             onclick="document.querySelectorAll('input.match-cbx:not(:disabled)').forEach(c => c.checked = true)">
                         Select all matched
                     </button>
+                    <button class="button is-light" type="button"
+                            onclick="document.querySelectorAll('input.match-cbx, input[type=radio][name^=ambiguous_]').forEach(c => c.checked = false)">
+                        Clear selections
+                    </button>
                 </div>
 
                 <table class="table is-fullwidth is-striped is-narrow">
@@ -113,12 +117,14 @@
                     {% for entry in entries %}
                         {% set video = entry.video %}
                         {% set top = entry.matched_candidate %}
+                        {% set default = entry.default_candidate %}
                         <tr>
                             <td>
                                 {% if entry.status == 'matched' and top %}
                                     <input class="match-cbx" type="checkbox"
                                            name="match"
-                                           value="{{ video.id }}:{{ top.match.id }}">
+                                           value="{{ video.id }}:{{ top.match.id }}"
+                                           {% if default and default.match.id == top.match.id %}checked{% endif %}>
                                 {% endif %}
                             </td>
                             <td>
@@ -201,6 +207,7 @@
                                                 <input type="radio"
                                                        name="ambiguous_{{ video.id }}"
                                                        value="{{ candidate.match.id }}"
+                                                       {% if default and default.match.id == candidate.match.id %}checked{% endif %}
                                                        {% if candidate.match.video_link and candidate.match.video_link != video.url %}disabled{% endif %}>
                                                 {% for participant in candidate.match.participants %}
                                                     {{ participant.athlete.name }}{% if not loop.last %} vs {% endif %}

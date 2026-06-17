@@ -3,6 +3,7 @@ import sys
 import unittest
 import uuid
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -181,6 +182,47 @@ class PureFunctionTestCase(unittest.TestCase):
         self.assertEqual(uploads[0].url, "https://www.youtube.com/watch?v=xSNMFhpTSv4")
         self.assertEqual(uploads[0].thumbnail_url, "https://i.ytimg.com/large.jpg")
         self.assertEqual(uploads[0].published_at, datetime(2026, 6, 2, 12, 0, 0))
+
+    def test_assign_default_import_candidates_uses_unique_matches(self):
+        first_match_id = uuid.uuid4()
+        second_match_id = uuid.uuid4()
+
+        def candidate(match_id, reason="name_pair"):
+            return lib.MatchCandidate(
+                match=SimpleNamespace(id=match_id),
+                score=74.0,
+                score_gap=0.0,
+                athlete1_score=80,
+                athlete2_score=80,
+                direction="direct",
+                reason=reason,
+            )
+
+        entries = [
+            {
+                "status": "ambiguous",
+                "matched_candidate": None,
+                "alternatives": [candidate(first_match_id), candidate(second_match_id)],
+            },
+            {
+                "status": "no_match",
+                "matched_candidate": None,
+                "alternatives": [candidate(first_match_id), candidate(second_match_id)],
+            },
+            {
+                "status": "no_match",
+                "matched_candidate": None,
+                "alternatives": [
+                    candidate(uuid.uuid4(), reason="target_has_video_link")
+                ],
+            },
+        ]
+
+        lib._assign_default_import_candidates(entries)
+
+        self.assertEqual(entries[0]["default_candidate"].match.id, first_match_id)
+        self.assertEqual(entries[1]["default_candidate"].match.id, second_match_id)
+        self.assertIsNone(entries[2]["default_candidate"])
 
 
 class YoutubeMatchImportDbTestCase(TestDbMixin, unittest.TestCase):
@@ -447,6 +489,42 @@ class YoutubeMatchImportDbTestCase(TestDbMixin, unittest.TestCase):
             )
             self.assertEqual(video.imported_match_id, self.middle_match_id)
             self.assertIsNotNone(video.imported_at)
+
+    def test_import_youtube_match_video_links_rejects_duplicate_match_selection(self):
+        with self.app_module.app.app_context():
+            db.session.get(Match, self.middle_match_id).video_link = None
+            first = YoutubeMatchVideo(
+                id=uuid.uuid4(),
+                youtube_video_id="duplicate1",
+                url="https://www.youtube.com/watch?v=duplicate1",
+                title="Igor Carlos vs Hiago Barra / Charlotte Spring Open 2026",
+                published_at=datetime.utcnow(),
+                scraped_at=datetime.utcnow(),
+            )
+            second = YoutubeMatchVideo(
+                id=uuid.uuid4(),
+                youtube_video_id="duplicate2",
+                url="https://www.youtube.com/watch?v=duplicate2",
+                title="Igor Carlos vs Hiago Barra / Charlotte Spring Open 2026",
+                published_at=datetime.utcnow(),
+                scraped_at=datetime.utcnow(),
+            )
+            db.session.add_all([first, second])
+            db.session.commit()
+
+            imported, skipped, errors = lib.import_youtube_match_video_links(
+                db.session,
+                [(first.id, self.middle_match_id), (second.id, self.middle_match_id)],
+            )
+
+            self.assertEqual(imported, 1)
+            self.assertEqual(skipped, 1)
+            self.assertEqual(len(errors), 1)
+            self.assertIn("multiple YouTube videos", errors[0])
+            self.assertEqual(
+                db.session.get(Match, self.middle_match_id).video_link,
+                "https://www.youtube.com/watch?v=duplicate1",
+            )
 
 
 if __name__ == "__main__":

@@ -719,6 +719,34 @@ def match_video_to_matches(
     return candidates
 
 
+def _assign_default_import_candidates(entries: list[dict]) -> None:
+    selected_match_ids = set()
+    for entry in entries:
+        entry["default_candidate"] = None
+        status = entry["status"]
+        if status in ("already_imported", "conflict"):
+            continue
+
+        if status == "matched":
+            candidate = entry["matched_candidate"]
+            if candidate and candidate.match.id not in selected_match_ids:
+                entry["default_candidate"] = candidate
+                selected_match_ids.add(candidate.match.id)
+            continue
+
+        if status not in ("ambiguous", "no_match"):
+            continue
+
+        for candidate in entry["alternatives"]:
+            if candidate.reason in ("already_imported", "target_has_video_link"):
+                continue
+            if candidate.match.id in selected_match_ids:
+                continue
+            entry["default_candidate"] = candidate
+            selected_match_ids.add(candidate.match.id)
+            break
+
+
 def scan_youtube_match_videos(
     session,
     since: datetime,
@@ -752,6 +780,7 @@ def scan_youtube_match_videos(
                     "event_gap": 0.0,
                     "event_alternatives": [],
                     "matched_candidate": None,
+                    "default_candidate": None,
                     "alternatives": [],
                 }
             )
@@ -777,6 +806,7 @@ def scan_youtube_match_videos(
                     "event_gap": event_gap,
                     "event_alternatives": event_alternatives,
                     "matched_candidate": None,
+                    "default_candidate": None,
                     "alternatives": [],
                 }
             )
@@ -822,9 +852,11 @@ def scan_youtube_match_videos(
                     if status in ("matched", "already_imported", "conflict")
                     else None
                 ),
+                "default_candidate": None,
                 "alternatives": alternatives,
             }
         )
+    _assign_default_import_candidates(entries)
     return entries
 
 
@@ -852,6 +884,7 @@ def import_youtube_match_video_links(
         for match in session.query(Match).filter(Match.id.in_(match_ids)).all()
     }
     now = datetime.utcnow()
+    selected_match_to_video: dict[uuid.UUID, uuid.UUID] = {}
 
     for video_id, match_id in selections:
         video = videos_by_id.get(video_id)
@@ -860,10 +893,16 @@ def import_youtube_match_video_links(
             skipped += 1
             errors.append(f"Missing video or match for selection {video_id}:{match_id}")
             continue
+        existing_video_id = selected_match_to_video.get(match_id)
+        if existing_video_id is not None and existing_video_id != video_id:
+            skipped += 1
+            errors.append(f"Match {match.id} was selected for multiple YouTube videos.")
+            continue
         if match.video_link and match.video_link != video.url:
             skipped += 1
             errors.append(f"Match {match.id} already has a different video link.")
             continue
+        selected_match_to_video[match_id] = video_id
         match.video_link = video.url
         video.imported_match_id = match.id
         video.imported_at = now
