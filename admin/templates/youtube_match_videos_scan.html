@@ -92,10 +92,6 @@
                 <div class="buttons mt-4">
                     <button class="button is-link" type="submit">Import selected</button>
                     <button class="button is-light" type="button"
-                            onclick="document.querySelectorAll('input.match-cbx:not(:disabled)').forEach(c => c.checked = true)">
-                        Select all matched
-                    </button>
-                    <button class="button is-light" type="button"
                             onclick="document.querySelectorAll('input.match-cbx, input[type=radio][name^=ambiguous_]').forEach(c => c.checked = false)">
                         Clear selections
                     </button>

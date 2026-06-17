@@ -834,7 +834,7 @@ def scan_youtube_match_videos(
                 and min(top.athlete1_score, top.athlete2_score) >= 78
             ):
                 status = "matched"
-            elif top.score >= 75.0:
+            else:
                 status = "ambiguous"
 
         entries.append(

@@ -205,16 +205,21 @@ class PureFunctionTestCase(unittest.TestCase):
                 "alternatives": [candidate(first_match_id), candidate(second_match_id)],
             },
             {
-                "status": "no_match",
+                "status": "ambiguous",
                 "matched_candidate": None,
                 "alternatives": [candidate(first_match_id), candidate(second_match_id)],
             },
             {
-                "status": "no_match",
+                "status": "ambiguous",
                 "matched_candidate": None,
                 "alternatives": [
                     candidate(uuid.uuid4(), reason="target_has_video_link")
                 ],
+            },
+            {
+                "status": "no_match",
+                "matched_candidate": None,
+                "alternatives": [],
             },
         ]
 
@@ -223,6 +228,7 @@ class PureFunctionTestCase(unittest.TestCase):
         self.assertEqual(entries[0]["default_candidate"].match.id, first_match_id)
         self.assertEqual(entries[1]["default_candidate"].match.id, second_match_id)
         self.assertIsNone(entries[2]["default_candidate"])
+        self.assertIsNone(entries[3]["default_candidate"])
 
 
 class YoutubeMatchImportDbTestCase(TestDbMixin, unittest.TestCase):
