@@ -597,21 +597,33 @@ def match_event(
     return top_event, round(top_score, 2), round(gap, 2), "event_review", alternatives
 
 
-def _athlete_score(youtube_name: str, athlete: Athlete) -> int:
+def _athlete_score(
+    youtube_name: str,
+    athlete: Athlete,
+    score_cache: dict[tuple[str, uuid.UUID], int] | None = None,
+) -> int:
+    cache_key = (youtube_name, athlete.id)
+    if score_cache is not None and cache_key in score_cache:
+        return score_cache[cache_key]
     scores = [medal_import_lib.name_score(youtube_name, athlete.name)]
     if athlete.personal_name:
         scores.append(medal_import_lib.name_score(youtube_name, athlete.personal_name))
-    return max(scores)
+    score = max(scores)
+    if score_cache is not None:
+        score_cache[cache_key] = score
+    return score
 
 
 def _pair_score(
-    parsed_title: ParsedYoutubeTitle, participants: list[MatchParticipant]
+    parsed_title: ParsedYoutubeTitle,
+    participants: list[MatchParticipant],
+    score_cache: dict[tuple[str, uuid.UUID], int] | None = None,
 ) -> tuple[float, int, int, str]:
     left, right = participants
-    direct_a = _athlete_score(parsed_title.athlete1, left.athlete)
-    direct_b = _athlete_score(parsed_title.athlete2, right.athlete)
-    reverse_a = _athlete_score(parsed_title.athlete1, right.athlete)
-    reverse_b = _athlete_score(parsed_title.athlete2, left.athlete)
+    direct_a = _athlete_score(parsed_title.athlete1, left.athlete, score_cache)
+    direct_b = _athlete_score(parsed_title.athlete2, right.athlete, score_cache)
+    reverse_a = _athlete_score(parsed_title.athlete1, right.athlete, score_cache)
+    reverse_b = _athlete_score(parsed_title.athlete2, left.athlete, score_cache)
 
     direct = (direct_a + direct_b) / 2.0
     reverse = (reverse_a + reverse_b) / 2.0
@@ -639,17 +651,25 @@ def match_video_to_matches(
     event: Event,
     parsed_title: ParsedYoutubeTitle,
     parsed_division: ParsedYoutubeDivision,
+    event_matches_cache: dict[uuid.UUID, list[Match]] | None = None,
+    score_cache: dict[tuple[str, uuid.UUID], int] | None = None,
 ) -> list[MatchCandidate]:
-    matches = (
-        session.query(Match)
-        .options(
-            selectinload(Match.participants).selectinload(MatchParticipant.athlete),
-            selectinload(Match.division),
+    matches = None
+    if event_matches_cache is not None:
+        matches = event_matches_cache.get(event.id)
+    if matches is None:
+        matches = (
+            session.query(Match)
+            .options(
+                selectinload(Match.participants).selectinload(MatchParticipant.athlete),
+                selectinload(Match.division),
+            )
+            .filter(Match.event_id == event.id)
+            .order_by(Match.happened_at.desc(), Match.id)
+            .all()
         )
-        .filter(Match.event_id == event.id)
-        .order_by(Match.happened_at.desc(), Match.id)
-        .all()
-    )
+        if event_matches_cache is not None:
+            event_matches_cache[event.id] = matches
     if any(
         [
             parsed_division.age,
@@ -667,7 +687,9 @@ def match_video_to_matches(
         participants = list(match.participants)
         if len(participants) != 2:
             continue
-        score, a_score, b_score, direction = _pair_score(parsed_title, participants)
+        score, a_score, b_score, direction = _pair_score(
+            parsed_title, participants, score_cache
+        )
         scored.append((score, match, a_score, b_score, direction))
 
     scored.sort(key=lambda item: item[0], reverse=True)
@@ -703,6 +725,9 @@ def scan_youtube_match_videos(
     until: datetime,
 ) -> list[dict]:
     event_candidates = _event_candidates(session)
+    matched_events_by_name = {}
+    event_matches_cache = {}
+    score_cache = {}
     videos = (
         session.query(YoutubeMatchVideo)
         .filter(YoutubeMatchVideo.ignored.isnot(True))
@@ -732,8 +757,13 @@ def scan_youtube_match_videos(
             )
             continue
 
-        event, event_score, event_gap, event_reason, event_alternatives = match_event(
-            parsed_title, event_candidates
+        event_match_key = parsed_title.event_name
+        if event_match_key not in matched_events_by_name:
+            matched_events_by_name[event_match_key] = match_event(
+                parsed_title, event_candidates
+            )
+        event, event_score, event_gap, event_reason, event_alternatives = (
+            matched_events_by_name[event_match_key]
         )
         if event is None or event_reason != "event_auto":
             entries.append(
@@ -753,7 +783,13 @@ def scan_youtube_match_videos(
             continue
 
         alternatives = match_video_to_matches(
-            session, video, event, parsed_title, parsed_division
+            session,
+            video,
+            event,
+            parsed_title,
+            parsed_division,
+            event_matches_cache=event_matches_cache,
+            score_cache=score_cache,
         )
         top = alternatives[0] if alternatives else None
         status = "no_match"
