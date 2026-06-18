@@ -89,8 +89,8 @@ def _live_match(match_num, red_seed, blue_seed, final=False):
         "match_num": match_num,
         "final": final,
         "when": None,
-        "where": None,
-        "fight_num": None,
+        "where": "Mat 1",
+        "fight_num": match_num,
         "red_bye": False,
         "red_id": f"athlete-{red_seed}",
         "red_seed": red_seed,
@@ -109,6 +109,24 @@ def _live_bye_match(match_num, seed):
     match["blue_id"] = None
     match["blue_seed"] = None
     return match
+
+
+def _live_child_match(match_num, red_description, blue_description, final=False):
+    return {
+        "match_num": match_num,
+        "final": final,
+        "when": None,
+        "where": "Mat 1",
+        "fight_num": match_num,
+        "red_bye": False,
+        "red_id": None,
+        "red_seed": None,
+        "red_next_description": red_description,
+        "blue_bye": False,
+        "blue_id": None,
+        "blue_seed": None,
+        "blue_next_description": blue_description,
+    }
 
 
 def _divdata(age=ADULT, belt=BLACK, weight=LIGHT, gender=MALE):
@@ -2505,6 +2523,50 @@ class LiveBracketDisplayMatchNumberTestCase(unittest.TestCase):
         self.assertEqual(
             sorted(match["display_match_num"] for match in matches),
             list(range(1, 8)),
+        )
+
+    def test_n7_live_matches_line_up_with_dependency_graph(self):
+        fight5 = _live_match(5, 2, 7)
+        fight6 = _live_match(6, 4, 5)
+        fight8 = _live_match(8, 3, 6)
+        semifinal_a = _live_child_match(
+            9,
+            "Winner of Fight 5, Mat 1",
+            "Winner of Fight 6, Mat 1",
+        )
+        semifinal_b = {
+            **_live_child_match(
+                10,
+                "",
+                "Winner of Fight 8, Mat 1",
+            ),
+            "red_id": "athlete-1",
+            "red_seed": 1,
+            "red_next_description": None,
+        }
+        final = _live_child_match(
+            11,
+            "Winner of Fight 9, Mat 1",
+            "Winner of Fight 10, Mat 1",
+            final=True,
+        )
+        matches = [fight5, fight6, fight8, semifinal_a, semifinal_b, final]
+
+        add_canonical_display_match_numbers(matches, 7)
+
+        display_by_match_num = {
+            match["match_num"]: match["display_match_num"] for match in matches
+        }
+        self.assertEqual(
+            display_by_match_num,
+            {
+                5: 4,
+                6: 3,
+                8: 2,
+                9: 6,
+                10: 5,
+                11: 7,
+            },
         )
 
     def test_n11_first_round_live_matches_get_canonical_display_numbers(self):

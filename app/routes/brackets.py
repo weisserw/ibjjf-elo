@@ -2295,6 +2295,7 @@ def add_canonical_display_match_numbers(matches, competitor_count):
         return
 
     children_by_id = _live_match_children(matches)
+    root = next((m for m in matches if m["final"]), None)
     seed_to_slot = {
         seed: index
         for index, pair in enumerate(slots)
@@ -2307,6 +2308,104 @@ def add_canonical_display_match_numbers(matches, competitor_count):
     }
 
     first_round_count = bracket_size // 2
+
+    def display_match_num(level, slot):
+        base = sum(bracket_size // (2 ** (i + 1)) for i in range(level))
+        return base + (slot // (2**level)) + 1
+
+    graph_assignments = {}
+
+    if children_by_id is not None and root is not None:
+        child_by_side_cache = {}
+        subtree_key_cache = {}
+
+        def child_for_side(parent, side):
+            key = (id(parent), side)
+            if key not in child_by_side_cache:
+                child_by_side_cache[key] = next(
+                    (
+                        child
+                        for child in children_by_id.get(id(parent), [])
+                        if _side_references_child(parent, side, child)
+                    ),
+                    None,
+                )
+            return child_by_side_cache[key]
+
+        def seed_sort_key(seed):
+            return (
+                0,
+                seed_to_slot.get(seed, first_round_count),
+                seed if seed is not None else first_round_count,
+            )
+
+        def match_sort_key(match):
+            match_id = id(match)
+            if match_id in subtree_key_cache:
+                return subtree_key_cache[match_id]
+
+            keys = []
+            for side in ("red", "blue"):
+                child = child_for_side(match, side)
+                if child is not None:
+                    keys.append(match_sort_key(child))
+                    continue
+
+                seed = _match_side_seed(match, side)
+                if seed is not None:
+                    keys.append(seed_sort_key(seed))
+
+            slot = _canonical_first_round_slot(match, slot_by_seed_set)
+            if slot is not None:
+                keys.append((0, slot, match["match_num"] or first_round_count))
+
+            fallback = (
+                1,
+                (
+                    match["match_num"]
+                    if match["match_num"] is not None
+                    else first_round_count
+                ),
+                match["when"] or "",
+            )
+            subtree_key_cache[match_id] = min(keys) if keys else fallback
+            return subtree_key_cache[match_id]
+
+        def side_entries(match):
+            entries = []
+            for side in ("red", "blue"):
+                child = child_for_side(match, side)
+                if child is not None:
+                    entries.append(("match", child, match_sort_key(child)))
+                    continue
+
+                seed = _match_side_seed(match, side)
+                if seed is not None:
+                    entries.append(("seed", seed, seed_sort_key(seed)))
+
+            return sorted(entries, key=lambda entry: entry[2])
+
+        def assign_graph_position(match, start_slot, width):
+            if id(match) in graph_assignments:
+                return
+
+            children = children_by_id.get(id(match), [])
+            if not children:
+                graph_assignments[id(match)] = display_match_num(0, start_slot)
+                return
+
+            level = max(0, width.bit_length() - 1)
+            graph_assignments[id(match)] = display_match_num(level, start_slot)
+
+            child_width = max(1, width // 2)
+            for index, (entry_type, entry, _) in enumerate(side_entries(match)[:2]):
+                if entry_type == "match":
+                    assign_graph_position(
+                        entry, start_slot + index * child_width, child_width
+                    )
+
+        assign_graph_position(root, 0, first_round_count)
+
     leaf_matches = (
         [m for m in matches if not children_by_id.get(id(m))]
         if children_by_id is not None
@@ -2358,12 +2457,10 @@ def add_canonical_display_match_numbers(matches, competitor_count):
         slot = min(pos[1] for pos in child_positions)
         return level, slot
 
-    def display_match_num(level, slot):
-        base = sum(bracket_size // (2 ** (i + 1)) for i in range(level))
-        return base + (slot // (2**level)) + 1
-
-    assignments = {}
+    assignments = dict(graph_assignments)
     for match in matches:
+        if id(match) in assignments:
+            continue
         position = match_position(match)
         if position is None:
             continue
