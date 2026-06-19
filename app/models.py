@@ -474,6 +474,104 @@ class LiveStream(db.Model):
     __table_args__ = (Index("ix_live_streams_event_id", "event_id"),)
 
 
+class LivestreamFrameArchive(db.Model):
+    __tablename__ = "livestream_frame_archives"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    youtube_video_id = Column(String, nullable=False)
+    canonical_url = Column(String, nullable=False)
+    s3_prefix = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="pending")
+    frame_rate = Column(Float, nullable=False, default=1.0)
+    image_format = Column(String, nullable=False, default="jpg")
+    jpeg_quality = Column(Integer, nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
+    expected_frame_count = Column(Integer, nullable=True)
+    uploaded_frame_count = Column(Integer, nullable=False, default=0)
+    last_uploaded_second = Column(Integer, nullable=True)
+    format_id = Column(String, nullable=True)
+    format_note = Column(String, nullable=True)
+    width = Column(Integer, nullable=True)
+    height = Column(Integer, nullable=True)
+    source_fps = Column(Float, nullable=True)
+    video_codec = Column(String, nullable=True)
+    audio_codec = Column(String, nullable=True)
+    tbr = Column(Float, nullable=True)
+    protocol = Column(String, nullable=True)
+    yt_dlp_version = Column(String, nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    segments = relationship(
+        "LivestreamFrameCaptureSegment",
+        back_populates="archive",
+        cascade="all, delete-orphan",
+        order_by="LivestreamFrameCaptureSegment.start_second",
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "youtube_video_id", name="uq_livestream_frame_archives_youtube_video_id"
+        ),
+        Index("ix_livestream_frame_archives_status", "status"),
+    )
+
+
+class LivestreamFrameCaptureSegment(db.Model):
+    __tablename__ = "livestream_frame_capture_segments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    archive_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("livestream_frame_archives.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    start_second = Column(Integer, nullable=False)
+    end_second = Column(Integer, nullable=False)
+    status = Column(String, nullable=False, default="pending")
+    attempt_count = Column(Integer, nullable=False, default=0)
+    uploaded_frame_count = Column(Integer, nullable=False, default=0)
+    last_uploaded_second = Column(Integer, nullable=True)
+    background_task_id = Column(
+        UUID(as_uuid=True), ForeignKey("background_tasks.id"), nullable=True
+    )
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+
+    archive = relationship("LivestreamFrameArchive", back_populates="segments")
+    background_task = relationship("BackgroundTask")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "archive_id",
+            "start_second",
+            "end_second",
+            name="uq_livestream_frame_capture_segments_range",
+        ),
+        Index("ix_livestream_frame_capture_segments_archive_id", "archive_id"),
+        Index("ix_livestream_frame_capture_segments_status", "status"),
+        Index(
+            "ix_livestream_frame_capture_segments_background_task_id",
+            "background_task_id",
+        ),
+        Index(
+            "ix_livestream_frame_capture_segments_archive_start",
+            "archive_id",
+            "start_second",
+        ),
+    )
+
+
 class FloEventTag(db.Model):
     __tablename__ = "flo_event_tags"
 

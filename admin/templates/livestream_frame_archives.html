@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Livestream Frame Archives{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <div class="is-flex is-justify-content-space-between is-align-items-center mb-4">
+        <h1 class="title is-4">Livestream Frame Archives</h1>
+        <a class="button is-light" href="{{ url_for('index') }}">Back to Dashboard</a>
+    </div>
+
+    {% if message %}
+    <div class="notification is-success is-light">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="notification is-danger is-light">{{ error }}</div>
+    {% endif %}
+
+    <div class="box">
+        <div class="buttons">
+            <form method="POST">
+                <input type="hidden" name="action" value="sync">
+                <button class="button is-link" type="submit">Sync from live_streams</button>
+            </form>
+            <form method="POST">
+                <input type="hidden" name="action" value="queue_missing">
+                <button class="button is-info" type="submit">Queue missing</button>
+            </form>
+            <form method="POST">
+                <input type="hidden" name="action" value="start_runner">
+                <input type="hidden" name="max_segments" value="1">
+                <button class="button is-primary" type="submit">Start runner</button>
+            </form>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="buttons">
+            <button class="button is-info is-small" name="action" value="queue_selected" type="submit">Queue selected</button>
+            <button class="button is-warning is-small" name="action" value="retry_failed" type="submit">Retry failed</button>
+            <button class="button is-danger is-small" name="action" value="cancel" type="submit">Cancel queued/running</button>
+        </div>
+
+        <div class="table-container">
+            <table class="table is-fullwidth is-striped is-size-7">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>YouTube ID</th>
+                        <th>Events / days / mats</th>
+                        <th>Canonical URL</th>
+                        <th>Status</th>
+                        <th>Resolution / format</th>
+                        <th>Progress</th>
+                        <th>S3 prefix</th>
+                        <th>Latest task</th>
+                        <th>Last error</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    {% set archive = row.archive %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="selected_youtube_id" value="{{ row.youtube_video_id }}">
+                        </td>
+                        <td><code>{{ row.youtube_video_id }}</code></td>
+                        <td>
+                            {% for usage in row.usages %}
+                            <div>
+                                {{ usage.event_name or usage.stream.event_id }}
+                                day {{ usage.stream.day_number }},
+                                mat {{ usage.stream.mat_number }}
+                            </div>
+                            {% else %}
+                            <span class="has-text-grey">No current live_streams rows</span>
+                            {% endfor %}
+                        </td>
+                        <td><a href="{{ row.canonical_url }}" target="_blank">{{ row.canonical_url }}</a></td>
+                        <td>{{ archive.status if archive else 'not synced' }}</td>
+                        <td>
+                            {% if archive and archive.width and archive.height %}
+                                {{ archive.width }}x{{ archive.height }}
+                                {% if archive.format_id %}/ {{ archive.format_id }}{% endif %}
+                            {% elif archive and archive.format_id %}
+                                {{ archive.format_id }}
+                            {% endif %}
+                        </td>
+                        <td>{{ progress_label(archive) }}</td>
+                        <td><code>{{ archive.s3_prefix if archive else '' }}</code></td>
+                        <td>
+                            {% if row.latest_task_id %}
+                            <a href="{{ url_for('task_detail', task_id=row.latest_task_id) }}">View</a>
+                            {% endif %}
+                        </td>
+                        <td class="has-text-danger">{{ archive.last_error if archive and archive.last_error else '' }}</td>
+                        <td>
+                            {% if archive %}
+                            <a href="{{ url_for('livestream_frame_archive_detail', archive_id=archive.id) }}">Detail</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="11">No YouTube livestreams found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+{% endblock %}

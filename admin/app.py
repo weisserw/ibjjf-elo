@@ -33,10 +33,24 @@ from models import (
     FloEventTag,
     FloMatLink,
     BackgroundTask,
+    LivestreamFrameArchive,
+    LivestreamFrameCaptureSegment,
     FloSearchName,
     TeamNameMapping,
     AthleteMediaCoverage,
 )
+from livestream_frame_archive import (
+    archive_progress_label,
+    archive_usage_rows,
+    cancel_queued_segments,
+    get_archive_dashboard_rows,
+    get_or_create_archive,
+    queue_archive_capture,
+    recompute_archive_status,
+    retry_failed_segments,
+    sync_archives_from_livestreams,
+)
+from youtube_utils import canonical_youtube_url
 from normalize import normalize
 from elo import WINNER_NOT_RECORDED
 from photos import (
@@ -308,6 +322,42 @@ def _run_update_youtube_match_videos_task(task_id, args):
             db.session.commit()
 
 
+def _run_capture_livestream_frames_task(task_id, args):
+    with app.app_context():
+        task = BackgroundTask.query.get(task_id)
+        if not task:
+            return
+        task.status = "running"
+        task.started_at = datetime.utcnow()
+        db.session.commit()
+
+        try:
+            capture_cmd = [
+                "python3",
+                "scripts/archive_livestream_frames.py",
+                "--background-task-id",
+                str(task_id),
+            ] + args
+            _append_task_log(task, f"$ {' '.join(capture_cmd)}\n")
+            db.session.commit()
+            return_code = _run_logged_process(task, capture_cmd, env=os.environ.copy())
+
+            task.exit_code = return_code
+            task.finished_at = datetime.utcnow()
+            task.status = "success" if return_code == 0 else "error"
+            task.pid = None
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            _append_task_log(task, f"\nUnexpected error: {exc}\n")
+            _append_task_log(task, traceback.format_exc())
+            task.exit_code = -1
+            task.finished_at = datetime.utcnow()
+            task.status = "error"
+            task.pid = None
+            db.session.commit()
+
+
 # Simple authentication
 @app.before_request
 def require_login():
@@ -480,6 +530,7 @@ def tasks_index():
         "recompute_ranks",
         "update_result_medals",
         "update_youtube_match_videos",
+        "capture_livestream_frames",
     ]
     db_task_types = [
         row[0]
@@ -538,6 +589,123 @@ def tasks_unrecorded_winners():
     )
     return render_template(
         "tasks_unrecorded_winners.html", archive_base_url=archive_base_url
+    )
+
+
+@app.route("/livestream_frame_archives", methods=["GET", "POST"])
+def livestream_frame_archives():
+    message = request.args.get("message")
+    error = None
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        youtube_ids = request.form.getlist("selected_youtube_id")
+        archive_ids = [
+            archive.id
+            for archive in LivestreamFrameArchive.query.filter(
+                LivestreamFrameArchive.youtube_video_id.in_(youtube_ids)
+            ).all()
+        ]
+
+        try:
+            if action == "sync":
+                result = sync_archives_from_livestreams(db.session)
+                db.session.commit()
+                message = (
+                    f"Synced {result['discovered']} stream(s); "
+                    f"created {result['created']} archive row(s)."
+                )
+            elif action == "queue_missing":
+                sync_archives_from_livestreams(db.session)
+                archives = LivestreamFrameArchive.query.filter(
+                    LivestreamFrameArchive.status != "success"
+                ).all()
+                segment_count = 0
+                for archive in archives:
+                    segment_count += queue_archive_capture(db.session, archive)
+                    recompute_archive_status(db.session, archive)
+                db.session.commit()
+                message = f"Queued {segment_count} segment(s)."
+            elif action == "queue_selected":
+                archives = []
+                for youtube_id in youtube_ids:
+                    archive, _ = get_or_create_archive(db.session, youtube_id)
+                    archives.append(archive)
+                if archive_ids:
+                    archives.extend(
+                        LivestreamFrameArchive.query.filter(
+                            LivestreamFrameArchive.id.in_(archive_ids)
+                        ).all()
+                    )
+                seen = set()
+                segment_count = 0
+                for archive in archives:
+                    if archive.id in seen:
+                        continue
+                    seen.add(archive.id)
+                    segment_count += queue_archive_capture(db.session, archive)
+                    recompute_archive_status(db.session, archive)
+                db.session.commit()
+                message = f"Queued {segment_count} segment(s)."
+            elif action == "retry_failed":
+                segment_count = retry_failed_segments(db.session, archive_ids or None)
+                db.session.commit()
+                message = f"Requeued {segment_count} failed segment(s)."
+            elif action == "cancel":
+                segment_count = cancel_queued_segments(db.session, archive_ids or None)
+                db.session.commit()
+                message = f"Cancelled {segment_count} queued/running segment(s)."
+            elif action == "start_runner":
+                max_segments = request.form.get("max_segments", type=int) or 1
+                task = BackgroundTask(
+                    task_type="capture_livestream_frames",
+                    status="queued",
+                    params_json=json.dumps({"max_segments": max_segments}),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                db.session.add(task)
+                db.session.commit()
+                args = ["--claim-next", "--max-segments", str(max_segments)]
+                threading.Thread(
+                    target=_run_capture_livestream_frames_task,
+                    args=(task.id, args),
+                    daemon=True,
+                ).start()
+                return redirect(url_for("task_detail", task_id=task.id))
+        except Exception as exc:
+            db.session.rollback()
+            error = str(exc)
+
+    rows = get_archive_dashboard_rows(db.session)
+    return render_template(
+        "livestream_frame_archives.html",
+        rows=rows,
+        message=message,
+        error=error,
+        progress_label=archive_progress_label,
+    )
+
+
+@app.route("/livestream_frame_archives/<archive_id>")
+def livestream_frame_archive_detail(archive_id):
+    archive = LivestreamFrameArchive.query.get(uuid.UUID(archive_id))
+    if not archive:
+        return redirect(url_for("livestream_frame_archives"))
+
+    segments = (
+        LivestreamFrameCaptureSegment.query.filter_by(archive_id=archive.id)
+        .order_by(LivestreamFrameCaptureSegment.start_second)
+        .all()
+    )
+    usages = archive_usage_rows(db.session, archive.youtube_video_id)
+    return render_template(
+        "livestream_frame_archive_detail.html",
+        archive=archive,
+        segments=segments,
+        usages=usages,
+        canonical_url=canonical_youtube_url(archive.youtube_video_id),
+        progress_label=archive_progress_label,
     )
 
 
