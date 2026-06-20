@@ -42,38 +42,17 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         self.assertEqual(options["js_runtimes"], {"node": {}})
         self.assertEqual(options["remote_components"], ["ejs:github"])
 
-    def test_yt_dlp_options_parse_runtime_path_and_cookie_sources(self):
+    def test_yt_dlp_options_parse_runtime_path(self):
         options = runner._yt_dlp_options(
             "best",
             "node:/usr/local/bin/node",
             ["ejs:github"],
-            cookies="/run/secrets/youtube.cookies",
-            cookies_from_browser="chrome+basic:Default",
         )
 
         self.assertEqual(
             options["js_runtimes"],
             {"node": {"path": "/usr/local/bin/node"}},
         )
-        self.assertEqual(options["cookiefile"], "/run/secrets/youtube.cookies")
-        self.assertEqual(
-            options["cookiesfrombrowser"],
-            ("chrome", "Default", "BASIC", None),
-        )
-
-    def test_cookies_content_from_args_decodes_base64_fallback(self):
-        self.assertEqual(
-            runner._cookies_content_from_args(None, "Y29va2llCg=="),
-            "cookie\n",
-        )
-
-    def test_cookiefile_from_content_writes_temp_file(self):
-        with runner._cookiefile_from_content(None, "cookies") as cookiefile:
-            cookie_path = Path(cookiefile)
-            self.assertTrue(cookie_path.exists())
-            self.assertEqual(cookie_path.read_text(), "cookies\n")
-
-        self.assertFalse(cookie_path.exists())
 
 
 class YoutubeUtilsTestCase(unittest.TestCase):
