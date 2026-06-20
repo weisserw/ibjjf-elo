@@ -536,7 +536,10 @@ class LivestreamFrameCaptureSegment(db.Model):
     status = Column(String, nullable=False, default="pending")
     attempt_count = Column(Integer, nullable=False, default=0)
     uploaded_frame_count = Column(Integer, nullable=False, default=0)
+    sampled_frame_count = Column(Integer, nullable=False, default=0)
     last_uploaded_second = Column(Integer, nullable=True)
+    batch_s3_key = Column(String, nullable=True)
+    batch_uploaded_at = Column(DateTime, nullable=True)
     background_task_id = Column(
         UUID(as_uuid=True), ForeignKey("background_tasks.id"), nullable=True
     )

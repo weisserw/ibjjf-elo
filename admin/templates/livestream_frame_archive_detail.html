@@ -15,6 +15,7 @@
                 <tr><th>Status</th><td>{{ archive.status }}</td></tr>
                 <tr><th>Progress</th><td>{{ progress_label(archive) }}</td></tr>
                 <tr><th>S3 prefix</th><td><code>{{ archive.s3_prefix }}</code></td></tr>
+                <tr><th>Batch S3 prefix</th><td><code>livestream-frame-batches/{{ archive.youtube_video_id }}/</code></td></tr>
                 <tr><th>Duration</th><td>{{ archive.duration_seconds or '' }}</td></tr>
                 <tr><th>Format</th><td>{{ archive.format_id or '' }} {{ archive.format_note or '' }}</td></tr>
                 <tr><th>Resolution</th><td>{% if archive.width and archive.height %}{{ archive.width }}x{{ archive.height }}{% endif %}</td></tr>
@@ -66,8 +67,10 @@
                     <th>End</th>
                     <th>Status</th>
                     <th>Attempts</th>
-                    <th>Uploaded</th>
+                    <th>Batched frames</th>
+                    <th>Sampled frames</th>
                     <th>Last second</th>
+                    <th>Batch key</th>
                     <th>Task</th>
                     <th>Last error</th>
                 </tr>
@@ -80,7 +83,9 @@
                     <td>{{ segment.status }}</td>
                     <td>{{ segment.attempt_count }}</td>
                     <td>{{ segment.uploaded_frame_count }}</td>
+                    <td>{{ segment.sampled_frame_count }}</td>
                     <td>{{ segment.last_uploaded_second if segment.last_uploaded_second is not none else '' }}</td>
+                    <td>{% if segment.batch_s3_key %}<code>{{ segment.batch_s3_key }}</code>{% endif %}</td>
                     <td>
                         {% if segment.background_task_id %}
                         <a href="{{ url_for('task_detail', task_id=segment.background_task_id) }}">View</a>
@@ -89,7 +94,7 @@
                     <td class="has-text-danger">{{ segment.last_error or '' }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="8">No segments queued.</td></tr>
+                <tr><td colspan="10">No segments queued.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

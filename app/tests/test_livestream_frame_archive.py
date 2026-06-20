@@ -1,5 +1,7 @@
+import io
 import os
 import sys
+import tarfile
 import tempfile
 import unittest
 from datetime import datetime
@@ -265,8 +267,8 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         )
         archive_lib.recompute_archive_status(db.session, archive)
         self.assertEqual(archive.status, "partial")
-        self.assertEqual(archive.uploaded_frame_count, 610)
-        self.assertEqual(archive.last_uploaded_second, 609)
+        self.assertEqual(archive.uploaded_frame_count, 600)
+        self.assertEqual(archive.last_uploaded_second, 599)
 
     def test_claim_next_segment_marks_running(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
@@ -281,13 +283,91 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
 
 
 class UploadMappingTestCase(unittest.TestCase):
-    def test_upload_segment_frames_maps_local_index_to_absolute_second(self):
+    def test_upload_segment_artifacts_batches_frames_and_uploads_samples(self):
+        class FakeS3:
+            def __init__(self):
+                self.uploads = []
+
+            def upload_fileobj(self, fileobj, bucket, key, ExtraArgs=None):
+                self.uploads.append((bucket, key, ExtraArgs, fileobj.read()))
+
+        archive = LivestreamFrameArchive(
+            youtube_video_id="HxZSos1k_MA",
+            canonical_url="https://www.youtube.com/watch?v=HxZSos1k_MA",
+            s3_prefix="livestream-frames/HxZSos1k_MA/",
+            status="running",
+            frame_rate=1.0,
+            image_format="jpg",
+        )
+        segment = LivestreamFrameCaptureSegment(
+            start_second=600,
+            end_second=603,
+            status="running",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            frames_dir = Path(temp_dir)
+            (frames_dir / "000001.jpg").write_bytes(b"one")
+            (frames_dir / "000002.jpg").write_bytes(b"two")
+            (frames_dir / "000003.jpg").write_bytes(b"three")
+
+            fake_s3 = FakeS3()
+            uploaded, last_second, sampled, batch_key = runner.upload_segment_artifacts(
+                archive,
+                segment,
+                frames_dir,
+                fake_s3,
+                "bucket",
+                sample_frame_interval=600,
+                dry_run=False,
+            )
+
+        self.assertEqual(uploaded, 3)
+        self.assertEqual(last_second, 602)
+        self.assertEqual(sampled, 1)
+        self.assertEqual(
+            batch_key,
+            "livestream-frame-batches/HxZSos1k_MA/000000600-000000603.tgz",
+        )
+        self.assertEqual(segment.uploaded_frame_count, 3)
+        self.assertEqual(segment.sampled_frame_count, 1)
+        self.assertEqual(segment.last_uploaded_second, 602)
+        self.assertEqual(segment.batch_s3_key, batch_key)
+
+        batch_upload, sample_upload = fake_s3.uploads
+        self.assertEqual(
+            batch_upload[:3],
+            (
+                "bucket",
+                "livestream-frame-batches/HxZSos1k_MA/000000600-000000603.tgz",
+                {"ContentType": "application/gzip"},
+            ),
+        )
+        with tarfile.open(fileobj=io.BytesIO(batch_upload[3]), mode="r:gz") as tar:
+            self.assertEqual(
+                sorted(tar.getnames()),
+                ["000000600.jpg", "000000601.jpg", "000000602.jpg"],
+            )
+            self.assertEqual(tar.extractfile("000000600.jpg").read(), b"one")
+            self.assertEqual(tar.extractfile("000000601.jpg").read(), b"two")
+            self.assertEqual(tar.extractfile("000000602.jpg").read(), b"three")
+
+        self.assertEqual(
+            sample_upload,
+            (
+                "bucket",
+                "livestream-frames/HxZSos1k_MA/000000600.jpg",
+                {"ContentType": "image/jpeg"},
+                b"one",
+            ),
+        )
+
+    def test_upload_segment_artifacts_can_disable_sample_uploads(self):
         class FakeS3:
             def __init__(self):
                 self.keys = []
 
             def upload_fileobj(self, fileobj, bucket, key, ExtraArgs=None):
-                self.keys.append((bucket, key, ExtraArgs))
+                self.keys.append(key)
 
         archive = LivestreamFrameArchive(
             youtube_video_id="HxZSos1k_MA",
@@ -306,35 +386,24 @@ class UploadMappingTestCase(unittest.TestCase):
             frames_dir = Path(temp_dir)
             (frames_dir / "000001.jpg").write_bytes(b"one")
             (frames_dir / "000002.jpg").write_bytes(b"two")
-            (frames_dir / "000003.jpg").write_bytes(b"three")
 
             fake_s3 = FakeS3()
-            uploaded, last_second = runner.upload_segment_frames(
+            uploaded, last_second, sampled, batch_key = runner.upload_segment_artifacts(
                 archive,
                 segment,
                 frames_dir,
                 fake_s3,
                 "bucket",
+                sample_frame_interval=0,
                 dry_run=False,
-                commit_progress=False,
             )
 
         self.assertEqual(uploaded, 2)
         self.assertEqual(last_second, 601)
+        self.assertEqual(sampled, 0)
         self.assertEqual(
             fake_s3.keys,
-            [
-                (
-                    "bucket",
-                    "livestream-frames/HxZSos1k_MA/000000600.jpg",
-                    {"ContentType": "image/jpeg"},
-                ),
-                (
-                    "bucket",
-                    "livestream-frames/HxZSos1k_MA/000000601.jpg",
-                    {"ContentType": "image/jpeg"},
-                ),
-            ],
+            ["livestream-frame-batches/HxZSos1k_MA/000000600-000000602.tgz"],
         )
 
 

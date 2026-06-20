@@ -7,6 +7,7 @@ import argparse
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 import uuid
@@ -22,10 +23,12 @@ from extensions import db  # noqa: E402
 from livestream_frame_archive import (  # noqa: E402
     DEFAULT_SEGMENT_SECONDS,
     apply_probe_metadata,
+    batch_s3_key,
     claim_next_segment,
     create_missing_segments,
     frame_s3_key,
     recompute_archive_status,
+    should_upload_sample_frame,
 )
 from models import LivestreamFrameArchive, LivestreamFrameCaptureSegment  # noqa: E402
 from photos import bucket_name, get_s3_client  # noqa: E402
@@ -33,6 +36,7 @@ from photos import bucket_name, get_s3_client  # noqa: E402
 
 DEFAULT_FORMAT_SELECTOR = "best[height<=1080]/best"
 FFMPEG_PROGRESS_LOG_SECONDS = 30
+DEFAULT_SAMPLE_FRAME_INTERVAL = 600
 
 
 def _load_app():
@@ -262,50 +266,87 @@ def extract_segment_frames(
     )
 
 
-def upload_segment_frames(
+def _segment_frame_paths(
+    segment: LivestreamFrameCaptureSegment,
+    frames_dir: Path,
+):
+    for index, frame_path in enumerate(sorted(frames_dir.glob("*.jpg")), start=0):
+        second = segment.start_second + index
+        if second >= segment.end_second:
+            break
+        yield second, frame_path
+
+
+def _create_segment_batch(
+    archive: LivestreamFrameArchive,
+    segment: LivestreamFrameCaptureSegment,
+    frames_dir: Path,
+    batch_path: Path,
+) -> tuple[int, int | None]:
+    frame_count = 0
+    last_second = None
+    image_format = archive.image_format or "jpg"
+    with tarfile.open(batch_path, "w:gz") as tar:
+        for second, frame_path in _segment_frame_paths(segment, frames_dir):
+            tar.add(frame_path, arcname=f"{second:09d}.{image_format}")
+            frame_count += 1
+            last_second = second
+    return frame_count, last_second
+
+
+def upload_segment_artifacts(
     archive: LivestreamFrameArchive,
     segment: LivestreamFrameCaptureSegment,
     frames_dir: Path,
     s3_client,
     bucket: str,
+    sample_frame_interval: int = DEFAULT_SAMPLE_FRAME_INTERVAL,
     dry_run: bool = False,
-    commit_progress: bool = True,
-) -> tuple[int, int | None]:
-    uploaded = 0
-    last_second = None
-    frame_paths = sorted(frames_dir.glob("*.jpg"))
-    log(f"Uploading frames count={len(frame_paths)} bucket={bucket}")
-    for index, frame_path in enumerate(frame_paths, start=0):
-        second = segment.start_second + index
-        if second >= segment.end_second:
-            break
-        key = frame_s3_key(archive, second)
+) -> tuple[int, int | None, int, str]:
+    key = batch_s3_key(archive, segment)
+    batch_path = frames_dir / f"{segment.start_second:09d}-{segment.end_second:09d}.tgz"
+    frame_count, last_second = _create_segment_batch(
+        archive, segment, frames_dir, batch_path
+    )
+    log(
+        f"Uploading frame batch segment_id={segment.id} "
+        f"frames={frame_count} bucket={bucket} key={key}"
+    )
+    if not dry_run:
+        with batch_path.open("rb") as batch_file:
+            s3_client.upload_fileobj(
+                batch_file,
+                bucket,
+                key,
+                ExtraArgs={"ContentType": "application/gzip"},
+            )
+
+    sampled = 0
+    for second, frame_path in _segment_frame_paths(segment, frames_dir):
+        if not should_upload_sample_frame(second, sample_frame_interval):
+            continue
+        sample_key = frame_s3_key(archive, second)
         if not dry_run:
             with frame_path.open("rb") as frame_file:
                 s3_client.upload_fileobj(
                     frame_file,
                     bucket,
-                    key,
+                    sample_key,
                     ExtraArgs={"ContentType": "image/jpeg"},
                 )
-        uploaded += 1
-        last_second = second
-        segment.uploaded_frame_count = uploaded
-        segment.last_uploaded_second = last_second
-        archive.uploaded_frame_count = (archive.uploaded_frame_count or 0) + 1
-        archive.last_uploaded_second = last_second
-        if commit_progress:
-            db.session.commit()
-        if uploaded % 300 == 0:
-            log(
-                f"Upload progress segment_id={segment.id} "
-                f"uploaded={uploaded} last_second={last_second}"
-            )
+        sampled += 1
+
+    segment.uploaded_frame_count = frame_count
+    segment.sampled_frame_count = sampled
+    segment.last_uploaded_second = last_second
+    segment.batch_s3_key = key
+    segment.batch_uploaded_at = datetime.utcnow()
     log(
         f"Upload complete segment_id={segment.id} "
-        f"uploaded={uploaded} last_second={last_second}"
+        f"batch_frames={frame_count} sampled_frames={sampled} "
+        f"last_second={last_second}"
     )
-    return uploaded, last_second
+    return frame_count, last_second, sampled, key
 
 
 def segment_duration(archive: LivestreamFrameArchive, segment) -> int:
@@ -323,6 +364,7 @@ def process_segment(
     segment_seconds: int,
     fps: float,
     jpeg_quality: int,
+    sample_frame_interval: int,
     dry_run: bool = False,
 ):
     archive = segment.archive
@@ -387,19 +429,27 @@ def process_segment(
             f"Frame extraction produced segment_id={segment.id} "
             f"frames={frame_count}"
         )
-        uploaded, last_second = upload_segment_frames(
-            archive, segment, frames_dir, s3_client, bucket_name
+        uploaded, last_second, sampled, batch_key = upload_segment_artifacts(
+            archive,
+            segment,
+            frames_dir,
+            s3_client,
+            bucket_name,
+            sample_frame_interval=sample_frame_interval,
         )
 
     segment.uploaded_frame_count = uploaded
+    segment.sampled_frame_count = sampled
     segment.last_uploaded_second = last_second
+    segment.batch_s3_key = batch_key
     segment.status = "success"
     segment.finished_at = datetime.utcnow()
     recompute_archive_status(db.session, archive)
     db.session.commit()
     log(
-        f"Segment success id={segment.id} uploaded={uploaded} "
-        f"last_second={last_second} archive_status={archive.status}"
+        f"Segment success id={segment.id} batch_frames={uploaded} "
+        f"sampled_frames={sampled} last_second={last_second} "
+        f"archive_status={archive.status}"
     )
 
 
@@ -435,6 +485,7 @@ def run(args) -> int:
                 args.segment_seconds,
                 args.fps,
                 args.jpeg_quality,
+                args.sample_frame_interval,
                 dry_run=args.dry_run,
             )
             processed += 1
@@ -474,6 +525,12 @@ def parse_args(argv=None):
         help="yt-dlp remote component, repeatable",
     )
     parser.add_argument("--jpeg-quality", type=int, default=2)
+    parser.add_argument(
+        "--sample-frame-interval",
+        type=int,
+        default=DEFAULT_SAMPLE_FRAME_INTERVAL,
+        help="Upload one individual JPG every N absolute seconds; set 0 to disable",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--background-task-id")
     return parser.parse_args(argv)
