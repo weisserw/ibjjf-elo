@@ -8,3 +8,4 @@ app/instance/
 .creds*
 *.log
 .claude
+runs
