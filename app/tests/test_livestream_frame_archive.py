@@ -30,6 +30,38 @@ import archive_livestream_frames as runner  # noqa: E402
 import livestream_frame_archive as archive_lib  # noqa: E402
 
 
+class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
+    def test_yt_dlp_options_enable_node_ejs_defaults(self):
+        options = runner._yt_dlp_options(
+            "best",
+            "node",
+            ["ejs:github"],
+        )
+
+        self.assertEqual(options["format"], "best")
+        self.assertEqual(options["js_runtimes"], {"node": {}})
+        self.assertEqual(options["remote_components"], ["ejs:github"])
+
+    def test_yt_dlp_options_parse_runtime_path_and_cookie_sources(self):
+        options = runner._yt_dlp_options(
+            "best",
+            "node:/usr/local/bin/node",
+            ["ejs:github"],
+            cookies="/run/secrets/youtube.cookies",
+            cookies_from_browser="chrome+basic:Default",
+        )
+
+        self.assertEqual(
+            options["js_runtimes"],
+            {"node": {"path": "/usr/local/bin/node"}},
+        )
+        self.assertEqual(options["cookiefile"], "/run/secrets/youtube.cookies")
+        self.assertEqual(
+            options["cookiesfrombrowser"],
+            ("chrome", "Default", "BASIC", None),
+        )
+
+
 class YoutubeUtilsTestCase(unittest.TestCase):
     def test_extract_youtube_video_id_from_watch_url(self):
         self.assertEqual(
