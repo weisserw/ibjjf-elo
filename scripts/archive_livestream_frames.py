@@ -349,8 +349,8 @@ def run(args) -> int:
             processed += 1
         except Exception as exc:
             db.session.rollback()
-            segment = LivestreamFrameCaptureSegment.query.get(segment.id)
-            archive = LivestreamFrameArchive.query.get(segment.archive_id)
+            segment = db.session.get(LivestreamFrameCaptureSegment, segment.id)
+            archive = db.session.get(LivestreamFrameArchive, segment.archive_id)
             segment.status = "error"
             segment.last_error = str(exc)
             segment.finished_at = datetime.utcnow()
