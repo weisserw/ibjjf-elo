@@ -61,6 +61,20 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
             ("chrome", "Default", "BASIC", None),
         )
 
+    def test_cookies_content_from_args_decodes_base64_fallback(self):
+        self.assertEqual(
+            runner._cookies_content_from_args(None, "Y29va2llCg=="),
+            "cookie\n",
+        )
+
+    def test_cookiefile_from_content_writes_temp_file(self):
+        with runner._cookiefile_from_content(None, "cookies") as cookiefile:
+            cookie_path = Path(cookiefile)
+            self.assertTrue(cookie_path.exists())
+            self.assertEqual(cookie_path.read_text(), "cookies\n")
+
+        self.assertFalse(cookie_path.exists())
+
 
 class YoutubeUtilsTestCase(unittest.TestCase):
     def test_extract_youtube_video_id_from_watch_url(self):
