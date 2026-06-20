@@ -31,6 +31,11 @@ import livestream_frame_archive as archive_lib  # noqa: E402
 
 
 class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
+    def test_format_duration(self):
+        self.assertEqual(runner._format_duration(None), "unknown")
+        self.assertEqual(runner._format_duration(65), "1m05s")
+        self.assertEqual(runner._format_duration(3661), "1h01m01s")
+
     def test_yt_dlp_options_enable_node_ejs_defaults(self):
         options = runner._yt_dlp_options(
             "best",
@@ -53,6 +58,22 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
             options["js_runtimes"],
             {"node": {"path": "/usr/local/bin/node"}},
         )
+
+    def test_ffmpeg_extract_command_can_include_progress_output(self):
+        command = runner._ffmpeg_extract_command(
+            "https://example.com/video",
+            60,
+            120,
+            1.0,
+            2,
+            Path("/tmp/frames"),
+            progress=True,
+        )
+
+        self.assertIn("-progress", command)
+        self.assertIn("pipe:1", command)
+        self.assertIn("-nostats", command)
+        self.assertEqual(command[-1], "/tmp/frames/%06d.jpg")
 
 
 class YoutubeUtilsTestCase(unittest.TestCase):
@@ -187,6 +208,34 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
             [(0, 600), (600, 1200), (1200, 1201)],
         )
         self.assertEqual(archive.expected_frame_count, 1201)
+
+    def test_queue_archive_segments_fills_gap_after_segment_size_change(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        archive.duration_seconds = 7200
+        db.session.flush()
+        db.session.add(
+            LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=0,
+                end_second=600,
+                status="success",
+                uploaded_frame_count=600,
+                last_uploaded_second=599,
+                finished_at=datetime.utcnow(),
+            )
+        )
+        db.session.commit()
+
+        archive_lib.queue_archive_capture(db.session, archive, segment_seconds=3600)
+        db.session.commit()
+
+        segments = LivestreamFrameCaptureSegment.query.order_by(
+            LivestreamFrameCaptureSegment.start_second
+        ).all()
+        self.assertEqual(
+            [(segment.start_second, segment.end_second) for segment in segments],
+            [(0, 600), (600, 3600), (3600, 7200)],
+        )
 
     def test_recompute_archive_status_from_segments(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")

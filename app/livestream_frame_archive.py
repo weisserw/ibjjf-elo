@@ -135,18 +135,37 @@ def segment_ranges(
     return ranges
 
 
+def _uncovered_ranges(
+    start_second: int, end_second: int, existing_ranges: list[tuple[int, int]]
+) -> list[tuple[int, int]]:
+    ranges = []
+    cursor = start_second
+    for existing_start, existing_end in existing_ranges:
+        if existing_end <= cursor:
+            continue
+        if existing_start >= end_second:
+            break
+        if existing_start > cursor:
+            ranges.append((cursor, min(existing_start, end_second)))
+        cursor = max(cursor, existing_end)
+        if cursor >= end_second:
+            break
+    if cursor < end_second:
+        ranges.append((cursor, end_second))
+    return ranges
+
+
 def create_missing_segments(
     session,
     archive: LivestreamFrameArchive,
     segment_seconds: int = DEFAULT_SEGMENT_SECONDS,
 ) -> int:
-    existing = {
+    existing = sorted(
         (segment.start_second, segment.end_second)
         for segment in LivestreamFrameCaptureSegment.query.filter_by(
             archive_id=archive.id
         ).all()
-    }
-    existing_starts = {start_second for start_second, _ in existing}
+    )
 
     if archive.duration_seconds is None:
         ranges = [(0, segment_seconds)]
@@ -155,19 +174,22 @@ def create_missing_segments(
 
     created = 0
     for start_second, end_second in ranges:
-        if (start_second, end_second) in existing or start_second in existing_starts:
-            continue
-        session.add(
-            LivestreamFrameCaptureSegment(
-                archive_id=archive.id,
-                start_second=start_second,
-                end_second=end_second,
-                status="queued",
-                attempt_count=0,
-                uploaded_frame_count=0,
+        for missing_start, missing_end in _uncovered_ranges(
+            start_second, end_second, existing
+        ):
+            session.add(
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=missing_start,
+                    end_second=missing_end,
+                    status="queued",
+                    attempt_count=0,
+                    uploaded_frame_count=0,
+                )
             )
-        )
-        created += 1
+            existing.append((missing_start, missing_end))
+            existing.sort()
+            created += 1
     return created
 
 
@@ -243,8 +265,9 @@ def claim_next_segment(
         )
 
     segment = query.order_by(
-        LivestreamFrameCaptureSegment.created_at,
+        LivestreamFrameArchive.created_at,
         LivestreamFrameCaptureSegment.start_second,
+        LivestreamFrameCaptureSegment.created_at,
     ).first()
     if not segment:
         return None

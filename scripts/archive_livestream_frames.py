@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -31,12 +32,29 @@ from photos import bucket_name, get_s3_client  # noqa: E402
 
 
 DEFAULT_FORMAT_SELECTOR = "best[height<=1080]/best"
+FFMPEG_PROGRESS_LOG_SECONDS = 30
 
 
 def _load_app():
     import app as app_module
 
     return app_module.app
+
+
+def log(message: str):
+    timestamp = datetime.utcnow().isoformat(timespec="seconds")
+    print(f"{timestamp}Z {message}", file=sys.stderr, flush=True)
+
+
+def _format_duration(seconds: int | float | None) -> str:
+    if seconds is None:
+        return "unknown"
+    seconds = max(0, int(seconds))
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours:
+        return f"{hours:d}h{minutes:02d}m{seconds:02d}s"
+    return f"{minutes:d}m{seconds:02d}s"
 
 
 def _parse_js_runtime(js_runtime: str) -> tuple[str, dict]:
@@ -68,15 +86,13 @@ def _yt_dlp_options(
 def _log_probe_config(options, yt_dlp_version):
     js_runtimes = sorted(options.get("js_runtimes") or [])
     node_path = shutil.which("node")
-    print(
+    log(
         "yt-dlp probe config: "
         f"version={yt_dlp_version} "
         f"format={options.get('format')} "
         f"js_runtimes={js_runtimes} "
         f"remote_components={sorted(options.get('remote_components') or [])} "
         f"node_path={node_path or 'missing'}",
-        file=sys.stderr,
-        flush=True,
     )
 
 
@@ -102,6 +118,7 @@ def probe_youtube_archive(
     import yt_dlp
     import yt_dlp.version
 
+    log(f"Probing YouTube archive youtube_id={archive.youtube_video_id}")
     archive.status = "probing"
     db.session.commit()
 
@@ -117,9 +134,60 @@ def probe_youtube_archive(
 
     apply_probe_metadata(archive, info, selected)
     archive.yt_dlp_version = yt_dlp.version.__version__
-    create_missing_segments(db.session, archive, segment_seconds)
+    created_segments = create_missing_segments(db.session, archive, segment_seconds)
     db.session.commit()
+    log(
+        f"Probe complete youtube_id={archive.youtube_video_id} "
+        f"duration={_format_duration(archive.duration_seconds)} "
+        f"format_id={archive.format_id or 'unknown'} "
+        f"resolution={archive.width or '?'}x{archive.height or '?'} "
+        f"source_fps={archive.source_fps or 'unknown'} "
+        f"created_segments={created_segments}"
+    )
     return stream_url
+
+
+def _ffmpeg_extract_command(
+    stream_url: str,
+    start_second: int,
+    duration_seconds: int,
+    fps: float,
+    jpeg_quality: int,
+    output_dir: Path,
+    progress: bool = False,
+):
+    command = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+    ]
+    if progress:
+        command.extend(["-progress", "pipe:1", "-nostats"])
+    command.extend(
+        [
+            "-ss",
+            str(start_second),
+            "-i",
+            stream_url,
+            "-t",
+            str(duration_seconds),
+            "-vf",
+            f"fps={fps:g}",
+            "-q:v",
+            str(jpeg_quality),
+            str(output_dir / "%06d.jpg"),
+        ]
+    )
+    return command
+
+
+def _progress_seconds(progress_value: str) -> int | None:
+    try:
+        return max(0, int(progress_value) // 1_000_000)
+    except ValueError:
+        return None
 
 
 def extract_segment_frames(
@@ -132,25 +200,66 @@ def extract_segment_frames(
     run=subprocess.run,
 ):
     output_dir.mkdir(parents=True, exist_ok=True)
-    command = [
-        "ffmpeg",
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-y",
-        "-ss",
-        str(start_second),
-        "-i",
+    if run is not subprocess.run:
+        run(
+            _ffmpeg_extract_command(
+                stream_url,
+                start_second,
+                duration_seconds,
+                fps,
+                jpeg_quality,
+                output_dir,
+            ),
+            check=True,
+        )
+        return
+
+    command = _ffmpeg_extract_command(
         stream_url,
-        "-t",
-        str(duration_seconds),
-        "-vf",
-        f"fps={fps:g}",
-        "-q:v",
-        str(jpeg_quality),
-        str(output_dir / "%06d.jpg"),
-    ]
-    run(command, check=True)
+        start_second,
+        duration_seconds,
+        fps,
+        jpeg_quality,
+        output_dir,
+        progress=True,
+    )
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=None,
+        text=True,
+    )
+    last_log_at = 0.0
+    last_out_second = 0
+    assert process.stdout is not None
+    for line in process.stdout:
+        key, _, value = line.strip().partition("=")
+        if key in ("out_time_ms", "out_time_us"):
+            out_second = _progress_seconds(value)
+            if out_second is None:
+                continue
+            last_out_second = out_second
+            now = time.monotonic()
+            if now - last_log_at >= FFMPEG_PROGRESS_LOG_SECONDS:
+                last_log_at = now
+                percent = min(100.0, (out_second / duration_seconds) * 100)
+                log(
+                    "ffmpeg progress: "
+                    f"processed={_format_duration(out_second)} "
+                    f"of={_format_duration(duration_seconds)} "
+                    f"percent={percent:.1f}%"
+                )
+        elif key == "progress" and value == "end":
+            last_out_second = duration_seconds
+
+    return_code = process.wait()
+    if return_code:
+        raise subprocess.CalledProcessError(return_code, command)
+    log(
+        "ffmpeg extraction complete: "
+        f"processed={_format_duration(last_out_second)} "
+        f"of={_format_duration(duration_seconds)}"
+    )
 
 
 def upload_segment_frames(
@@ -164,7 +273,9 @@ def upload_segment_frames(
 ) -> tuple[int, int | None]:
     uploaded = 0
     last_second = None
-    for index, frame_path in enumerate(sorted(frames_dir.glob("*.jpg")), start=0):
+    frame_paths = sorted(frames_dir.glob("*.jpg"))
+    log(f"Uploading frames count={len(frame_paths)} bucket={bucket}")
+    for index, frame_path in enumerate(frame_paths, start=0):
         second = segment.start_second + index
         if second >= segment.end_second:
             break
@@ -185,6 +296,15 @@ def upload_segment_frames(
         archive.last_uploaded_second = last_second
         if commit_progress:
             db.session.commit()
+        if uploaded % 300 == 0:
+            log(
+                f"Upload progress segment_id={segment.id} "
+                f"uploaded={uploaded} last_second={last_second}"
+            )
+    log(
+        f"Upload complete segment_id={segment.id} "
+        f"uploaded={uploaded} last_second={last_second}"
+    )
     return uploaded, last_second
 
 
@@ -207,6 +327,12 @@ def process_segment(
 ):
     archive = segment.archive
     archive.frame_rate = fps
+    log(
+        f"Processing segment id={segment.id} "
+        f"youtube_id={archive.youtube_video_id} "
+        f"range={segment.start_second}-{segment.end_second} "
+        f"fps={fps:g}"
+    )
     stream_url = probe_youtube_archive(
         archive,
         format_selector,
@@ -217,6 +343,7 @@ def process_segment(
 
     duration = segment_duration(archive, segment)
     if duration <= 0:
+        log(f"Skipping segment id={segment.id}; duration is {duration}s")
         segment.status = "skipped"
         segment.finished_at = datetime.utcnow()
         recompute_archive_status(db.session, archive)
@@ -240,6 +367,13 @@ def process_segment(
 
     with tempfile.TemporaryDirectory(prefix="livestream-frames-") as temp_dir:
         frames_dir = Path(temp_dir)
+        log(
+            f"Starting ffmpeg extraction segment_id={segment.id} "
+            f"start={_format_duration(segment.start_second)} "
+            f"duration={_format_duration(duration)} "
+            f"fps={archive.frame_rate or 1.0:g} "
+            f"output_dir={frames_dir}"
+        )
         extract_segment_frames(
             stream_url,
             segment.start_second,
@@ -247,6 +381,11 @@ def process_segment(
             archive.frame_rate or 1.0,
             jpeg_quality,
             frames_dir,
+        )
+        frame_count = len(list(frames_dir.glob("*.jpg")))
+        log(
+            f"Frame extraction produced segment_id={segment.id} "
+            f"frames={frame_count}"
         )
         uploaded, last_second = upload_segment_frames(
             archive, segment, frames_dir, s3_client, bucket_name
@@ -258,6 +397,10 @@ def process_segment(
     segment.finished_at = datetime.utcnow()
     recompute_archive_status(db.session, archive)
     db.session.commit()
+    log(
+        f"Segment success id={segment.id} uploaded={uploaded} "
+        f"last_second={last_second} archive_status={archive.status}"
+    )
 
 
 def run(args) -> int:
@@ -277,6 +420,12 @@ def run(args) -> int:
             print("No claimable livestream frame capture segments.")
             return 0
 
+        log(
+            f"Claimed segment id={segment.id} "
+            f"archive_id={segment.archive_id} "
+            f"range={segment.start_second}-{segment.end_second} "
+            f"attempt={segment.attempt_count}"
+        )
         try:
             process_segment(
                 segment,
