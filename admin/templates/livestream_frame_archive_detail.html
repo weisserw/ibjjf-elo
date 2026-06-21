@@ -67,8 +67,8 @@
                     <th>End</th>
                     <th>Status</th>
                     <th>Attempts</th>
-                    <th>Batched frames</th>
-                    <th>Sampled frames</th>
+                    <th>Batched seconds</th>
+                    <th>Crop files</th>
                     <th>Last second</th>
                     <th>Batch key</th>
                     <th>Task</th>
@@ -83,7 +83,7 @@
                     <td>{{ segment.status }}</td>
                     <td>{{ segment.attempt_count }}</td>
                     <td>{{ segment.uploaded_frame_count }}</td>
-                    <td>{{ segment.sampled_frame_count }}</td>
+                    <td>{{ (segment.uploaded_frame_count or 0) * 2 }}</td>
                     <td>{{ segment.last_uploaded_second if segment.last_uploaded_second is not none else '' }}</td>
                     <td>{% if segment.batch_s3_key %}<code>{{ segment.batch_s3_key }}</code>{% endif %}</td>
                     <td>

@@ -75,7 +75,13 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         self.assertIn("-progress", command)
         self.assertIn("pipe:1", command)
         self.assertIn("-nostats", command)
-        self.assertEqual(command[-1], "/tmp/frames/%06d.jpg")
+        self.assertLess(command.index("-t"), command.index("-i"))
+        self.assertIn("-filter_complex", command)
+        filter_complex = command[command.index("-filter_complex") + 1]
+        self.assertIn("crop=w=trunc(iw*0.25):h=trunc(ih*0.20)", filter_complex)
+        self.assertIn("crop=w=trunc(iw*0.22):h=trunc(ih*0.11)", filter_complex)
+        self.assertIn("/tmp/frames/%06d_score.jpg", command)
+        self.assertEqual(command[-1], "/tmp/frames/%06d_timer.jpg")
 
 
 class YoutubeUtilsTestCase(unittest.TestCase):
@@ -283,7 +289,7 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
 
 
 class UploadMappingTestCase(unittest.TestCase):
-    def test_upload_segment_artifacts_batches_frames_and_uploads_samples(self):
+    def test_upload_segment_artifacts_batches_crops_without_full_frame_samples(self):
         class FakeS3:
             def __init__(self):
                 self.uploads = []
@@ -306,9 +312,13 @@ class UploadMappingTestCase(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             frames_dir = Path(temp_dir)
-            (frames_dir / "000001.jpg").write_bytes(b"one")
-            (frames_dir / "000002.jpg").write_bytes(b"two")
-            (frames_dir / "000003.jpg").write_bytes(b"three")
+            (frames_dir / "000001_score.jpg").write_bytes(b"one-score")
+            (frames_dir / "000001_timer.jpg").write_bytes(b"one-timer")
+            (frames_dir / "000002_score.jpg").write_bytes(b"two-score")
+            (frames_dir / "000002_timer.jpg").write_bytes(b"two-timer")
+            (frames_dir / "000003_score.jpg").write_bytes(b"three-score")
+            (frames_dir / "000003_timer.jpg").write_bytes(b"three-timer")
+            (frames_dir / "000001.jpg").write_bytes(b"full-frame")
 
             fake_s3 = FakeS3()
             uploaded, last_second, sampled, batch_key = runner.upload_segment_artifacts(
@@ -317,23 +327,23 @@ class UploadMappingTestCase(unittest.TestCase):
                 frames_dir,
                 fake_s3,
                 "bucket",
-                sample_frame_interval=600,
                 dry_run=False,
             )
 
         self.assertEqual(uploaded, 3)
         self.assertEqual(last_second, 602)
-        self.assertEqual(sampled, 1)
+        self.assertEqual(sampled, 0)
         self.assertEqual(
             batch_key,
             "livestream-frame-batches/HxZSos1k_MA/000000600-000000603.tgz",
         )
         self.assertEqual(segment.uploaded_frame_count, 3)
-        self.assertEqual(segment.sampled_frame_count, 1)
+        self.assertEqual(segment.sampled_frame_count, 0)
         self.assertEqual(segment.last_uploaded_second, 602)
         self.assertEqual(segment.batch_s3_key, batch_key)
 
-        batch_upload, sample_upload = fake_s3.uploads
+        self.assertEqual(len(fake_s3.uploads), 1)
+        batch_upload = fake_s3.uploads[0]
         self.assertEqual(
             batch_upload[:3],
             (
@@ -345,23 +355,35 @@ class UploadMappingTestCase(unittest.TestCase):
         with tarfile.open(fileobj=io.BytesIO(batch_upload[3]), mode="r:gz") as tar:
             self.assertEqual(
                 sorted(tar.getnames()),
-                ["000000600.jpg", "000000601.jpg", "000000602.jpg"],
+                [
+                    "000000600_score.jpg",
+                    "000000600_timer.jpg",
+                    "000000601_score.jpg",
+                    "000000601_timer.jpg",
+                    "000000602_score.jpg",
+                    "000000602_timer.jpg",
+                ],
             )
-            self.assertEqual(tar.extractfile("000000600.jpg").read(), b"one")
-            self.assertEqual(tar.extractfile("000000601.jpg").read(), b"two")
-            self.assertEqual(tar.extractfile("000000602.jpg").read(), b"three")
+            self.assertEqual(
+                tar.extractfile("000000600_score.jpg").read(), b"one-score"
+            )
+            self.assertEqual(
+                tar.extractfile("000000600_timer.jpg").read(), b"one-timer"
+            )
+            self.assertEqual(
+                tar.extractfile("000000601_score.jpg").read(), b"two-score"
+            )
+            self.assertEqual(
+                tar.extractfile("000000601_timer.jpg").read(), b"two-timer"
+            )
+            self.assertEqual(
+                tar.extractfile("000000602_score.jpg").read(), b"three-score"
+            )
+            self.assertEqual(
+                tar.extractfile("000000602_timer.jpg").read(), b"three-timer"
+            )
 
-        self.assertEqual(
-            sample_upload,
-            (
-                "bucket",
-                "livestream-frames/HxZSos1k_MA/000000600.jpg",
-                {"ContentType": "image/jpeg"},
-                b"one",
-            ),
-        )
-
-    def test_upload_segment_artifacts_can_disable_sample_uploads(self):
+    def test_upload_segment_artifacts_requires_paired_crops(self):
         class FakeS3:
             def __init__(self):
                 self.keys = []
@@ -384,27 +406,19 @@ class UploadMappingTestCase(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             frames_dir = Path(temp_dir)
-            (frames_dir / "000001.jpg").write_bytes(b"one")
-            (frames_dir / "000002.jpg").write_bytes(b"two")
+            (frames_dir / "000001_score.jpg").write_bytes(b"one")
 
             fake_s3 = FakeS3()
-            uploaded, last_second, sampled, batch_key = runner.upload_segment_artifacts(
-                archive,
-                segment,
-                frames_dir,
-                fake_s3,
-                "bucket",
-                sample_frame_interval=0,
-                dry_run=False,
-            )
-
-        self.assertEqual(uploaded, 2)
-        self.assertEqual(last_second, 601)
-        self.assertEqual(sampled, 0)
-        self.assertEqual(
-            fake_s3.keys,
-            ["livestream-frame-batches/HxZSos1k_MA/000000600-000000602.tgz"],
-        )
+            with self.assertRaisesRegex(RuntimeError, "Missing timer crop"):
+                runner.upload_segment_artifacts(
+                    archive,
+                    segment,
+                    frames_dir,
+                    fake_s3,
+                    "bucket",
+                    dry_run=False,
+                )
+            self.assertEqual(fake_s3.keys, [])
 
 
 if __name__ == "__main__":

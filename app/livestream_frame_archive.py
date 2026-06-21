@@ -55,25 +55,12 @@ def batch_s3_prefix_for_youtube_id(youtube_video_id: str) -> str:
     return f"livestream-frame-batches/{youtube_video_id}/"
 
 
-def frame_s3_key(archive: LivestreamFrameArchive, second: int) -> str:
-    image_format = archive.image_format or DEFAULT_IMAGE_FORMAT
-    return f"{archive.s3_prefix}{second:09d}.{image_format}"
-
-
 def batch_s3_key(
     archive: LivestreamFrameArchive, segment: LivestreamFrameCaptureSegment
 ) -> str:
     return (
         f"{batch_s3_prefix_for_youtube_id(archive.youtube_video_id)}"
         f"{segment.start_second:09d}-{segment.end_second:09d}.tgz"
-    )
-
-
-def should_upload_sample_frame(second: int, sample_frame_interval: int | None) -> bool:
-    return (
-        bool(sample_frame_interval)
-        and sample_frame_interval > 0
-        and (second % sample_frame_interval == 0)
     )
 
 

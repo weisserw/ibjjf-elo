@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Archive one full frame per second from queued YouTube livestream segments."""
+"""Archive scoreboard/timer crops from queued YouTube livestream segments."""
 
 from __future__ import annotations
 
@@ -26,9 +26,7 @@ from livestream_frame_archive import (  # noqa: E402
     batch_s3_key,
     claim_next_segment,
     create_missing_segments,
-    frame_s3_key,
     recompute_archive_status,
-    should_upload_sample_frame,
 )
 from models import LivestreamFrameArchive, LivestreamFrameCaptureSegment  # noqa: E402
 from photos import bucket_name, get_s3_client  # noqa: E402
@@ -36,7 +34,12 @@ from photos import bucket_name, get_s3_client  # noqa: E402
 
 DEFAULT_FORMAT_SELECTOR = "best[height<=1080]/best"
 FFMPEG_PROGRESS_LOG_SECONDS = 30
-DEFAULT_SAMPLE_FRAME_INTERVAL = 600
+CROP_VARIANTS = ("score", "timer")
+CROP_FILTER = (
+    "[0:v]fps={fps:g},split=2[score_src][timer_src];"
+    "[score_src]crop=w=trunc(iw*0.25):h=trunc(ih*0.20):x=0:y=0[score];"
+    "[timer_src]crop=w=trunc(iw*0.22):h=trunc(ih*0.11):x=trunc(iw*0.30):y=0[timer]"
+)
 
 
 def _load_app():
@@ -173,15 +176,22 @@ def _ffmpeg_extract_command(
         [
             "-ss",
             str(start_second),
-            "-i",
-            stream_url,
             "-t",
             str(duration_seconds),
-            "-vf",
-            f"fps={fps:g}",
+            "-i",
+            stream_url,
+            "-filter_complex",
+            CROP_FILTER.format(fps=fps),
+            "-map",
+            "[score]",
             "-q:v",
             str(jpeg_quality),
-            str(output_dir / "%06d.jpg"),
+            str(output_dir / "%06d_score.jpg"),
+            "-map",
+            "[timer]",
+            "-q:v",
+            str(jpeg_quality),
+            str(output_dir / "%06d_timer.jpg"),
         ]
     )
     return command
@@ -266,15 +276,22 @@ def extract_segment_frames(
     )
 
 
-def _segment_frame_paths(
+def _segment_crop_paths(
     segment: LivestreamFrameCaptureSegment,
     frames_dir: Path,
 ):
-    for index, frame_path in enumerate(sorted(frames_dir.glob("*.jpg")), start=0):
+    for index, score_path in enumerate(sorted(frames_dir.glob("*_score.jpg")), start=0):
         second = segment.start_second + index
         if second >= segment.end_second:
             break
-        yield second, frame_path
+        sequence_number = score_path.name.removesuffix("_score.jpg")
+        for crop_variant in CROP_VARIANTS:
+            crop_path = frames_dir / f"{sequence_number}_{crop_variant}.jpg"
+            if not crop_path.exists():
+                raise RuntimeError(
+                    f"Missing {crop_variant} crop for extracted frame {sequence_number}"
+                )
+            yield second, crop_variant, crop_path
 
 
 def _create_segment_batch(
@@ -283,15 +300,18 @@ def _create_segment_batch(
     frames_dir: Path,
     batch_path: Path,
 ) -> tuple[int, int | None]:
-    frame_count = 0
+    frame_seconds = set()
     last_second = None
     image_format = archive.image_format or "jpg"
     with tarfile.open(batch_path, "w:gz") as tar:
-        for second, frame_path in _segment_frame_paths(segment, frames_dir):
-            tar.add(frame_path, arcname=f"{second:09d}.{image_format}")
-            frame_count += 1
+        for second, crop_variant, crop_path in _segment_crop_paths(segment, frames_dir):
+            tar.add(
+                crop_path,
+                arcname=f"{second:09d}_{crop_variant}.{image_format}",
+            )
+            frame_seconds.add(second)
             last_second = second
-    return frame_count, last_second
+    return len(frame_seconds), last_second
 
 
 def upload_segment_artifacts(
@@ -300,7 +320,6 @@ def upload_segment_artifacts(
     frames_dir: Path,
     s3_client,
     bucket: str,
-    sample_frame_interval: int = DEFAULT_SAMPLE_FRAME_INTERVAL,
     dry_run: bool = False,
 ) -> tuple[int, int | None, int, str]:
     key = batch_s3_key(archive, segment)
@@ -309,8 +328,9 @@ def upload_segment_artifacts(
         archive, segment, frames_dir, batch_path
     )
     log(
-        f"Uploading frame batch segment_id={segment.id} "
-        f"frames={frame_count} bucket={bucket} key={key}"
+        f"Uploading crop batch segment_id={segment.id} "
+        f"frames={frame_count} crop_files={frame_count * len(CROP_VARIANTS)} "
+        f"bucket={bucket} key={key}"
     )
     if not dry_run:
         with batch_path.open("rb") as batch_file:
@@ -321,32 +341,17 @@ def upload_segment_artifacts(
                 ExtraArgs={"ContentType": "application/gzip"},
             )
 
-    sampled = 0
-    for second, frame_path in _segment_frame_paths(segment, frames_dir):
-        if not should_upload_sample_frame(second, sample_frame_interval):
-            continue
-        sample_key = frame_s3_key(archive, second)
-        if not dry_run:
-            with frame_path.open("rb") as frame_file:
-                s3_client.upload_fileobj(
-                    frame_file,
-                    bucket,
-                    sample_key,
-                    ExtraArgs={"ContentType": "image/jpeg"},
-                )
-        sampled += 1
-
     segment.uploaded_frame_count = frame_count
-    segment.sampled_frame_count = sampled
+    segment.sampled_frame_count = 0
     segment.last_uploaded_second = last_second
     segment.batch_s3_key = key
     segment.batch_uploaded_at = datetime.utcnow()
     log(
         f"Upload complete segment_id={segment.id} "
-        f"batch_frames={frame_count} sampled_frames={sampled} "
+        f"batch_frames={frame_count} crop_files={frame_count * len(CROP_VARIANTS)} "
         f"last_second={last_second}"
     )
-    return frame_count, last_second, sampled, key
+    return frame_count, last_second, 0, key
 
 
 def segment_duration(archive: LivestreamFrameArchive, segment) -> int:
@@ -364,7 +369,6 @@ def process_segment(
     segment_seconds: int,
     fps: float,
     jpeg_quality: int,
-    sample_frame_interval: int,
     dry_run: bool = False,
 ):
     archive = segment.archive
@@ -407,7 +411,7 @@ def process_segment(
     if not bucket_name:
         raise RuntimeError("S3_BUCKET is not configured")
 
-    with tempfile.TemporaryDirectory(prefix="livestream-frames-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="livestream-frame-crops-") as temp_dir:
         frames_dir = Path(temp_dir)
         log(
             f"Starting ffmpeg extraction segment_id={segment.id} "
@@ -424,10 +428,10 @@ def process_segment(
             jpeg_quality,
             frames_dir,
         )
-        frame_count = len(list(frames_dir.glob("*.jpg")))
+        crop_file_count = len(list(frames_dir.glob("*.jpg")))
         log(
             f"Frame extraction produced segment_id={segment.id} "
-            f"frames={frame_count}"
+            f"crop_files={crop_file_count}"
         )
         uploaded, last_second, sampled, batch_key = upload_segment_artifacts(
             archive,
@@ -435,7 +439,6 @@ def process_segment(
             frames_dir,
             s3_client,
             bucket_name,
-            sample_frame_interval=sample_frame_interval,
         )
 
     segment.uploaded_frame_count = uploaded
@@ -448,7 +451,7 @@ def process_segment(
     db.session.commit()
     log(
         f"Segment success id={segment.id} batch_frames={uploaded} "
-        f"sampled_frames={sampled} last_second={last_second} "
+        f"crop_files={uploaded * len(CROP_VARIANTS)} last_second={last_second} "
         f"archive_status={archive.status}"
     )
 
@@ -485,7 +488,6 @@ def run(args) -> int:
                 args.segment_seconds,
                 args.fps,
                 args.jpeg_quality,
-                args.sample_frame_interval,
                 dry_run=args.dry_run,
             )
             processed += 1
@@ -528,8 +530,8 @@ def parse_args(argv=None):
     parser.add_argument(
         "--sample-frame-interval",
         type=int,
-        default=DEFAULT_SAMPLE_FRAME_INTERVAL,
-        help="Upload one individual JPG every N absolute seconds; set 0 to disable",
+        default=None,
+        help="Deprecated and ignored; full-frame sample uploads are disabled",
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--background-task-id")
