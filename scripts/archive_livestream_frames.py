@@ -315,7 +315,8 @@ def process_segment_frames_with_ocr(
         if ocr_max_frames is not None and frame_index >= ocr_max_frames:
             completed_segment = False
             log(
-                f"Stopping PaddleOCR early segment_id={segment.id} "
+                f"Stopping frame OCR early segment_id={segment.id} "
+                f"engine={ocr_engine} "
                 f"ocr_max_frames={ocr_max_frames}"
             )
             break

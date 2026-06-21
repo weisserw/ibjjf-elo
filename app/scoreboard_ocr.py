@@ -139,31 +139,22 @@ def preprocess_for_white_digit(image: np.ndarray, scale: int = 6) -> np.ndarray:
 def ocr_digit(image: np.ndarray) -> int | None:
     foreground = image < 128
     count, _, stats, _ = cv2.connectedComponentsWithStats(foreground.astype("uint8"), 8)
-    components = []
+    components: list[tuple[int, int, int, int, int]] = []
     for index in range(1, count):
         x, y, width, height, area = stats[index]
         if area > 100:
             components.append((int(x), int(y), int(width), int(height), int(area)))
-    if components:
-        _, _, width, height, _ = max(components, key=lambda component: component[4])
-        if height > 0 and width / height < 0.50:
-            return 1
-
-    try:
-        import pytesseract
-    except ImportError:
+    if not components:
         return None
 
-    bordered = cv2.copyMakeBorder(image, 24, 24, 24, 24, cv2.BORDER_CONSTANT, value=255)
-    for psm in (10, 8, 13, 7):
-        text = pytesseract.image_to_string(
-            bordered,
-            config=f"--psm {psm} -c tessedit_char_whitelist=0123456789",
-        )
-        match = re.search(r"\d", text)
-        if match:
-            return int(match.group(0))
-    return None
+    x, y, width, height, _ = max(components, key=lambda component: component[4])
+    if height <= 0:
+        return None
+    if width / height < 0.50:
+        return 1
+
+    digit = foreground[y : y + height, x : x + width].astype("uint8") * 255
+    return classify_clock_digit(digit)
 
 
 def score_state_values(state: dict[str, int | None]) -> tuple[int | None, ...]:
