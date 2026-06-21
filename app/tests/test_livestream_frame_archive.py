@@ -78,6 +78,12 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         self.assertIn("-nostats", command)
         self.assertEqual(command[-1], "/tmp/frames/%06d.jpg")
 
+    def test_ocr_max_frames_caps_extraction_duration(self):
+        self.assertEqual(runner.extraction_duration_for_ocr(3600, 1.0, 60), 60)
+        self.assertEqual(runner.extraction_duration_for_ocr(3600, 2.0, 60), 30)
+        self.assertEqual(runner.extraction_duration_for_ocr(30, 1.0, 60), 30)
+        self.assertEqual(runner.extraction_duration_for_ocr(3600, 1.0, None), 3600)
+
 
 class YoutubeUtilsTestCase(unittest.TestCase):
     def test_extract_youtube_video_id_from_watch_url(self):
@@ -351,7 +357,7 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
             (frames_dir / "000002.jpg").write_bytes(b"two")
             (frames_dir / "000003.jpg").write_bytes(b"three")
 
-            def fake_process_frame(_path, frame_index, frame_second):
+            def fake_process_frame(_path, frame_index, frame_second, **_kwargs):
                 return SimpleNamespace(
                     frame_second=frame_second,
                     frame_index=frame_index,
@@ -365,6 +371,10 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
                     blue_points=0,
                     blue_advantages=1,
                     blue_penalties=0,
+                    red_athlete_name="Red Athlete",
+                    red_team_name="Red Team",
+                    blue_athlete_name="Blue Athlete",
+                    blue_team_name="Blue Team",
                     known_score_count=6,
                     score_complete=True,
                     clock_detected=True,
@@ -402,6 +412,11 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
             ],
             [600, 601, 602],
         )
+        first_row = LivestreamFrameOcrReading.query.filter_by(frame_second=600).one()
+        self.assertEqual(first_row.red_athlete_name, "Red Athlete")
+        self.assertEqual(first_row.red_team_name, "Red Team")
+        self.assertEqual(first_row.blue_athlete_name, "Blue Athlete")
+        self.assertEqual(first_row.blue_team_name, "Blue Team")
 
 
 if __name__ == "__main__":

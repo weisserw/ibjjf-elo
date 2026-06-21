@@ -533,6 +533,10 @@ def upsert_ocr_reading(
     row.blue_points = reading.blue_points
     row.blue_advantages = reading.blue_advantages
     row.blue_penalties = reading.blue_penalties
+    row.red_athlete_name = getattr(reading, "red_athlete_name", None)
+    row.red_team_name = getattr(reading, "red_team_name", None)
+    row.blue_athlete_name = getattr(reading, "blue_athlete_name", None)
+    row.blue_team_name = getattr(reading, "blue_team_name", None)
     row.known_score_count = reading.known_score_count
     row.score_complete = reading.score_complete
     row.clock_detected = reading.clock_detected

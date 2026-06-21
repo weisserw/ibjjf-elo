@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +45,28 @@ SCORE_BOX_ROIS_BY_STYLE = {
     "new": NEW_SCORE_BOX_ROIS,
     "old": OLD_SCORE_BOX_ROIS,
 }
+NEW_NAME_ROIS = {
+    "red_athlete_name": (0.015, 0.02, 0.54, 0.18),
+    "red_team_name": (0.015, 0.17, 0.54, 0.16),
+    "blue_athlete_name": (0.015, 0.55, 0.54, 0.18),
+    "blue_team_name": (0.015, 0.70, 0.54, 0.16),
+}
+OLD_NAME_ROIS = {
+    "red_athlete_name": (0.015, 0.02, 0.48, 0.20),
+    "red_team_name": (0.015, 0.20, 0.48, 0.16),
+    "blue_athlete_name": (0.015, 0.53, 0.48, 0.20),
+    "blue_team_name": (0.015, 0.71, 0.48, 0.16),
+}
+NAME_ROIS_BY_STYLE = {
+    "new": NEW_NAME_ROIS,
+    "old": OLD_NAME_ROIS,
+}
+NAME_FIELDS = (
+    "red_athlete_name",
+    "red_team_name",
+    "blue_athlete_name",
+    "blue_team_name",
+)
 
 
 @dataclass(frozen=True)
@@ -75,6 +98,10 @@ class FrameOcrReading:
     blue_points: int | None
     blue_advantages: int | None
     blue_penalties: int | None
+    red_athlete_name: str | None
+    red_team_name: str | None
+    blue_athlete_name: str | None
+    blue_team_name: str | None
     known_score_count: int
     score_complete: bool
     clock_detected: bool
@@ -134,6 +161,63 @@ def preprocess_for_white_digit(image: np.ndarray, scale: int = 6) -> np.ndarray:
     kernel = np.ones((3, 3), np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
     return cv2.bitwise_not(mask)
+
+
+def preprocess_for_text(image: np.ndarray, scale: int = 3) -> np.ndarray:
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    gray = cv2.GaussianBlur(gray, (3, 3), 0)
+    return cv2.adaptiveThreshold(
+        gray,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        31,
+        7,
+    )
+
+
+def clean_ocr_text(text: str) -> str:
+    text = re.sub(r"\s+", " ", text or "").strip()
+    text = text.strip(" |{}[]()<>\":'`~—-_:;,.")
+    return text or ""
+
+
+def ocr_text(image: np.ndarray, config: str = "--psm 7", scale: int = 3) -> str:
+    try:
+        import pytesseract
+    except ImportError:
+        return ""
+
+    gray = image if len(image.shape) == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    scaled = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    return clean_ocr_text(pytesseract.image_to_string(scaled, config=config))
+
+
+def ocr_name_text(image: np.ndarray) -> str:
+    for scale in (3, 4, 2, 5):
+        text = ocr_text(image, config="--psm 7", scale=scale)
+        if len(text) >= 2:
+            return text
+    return ""
+
+
+def parse_name_regions(
+    scoreboard: np.ndarray,
+    name_rois: dict[str, tuple[float, float, float, float]],
+) -> dict[str, str | None]:
+    names = {}
+    for field, roi in name_rois.items():
+        names[field] = ocr_name_text(crop_pixels(scoreboard, roi)) or None
+    return names
+
+
+def empty_names() -> dict[str, str | None]:
+    return {field: None for field in NAME_FIELDS}
+
+
+def names_to_scoreboard_text(names: dict[str, str | None]) -> str:
+    return "\n".join(names[field] for field in NAME_FIELDS if names.get(field))
 
 
 def ocr_digit(image: np.ndarray) -> int | None:
@@ -294,9 +378,10 @@ def classify_clock_digit(digit_mask: np.ndarray) -> int | None:
 def parse_clock_mask(mask: np.ndarray) -> str | None:
     count, _, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
     boxes = []
+    min_area = max(25, int(mask.shape[0] * mask.shape[1] * 0.02))
     for index in range(1, count):
         x, y, width, height, area = stats[index]
-        if area > 1000 and height > mask.shape[0] * 0.50:
+        if area > min_area and height > mask.shape[0] * 0.50:
             boxes.append((int(x), int(y), int(width), int(height), int(area)))
 
     boxes = sorted(boxes, key=lambda box: box[0])[:4]
@@ -322,6 +407,53 @@ def parse_green_clock(timer: np.ndarray) -> str | None:
 
 def parse_dark_clock(timer: np.ndarray) -> str | None:
     return parse_clock_mask(preprocess_dark_clock(timer, scale=1))
+
+
+def parse_clock_text(text: str) -> str | None:
+    match = re.search(r"\b(\d{1,2})\s*[:;]\s*(\d{2})\b", text)
+    if match:
+        return f"{int(match.group(1)):02d}:{match.group(2)}"
+    return None
+
+
+def ocr_timer_clock(timer: np.ndarray) -> tuple[str | None, str]:
+    timer_processed = preprocess_for_text(timer)
+    text = ocr_text(timer_processed, config="--psm 6", scale=1)
+    return parse_clock_text(text), text
+
+
+def write_fast_debug_images(
+    debug_dir: Path,
+    frame_name: str,
+    scoreboard: np.ndarray,
+    timer: np.ndarray,
+    selected_style: str | None,
+    score_state: dict[str, int | None],
+    names: dict[str, str | None],
+    clock: str | None,
+    timer_text: str,
+) -> None:
+    frame_dir = debug_dir / Path(frame_name).stem
+    frame_dir.mkdir(parents=True, exist_ok=True)
+    green_clock = preprocess_green_clock(timer)
+    dark_clock = preprocess_dark_clock(timer)
+    cv2.imwrite(str(frame_dir / "scoreboard.jpg"), scoreboard)
+    cv2.imwrite(str(frame_dir / "timer.jpg"), timer)
+    cv2.imwrite(str(frame_dir / "green_clock_mask.jpg"), cv2.bitwise_not(green_clock))
+    cv2.imwrite(str(frame_dir / "dark_clock_mask.jpg"), cv2.bitwise_not(dark_clock))
+    (frame_dir / "reading.json").write_text(
+        json.dumps(
+            {
+                "overlay_style": selected_style,
+                "score_state": score_state,
+                "names": names,
+                "clock": clock,
+                "timer_text": timer_text,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
 
 def crop_frame(
@@ -402,6 +534,50 @@ def parse_score_state(tokens: list[PaddleToken]) -> dict[str, int | None]:
     return parsed
 
 
+def _tokens_by_line(tokens: list[PaddleToken], line_tolerance: float = 12.0):
+    lines: list[list[PaddleToken]] = []
+    for token in sorted(tokens, key=lambda item: item.y_center):
+        for line in lines:
+            center = sum(item.y_center for item in line) / len(line)
+            if abs(token.y_center - center) <= line_tolerance:
+                line.append(token)
+                break
+        else:
+            lines.append([token])
+    return [sorted(line, key=lambda item: item.x_center) for line in lines]
+
+
+def parse_paddle_names(tokens: list[PaddleToken]) -> dict[str, str | None]:
+    text_tokens = [
+        token
+        for token in tokens
+        if token.score >= 0.35 and not re.fullmatch(r"\d{1,2}", token.text.strip())
+    ]
+    if not text_tokens:
+        return empty_names()
+
+    max_bottom = max(token.box[3] for token in tokens)
+    max_right = max(token.box[2] for token in tokens)
+    left_tokens = [token for token in text_tokens if token.x_center <= max_right * 0.58]
+    top_tokens = [token for token in left_tokens if token.y_center < max_bottom * 0.50]
+    bottom_tokens = [
+        token for token in left_tokens if token.y_center >= max_bottom * 0.50
+    ]
+
+    names = empty_names()
+    for prefix, row_tokens in (("red", top_tokens), ("blue", bottom_tokens)):
+        lines = [
+            clean_ocr_text(" ".join(token.text for token in line))
+            for line in _tokens_by_line(row_tokens)
+        ]
+        lines = [line for line in lines if line]
+        if lines:
+            names[f"{prefix}_athlete_name"] = lines[0]
+        if len(lines) > 1:
+            names[f"{prefix}_team_name"] = lines[1]
+    return names
+
+
 def parse_victory_text(scoreboard_text: str) -> str | None:
     lines = [line.strip() for line in scoreboard_text.splitlines() if line.strip()]
     if not lines or not re.search(r"\bvictory\b", lines[0], re.I):
@@ -426,6 +602,7 @@ def process_frame_paddle(
     scoreboard_tokens = result_tokens(run_ocr(ocr, scoreboard_crop))
     timer_tokens = result_tokens(run_ocr(ocr, timer_crop))
     score_state = parse_score_state(scoreboard_tokens)
+    names = parse_paddle_names(scoreboard_tokens)
     scoreboard_text = tokens_text(scoreboard_tokens)
     timer_text = tokens_text(timer_tokens)
     clock = parse_clock(timer_tokens)
@@ -444,6 +621,10 @@ def process_frame_paddle(
         blue_points=score_state["blue_points"],
         blue_advantages=score_state["blue_advantages"],
         blue_penalties=score_state["blue_penalties"],
+        red_athlete_name=names["red_athlete_name"],
+        red_team_name=names["red_team_name"],
+        blue_athlete_name=names["blue_athlete_name"],
+        blue_team_name=names["blue_team_name"],
         known_score_count=known_score_count(score_state),
         score_complete=state_complete(score_state),
         clock_detected=clock is not None,
@@ -461,6 +642,8 @@ def process_frame_fast(
     scoreboard_roi: tuple[float, float, float, float] = DEFAULT_SCOREBOARD_ROI,
     timer_roi: tuple[float, float, float, float] = DEFAULT_TIMER_ROI,
     overlay_style: str = DEFAULT_OVERLAY_STYLE,
+    clock_fallback_ocr: bool = False,
+    debug_dir: Path | None = None,
 ) -> FrameOcrReading:
     image = cv2.imread(str(frame_path))
     if image is None:
@@ -477,6 +660,10 @@ def process_frame_fast(
             blue_points=None,
             blue_advantages=None,
             blue_penalties=None,
+            red_athlete_name=None,
+            red_team_name=None,
+            blue_athlete_name=None,
+            blue_team_name=None,
             known_score_count=0,
             score_complete=False,
             clock_detected=False,
@@ -489,7 +676,27 @@ def process_frame_fast(
     scoreboard = crop_percent(image, scoreboard_roi)
     timer = crop_percent(image, timer_roi)
     selected_style, score_state = choose_score_state(scoreboard, overlay_style)
+    names = parse_name_regions(
+        scoreboard,
+        NAME_ROIS_BY_STYLE.get(selected_style or "new", NEW_NAME_ROIS),
+    )
     clock = parse_green_clock(timer) or parse_dark_clock(timer)
+    timer_text = clock or ""
+    if clock is None and clock_fallback_ocr:
+        clock, timer_text = ocr_timer_clock(timer)
+    if debug_dir is not None:
+        write_fast_debug_images(
+            debug_dir,
+            frame_path.name,
+            scoreboard,
+            timer,
+            selected_style,
+            score_state,
+            names,
+            clock,
+            timer_text,
+        )
+    scoreboard_text = names_to_scoreboard_text(names)
 
     return FrameOcrReading(
         frame_second=frame_second,
@@ -504,13 +711,17 @@ def process_frame_fast(
         blue_points=score_state["blue_points"],
         blue_advantages=score_state["blue_advantages"],
         blue_penalties=score_state["blue_penalties"],
+        red_athlete_name=names["red_athlete_name"],
+        red_team_name=names["red_team_name"],
+        blue_athlete_name=names["blue_athlete_name"],
+        blue_team_name=names["blue_team_name"],
         known_score_count=known_score_count(score_state),
         score_complete=state_complete(score_state),
         clock_detected=clock is not None,
         victory=False,
         victory_text=None,
-        scoreboard_text="",
-        timer_text=clock or "",
+        scoreboard_text=scoreboard_text,
+        timer_text=timer_text,
     )
 
 

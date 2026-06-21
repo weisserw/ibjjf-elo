@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import faulthandler
+import math
 import os
 import shutil
 import subprocess
@@ -36,6 +37,8 @@ DEFAULT_FORMAT_SELECTOR = "best[height<=1080]/best"
 FFMPEG_PROGRESS_LOG_SECONDS = 30
 DEFAULT_PADDLE_LANG = "en"
 DEFAULT_OCR_ENGINE = "opencv_rules"
+DEFAULT_OCR_OVERLAY_STYLE = "auto"
+DEFAULT_OCR_CLOCK_FALLBACK = "none"
 
 
 def _load_app():
@@ -282,8 +285,12 @@ def process_segment_frames_with_ocr(
     frames_dir: Path,
     ocr_engine: str = DEFAULT_OCR_ENGINE,
     paddle_lang: str = DEFAULT_PADDLE_LANG,
+    ocr_overlay_style: str = DEFAULT_OCR_OVERLAY_STYLE,
+    ocr_clock_fallback: str = DEFAULT_OCR_CLOCK_FALLBACK,
     ocr_progress_interval: int = 60,
     ocr_max_frames: int | None = None,
+    ocr_debug_dir: Path | None = None,
+    ocr_debug_frames: int = 0,
 ) -> tuple[int, int | None, bool]:
     from scoreboard_ocr import (
         build_paddle_ocr,
@@ -302,6 +309,12 @@ def process_segment_frames_with_ocr(
         log(
             f"PaddleOCR initialized segment_id={segment.id} "
             f"elapsed={time.monotonic() - init_started_at:.1f}s"
+        )
+    if ocr_debug_dir is not None:
+        ocr_debug_dir.mkdir(parents=True, exist_ok=True)
+        log(
+            f"OCR debug output enabled segment_id={segment.id} "
+            f"debug_dir={ocr_debug_dir} debug_frames={ocr_debug_frames}"
         )
     crops_dir = frames_dir / "ocr-crops"
     frame_count = 0
@@ -335,10 +348,16 @@ def process_segment_frames_with_ocr(
                 crops_dir=crops_dir,
             )
         elif ocr_engine == "opencv_rules":
+            frame_debug_dir = None
+            if ocr_debug_dir is not None and frame_index < ocr_debug_frames:
+                frame_debug_dir = ocr_debug_dir / str(segment.id)
             reading = process_frame_fast(
                 frame_path,
                 frame_index=frame_index,
                 frame_second=second,
+                overlay_style=ocr_overlay_style,
+                clock_fallback_ocr=ocr_clock_fallback == "tesseract",
+                debug_dir=frame_debug_dir,
             )
         else:
             raise ValueError(f"Unsupported OCR engine: {ocr_engine}")
@@ -379,6 +398,21 @@ def segment_duration(archive: LivestreamFrameArchive, segment) -> int:
     return max(0, end_second - segment.start_second)
 
 
+def extraction_duration_for_ocr(
+    segment_duration_seconds: int,
+    fps: float,
+    ocr_max_frames: int | None,
+) -> int:
+    if ocr_max_frames is None:
+        return segment_duration_seconds
+    if fps <= 0:
+        raise ValueError("--fps must be greater than 0")
+    if ocr_max_frames <= 0:
+        return 0
+    frame_limited_duration = int(math.ceil(ocr_max_frames / fps))
+    return min(segment_duration_seconds, max(1, frame_limited_duration))
+
+
 def process_segment(
     segment: LivestreamFrameCaptureSegment,
     format_selector: str,
@@ -390,8 +424,12 @@ def process_segment(
     ocr_engine: str,
     paddle_lang: str,
     paddle_home: str | None,
+    ocr_overlay_style: str,
+    ocr_clock_fallback: str,
     ocr_progress_interval: int,
     ocr_max_frames: int | None,
+    ocr_debug_dir: Path | None,
+    ocr_debug_frames: int,
     dry_run: bool = False,
 ):
     archive = segment.archive
@@ -434,19 +472,31 @@ def process_segment(
         os.environ["HOME"] = paddle_home
         Path(paddle_home).mkdir(parents=True, exist_ok=True)
 
+    extraction_duration = extraction_duration_for_ocr(
+        duration,
+        archive.frame_rate or 1.0,
+        ocr_max_frames,
+    )
+    if extraction_duration <= 0:
+        raise ValueError("--ocr-max-frames must be greater than 0")
+
     with tempfile.TemporaryDirectory(prefix="livestream-frames-") as temp_dir:
         frames_dir = Path(temp_dir)
+        debug_cap = ""
+        if extraction_duration < duration:
+            debug_cap = f" segment_duration={_format_duration(duration)} debug_cap=true"
         log(
             f"Starting ffmpeg extraction segment_id={segment.id} "
             f"start={_format_duration(segment.start_second)} "
-            f"duration={_format_duration(duration)} "
+            f"duration={_format_duration(extraction_duration)} "
             f"fps={archive.frame_rate or 1.0:g} "
             f"output_dir={frames_dir}"
+            f"{debug_cap}"
         )
         extract_segment_frames(
             stream_url,
             segment.start_second,
-            duration,
+            extraction_duration,
             archive.frame_rate or 1.0,
             jpeg_quality,
             frames_dir,
@@ -462,9 +512,15 @@ def process_segment(
             frames_dir,
             ocr_engine=ocr_engine,
             paddle_lang=paddle_lang,
+            ocr_overlay_style=ocr_overlay_style,
+            ocr_clock_fallback=ocr_clock_fallback,
             ocr_progress_interval=ocr_progress_interval,
             ocr_max_frames=ocr_max_frames,
+            ocr_debug_dir=ocr_debug_dir,
+            ocr_debug_frames=ocr_debug_frames,
         )
+        if ocr_max_frames is not None and extraction_duration < duration:
+            completed_segment = False
 
     segment.processed_frame_count = processed
     segment.last_processed_second = last_second
@@ -528,8 +584,12 @@ def run(args) -> int:
                 args.ocr_engine,
                 args.paddle_lang,
                 args.paddle_home,
+                args.ocr_overlay_style,
+                args.ocr_clock_fallback,
                 args.ocr_progress_interval,
                 args.ocr_max_frames,
+                args.ocr_debug_dir,
+                args.ocr_debug_frames,
                 dry_run=args.dry_run,
             )
             processed += 1
@@ -574,6 +634,18 @@ def parse_args(argv=None):
         choices=("opencv_rules", "paddleocr"),
         default=DEFAULT_OCR_ENGINE,
     )
+    parser.add_argument(
+        "--ocr-overlay-style",
+        choices=("auto", "new", "old"),
+        default=DEFAULT_OCR_OVERLAY_STYLE,
+        help="Scoreboard overlay parser profile for opencv_rules",
+    )
+    parser.add_argument(
+        "--ocr-clock-fallback",
+        choices=("none", "tesseract"),
+        default=DEFAULT_OCR_CLOCK_FALLBACK,
+        help="Optional timer-only OCR fallback when OpenCV clock parsing fails",
+    )
     parser.add_argument("--paddle-lang", default=DEFAULT_PADDLE_LANG)
     parser.add_argument(
         "--paddle-home",
@@ -590,6 +662,18 @@ def parse_args(argv=None):
         type=int,
         default=None,
         help="Debug mode: process at most N extracted frames in the segment",
+    )
+    parser.add_argument(
+        "--ocr-debug-dir",
+        type=Path,
+        default=None,
+        help="Write debug crops/masks/readings for the first --ocr-debug-frames",
+    )
+    parser.add_argument(
+        "--ocr-debug-frames",
+        type=int,
+        default=0,
+        help="Number of opencv_rules frames to write to --ocr-debug-dir",
     )
     parser.add_argument(
         "--debug-traceback-after",
