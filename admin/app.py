@@ -35,13 +35,11 @@ from models import (
     BackgroundTask,
     LivestreamFrameArchive,
     LivestreamFrameCaptureSegment,
-    LivestreamFrameOcrReading,
     FloSearchName,
     TeamNameMapping,
     AthleteMediaCoverage,
 )
 from livestream_frame_archive import (
-    DEFAULT_SEGMENT_SECONDS,
     archive_progress_label,
     archive_usage_rows,
     cancel_queued_segments,
@@ -50,7 +48,6 @@ from livestream_frame_archive import (
     queue_archive_capture,
     recompute_archive_status,
     retry_failed_segments,
-    segment_quality_metrics,
     sync_archives_from_livestreams,
 )
 from youtube_utils import canonical_youtube_url
@@ -325,6 +322,42 @@ def _run_update_youtube_match_videos_task(task_id, args):
             db.session.commit()
 
 
+def _run_capture_livestream_frames_task(task_id, args):
+    with app.app_context():
+        task = BackgroundTask.query.get(task_id)
+        if not task:
+            return
+        task.status = "running"
+        task.started_at = datetime.utcnow()
+        db.session.commit()
+
+        try:
+            capture_cmd = [
+                "python3",
+                "scripts/archive_livestream_frames.py",
+                "--background-task-id",
+                str(task_id),
+            ] + args
+            _append_task_log(task, f"$ {' '.join(capture_cmd)}\n")
+            db.session.commit()
+            return_code = _run_logged_process(task, capture_cmd, env=os.environ.copy())
+
+            task.exit_code = return_code
+            task.finished_at = datetime.utcnow()
+            task.status = "success" if return_code == 0 else "error"
+            task.pid = None
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            _append_task_log(task, f"\nUnexpected error: {exc}\n")
+            _append_task_log(task, traceback.format_exc())
+            task.exit_code = -1
+            task.finished_at = datetime.utcnow()
+            task.status = "error"
+            task.pid = None
+            db.session.commit()
+
+
 # Simple authentication
 @app.before_request
 def require_login():
@@ -497,7 +530,7 @@ def tasks_index():
         "recompute_ranks",
         "update_result_medals",
         "update_youtube_match_videos",
-        "ocr_livestream_frames",
+        "capture_livestream_frames",
     ]
     db_task_types = [
         row[0]
@@ -566,9 +599,6 @@ def livestream_frame_archives():
 
     if request.method == "POST":
         action = request.form.get("action")
-        segment_seconds = request.form.get("segment_seconds", type=int)
-        if not segment_seconds or segment_seconds <= 0:
-            segment_seconds = DEFAULT_SEGMENT_SECONDS
         youtube_ids = request.form.getlist("selected_youtube_id")
         archive_ids = [
             archive.id
@@ -592,17 +622,10 @@ def livestream_frame_archives():
                 ).all()
                 segment_count = 0
                 for archive in archives:
-                    segment_count += queue_archive_capture(
-                        db.session,
-                        archive,
-                        segment_seconds=segment_seconds,
-                    )
+                    segment_count += queue_archive_capture(db.session, archive)
                     recompute_archive_status(db.session, archive)
                 db.session.commit()
-                message = (
-                    f"Queued {segment_count} segment(s) "
-                    f"with {segment_seconds}s segment size."
-                )
+                message = f"Queued {segment_count} segment(s)."
             elif action == "queue_selected":
                 archives = []
                 for youtube_id in youtube_ids:
@@ -620,17 +643,10 @@ def livestream_frame_archives():
                     if archive.id in seen:
                         continue
                     seen.add(archive.id)
-                    segment_count += queue_archive_capture(
-                        db.session,
-                        archive,
-                        segment_seconds=segment_seconds,
-                    )
+                    segment_count += queue_archive_capture(db.session, archive)
                     recompute_archive_status(db.session, archive)
                 db.session.commit()
-                message = (
-                    f"Queued {segment_count} segment(s) "
-                    f"with {segment_seconds}s segment size."
-                )
+                message = f"Queued {segment_count} segment(s)."
             elif action == "retry_failed":
                 segment_count = retry_failed_segments(db.session, archive_ids or None)
                 db.session.commit()
@@ -639,6 +655,24 @@ def livestream_frame_archives():
                 segment_count = cancel_queued_segments(db.session, archive_ids or None)
                 db.session.commit()
                 message = f"Cancelled {segment_count} queued/running segment(s)."
+            elif action == "start_runner":
+                max_segments = request.form.get("max_segments", type=int) or 1
+                task = BackgroundTask(
+                    task_type="capture_livestream_frames",
+                    status="queued",
+                    params_json=json.dumps({"max_segments": max_segments}),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                db.session.add(task)
+                db.session.commit()
+                args = ["--claim-next", "--max-segments", str(max_segments)]
+                threading.Thread(
+                    target=_run_capture_livestream_frames_task,
+                    args=(task.id, args),
+                    daemon=True,
+                ).start()
+                return redirect(url_for("task_detail", task_id=task.id))
         except Exception as exc:
             db.session.rollback()
             error = str(exc)
@@ -650,7 +684,6 @@ def livestream_frame_archives():
         message=message,
         error=error,
         progress_label=archive_progress_label,
-        default_segment_seconds=DEFAULT_SEGMENT_SECONDS,
     )
 
 
@@ -666,20 +699,11 @@ def livestream_frame_archive_detail(archive_id):
         .all()
     )
     usages = archive_usage_rows(db.session, archive.youtube_video_id)
-    reading_count = LivestreamFrameOcrReading.query.filter_by(
-        archive_id=archive.id
-    ).count()
-    segment_quality = segment_quality_metrics(
-        db.session,
-        [segment.id for segment in segments],
-    )
     return render_template(
         "livestream_frame_archive_detail.html",
         archive=archive,
         segments=segments,
         usages=usages,
-        reading_count=reading_count,
-        segment_quality=segment_quality,
         canonical_url=canonical_youtube_url(archive.youtube_video_id),
         progress_label=archive_progress_label,
     )

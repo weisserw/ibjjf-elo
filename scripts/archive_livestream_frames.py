@@ -4,12 +4,10 @@
 from __future__ import annotations
 
 import argparse
-import faulthandler
-import math
-import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 import uuid
@@ -25,20 +23,20 @@ from extensions import db  # noqa: E402
 from livestream_frame_archive import (  # noqa: E402
     DEFAULT_SEGMENT_SECONDS,
     apply_probe_metadata,
+    batch_s3_key,
     claim_next_segment,
     create_missing_segments,
+    frame_s3_key,
     recompute_archive_status,
-    upsert_ocr_reading,
+    should_upload_sample_frame,
 )
 from models import LivestreamFrameArchive, LivestreamFrameCaptureSegment  # noqa: E402
+from photos import bucket_name, get_s3_client  # noqa: E402
 
 
 DEFAULT_FORMAT_SELECTOR = "best[height<=1080]/best"
 FFMPEG_PROGRESS_LOG_SECONDS = 30
-DEFAULT_PADDLE_LANG = "en"
-DEFAULT_OCR_ENGINE = "opencv_rules"
-DEFAULT_OCR_OVERLAY_STYLE = "auto"
-DEFAULT_OCR_CLOCK_FALLBACK = "none"
+DEFAULT_SAMPLE_FRAME_INTERVAL = 600
 
 
 def _load_app():
@@ -279,116 +277,76 @@ def _segment_frame_paths(
         yield second, frame_path
 
 
-def process_segment_frames_with_ocr(
+def _create_segment_batch(
     archive: LivestreamFrameArchive,
     segment: LivestreamFrameCaptureSegment,
     frames_dir: Path,
-    ocr_engine: str = DEFAULT_OCR_ENGINE,
-    paddle_lang: str = DEFAULT_PADDLE_LANG,
-    ocr_overlay_style: str = DEFAULT_OCR_OVERLAY_STYLE,
-    ocr_clock_fallback: str = DEFAULT_OCR_CLOCK_FALLBACK,
-    ocr_progress_interval: int = 60,
-    ocr_max_frames: int | None = None,
-    ocr_debug_dir: Path | None = None,
-    ocr_debug_frames: int = 0,
-) -> tuple[int, int | None, bool]:
-    from scoreboard_ocr import (
-        build_paddle_ocr,
-        process_frame_fast,
-        process_frame_paddle,
-    )
-
-    log(
-        f"Starting frame OCR segment_id={segment.id} "
-        f"engine={ocr_engine} range={segment.start_second}-{segment.end_second}"
-    )
-    ocr = None
-    if ocr_engine == "paddleocr":
-        init_started_at = time.monotonic()
-        ocr = build_paddle_ocr(lang=paddle_lang)
-        log(
-            f"PaddleOCR initialized segment_id={segment.id} "
-            f"elapsed={time.monotonic() - init_started_at:.1f}s"
-        )
-    if ocr_debug_dir is not None:
-        ocr_debug_dir.mkdir(parents=True, exist_ok=True)
-        log(
-            f"OCR debug output enabled segment_id={segment.id} "
-            f"debug_dir={ocr_debug_dir} debug_frames={ocr_debug_frames}"
-        )
-    crops_dir = frames_dir / "ocr-crops"
+    batch_path: Path,
+) -> tuple[int, int | None]:
     frame_count = 0
-    complete_score_count = 0
-    clock_count = 0
     last_second = None
-    completed_segment = True
-    for frame_index, (second, frame_path) in enumerate(
-        _segment_frame_paths(segment, frames_dir)
-    ):
-        if ocr_max_frames is not None and frame_index >= ocr_max_frames:
-            completed_segment = False
-            log(
-                f"Stopping frame OCR early segment_id={segment.id} "
-                f"engine={ocr_engine} "
-                f"ocr_max_frames={ocr_max_frames}"
-            )
-            break
-        frame_started_at = time.monotonic()
-        if frame_index == 0:
-            log(
-                f"Frame OCR first frame starting segment_id={segment.id} "
-                f"engine={ocr_engine} second={second} path={frame_path}"
-            )
-        if ocr_engine == "paddleocr":
-            reading = process_frame_paddle(
-                ocr,
-                frame_path,
-                frame_index=frame_index,
-                frame_second=second,
-                crops_dir=crops_dir,
-            )
-        elif ocr_engine == "opencv_rules":
-            frame_debug_dir = None
-            if ocr_debug_dir is not None and frame_index < ocr_debug_frames:
-                frame_debug_dir = ocr_debug_dir / str(segment.id)
-            reading = process_frame_fast(
-                frame_path,
-                frame_index=frame_index,
-                frame_second=second,
-                overlay_style=ocr_overlay_style,
-                clock_fallback_ocr=ocr_clock_fallback == "tesseract",
-                debug_dir=frame_debug_dir,
-            )
-        else:
-            raise ValueError(f"Unsupported OCR engine: {ocr_engine}")
-        upsert_ocr_reading(db.session, archive, segment, reading)
-        frame_count += 1
-        if reading.score_complete:
-            complete_score_count += 1
-        if reading.clock_detected:
-            clock_count += 1
-        last_second = second
-        if frame_index == 0 or (
-            ocr_progress_interval > 0 and frame_count % ocr_progress_interval == 0
-        ):
-            log(
-                f"Frame OCR progress segment_id={segment.id} engine={ocr_engine} "
-                f"frames={frame_count} last_second={last_second} "
-                f"score_complete={complete_score_count}/{frame_count} "
-                f"clock_detected={clock_count}/{frame_count} "
-                f"last_frame_elapsed={time.monotonic() - frame_started_at:.1f}s"
+    image_format = archive.image_format or "jpg"
+    with tarfile.open(batch_path, "w:gz") as tar:
+        for second, frame_path in _segment_frame_paths(segment, frames_dir):
+            tar.add(frame_path, arcname=f"{second:09d}.{image_format}")
+            frame_count += 1
+            last_second = second
+    return frame_count, last_second
+
+
+def upload_segment_artifacts(
+    archive: LivestreamFrameArchive,
+    segment: LivestreamFrameCaptureSegment,
+    frames_dir: Path,
+    s3_client,
+    bucket: str,
+    sample_frame_interval: int = DEFAULT_SAMPLE_FRAME_INTERVAL,
+    dry_run: bool = False,
+) -> tuple[int, int | None, int, str]:
+    key = batch_s3_key(archive, segment)
+    batch_path = frames_dir / f"{segment.start_second:09d}-{segment.end_second:09d}.tgz"
+    frame_count, last_second = _create_segment_batch(
+        archive, segment, frames_dir, batch_path
+    )
+    log(
+        f"Uploading frame batch segment_id={segment.id} "
+        f"frames={frame_count} bucket={bucket} key={key}"
+    )
+    if not dry_run:
+        with batch_path.open("rb") as batch_file:
+            s3_client.upload_fileobj(
+                batch_file,
+                bucket,
+                key,
+                ExtraArgs={"ContentType": "application/gzip"},
             )
 
-    segment.processed_frame_count = frame_count
-    segment.last_processed_second = last_second
+    sampled = 0
+    for second, frame_path in _segment_frame_paths(segment, frames_dir):
+        if not should_upload_sample_frame(second, sample_frame_interval):
+            continue
+        sample_key = frame_s3_key(archive, second)
+        if not dry_run:
+            with frame_path.open("rb") as frame_file:
+                s3_client.upload_fileobj(
+                    frame_file,
+                    bucket,
+                    sample_key,
+                    ExtraArgs={"ContentType": "image/jpeg"},
+                )
+        sampled += 1
+
+    segment.uploaded_frame_count = frame_count
+    segment.sampled_frame_count = sampled
+    segment.last_uploaded_second = last_second
+    segment.batch_s3_key = key
+    segment.batch_uploaded_at = datetime.utcnow()
     log(
-        f"Frame OCR complete segment_id={segment.id} engine={ocr_engine} "
-        f"frames={frame_count} "
-        f"score_complete={complete_score_count}/{frame_count or 1} "
-        f"clock_detected={clock_count}/{frame_count or 1} "
+        f"Upload complete segment_id={segment.id} "
+        f"batch_frames={frame_count} sampled_frames={sampled} "
         f"last_second={last_second}"
     )
-    return frame_count, last_second, completed_segment
+    return frame_count, last_second, sampled, key
 
 
 def segment_duration(archive: LivestreamFrameArchive, segment) -> int:
@@ -396,21 +354,6 @@ def segment_duration(archive: LivestreamFrameArchive, segment) -> int:
     if archive.duration_seconds is not None:
         end_second = min(end_second, archive.duration_seconds)
     return max(0, end_second - segment.start_second)
-
-
-def extraction_duration_for_ocr(
-    segment_duration_seconds: int,
-    fps: float,
-    ocr_max_frames: int | None,
-) -> int:
-    if ocr_max_frames is None:
-        return segment_duration_seconds
-    if fps <= 0:
-        raise ValueError("--fps must be greater than 0")
-    if ocr_max_frames <= 0:
-        return 0
-    frame_limited_duration = int(math.ceil(ocr_max_frames / fps))
-    return min(segment_duration_seconds, max(1, frame_limited_duration))
 
 
 def process_segment(
@@ -421,15 +364,7 @@ def process_segment(
     segment_seconds: int,
     fps: float,
     jpeg_quality: int,
-    ocr_engine: str,
-    paddle_lang: str,
-    paddle_home: str | None,
-    ocr_overlay_style: str,
-    ocr_clock_fallback: str,
-    ocr_progress_interval: int,
-    ocr_max_frames: int | None,
-    ocr_debug_dir: Path | None,
-    ocr_debug_frames: int,
+    sample_frame_interval: int,
     dry_run: bool = False,
 ):
     archive = segment.archive
@@ -468,35 +403,23 @@ def process_segment(
         db.session.commit()
         return
 
-    if paddle_home:
-        os.environ["HOME"] = paddle_home
-        Path(paddle_home).mkdir(parents=True, exist_ok=True)
-
-    extraction_duration = extraction_duration_for_ocr(
-        duration,
-        archive.frame_rate or 1.0,
-        ocr_max_frames,
-    )
-    if extraction_duration <= 0:
-        raise ValueError("--ocr-max-frames must be greater than 0")
+    s3_client = get_s3_client()
+    if not bucket_name:
+        raise RuntimeError("S3_BUCKET is not configured")
 
     with tempfile.TemporaryDirectory(prefix="livestream-frames-") as temp_dir:
         frames_dir = Path(temp_dir)
-        debug_cap = ""
-        if extraction_duration < duration:
-            debug_cap = f" segment_duration={_format_duration(duration)} debug_cap=true"
         log(
             f"Starting ffmpeg extraction segment_id={segment.id} "
             f"start={_format_duration(segment.start_second)} "
-            f"duration={_format_duration(extraction_duration)} "
+            f"duration={_format_duration(duration)} "
             f"fps={archive.frame_rate or 1.0:g} "
             f"output_dir={frames_dir}"
-            f"{debug_cap}"
         )
         extract_segment_frames(
             stream_url,
             segment.start_second,
-            extraction_duration,
+            duration,
             archive.frame_rate or 1.0,
             jpeg_quality,
             frames_dir,
@@ -506,45 +429,26 @@ def process_segment(
             f"Frame extraction produced segment_id={segment.id} "
             f"frames={frame_count}"
         )
-        processed, last_second, completed_segment = process_segment_frames_with_ocr(
+        uploaded, last_second, sampled, batch_key = upload_segment_artifacts(
             archive,
             segment,
             frames_dir,
-            ocr_engine=ocr_engine,
-            paddle_lang=paddle_lang,
-            ocr_overlay_style=ocr_overlay_style,
-            ocr_clock_fallback=ocr_clock_fallback,
-            ocr_progress_interval=ocr_progress_interval,
-            ocr_max_frames=ocr_max_frames,
-            ocr_debug_dir=ocr_debug_dir,
-            ocr_debug_frames=ocr_debug_frames,
+            s3_client,
+            bucket_name,
+            sample_frame_interval=sample_frame_interval,
         )
-        if ocr_max_frames is not None and extraction_duration < duration:
-            completed_segment = False
 
-    segment.processed_frame_count = processed
-    segment.last_processed_second = last_second
-    if not completed_segment:
-        segment.status = "queued"
-        segment.last_error = (
-            f"Debug OCR run stopped after {processed} frame(s); segment requeued."
-        )
-        segment.finished_at = datetime.utcnow()
-        recompute_archive_status(db.session, archive)
-        db.session.commit()
-        log(
-            f"Segment requeued after debug OCR limit id={segment.id} "
-            f"processed_frames={processed} last_second={last_second}"
-        )
-        return
-
+    segment.uploaded_frame_count = uploaded
+    segment.sampled_frame_count = sampled
+    segment.last_uploaded_second = last_second
+    segment.batch_s3_key = batch_key
     segment.status = "success"
     segment.finished_at = datetime.utcnow()
     recompute_archive_status(db.session, archive)
     db.session.commit()
     log(
-        f"Segment success id={segment.id} processed_frames={processed} "
-        f"last_second={last_second} "
+        f"Segment success id={segment.id} batch_frames={uploaded} "
+        f"sampled_frames={sampled} last_second={last_second} "
         f"archive_status={archive.status}"
     )
 
@@ -581,15 +485,7 @@ def run(args) -> int:
                 args.segment_seconds,
                 args.fps,
                 args.jpeg_quality,
-                args.ocr_engine,
-                args.paddle_lang,
-                args.paddle_home,
-                args.ocr_overlay_style,
-                args.ocr_clock_fallback,
-                args.ocr_progress_interval,
-                args.ocr_max_frames,
-                args.ocr_debug_dir,
-                args.ocr_debug_frames,
+                args.sample_frame_interval,
                 dry_run=args.dry_run,
             )
             processed += 1
@@ -630,56 +526,10 @@ def parse_args(argv=None):
     )
     parser.add_argument("--jpeg-quality", type=int, default=2)
     parser.add_argument(
-        "--ocr-engine",
-        choices=("opencv_rules", "paddleocr"),
-        default=DEFAULT_OCR_ENGINE,
-    )
-    parser.add_argument(
-        "--ocr-overlay-style",
-        choices=("auto", "new", "old"),
-        default=DEFAULT_OCR_OVERLAY_STYLE,
-        help="Scoreboard overlay parser profile for opencv_rules",
-    )
-    parser.add_argument(
-        "--ocr-clock-fallback",
-        choices=("none", "tesseract"),
-        default=DEFAULT_OCR_CLOCK_FALLBACK,
-        help="Optional timer-only OCR fallback when OpenCV clock parsing fails",
-    )
-    parser.add_argument("--paddle-lang", default=DEFAULT_PADDLE_LANG)
-    parser.add_argument(
-        "--paddle-home",
-        help="Optional HOME/cache directory for PaddleOCR model files",
-    )
-    parser.add_argument(
-        "--ocr-progress-interval",
+        "--sample-frame-interval",
         type=int,
-        default=60,
-        help="Log OCR progress every N processed frames; set 0 to disable",
-    )
-    parser.add_argument(
-        "--ocr-max-frames",
-        type=int,
-        default=None,
-        help="Debug mode: process at most N extracted frames in the segment",
-    )
-    parser.add_argument(
-        "--ocr-debug-dir",
-        type=Path,
-        default=None,
-        help="Write debug crops/masks/readings for the first --ocr-debug-frames",
-    )
-    parser.add_argument(
-        "--ocr-debug-frames",
-        type=int,
-        default=0,
-        help="Number of opencv_rules frames to write to --ocr-debug-dir",
-    )
-    parser.add_argument(
-        "--debug-traceback-after",
-        type=int,
-        default=None,
-        help="Dump Python stack traces every N seconds while the runner is alive",
+        default=DEFAULT_SAMPLE_FRAME_INTERVAL,
+        help="Upload one individual JPG every N absolute seconds; set 0 to disable",
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--background-task-id")
@@ -688,12 +538,6 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
-    if args.debug_traceback_after:
-        faulthandler.enable()
-        faulthandler.dump_traceback_later(
-            args.debug_traceback_after,
-            repeat=True,
-        )
     app = _load_app()
     with app.app_context():
         return run(args)

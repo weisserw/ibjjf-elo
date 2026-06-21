@@ -480,14 +480,15 @@ class LivestreamFrameArchive(db.Model):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     youtube_video_id = Column(String, nullable=False)
     canonical_url = Column(String, nullable=False)
+    s3_prefix = Column(String, nullable=False)
     status = Column(String, nullable=False, default="pending")
     frame_rate = Column(Float, nullable=False, default=1.0)
     image_format = Column(String, nullable=False, default="jpg")
     jpeg_quality = Column(Integer, nullable=True)
     duration_seconds = Column(Integer, nullable=True)
     expected_frame_count = Column(Integer, nullable=True)
-    processed_frame_count = Column(Integer, nullable=False, default=0)
-    last_processed_second = Column(Integer, nullable=True)
+    uploaded_frame_count = Column(Integer, nullable=False, default=0)
+    last_uploaded_second = Column(Integer, nullable=True)
     format_id = Column(String, nullable=True)
     format_note = Column(String, nullable=True)
     width = Column(Integer, nullable=True)
@@ -512,12 +513,6 @@ class LivestreamFrameArchive(db.Model):
         cascade="all, delete-orphan",
         order_by="LivestreamFrameCaptureSegment.start_second",
     )
-    ocr_readings = relationship(
-        "LivestreamFrameOcrReading",
-        back_populates="archive",
-        cascade="all, delete-orphan",
-        order_by="LivestreamFrameOcrReading.frame_second",
-    )
 
     __table_args__ = (
         UniqueConstraint(
@@ -540,8 +535,11 @@ class LivestreamFrameCaptureSegment(db.Model):
     end_second = Column(Integer, nullable=False)
     status = Column(String, nullable=False, default="pending")
     attempt_count = Column(Integer, nullable=False, default=0)
-    processed_frame_count = Column(Integer, nullable=False, default=0)
-    last_processed_second = Column(Integer, nullable=True)
+    uploaded_frame_count = Column(Integer, nullable=False, default=0)
+    sampled_frame_count = Column(Integer, nullable=False, default=0)
+    last_uploaded_second = Column(Integer, nullable=True)
+    batch_s3_key = Column(String, nullable=True)
+    batch_uploaded_at = Column(DateTime, nullable=True)
     background_task_id = Column(
         UUID(as_uuid=True), ForeignKey("background_tasks.id"), nullable=True
     )
@@ -555,12 +553,6 @@ class LivestreamFrameCaptureSegment(db.Model):
 
     archive = relationship("LivestreamFrameArchive", back_populates="segments")
     background_task = relationship("BackgroundTask")
-    ocr_readings = relationship(
-        "LivestreamFrameOcrReading",
-        back_populates="segment",
-        cascade="all, delete-orphan",
-        order_by="LivestreamFrameOcrReading.frame_second",
-    )
 
     __table_args__ = (
         UniqueConstraint(
@@ -579,69 +571,6 @@ class LivestreamFrameCaptureSegment(db.Model):
             "ix_livestream_frame_capture_segments_archive_start",
             "archive_id",
             "start_second",
-        ),
-    )
-
-
-class LivestreamFrameOcrReading(db.Model):
-    __tablename__ = "livestream_frame_ocr_readings"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    archive_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("livestream_frame_archives.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    segment_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("livestream_frame_capture_segments.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    frame_second = Column(Integer, nullable=False)
-    frame_index = Column(Integer, nullable=False)
-    video_offset_seconds = Column(Float, nullable=False)
-    ocr_engine = Column(String, nullable=False)
-    overlay_style = Column(String, nullable=True)
-    clock = Column(String, nullable=True)
-    red_points = Column(Integer, nullable=True)
-    red_advantages = Column(Integer, nullable=True)
-    red_penalties = Column(Integer, nullable=True)
-    blue_points = Column(Integer, nullable=True)
-    blue_advantages = Column(Integer, nullable=True)
-    blue_penalties = Column(Integer, nullable=True)
-    red_athlete_name = Column(Text, nullable=True)
-    red_team_name = Column(Text, nullable=True)
-    blue_athlete_name = Column(Text, nullable=True)
-    blue_team_name = Column(Text, nullable=True)
-    known_score_count = Column(Integer, nullable=False, default=0)
-    score_complete = Column(Boolean, nullable=False, default=False)
-    clock_detected = Column(Boolean, nullable=False, default=False)
-    victory = Column(Boolean, nullable=False, default=False)
-    victory_text = Column(Text, nullable=True)
-    scoreboard_text = Column(Text, nullable=True)
-    timer_text = Column(Text, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
-    )
-
-    archive = relationship("LivestreamFrameArchive", back_populates="ocr_readings")
-    segment = relationship(
-        "LivestreamFrameCaptureSegment", back_populates="ocr_readings"
-    )
-
-    __table_args__ = (
-        UniqueConstraint(
-            "archive_id",
-            "frame_second",
-            name="uq_livestream_frame_ocr_readings_archive_second",
-        ),
-        Index("ix_livestream_frame_ocr_readings_archive_id", "archive_id"),
-        Index("ix_livestream_frame_ocr_readings_segment_id", "segment_id"),
-        Index(
-            "ix_livestream_frame_ocr_readings_archive_second",
-            "archive_id",
-            "frame_second",
         ),
     )
 

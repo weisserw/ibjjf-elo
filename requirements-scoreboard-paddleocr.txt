@@ -1,6 +1,0 @@
-numpy==2.2.6
-opencv-python==4.13.0.92
-pillow==12.2.0
-pytesseract==0.3.13
-paddleocr==3.7.0
-paddlepaddle==3.3.1
