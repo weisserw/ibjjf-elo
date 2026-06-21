@@ -4,10 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
 import time
 import uuid
@@ -23,20 +23,17 @@ from extensions import db  # noqa: E402
 from livestream_frame_archive import (  # noqa: E402
     DEFAULT_SEGMENT_SECONDS,
     apply_probe_metadata,
-    batch_s3_key,
     claim_next_segment,
     create_missing_segments,
-    frame_s3_key,
     recompute_archive_status,
-    should_upload_sample_frame,
+    upsert_ocr_reading,
 )
 from models import LivestreamFrameArchive, LivestreamFrameCaptureSegment  # noqa: E402
-from photos import bucket_name, get_s3_client  # noqa: E402
 
 
 DEFAULT_FORMAT_SELECTOR = "best[height<=1080]/best"
 FFMPEG_PROGRESS_LOG_SECONDS = 30
-DEFAULT_SAMPLE_FRAME_INTERVAL = 600
+DEFAULT_PADDLE_LANG = "en"
 
 
 def _load_app():
@@ -277,76 +274,44 @@ def _segment_frame_paths(
         yield second, frame_path
 
 
-def _create_segment_batch(
+def process_segment_frames_with_ocr(
     archive: LivestreamFrameArchive,
     segment: LivestreamFrameCaptureSegment,
     frames_dir: Path,
-    batch_path: Path,
+    paddle_lang: str = DEFAULT_PADDLE_LANG,
 ) -> tuple[int, int | None]:
+    from scoreboard_ocr import build_paddle_ocr, process_frame
+
+    log(
+        f"Starting PaddleOCR segment_id={segment.id} "
+        f"range={segment.start_second}-{segment.end_second}"
+    )
+    ocr = build_paddle_ocr(lang=paddle_lang)
+    crops_dir = frames_dir / "ocr-crops"
     frame_count = 0
     last_second = None
-    image_format = archive.image_format or "jpg"
-    with tarfile.open(batch_path, "w:gz") as tar:
-        for second, frame_path in _segment_frame_paths(segment, frames_dir):
-            tar.add(frame_path, arcname=f"{second:09d}.{image_format}")
-            frame_count += 1
-            last_second = second
-    return frame_count, last_second
+    for frame_index, (second, frame_path) in enumerate(
+        _segment_frame_paths(segment, frames_dir)
+    ):
+        reading = process_frame(
+            ocr,
+            frame_path,
+            frame_index=frame_index,
+            frame_second=second,
+            crops_dir=crops_dir,
+        )
+        upsert_ocr_reading(db.session, archive, segment, reading)
+        frame_count += 1
+        last_second = second
 
-
-def upload_segment_artifacts(
-    archive: LivestreamFrameArchive,
-    segment: LivestreamFrameCaptureSegment,
-    frames_dir: Path,
-    s3_client,
-    bucket: str,
-    sample_frame_interval: int = DEFAULT_SAMPLE_FRAME_INTERVAL,
-    dry_run: bool = False,
-) -> tuple[int, int | None, int, str]:
-    key = batch_s3_key(archive, segment)
-    batch_path = frames_dir / f"{segment.start_second:09d}-{segment.end_second:09d}.tgz"
-    frame_count, last_second = _create_segment_batch(
-        archive, segment, frames_dir, batch_path
-    )
+    segment.processed_frame_count = frame_count
+    segment.last_processed_second = last_second
     log(
-        f"Uploading frame batch segment_id={segment.id} "
-        f"frames={frame_count} bucket={bucket} key={key}"
-    )
-    if not dry_run:
-        with batch_path.open("rb") as batch_file:
-            s3_client.upload_fileobj(
-                batch_file,
-                bucket,
-                key,
-                ExtraArgs={"ContentType": "application/gzip"},
-            )
-
-    sampled = 0
-    for second, frame_path in _segment_frame_paths(segment, frames_dir):
-        if not should_upload_sample_frame(second, sample_frame_interval):
-            continue
-        sample_key = frame_s3_key(archive, second)
-        if not dry_run:
-            with frame_path.open("rb") as frame_file:
-                s3_client.upload_fileobj(
-                    frame_file,
-                    bucket,
-                    sample_key,
-                    ExtraArgs={"ContentType": "image/jpeg"},
-                )
-        sampled += 1
-
-    segment.uploaded_frame_count = frame_count
-    segment.sampled_frame_count = sampled
-    segment.last_uploaded_second = last_second
-    segment.batch_s3_key = key
-    segment.batch_uploaded_at = datetime.utcnow()
-    log(
-        f"Upload complete segment_id={segment.id} "
-        f"batch_frames={frame_count} sampled_frames={sampled} "
+        f"PaddleOCR complete segment_id={segment.id} "
+        f"frames={frame_count} "
         f"last_second={last_second}"
     )
-    return frame_count, last_second, sampled, key
+    return frame_count, last_second
 
 
 def segment_duration(archive: LivestreamFrameArchive, segment) -> int:
@@ -364,7 +329,8 @@ def process_segment(
     segment_seconds: int,
     fps: float,
     jpeg_quality: int,
-    sample_frame_interval: int,
+    paddle_lang: str,
+    paddle_home: str | None,
     dry_run: bool = False,
 ):
     archive = segment.archive
@@ -403,9 +369,9 @@ def process_segment(
         db.session.commit()
         return
 
-    s3_client = get_s3_client()
-    if not bucket_name:
-        raise RuntimeError("S3_BUCKET is not configured")
+    if paddle_home:
+        os.environ["HOME"] = paddle_home
+        Path(paddle_home).mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="livestream-frames-") as temp_dir:
         frames_dir = Path(temp_dir)
@@ -429,26 +395,22 @@ def process_segment(
             f"Frame extraction produced segment_id={segment.id} "
             f"frames={frame_count}"
         )
-        uploaded, last_second, sampled, batch_key = upload_segment_artifacts(
+        processed, last_second = process_segment_frames_with_ocr(
             archive,
             segment,
             frames_dir,
-            s3_client,
-            bucket_name,
-            sample_frame_interval=sample_frame_interval,
+            paddle_lang=paddle_lang,
         )
 
-    segment.uploaded_frame_count = uploaded
-    segment.sampled_frame_count = sampled
-    segment.last_uploaded_second = last_second
-    segment.batch_s3_key = batch_key
+    segment.processed_frame_count = processed
+    segment.last_processed_second = last_second
     segment.status = "success"
     segment.finished_at = datetime.utcnow()
     recompute_archive_status(db.session, archive)
     db.session.commit()
     log(
-        f"Segment success id={segment.id} batch_frames={uploaded} "
-        f"sampled_frames={sampled} last_second={last_second} "
+        f"Segment success id={segment.id} processed_frames={processed} "
+        f"last_second={last_second} "
         f"archive_status={archive.status}"
     )
 
@@ -485,7 +447,8 @@ def run(args) -> int:
                 args.segment_seconds,
                 args.fps,
                 args.jpeg_quality,
-                args.sample_frame_interval,
+                args.paddle_lang,
+                args.paddle_home,
                 dry_run=args.dry_run,
             )
             processed += 1
@@ -525,11 +488,10 @@ def parse_args(argv=None):
         help="yt-dlp remote component, repeatable",
     )
     parser.add_argument("--jpeg-quality", type=int, default=2)
+    parser.add_argument("--paddle-lang", default=DEFAULT_PADDLE_LANG)
     parser.add_argument(
-        "--sample-frame-interval",
-        type=int,
-        default=DEFAULT_SAMPLE_FRAME_INTERVAL,
-        help="Upload one individual JPG every N absolute seconds; set 0 to disable",
+        "--paddle-home",
+        help="Optional HOME/cache directory for PaddleOCR model files",
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--background-task-id")

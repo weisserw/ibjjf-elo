@@ -11,6 +11,7 @@ from models import (
     LiveStream,
     LivestreamFrameArchive,
     LivestreamFrameCaptureSegment,
+    LivestreamFrameOcrReading,
 )
 from youtube_utils import canonical_youtube_url, extract_youtube_video_id
 
@@ -45,36 +46,6 @@ class LivestreamUsage:
     stream: LiveStream
     youtube_video_id: str
     event_name: str | None
-
-
-def s3_prefix_for_youtube_id(youtube_video_id: str) -> str:
-    return f"livestream-frames/{youtube_video_id}/"
-
-
-def batch_s3_prefix_for_youtube_id(youtube_video_id: str) -> str:
-    return f"livestream-frame-batches/{youtube_video_id}/"
-
-
-def frame_s3_key(archive: LivestreamFrameArchive, second: int) -> str:
-    image_format = archive.image_format or DEFAULT_IMAGE_FORMAT
-    return f"{archive.s3_prefix}{second:09d}.{image_format}"
-
-
-def batch_s3_key(
-    archive: LivestreamFrameArchive, segment: LivestreamFrameCaptureSegment
-) -> str:
-    return (
-        f"{batch_s3_prefix_for_youtube_id(archive.youtube_video_id)}"
-        f"{segment.start_second:09d}-{segment.end_second:09d}.tgz"
-    )
-
-
-def should_upload_sample_frame(second: int, sample_frame_interval: int | None) -> bool:
-    return (
-        bool(sample_frame_interval)
-        and sample_frame_interval > 0
-        and (second % sample_frame_interval == 0)
-    )
 
 
 def expected_frame_count(
@@ -122,11 +93,10 @@ def get_or_create_archive(
     archive = LivestreamFrameArchive(
         youtube_video_id=youtube_video_id,
         canonical_url=canonical_youtube_url(youtube_video_id),
-        s3_prefix=s3_prefix_for_youtube_id(youtube_video_id),
         status="pending",
         frame_rate=DEFAULT_FRAME_RATE,
         image_format=DEFAULT_IMAGE_FORMAT,
-        uploaded_frame_count=0,
+        processed_frame_count=0,
     )
     session.add(archive)
     return archive, True
@@ -205,7 +175,7 @@ def create_missing_segments(
                     end_second=missing_end,
                     status="queued",
                     attempt_count=0,
-                    uploaded_frame_count=0,
+                    processed_frame_count=0,
                 )
             )
             existing.append((missing_start, missing_end))
@@ -313,14 +283,14 @@ def recompute_archive_status(session, archive: LivestreamFrameArchive) -> None:
     successful_segments = [
         segment for segment in segments if segment.status in ("success", "skipped")
     ]
-    archive.uploaded_frame_count = sum(
-        segment.uploaded_frame_count or 0 for segment in successful_segments
+    archive.processed_frame_count = sum(
+        segment.processed_frame_count or 0 for segment in successful_segments
     )
-    archive.last_uploaded_second = max(
+    archive.last_processed_second = max(
         [
-            segment.last_uploaded_second
+            segment.last_processed_second
             for segment in successful_segments
-            if segment.last_uploaded_second is not None
+            if segment.last_processed_second is not None
         ],
         default=None,
     )
@@ -417,5 +387,41 @@ def archive_progress_label(archive: LivestreamFrameArchive | None) -> str:
         return ""
     expected = archive.expected_frame_count
     if expected is None:
-        return f"{archive.uploaded_frame_count or 0} / ?"
-    return f"{archive.uploaded_frame_count or 0} / {expected}"
+        return f"{archive.processed_frame_count or 0} / ?"
+    return f"{archive.processed_frame_count or 0} / {expected}"
+
+
+def upsert_ocr_reading(
+    session,
+    archive: LivestreamFrameArchive,
+    segment: LivestreamFrameCaptureSegment,
+    reading,
+) -> LivestreamFrameOcrReading:
+    row = LivestreamFrameOcrReading.query.filter_by(
+        archive_id=archive.id,
+        frame_second=reading.frame_second,
+    ).one_or_none()
+    if row is None:
+        row = LivestreamFrameOcrReading(
+            archive_id=archive.id,
+            frame_second=reading.frame_second,
+        )
+        session.add(row)
+
+    row.segment_id = segment.id
+    row.frame_index = reading.frame_index
+    row.video_offset_seconds = reading.video_offset_seconds
+    row.ocr_engine = reading.ocr_engine
+    row.overlay_style = reading.overlay_style
+    row.clock = reading.clock
+    row.red_points = reading.red_points
+    row.red_advantages = reading.red_advantages
+    row.red_penalties = reading.red_penalties
+    row.blue_points = reading.blue_points
+    row.blue_advantages = reading.blue_advantages
+    row.blue_penalties = reading.blue_penalties
+    row.victory = reading.victory
+    row.victory_text = reading.victory_text
+    row.scoreboard_text = reading.scoreboard_text
+    row.timer_text = reading.timer_text
+    return row

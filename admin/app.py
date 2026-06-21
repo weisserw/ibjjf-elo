@@ -35,6 +35,7 @@ from models import (
     BackgroundTask,
     LivestreamFrameArchive,
     LivestreamFrameCaptureSegment,
+    LivestreamFrameOcrReading,
     FloSearchName,
     TeamNameMapping,
     AthleteMediaCoverage,
@@ -530,7 +531,7 @@ def tasks_index():
         "recompute_ranks",
         "update_result_medals",
         "update_youtube_match_videos",
-        "capture_livestream_frames",
+        "ocr_livestream_frames",
     ]
     db_task_types = [
         row[0]
@@ -658,7 +659,7 @@ def livestream_frame_archives():
             elif action == "start_runner":
                 max_segments = request.form.get("max_segments", type=int) or 1
                 task = BackgroundTask(
-                    task_type="capture_livestream_frames",
+                    task_type="ocr_livestream_frames",
                     status="queued",
                     params_json=json.dumps({"max_segments": max_segments}),
                     created_at=datetime.utcnow(),
@@ -699,11 +700,15 @@ def livestream_frame_archive_detail(archive_id):
         .all()
     )
     usages = archive_usage_rows(db.session, archive.youtube_video_id)
+    reading_count = LivestreamFrameOcrReading.query.filter_by(
+        archive_id=archive.id
+    ).count()
     return render_template(
         "livestream_frame_archive_detail.html",
         archive=archive,
         segments=segments,
         usages=usages,
+        reading_count=reading_count,
         canonical_url=canonical_youtube_url(archive.youtube_video_id),
         progress_label=archive_progress_label,
     )
