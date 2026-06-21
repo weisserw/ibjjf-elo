@@ -41,6 +41,7 @@ from models import (
     AthleteMediaCoverage,
 )
 from livestream_frame_archive import (
+    DEFAULT_SEGMENT_SECONDS,
     archive_progress_label,
     archive_usage_rows,
     cancel_queued_segments,
@@ -601,6 +602,9 @@ def livestream_frame_archives():
 
     if request.method == "POST":
         action = request.form.get("action")
+        segment_seconds = request.form.get("segment_seconds", type=int)
+        if not segment_seconds or segment_seconds <= 0:
+            segment_seconds = DEFAULT_SEGMENT_SECONDS
         youtube_ids = request.form.getlist("selected_youtube_id")
         archive_ids = [
             archive.id
@@ -624,10 +628,17 @@ def livestream_frame_archives():
                 ).all()
                 segment_count = 0
                 for archive in archives:
-                    segment_count += queue_archive_capture(db.session, archive)
+                    segment_count += queue_archive_capture(
+                        db.session,
+                        archive,
+                        segment_seconds=segment_seconds,
+                    )
                     recompute_archive_status(db.session, archive)
                 db.session.commit()
-                message = f"Queued {segment_count} segment(s)."
+                message = (
+                    f"Queued {segment_count} segment(s) "
+                    f"with {segment_seconds}s segment size."
+                )
             elif action == "queue_selected":
                 archives = []
                 for youtube_id in youtube_ids:
@@ -645,10 +656,17 @@ def livestream_frame_archives():
                     if archive.id in seen:
                         continue
                     seen.add(archive.id)
-                    segment_count += queue_archive_capture(db.session, archive)
+                    segment_count += queue_archive_capture(
+                        db.session,
+                        archive,
+                        segment_seconds=segment_seconds,
+                    )
                     recompute_archive_status(db.session, archive)
                 db.session.commit()
-                message = f"Queued {segment_count} segment(s)."
+                message = (
+                    f"Queued {segment_count} segment(s) "
+                    f"with {segment_seconds}s segment size."
+                )
             elif action == "retry_failed":
                 segment_count = retry_failed_segments(db.session, archive_ids or None)
                 db.session.commit()
@@ -686,6 +704,7 @@ def livestream_frame_archives():
         message=message,
         error=error,
         progress_label=archive_progress_label,
+        default_segment_seconds=DEFAULT_SEGMENT_SECONDS,
     )
 
 

@@ -22,6 +22,14 @@
             </form>
             <form method="POST">
                 <input type="hidden" name="action" value="queue_missing">
+                <div class="field has-addons">
+                    <div class="control">
+                        <input class="input" type="number" name="segment_seconds" min="1" value="{{ default_segment_seconds }}" style="width: 8rem;">
+                    </div>
+                    <div class="control">
+                        <span class="button is-static">sec</span>
+                    </div>
+                </div>
                 <button class="button is-info" type="submit">Queue missing</button>
             </form>
             <form method="POST">
@@ -34,6 +42,14 @@
 
     <form method="POST">
         <div class="buttons">
+            <div class="field has-addons mr-2">
+                <div class="control">
+                    <input class="input is-small" type="number" name="segment_seconds" min="1" value="{{ default_segment_seconds }}" style="width: 7rem;">
+                </div>
+                <div class="control">
+                    <span class="button is-static is-small">sec</span>
+                </div>
+            </div>
             <button class="button is-info is-small" name="action" value="queue_selected" type="submit">Queue selected</button>
             <button class="button is-warning is-small" name="action" value="retry_failed" type="submit">Retry failed</button>
             <button class="button is-danger is-small" name="action" value="cancel" type="submit">Cancel queued/running</button>
