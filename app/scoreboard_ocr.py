@@ -5,12 +5,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import cv2
+import numpy as np
 from PIL import Image
 
 
 DEFAULT_SCOREBOARD_ROI = (0.0, 0.0, 0.23, 0.18)
 DEFAULT_TIMER_ROI = (0.33, 0.0, 0.33, 0.09)
-OCR_ENGINE = "paddleocr"
+PADDLE_OCR_ENGINE = "paddleocr"
+FAST_OCR_ENGINE = "opencv_rules"
+DEFAULT_OVERLAY_STYLE = "auto"
+OVERLAY_STYLES = ("auto", "new", "old")
 SCORE_FIELDS = (
     "red_points",
     "red_advantages",
@@ -19,6 +24,26 @@ SCORE_FIELDS = (
     "blue_advantages",
     "blue_penalties",
 )
+NEW_SCORE_BOX_ROIS = {
+    "red_points": (0.585, 0.10, 0.095, 0.34),
+    "red_advantages": (0.715, 0.10, 0.095, 0.34),
+    "red_penalties": (0.845, 0.10, 0.095, 0.34),
+    "blue_points": (0.585, 0.58, 0.095, 0.32),
+    "blue_advantages": (0.715, 0.58, 0.095, 0.32),
+    "blue_penalties": (0.845, 0.58, 0.095, 0.32),
+}
+OLD_SCORE_BOX_ROIS = {
+    "red_points": (0.515, 0.02, 0.16, 0.44),
+    "red_advantages": (0.690, 0.02, 0.13, 0.44),
+    "red_penalties": (0.840, 0.02, 0.13, 0.44),
+    "blue_points": (0.515, 0.52, 0.16, 0.42),
+    "blue_advantages": (0.690, 0.52, 0.13, 0.42),
+    "blue_penalties": (0.840, 0.52, 0.13, 0.42),
+}
+SCORE_BOX_ROIS_BY_STYLE = {
+    "new": NEW_SCORE_BOX_ROIS,
+    "old": OLD_SCORE_BOX_ROIS,
+}
 
 
 @dataclass(frozen=True)
@@ -50,6 +75,9 @@ class FrameOcrReading:
     blue_points: int | None
     blue_advantages: int | None
     blue_penalties: int | None
+    known_score_count: int
+    score_complete: bool
+    clock_detected: bool
     victory: bool
     victory_text: str | None
     scoreboard_text: str
@@ -76,6 +104,233 @@ def pixel_roi(
     crop_width = max(1, int(round(width * image_width)))
     crop_height = max(1, int(round(height * image_height)))
     return left, top, left + crop_width, top + crop_height
+
+
+def cv_pixel_roi(
+    roi: tuple[float, float, float, float], image_width: int, image_height: int
+) -> tuple[int, int, int, int]:
+    left, top, right, bottom = pixel_roi(roi, image_width, image_height)
+    return left, top, max(1, right - left), max(1, bottom - top)
+
+
+def crop_percent(
+    image: np.ndarray, roi: tuple[float, float, float, float]
+) -> np.ndarray:
+    height, width = image.shape[:2]
+    x, y, crop_width, crop_height = cv_pixel_roi(roi, width, height)
+    return image[y : y + crop_height, x : x + crop_width]
+
+
+def crop_pixels(
+    image: np.ndarray, roi: tuple[float, float, float, float]
+) -> np.ndarray:
+    return crop_percent(image, roi)
+
+
+def preprocess_for_white_digit(image: np.ndarray, scale: int = 6) -> np.ndarray:
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, (0, 0, 145), (179, 110, 255))
+    mask = cv2.resize(mask, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    kernel = np.ones((3, 3), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    return cv2.bitwise_not(mask)
+
+
+def ocr_digit(image: np.ndarray) -> int | None:
+    foreground = image < 128
+    count, _, stats, _ = cv2.connectedComponentsWithStats(foreground.astype("uint8"), 8)
+    components = []
+    for index in range(1, count):
+        x, y, width, height, area = stats[index]
+        if area > 100:
+            components.append((int(x), int(y), int(width), int(height), int(area)))
+    if components:
+        _, _, width, height, _ = max(components, key=lambda component: component[4])
+        if height > 0 and width / height < 0.50:
+            return 1
+
+    try:
+        import pytesseract
+    except ImportError:
+        return None
+
+    bordered = cv2.copyMakeBorder(image, 24, 24, 24, 24, cv2.BORDER_CONSTANT, value=255)
+    for psm in (10, 8, 13, 7):
+        text = pytesseract.image_to_string(
+            bordered,
+            config=f"--psm {psm} -c tessedit_char_whitelist=0123456789",
+        )
+        match = re.search(r"\d", text)
+        if match:
+            return int(match.group(0))
+    return None
+
+
+def score_state_values(state: dict[str, int | None]) -> tuple[int | None, ...]:
+    return tuple(state[field] for field in SCORE_FIELDS)
+
+
+def known_score_count(state: dict[str, int | None]) -> int:
+    return sum(value is not None for value in score_state_values(state))
+
+
+def state_complete(state: dict[str, int | None]) -> bool:
+    return all(value is not None for value in score_state_values(state))
+
+
+def parse_score_boxes(
+    scoreboard: np.ndarray,
+    score_box_rois: dict[str, tuple[float, float, float, float]],
+) -> dict[str, int | None]:
+    digits = {}
+    for field, box_roi in score_box_rois.items():
+        box_crop = crop_pixels(scoreboard, box_roi)
+        box_processed = preprocess_for_white_digit(box_crop)
+        digits[field] = ocr_digit(box_processed)
+    return digits
+
+
+def choose_score_state(
+    scoreboard: np.ndarray, overlay_style: str
+) -> tuple[str | None, dict[str, int | None]]:
+    styles = ("new", "old") if overlay_style == "auto" else (overlay_style,)
+    candidates = [
+        (style, parse_score_boxes(scoreboard, SCORE_BOX_ROIS_BY_STYLE[style]))
+        for style in styles
+    ]
+    return max(candidates, key=lambda candidate: known_score_count(candidate[1]))
+
+
+def preprocess_green_clock(timer: np.ndarray, scale: int = 3) -> np.ndarray:
+    _, width = timer.shape[:2]
+    clock = timer[:, : int(width * 0.55)]
+    hsv = cv2.cvtColor(clock, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, (35, 80, 80), (95, 255, 255))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+    return cv2.resize(mask, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+
+
+def preprocess_dark_clock(timer: np.ndarray, scale: int = 3) -> np.ndarray:
+    _, width = timer.shape[:2]
+    clock = timer[:, : int(width * 0.55)]
+    gray = cv2.cvtColor(clock, cv2.COLOR_BGR2GRAY)
+    mask = cv2.inRange(gray, 0, 70)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+    return cv2.resize(mask, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+
+
+def _stroke_features(digit_mask: np.ndarray) -> dict[str, float]:
+    digit = digit_mask > 0
+    height, width = digit.shape
+    return {
+        "fill": float(digit.mean()),
+        "width_ratio": width / height,
+        "top": float(
+            digit[0 : int(0.18 * height), int(0.25 * width) : int(0.75 * width)].mean()
+        ),
+        "mid": float(
+            digit[
+                int(0.40 * height) : int(0.60 * height),
+                int(0.25 * width) : int(0.75 * width),
+            ].mean()
+        ),
+        "bot": float(
+            digit[int(0.82 * height) :, int(0.25 * width) : int(0.75 * width)].mean()
+        ),
+        "ul": float(
+            digit[int(0.18 * height) : int(0.45 * height), : int(0.35 * width)].mean()
+        ),
+        "ur": float(
+            digit[int(0.18 * height) : int(0.45 * height), int(0.65 * width) :].mean()
+        ),
+        "ll": float(
+            digit[int(0.55 * height) : int(0.82 * height), : int(0.35 * width)].mean()
+        ),
+        "lr": float(
+            digit[int(0.55 * height) : int(0.82 * height), int(0.65 * width) :].mean()
+        ),
+    }
+
+
+def classify_clock_digit(digit_mask: np.ndarray) -> int | None:
+    f = _stroke_features(digit_mask)
+
+    if f["width_ratio"] < 0.55 or (
+        f["ul"] < 0.10 and f["ll"] < 0.10 and f["ur"] > 0.80 and f["lr"] > 0.80
+    ):
+        return 1
+    if f["ll"] < 0.15 and f["lr"] > 0.60 and f["mid"] > 0.75:
+        return 9
+    if f["top"] > 0.80 and f["bot"] > 0.80 and f["ur"] > 0.65 and f["lr"] < 0.25:
+        return 2
+    if f["ll"] < 0.20 and f["lr"] < 0.25:
+        if f["bot"] > 0.80:
+            return 2
+        return 7
+    if f["fill"] > 0.68 and f["mid"] > 0.60:
+        return 8
+    if (
+        f["top"] > 0.75
+        and f["mid"] > 0.65
+        and f["bot"] > 0.75
+        and f["ur"] > 0.65
+        and f["lr"] > 0.65
+        and f["ul"] < 0.50
+        and f["ll"] < 0.50
+    ):
+        return 3
+    if (
+        f["mid"] > 0.40
+        and f["ur"] < 0.75
+        and f["ul"] > 0.75
+        and f["ll"] > 0.75
+        and f["lr"] > 0.75
+    ):
+        return 6
+    if f["mid"] < 0.50 and f["ul"] > 0.75 and f["ll"] > 0.75 and f["lr"] > 0.75:
+        return 0
+    if f["bot"] < 0.50 and f["mid"] > 0.60:
+        return 4
+    if f["ul"] < 0.20 and f["ur"] > 0.60 and f["ll"] > 0.40 and f["bot"] > 0.80:
+        return 3 if f["lr"] > 0.50 else 2
+    if f["ur"] < 0.45 and f["ul"] > 0.50 and f["ll"] > 0.50 and f["lr"] > 0.50:
+        return 6
+    if f["ul"] > 0.70 and f["lr"] > 0.80 and f["bot"] > 0.80:
+        return 5
+    return None
+
+
+def parse_clock_mask(mask: np.ndarray) -> str | None:
+    count, _, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
+    boxes = []
+    for index in range(1, count):
+        x, y, width, height, area = stats[index]
+        if area > 1000 and height > mask.shape[0] * 0.50:
+            boxes.append((int(x), int(y), int(width), int(height), int(area)))
+
+    boxes = sorted(boxes, key=lambda box: box[0])[:4]
+    if len(boxes) not in (3, 4):
+        return None
+
+    digits = []
+    for x, y, width, height, _ in boxes:
+        digit = mask[y : y + height, x : x + width]
+        parsed = classify_clock_digit(digit)
+        if parsed is None:
+            return None
+        digits.append(parsed)
+
+    if len(digits) == 3:
+        return f"{digits[0]}:{digits[1]}{digits[2]}"
+    return f"{digits[0]}{digits[1]}:{digits[2]}{digits[3]}"
+
+
+def parse_green_clock(timer: np.ndarray) -> str | None:
+    return parse_clock_mask(preprocess_green_clock(timer, scale=1))
+
+
+def parse_dark_clock(timer: np.ndarray) -> str | None:
+    return parse_clock_mask(preprocess_dark_clock(timer, scale=1))
 
 
 def crop_frame(
@@ -163,7 +418,7 @@ def parse_victory_text(scoreboard_text: str) -> str | None:
     return "\n".join(lines)
 
 
-def process_frame(
+def process_frame_paddle(
     ocr,
     frame_path: Path,
     frame_index: int,
@@ -182,23 +437,91 @@ def process_frame(
     score_state = parse_score_state(scoreboard_tokens)
     scoreboard_text = tokens_text(scoreboard_tokens)
     timer_text = tokens_text(timer_tokens)
+    clock = parse_clock(timer_tokens)
     victory_text = parse_victory_text(scoreboard_text)
 
     return FrameOcrReading(
         frame_second=frame_second,
         frame_index=frame_index,
         video_offset_seconds=float(frame_second),
-        ocr_engine=OCR_ENGINE,
-        overlay_style=OCR_ENGINE,
-        clock=parse_clock(timer_tokens),
+        ocr_engine=PADDLE_OCR_ENGINE,
+        overlay_style=PADDLE_OCR_ENGINE,
+        clock=clock,
         red_points=score_state["red_points"],
         red_advantages=score_state["red_advantages"],
         red_penalties=score_state["red_penalties"],
         blue_points=score_state["blue_points"],
         blue_advantages=score_state["blue_advantages"],
         blue_penalties=score_state["blue_penalties"],
+        known_score_count=known_score_count(score_state),
+        score_complete=state_complete(score_state),
+        clock_detected=clock is not None,
         victory=victory_text is not None,
         victory_text=victory_text,
         scoreboard_text=scoreboard_text,
         timer_text=timer_text,
     )
+
+
+def process_frame_fast(
+    frame_path: Path,
+    frame_index: int,
+    frame_second: int,
+    scoreboard_roi: tuple[float, float, float, float] = DEFAULT_SCOREBOARD_ROI,
+    timer_roi: tuple[float, float, float, float] = DEFAULT_TIMER_ROI,
+    overlay_style: str = DEFAULT_OVERLAY_STYLE,
+) -> FrameOcrReading:
+    image = cv2.imread(str(frame_path))
+    if image is None:
+        return FrameOcrReading(
+            frame_second=frame_second,
+            frame_index=frame_index,
+            video_offset_seconds=float(frame_second),
+            ocr_engine=FAST_OCR_ENGINE,
+            overlay_style=None,
+            clock=None,
+            red_points=None,
+            red_advantages=None,
+            red_penalties=None,
+            blue_points=None,
+            blue_advantages=None,
+            blue_penalties=None,
+            known_score_count=0,
+            score_complete=False,
+            clock_detected=False,
+            victory=False,
+            victory_text=None,
+            scoreboard_text="",
+            timer_text="",
+        )
+
+    scoreboard = crop_percent(image, scoreboard_roi)
+    timer = crop_percent(image, timer_roi)
+    selected_style, score_state = choose_score_state(scoreboard, overlay_style)
+    clock = parse_green_clock(timer) or parse_dark_clock(timer)
+
+    return FrameOcrReading(
+        frame_second=frame_second,
+        frame_index=frame_index,
+        video_offset_seconds=float(frame_second),
+        ocr_engine=FAST_OCR_ENGINE,
+        overlay_style=selected_style,
+        clock=clock,
+        red_points=score_state["red_points"],
+        red_advantages=score_state["red_advantages"],
+        red_penalties=score_state["red_penalties"],
+        blue_points=score_state["blue_points"],
+        blue_advantages=score_state["blue_advantages"],
+        blue_penalties=score_state["blue_penalties"],
+        known_score_count=known_score_count(score_state),
+        score_complete=state_complete(score_state),
+        clock_detected=clock is not None,
+        victory=False,
+        victory_text=None,
+        scoreboard_text="",
+        timer_text=clock or "",
+    )
+
+
+# Backwards-compatible alias for tests and callers that predate engine selection.
+process_frame = process_frame_paddle

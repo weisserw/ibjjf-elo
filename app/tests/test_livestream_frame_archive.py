@@ -312,6 +312,9 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
             blue_points=0,
             blue_advantages=1,
             blue_penalties=0,
+            known_score_count=6,
+            score_complete=True,
+            clock_detected=True,
             victory=False,
             victory_text=None,
             scoreboard_text="red\nblue",
@@ -348,13 +351,13 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
             (frames_dir / "000002.jpg").write_bytes(b"two")
             (frames_dir / "000003.jpg").write_bytes(b"three")
 
-            def fake_process_frame(_ocr, _path, frame_index, frame_second, crops_dir):
+            def fake_process_frame(_path, frame_index, frame_second):
                 return SimpleNamespace(
                     frame_second=frame_second,
                     frame_index=frame_index,
                     video_offset_seconds=float(frame_second),
-                    ocr_engine="paddleocr",
-                    overlay_style="paddleocr",
+                    ocr_engine="opencv_rules",
+                    overlay_style="new",
                     clock=f"09:{51 - frame_index:02d}",
                     red_points=0,
                     red_advantages=0,
@@ -362,25 +365,32 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
                     blue_points=0,
                     blue_advantages=1,
                     blue_penalties=0,
+                    known_score_count=6,
+                    score_complete=True,
+                    clock_detected=True,
                     victory=False,
                     victory_text=None,
                     scoreboard_text="scoreboard",
                     timer_text="timer",
                 )
 
-            with mock.patch("scoreboard_ocr.build_paddle_ocr", return_value=object()):
-                with mock.patch(
-                    "scoreboard_ocr.process_frame", side_effect=fake_process_frame
-                ):
-                    processed, last_second = runner.process_segment_frames_with_ocr(
-                        archive,
-                        segment,
-                        frames_dir,
-                    )
+            with mock.patch(
+                "scoreboard_ocr.process_frame_fast", side_effect=fake_process_frame
+            ):
+                (
+                    processed,
+                    last_second,
+                    completed_segment,
+                ) = runner.process_segment_frames_with_ocr(
+                    archive,
+                    segment,
+                    frames_dir,
+                )
             db.session.commit()
 
         self.assertEqual(processed, 3)
         self.assertEqual(last_second, 602)
+        self.assertTrue(completed_segment)
         self.assertEqual(segment.processed_frame_count, 3)
         self.assertEqual(segment.last_processed_second, 602)
         self.assertEqual(

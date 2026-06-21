@@ -67,6 +67,7 @@
                     <th>Status</th>
                     <th>Attempts</th>
                     <th>Processed frames</th>
+                    <th>OCR quality</th>
                     <th>Last second</th>
                     <th>Task</th>
                     <th>Last error</th>
@@ -74,12 +75,20 @@
             </thead>
             <tbody>
                 {% for segment in segments %}
+                {% set quality = segment_quality.get(segment.id) %}
                 <tr>
                     <td>{{ segment.start_second }}</td>
                     <td>{{ segment.end_second }}</td>
                     <td>{{ segment.status }}</td>
                     <td>{{ segment.attempt_count }}</td>
                     <td>{{ segment.processed_frame_count }}</td>
+                    <td>
+                        {% if quality and quality.total %}
+                        <div>score {{ '%.1f'|format(quality.score_complete_percent) }}%</div>
+                        <div>clock {{ '%.1f'|format(quality.clock_detected_percent) }}%</div>
+                        <div>avg digits {{ '%.1f'|format(quality.avg_known_score_count) }}/6</div>
+                        {% endif %}
+                    </td>
                     <td>{{ segment.last_processed_second if segment.last_processed_second is not none else '' }}</td>
                     <td>
                         {% if segment.background_task_id %}
@@ -89,7 +98,7 @@
                     <td class="has-text-danger">{{ segment.last_error or '' }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="8">No segments queued.</td></tr>
+                <tr><td colspan="9">No segments queued.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

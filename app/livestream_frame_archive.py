@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy.orm import selectinload
+from sqlalchemy import Integer, cast, func
 
 from models import (
     Event,
@@ -345,6 +346,7 @@ def get_archive_dashboard_rows(session) -> list[dict]:
             )
             if latest_segment:
                 latest_task_id = latest_segment.background_task_id
+            quality = archive_quality_metrics(session, archive.id)
         rows.append(
             {
                 "youtube_video_id": youtube_video_id,
@@ -352,6 +354,7 @@ def get_archive_dashboard_rows(session) -> list[dict]:
                 "archive": archive,
                 "usages": usages.get(youtube_video_id, []),
                 "latest_task_id": latest_task_id,
+                "quality": quality if archive else None,
             }
         )
     return rows
@@ -391,6 +394,116 @@ def archive_progress_label(archive: LivestreamFrameArchive | None) -> str:
     return f"{archive.processed_frame_count or 0} / {expected}"
 
 
+def _percent(part: int, whole: int) -> float:
+    if whole <= 0:
+        return 0.0
+    return (part / whole) * 100.0
+
+
+def archive_quality_metrics(session, archive_id) -> dict:
+    total = (
+        session.query(func.count(LivestreamFrameOcrReading.id))
+        .filter(LivestreamFrameOcrReading.archive_id == archive_id)
+        .scalar()
+        or 0
+    )
+    if total == 0:
+        return {
+            "total": 0,
+            "score_complete": 0,
+            "clock_detected": 0,
+            "victory": 0,
+            "score_complete_percent": 0.0,
+            "clock_detected_percent": 0.0,
+            "avg_known_score_count": 0.0,
+            "engines": "",
+        }
+
+    score_complete = (
+        session.query(func.count(LivestreamFrameOcrReading.id))
+        .filter(
+            LivestreamFrameOcrReading.archive_id == archive_id,
+            LivestreamFrameOcrReading.score_complete.is_(True),
+        )
+        .scalar()
+        or 0
+    )
+    clock_detected = (
+        session.query(func.count(LivestreamFrameOcrReading.id))
+        .filter(
+            LivestreamFrameOcrReading.archive_id == archive_id,
+            LivestreamFrameOcrReading.clock_detected.is_(True),
+        )
+        .scalar()
+        or 0
+    )
+    victory = (
+        session.query(func.count(LivestreamFrameOcrReading.id))
+        .filter(
+            LivestreamFrameOcrReading.archive_id == archive_id,
+            LivestreamFrameOcrReading.victory.is_(True),
+        )
+        .scalar()
+        or 0
+    )
+    avg_known_score_count = (
+        session.query(func.avg(LivestreamFrameOcrReading.known_score_count))
+        .filter(LivestreamFrameOcrReading.archive_id == archive_id)
+        .scalar()
+        or 0.0
+    )
+    engines = [
+        row[0]
+        for row in session.query(LivestreamFrameOcrReading.ocr_engine)
+        .filter(LivestreamFrameOcrReading.archive_id == archive_id)
+        .distinct()
+        .order_by(LivestreamFrameOcrReading.ocr_engine)
+        .all()
+        if row[0]
+    ]
+    return {
+        "total": total,
+        "score_complete": score_complete,
+        "clock_detected": clock_detected,
+        "victory": victory,
+        "score_complete_percent": _percent(score_complete, total),
+        "clock_detected_percent": _percent(clock_detected, total),
+        "avg_known_score_count": float(avg_known_score_count),
+        "engines": ", ".join(engines),
+    }
+
+
+def segment_quality_metrics(session, segment_ids: list) -> dict:
+    if not segment_ids:
+        return {}
+    rows = (
+        session.query(
+            LivestreamFrameOcrReading.segment_id,
+            func.count(LivestreamFrameOcrReading.id),
+            func.sum(cast(LivestreamFrameOcrReading.score_complete, Integer)),
+            func.sum(cast(LivestreamFrameOcrReading.clock_detected, Integer)),
+            func.avg(LivestreamFrameOcrReading.known_score_count),
+        )
+        .filter(LivestreamFrameOcrReading.segment_id.in_(segment_ids))
+        .group_by(LivestreamFrameOcrReading.segment_id)
+        .all()
+    )
+    metrics = {}
+    for segment_id, total, score_complete, clock_detected, avg_known_score in rows:
+        total = total or 0
+        score_complete = score_complete or 0
+        clock_detected = clock_detected or 0
+        metrics[segment_id] = {
+            "total": total,
+            "score_complete": score_complete,
+            "clock_detected": clock_detected,
+            "score_complete_percent": _percent(score_complete, total),
+            "clock_detected_percent": _percent(clock_detected, total),
+            "avg_known_score_count": float(avg_known_score or 0.0),
+        }
+    return metrics
+
+
 def upsert_ocr_reading(
     session,
     archive: LivestreamFrameArchive,
@@ -420,6 +533,9 @@ def upsert_ocr_reading(
     row.blue_points = reading.blue_points
     row.blue_advantages = reading.blue_advantages
     row.blue_penalties = reading.blue_penalties
+    row.known_score_count = reading.known_score_count
+    row.score_complete = reading.score_complete
+    row.clock_detected = reading.clock_detected
     row.victory = reading.victory
     row.victory_text = reading.victory_text
     row.scoreboard_text = reading.scoreboard_text

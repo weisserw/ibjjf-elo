@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import os
 import shutil
 import subprocess
@@ -34,6 +35,7 @@ from models import LivestreamFrameArchive, LivestreamFrameCaptureSegment  # noqa
 DEFAULT_FORMAT_SELECTOR = "best[height<=1080]/best"
 FFMPEG_PROGRESS_LOG_SECONDS = 30
 DEFAULT_PADDLE_LANG = "en"
+DEFAULT_OCR_ENGINE = "opencv_rules"
 
 
 def _load_app():
@@ -278,40 +280,95 @@ def process_segment_frames_with_ocr(
     archive: LivestreamFrameArchive,
     segment: LivestreamFrameCaptureSegment,
     frames_dir: Path,
+    ocr_engine: str = DEFAULT_OCR_ENGINE,
     paddle_lang: str = DEFAULT_PADDLE_LANG,
-) -> tuple[int, int | None]:
-    from scoreboard_ocr import build_paddle_ocr, process_frame
+    ocr_progress_interval: int = 60,
+    ocr_max_frames: int | None = None,
+) -> tuple[int, int | None, bool]:
+    from scoreboard_ocr import (
+        build_paddle_ocr,
+        process_frame_fast,
+        process_frame_paddle,
+    )
 
     log(
-        f"Starting PaddleOCR segment_id={segment.id} "
-        f"range={segment.start_second}-{segment.end_second}"
+        f"Starting frame OCR segment_id={segment.id} "
+        f"engine={ocr_engine} range={segment.start_second}-{segment.end_second}"
     )
-    ocr = build_paddle_ocr(lang=paddle_lang)
+    ocr = None
+    if ocr_engine == "paddleocr":
+        init_started_at = time.monotonic()
+        ocr = build_paddle_ocr(lang=paddle_lang)
+        log(
+            f"PaddleOCR initialized segment_id={segment.id} "
+            f"elapsed={time.monotonic() - init_started_at:.1f}s"
+        )
     crops_dir = frames_dir / "ocr-crops"
     frame_count = 0
+    complete_score_count = 0
+    clock_count = 0
     last_second = None
+    completed_segment = True
     for frame_index, (second, frame_path) in enumerate(
         _segment_frame_paths(segment, frames_dir)
     ):
-        reading = process_frame(
-            ocr,
-            frame_path,
-            frame_index=frame_index,
-            frame_second=second,
-            crops_dir=crops_dir,
-        )
+        if ocr_max_frames is not None and frame_index >= ocr_max_frames:
+            completed_segment = False
+            log(
+                f"Stopping PaddleOCR early segment_id={segment.id} "
+                f"ocr_max_frames={ocr_max_frames}"
+            )
+            break
+        frame_started_at = time.monotonic()
+        if frame_index == 0:
+            log(
+                f"Frame OCR first frame starting segment_id={segment.id} "
+                f"engine={ocr_engine} second={second} path={frame_path}"
+            )
+        if ocr_engine == "paddleocr":
+            reading = process_frame_paddle(
+                ocr,
+                frame_path,
+                frame_index=frame_index,
+                frame_second=second,
+                crops_dir=crops_dir,
+            )
+        elif ocr_engine == "opencv_rules":
+            reading = process_frame_fast(
+                frame_path,
+                frame_index=frame_index,
+                frame_second=second,
+            )
+        else:
+            raise ValueError(f"Unsupported OCR engine: {ocr_engine}")
         upsert_ocr_reading(db.session, archive, segment, reading)
         frame_count += 1
+        if reading.score_complete:
+            complete_score_count += 1
+        if reading.clock_detected:
+            clock_count += 1
         last_second = second
+        if frame_index == 0 or (
+            ocr_progress_interval > 0 and frame_count % ocr_progress_interval == 0
+        ):
+            log(
+                f"Frame OCR progress segment_id={segment.id} engine={ocr_engine} "
+                f"frames={frame_count} last_second={last_second} "
+                f"score_complete={complete_score_count}/{frame_count} "
+                f"clock_detected={clock_count}/{frame_count} "
+                f"last_frame_elapsed={time.monotonic() - frame_started_at:.1f}s"
+            )
 
     segment.processed_frame_count = frame_count
     segment.last_processed_second = last_second
     log(
-        f"PaddleOCR complete segment_id={segment.id} "
+        f"Frame OCR complete segment_id={segment.id} engine={ocr_engine} "
         f"frames={frame_count} "
+        f"score_complete={complete_score_count}/{frame_count or 1} "
+        f"clock_detected={clock_count}/{frame_count or 1} "
         f"last_second={last_second}"
     )
-    return frame_count, last_second
+    return frame_count, last_second, completed_segment
 
 
 def segment_duration(archive: LivestreamFrameArchive, segment) -> int:
@@ -329,8 +386,11 @@ def process_segment(
     segment_seconds: int,
     fps: float,
     jpeg_quality: int,
+    ocr_engine: str,
     paddle_lang: str,
     paddle_home: str | None,
+    ocr_progress_interval: int,
+    ocr_max_frames: int | None,
     dry_run: bool = False,
 ):
     archive = segment.archive
@@ -395,15 +455,32 @@ def process_segment(
             f"Frame extraction produced segment_id={segment.id} "
             f"frames={frame_count}"
         )
-        processed, last_second = process_segment_frames_with_ocr(
+        processed, last_second, completed_segment = process_segment_frames_with_ocr(
             archive,
             segment,
             frames_dir,
+            ocr_engine=ocr_engine,
             paddle_lang=paddle_lang,
+            ocr_progress_interval=ocr_progress_interval,
+            ocr_max_frames=ocr_max_frames,
         )
 
     segment.processed_frame_count = processed
     segment.last_processed_second = last_second
+    if not completed_segment:
+        segment.status = "queued"
+        segment.last_error = (
+            f"Debug OCR run stopped after {processed} frame(s); segment requeued."
+        )
+        segment.finished_at = datetime.utcnow()
+        recompute_archive_status(db.session, archive)
+        db.session.commit()
+        log(
+            f"Segment requeued after debug OCR limit id={segment.id} "
+            f"processed_frames={processed} last_second={last_second}"
+        )
+        return
+
     segment.status = "success"
     segment.finished_at = datetime.utcnow()
     recompute_archive_status(db.session, archive)
@@ -447,8 +524,11 @@ def run(args) -> int:
                 args.segment_seconds,
                 args.fps,
                 args.jpeg_quality,
+                args.ocr_engine,
                 args.paddle_lang,
                 args.paddle_home,
+                args.ocr_progress_interval,
+                args.ocr_max_frames,
                 dry_run=args.dry_run,
             )
             processed += 1
@@ -488,10 +568,33 @@ def parse_args(argv=None):
         help="yt-dlp remote component, repeatable",
     )
     parser.add_argument("--jpeg-quality", type=int, default=2)
+    parser.add_argument(
+        "--ocr-engine",
+        choices=("opencv_rules", "paddleocr"),
+        default=DEFAULT_OCR_ENGINE,
+    )
     parser.add_argument("--paddle-lang", default=DEFAULT_PADDLE_LANG)
     parser.add_argument(
         "--paddle-home",
         help="Optional HOME/cache directory for PaddleOCR model files",
+    )
+    parser.add_argument(
+        "--ocr-progress-interval",
+        type=int,
+        default=60,
+        help="Log OCR progress every N processed frames; set 0 to disable",
+    )
+    parser.add_argument(
+        "--ocr-max-frames",
+        type=int,
+        default=None,
+        help="Debug mode: process at most N extracted frames in the segment",
+    )
+    parser.add_argument(
+        "--debug-traceback-after",
+        type=int,
+        default=None,
+        help="Dump Python stack traces every N seconds while the runner is alive",
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--background-task-id")
@@ -500,6 +603,12 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
+    if args.debug_traceback_after:
+        faulthandler.enable()
+        faulthandler.dump_traceback_later(
+            args.debug_traceback_after,
+            repeat=True,
+        )
     app = _load_app()
     with app.app_context():
         return run(args)

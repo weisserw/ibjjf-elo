@@ -49,6 +49,7 @@ from livestream_frame_archive import (
     queue_archive_capture,
     recompute_archive_status,
     retry_failed_segments,
+    segment_quality_metrics,
     sync_archives_from_livestreams,
 )
 from youtube_utils import canonical_youtube_url
@@ -703,12 +704,17 @@ def livestream_frame_archive_detail(archive_id):
     reading_count = LivestreamFrameOcrReading.query.filter_by(
         archive_id=archive.id
     ).count()
+    segment_quality = segment_quality_metrics(
+        db.session,
+        [segment.id for segment in segments],
+    )
     return render_template(
         "livestream_frame_archive_detail.html",
         archive=archive,
         segments=segments,
         usages=usages,
         reading_count=reading_count,
+        segment_quality=segment_quality,
         canonical_url=canonical_youtube_url(archive.youtube_video_id),
         progress_label=archive_progress_label,
     )

@@ -50,6 +50,7 @@
                         <th>Status</th>
                         <th>Resolution / format</th>
                         <th>OCR progress</th>
+                        <th>OCR quality</th>
                         <th>Latest task</th>
                         <th>Last error</th>
                         <th>Actions</th>
@@ -86,6 +87,14 @@
                         </td>
                         <td>{{ progress_label(archive) }}</td>
                         <td>
+                            {% if row.quality and row.quality.total %}
+                            <div>score {{ '%.1f'|format(row.quality.score_complete_percent) }}%</div>
+                            <div>clock {{ '%.1f'|format(row.quality.clock_detected_percent) }}%</div>
+                            <div>avg digits {{ '%.1f'|format(row.quality.avg_known_score_count) }}/6</div>
+                            <div class="has-text-grey">{{ row.quality.engines }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
                             {% if row.latest_task_id %}
                             <a href="{{ url_for('task_detail', task_id=row.latest_task_id) }}">View</a>
                             {% endif %}
@@ -99,7 +108,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="10">No YouTube livestreams found.</td>
+                        <td colspan="11">No YouTube livestreams found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
