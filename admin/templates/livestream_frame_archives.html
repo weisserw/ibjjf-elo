@@ -15,14 +15,14 @@
     {% endif %}
 
     <div class="box">
-        <div class="buttons">
+        <div class="is-flex is-flex-wrap-wrap is-align-items-center" style="gap: 0.5rem;">
             <form method="POST">
                 <input type="hidden" name="action" value="sync">
                 <button class="button is-link" type="submit">Sync from live_streams</button>
             </form>
-            <form method="POST">
+            <form class="is-flex is-align-items-center" style="gap: 0.5rem;" method="POST">
                 <input type="hidden" name="action" value="queue_missing">
-                <div class="field has-addons">
+                <div class="field has-addons mb-0">
                     <div class="control">
                         <input class="input" type="number" name="segment_seconds" min="1" value="{{ default_segment_seconds }}" style="width: 8rem;">
                     </div>
@@ -32,17 +32,12 @@
                 </div>
                 <button class="button is-info" type="submit">Queue missing</button>
             </form>
-            <form method="POST">
-                <input type="hidden" name="action" value="start_runner">
-                <input type="hidden" name="max_segments" value="1">
-                <button class="button is-primary" type="submit">Start OCR runner</button>
-            </form>
         </div>
     </div>
 
     <form method="POST">
-        <div class="buttons">
-            <div class="field has-addons mr-2">
+        <div class="is-flex is-flex-wrap-wrap is-align-items-center mb-3" style="gap: 0.5rem;">
+            <div class="field has-addons mb-0">
                 <div class="control">
                     <input class="input is-small" type="number" name="segment_seconds" min="1" value="{{ default_segment_seconds }}" style="width: 7rem;">
                 </div>

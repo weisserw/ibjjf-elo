@@ -325,42 +325,6 @@ def _run_update_youtube_match_videos_task(task_id, args):
             db.session.commit()
 
 
-def _run_capture_livestream_frames_task(task_id, args):
-    with app.app_context():
-        task = BackgroundTask.query.get(task_id)
-        if not task:
-            return
-        task.status = "running"
-        task.started_at = datetime.utcnow()
-        db.session.commit()
-
-        try:
-            capture_cmd = [
-                "python3",
-                "scripts/archive_livestream_frames.py",
-                "--background-task-id",
-                str(task_id),
-            ] + args
-            _append_task_log(task, f"$ {' '.join(capture_cmd)}\n")
-            db.session.commit()
-            return_code = _run_logged_process(task, capture_cmd, env=os.environ.copy())
-
-            task.exit_code = return_code
-            task.finished_at = datetime.utcnow()
-            task.status = "success" if return_code == 0 else "error"
-            task.pid = None
-            db.session.commit()
-        except Exception as exc:
-            db.session.rollback()
-            _append_task_log(task, f"\nUnexpected error: {exc}\n")
-            _append_task_log(task, traceback.format_exc())
-            task.exit_code = -1
-            task.finished_at = datetime.utcnow()
-            task.status = "error"
-            task.pid = None
-            db.session.commit()
-
-
 # Simple authentication
 @app.before_request
 def require_login():
@@ -675,24 +639,6 @@ def livestream_frame_archives():
                 segment_count = cancel_queued_segments(db.session, archive_ids or None)
                 db.session.commit()
                 message = f"Cancelled {segment_count} queued/running segment(s)."
-            elif action == "start_runner":
-                max_segments = request.form.get("max_segments", type=int) or 1
-                task = BackgroundTask(
-                    task_type="ocr_livestream_frames",
-                    status="queued",
-                    params_json=json.dumps({"max_segments": max_segments}),
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
-                )
-                db.session.add(task)
-                db.session.commit()
-                args = ["--claim-next", "--max-segments", str(max_segments)]
-                threading.Thread(
-                    target=_run_capture_livestream_frames_task,
-                    args=(task.id, args),
-                    daemon=True,
-                ).start()
-                return redirect(url_for("task_detail", task_id=task.id))
         except Exception as exc:
             db.session.rollback()
             error = str(exc)
