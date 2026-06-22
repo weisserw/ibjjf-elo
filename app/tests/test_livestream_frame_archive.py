@@ -108,6 +108,54 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
                 "rows=3 youtube_related_rows=2",
             )
 
+    def test_select_available_video_format_prefers_avc_under_1080p(self):
+        formats = [
+            {
+                "format_id": "18",
+                "height": 360,
+                "fps": 30,
+                "tbr": 278,
+                "vcodec": "avc1.42001E",
+                "acodec": "mp4a.40.2",
+                "url": "https://example.com/360.mp4",
+            },
+            {
+                "format_id": "399",
+                "height": 1080,
+                "fps": 60,
+                "tbr": 896,
+                "vcodec": "av01.0.09M.08",
+                "acodec": "none",
+                "url": "https://example.com/1080-av1.mp4",
+            },
+            {
+                "format_id": "299",
+                "height": 1080,
+                "fps": 60,
+                "tbr": 2316,
+                "vcodec": "avc1.64002a",
+                "acodec": "none",
+                "url": "https://example.com/1080-avc.mp4",
+            },
+        ]
+
+        selected = runner._select_available_video_format(formats)
+        self.assertEqual(selected["format_id"], "299")
+
+    def test_select_available_video_format_ignores_audio_only_formats(self):
+        self.assertIsNone(
+            runner._select_available_video_format(
+                [
+                    {
+                        "format_id": "140",
+                        "vcodec": "none",
+                        "acodec": "mp4a.40.2",
+                        "url": "https://example.com/audio.m4a",
+                    }
+                ]
+            )
+        )
+
     def test_ffmpeg_extract_command_can_include_progress_output(self):
         command = runner._ffmpeg_extract_command(
             "https://example.com/video",

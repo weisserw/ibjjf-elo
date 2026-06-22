@@ -50,6 +50,7 @@ COOKIES_CONTENT_ENV_VAR = "YTDLP_COOKIES_CONTENT"
 COOKIES_BASE64_ENV_VAR = "YTDLP_COOKIES_BASE64"
 COOKIES_FROM_BROWSER_ENV_VAR = "YTDLP_COOKIES_FROM_BROWSER"
 YOUTUBE_COOKIE_DOMAINS = ("youtube.com", "google.com", "googlevideo.com", "ytimg.com")
+FORMAT_UNAVAILABLE_MARKER = "Requested format is not available"
 CROP_FILTER = (
     "[0:v]fps={fps:g},split=2[score_src][timer_src];"
     "[score_src]crop=w=trunc(iw*0.25):h=trunc(ih*0.20):x=0:y=0[score];"
@@ -247,6 +248,114 @@ def _selected_format(info):
     return info
 
 
+def _format_int(format_info: dict, key: str) -> int:
+    value = format_info.get(key)
+    if value is None:
+        return 0
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _has_video_url(format_info: dict) -> bool:
+    return bool(format_info.get("url")) and format_info.get("vcodec") not in (
+        None,
+        "none",
+    )
+
+
+def _format_selection_key(format_info: dict) -> tuple[int, int, int]:
+    return (
+        _format_int(format_info, "height"),
+        _format_int(format_info, "fps"),
+        _format_int(format_info, "tbr"),
+    )
+
+
+def _select_available_video_format(formats: list[dict]) -> dict | None:
+    video_formats = [format_info for format_info in formats if _has_video_url(format_info)]
+    if not video_formats:
+        return None
+
+    candidate_groups = [
+        [
+            format_info
+            for format_info in video_formats
+            if str(format_info.get("vcodec") or "").startswith("avc1")
+            and 0 < _format_int(format_info, "height") <= 1080
+        ],
+        [
+            format_info
+            for format_info in video_formats
+            if 0 < _format_int(format_info, "height") <= 1080
+        ],
+        [
+            format_info
+            for format_info in video_formats
+            if str(format_info.get("vcodec") or "").startswith("avc1")
+        ],
+        video_formats,
+    ]
+    for candidates in candidate_groups:
+        if candidates:
+            return max(candidates, key=_format_selection_key)
+    return None
+
+
+def _format_label(format_info: dict) -> str:
+    resolution = format_info.get("resolution")
+    if not resolution:
+        width = format_info.get("width") or "?"
+        height = format_info.get("height") or "?"
+        resolution = f"{width}x{height}"
+    return (
+        f"{format_info.get('format_id') or '?'}:"
+        f"{resolution}:"
+        f"fps={format_info.get('fps') or '?'}:"
+        f"vcodec={format_info.get('vcodec') or '?'}:"
+        f"acodec={format_info.get('acodec') or '?'}:"
+        f"protocol={format_info.get('protocol') or '?'}"
+    )
+
+
+def _log_format_inventory(info: dict):
+    formats = info.get("formats") or []
+    video_formats = [format_info for format_info in formats if _has_video_url(format_info)]
+    audio_only_count = sum(
+        1
+        for format_info in formats
+        if format_info.get("acodec") not in (None, "none")
+        and format_info.get("vcodec") == "none"
+    )
+    storyboard_count = sum(
+        1 for format_info in formats if format_info.get("vcodec") == "images"
+    )
+    top_video_formats = sorted(
+        video_formats,
+        key=_format_selection_key,
+        reverse=True,
+    )[:8]
+    log(
+        "yt-dlp format inventory: "
+        f"total={len(formats)} "
+        f"video={len(video_formats)} "
+        f"audio_only={audio_only_count} "
+        f"storyboard={storyboard_count} "
+        f"top_video={[_format_label(format_info) for format_info in top_video_formats]}"
+    )
+
+
+def _extract_info_without_format(url: str, options: dict):
+    import yt_dlp
+
+    fallback_options = dict(options)
+    fallback_options.pop("format", None)
+    fallback_options["ignore_no_formats_error"] = True
+    with yt_dlp.YoutubeDL(fallback_options) as ydl:
+        return ydl.extract_info(url, download=False)
+
+
 def probe_youtube_archive(
     archive: LivestreamFrameArchive,
     format_selector: str,
@@ -259,6 +368,7 @@ def probe_youtube_archive(
 ):
     import yt_dlp
     import yt_dlp.version
+    from yt_dlp.utils import DownloadError
 
     log(f"Probing YouTube archive youtube_id={archive.youtube_video_id}")
     archive.status = "probing"
@@ -273,10 +383,25 @@ def probe_youtube_archive(
             cookies_from_browser=cookies_from_browser,
         )
         _log_probe_config(options, yt_dlp.version.__version__)
-        with yt_dlp.YoutubeDL(options) as ydl:
-            info = ydl.extract_info(archive.canonical_url, download=False)
+        try:
+            with yt_dlp.YoutubeDL(options) as ydl:
+                info = ydl.extract_info(archive.canonical_url, download=False)
+        except DownloadError as exc:
+            if FORMAT_UNAVAILABLE_MARKER not in str(exc):
+                raise
+            log(
+                "yt-dlp format selector failed; probing available formats without "
+                f"selector: {exc}"
+            )
+            info = _extract_info_without_format(archive.canonical_url, options)
+            _log_format_inventory(info)
+            selected = _select_available_video_format(info.get("formats") or [])
+            if not selected:
+                raise
+            log(f"Selected fallback video format: {_format_label(selected)}")
+        else:
+            selected = _selected_format(info)
 
-    selected = _selected_format(info)
     stream_url = selected.get("url") or info.get("url")
     if not stream_url:
         raise RuntimeError("yt-dlp did not return a playable stream URL")
