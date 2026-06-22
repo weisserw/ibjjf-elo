@@ -55,17 +55,38 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
             "best[height<=1080]/best",
         )
 
-    def test_yt_dlp_options_parse_runtime_path(self):
+    def test_yt_dlp_options_parse_runtime_path_and_cookie_sources(self):
         options = runner._yt_dlp_options(
             "best",
             "node:/usr/local/bin/node",
             ["ejs:github"],
+            cookies="/run/secrets/youtube.cookies",
+            cookies_from_browser="chrome+basic:Default",
         )
 
         self.assertEqual(
             options["js_runtimes"],
             {"node": {"path": "/usr/local/bin/node"}},
         )
+        self.assertEqual(options["cookiefile"], "/run/secrets/youtube.cookies")
+        self.assertEqual(
+            options["cookiesfrombrowser"],
+            ("chrome", "Default", "BASIC", None),
+        )
+
+    def test_cookies_content_from_args_decodes_base64_fallback(self):
+        self.assertEqual(
+            runner._cookies_content_from_args(None, "Y29va2llCg=="),
+            "cookie\n",
+        )
+
+    def test_cookiefile_from_content_writes_temp_file(self):
+        with runner._cookiefile_from_content(None, "cookies") as cookiefile:
+            cookie_path = Path(cookiefile)
+            self.assertTrue(cookie_path.exists())
+            self.assertEqual(cookie_path.read_text(), "cookies\n")
+
+        self.assertFalse(cookie_path.exists())
 
     def test_ffmpeg_extract_command_can_include_progress_output(self):
         command = runner._ffmpeg_extract_command(

@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -11,6 +14,7 @@ import tarfile
 import tempfile
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -35,6 +39,10 @@ from photos import bucket_name, get_s3_client  # noqa: E402
 DEFAULT_FORMAT_SELECTOR = "best[height<=1080]/best"
 FFMPEG_PROGRESS_LOG_SECONDS = 30
 CROP_VARIANTS = ("score", "timer")
+COOKIES_ENV_VAR = "YTDLP_COOKIES"
+COOKIES_CONTENT_ENV_VAR = "YTDLP_COOKIES_CONTENT"
+COOKIES_BASE64_ENV_VAR = "YTDLP_COOKIES_BASE64"
+COOKIES_FROM_BROWSER_ENV_VAR = "YTDLP_COOKIES_FROM_BROWSER"
 CROP_FILTER = (
     "[0:v]fps={fps:g},split=2[score_src][timer_src];"
     "[score_src]crop=w=trunc(iw*0.25):h=trunc(ih*0.20):x=0:y=0[score];"
@@ -72,10 +80,38 @@ def _parse_js_runtime(js_runtime: str) -> tuple[str, dict]:
     return runtime.lower(), config
 
 
+def _parse_cookies_from_browser(
+    value: str,
+) -> tuple[str, str | None, str | None, str | None]:
+    match = re.fullmatch(
+        r"""
+        (?P<name>[^+:]+)
+        (?:\s*\+\s*(?P<keyring>[^:]+))?
+        (?:\s*:\s*(?!:)(?P<profile>.+?))?
+        (?:\s*::\s*(?P<container>.+))?
+        """,
+        value,
+        re.VERBOSE,
+    )
+    if not match:
+        raise ValueError(f"invalid cookies-from-browser value: {value}")
+    browser_name, keyring, profile, container = match.group(
+        "name", "keyring", "profile", "container"
+    )
+    return (
+        browser_name.lower(),
+        profile,
+        keyring.upper() if keyring else None,
+        container,
+    )
+
+
 def _yt_dlp_options(
     format_selector,
     js_runtime,
     remote_components,
+    cookies: str | None = None,
+    cookies_from_browser: str | None = None,
 ):
     options = {
         "format": format_selector,
@@ -87,19 +123,67 @@ def _yt_dlp_options(
         options["js_runtimes"] = {runtime: config}
     if remote_components:
         options["remote_components"] = remote_components
+    if cookies:
+        options["cookiefile"] = cookies
+    if cookies_from_browser:
+        options["cookiesfrombrowser"] = _parse_cookies_from_browser(
+            cookies_from_browser
+        )
     return options
+
+
+def _cookies_content_from_args(cookies_content: str | None, cookies_base64: str | None):
+    if cookies_content:
+        return cookies_content
+    if cookies_base64:
+        return base64.b64decode(cookies_base64).decode("utf-8")
+    return None
+
+
+@contextmanager
+def _cookiefile_from_content(cookies: str | None, cookies_content: str | None):
+    if cookies or not cookies_content:
+        yield cookies
+        return
+
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            prefix="yt-dlp-cookies-",
+            suffix=".txt",
+            delete=False,
+        ) as cookie_file:
+            temp_path = cookie_file.name
+            cookie_file.write(cookies_content)
+            if not cookies_content.endswith("\n"):
+                cookie_file.write("\n")
+        os.chmod(temp_path, 0o600)
+        yield temp_path
+    finally:
+        if temp_path:
+            try:
+                os.unlink(temp_path)
+            except FileNotFoundError:
+                pass
 
 
 def _log_probe_config(options, yt_dlp_version):
     js_runtimes = sorted(options.get("js_runtimes") or [])
     node_path = shutil.which("node")
+    cookie_source = "none"
+    if options.get("cookiefile"):
+        cookie_source = "file"
+    elif options.get("cookiesfrombrowser"):
+        cookie_source = "browser"
     log(
         "yt-dlp probe config: "
         f"version={yt_dlp_version} "
         f"format={options.get('format')} "
         f"js_runtimes={js_runtimes} "
         f"remote_components={sorted(options.get('remote_components') or [])} "
-        f"node_path={node_path or 'missing'}",
+        f"node_path={node_path or 'missing'} "
+        f"cookies={cookie_source}",
     )
 
 
@@ -120,6 +204,9 @@ def probe_youtube_archive(
     format_selector: str,
     js_runtime: str | None,
     remote_components: list[str],
+    cookies: str | None,
+    cookies_content: str | None,
+    cookies_from_browser: str | None,
     segment_seconds: int,
 ):
     import yt_dlp
@@ -129,10 +216,17 @@ def probe_youtube_archive(
     archive.status = "probing"
     db.session.commit()
 
-    options = _yt_dlp_options(format_selector, js_runtime, remote_components)
-    _log_probe_config(options, yt_dlp.version.__version__)
-    with yt_dlp.YoutubeDL(options) as ydl:
-        info = ydl.extract_info(archive.canonical_url, download=False)
+    with _cookiefile_from_content(cookies, cookies_content) as cookiefile:
+        options = _yt_dlp_options(
+            format_selector,
+            js_runtime,
+            remote_components,
+            cookies=cookiefile,
+            cookies_from_browser=cookies_from_browser,
+        )
+        _log_probe_config(options, yt_dlp.version.__version__)
+        with yt_dlp.YoutubeDL(options) as ydl:
+            info = ydl.extract_info(archive.canonical_url, download=False)
 
     selected = _selected_format(info)
     stream_url = selected.get("url") or info.get("url")
@@ -369,6 +463,9 @@ def process_segment(
     format_selector: str,
     js_runtime: str | None,
     remote_components: list[str],
+    cookies: str | None,
+    cookies_content: str | None,
+    cookies_from_browser: str | None,
     segment_seconds: int,
     fps: float,
     jpeg_quality: int,
@@ -387,6 +484,9 @@ def process_segment(
         format_selector,
         js_runtime,
         remote_components,
+        cookies,
+        cookies_content,
+        cookies_from_browser,
         segment_seconds,
     )
 
@@ -488,6 +588,9 @@ def run(args) -> int:
                 args.format,
                 args.js_runtime,
                 args.remote_component,
+                args.cookies,
+                args.cookies_content,
+                args.cookies_from_browser,
                 args.segment_seconds,
                 args.fps,
                 args.jpeg_quality,
@@ -528,6 +631,30 @@ def parse_args(argv=None):
         action="append",
         default=["ejs:github"],
         help="yt-dlp remote component, repeatable",
+    )
+    parser.add_argument(
+        "--cookies",
+        default=os.environ.get(COOKIES_ENV_VAR),
+        help=f"yt-dlp cookies file, defaults to ${COOKIES_ENV_VAR}",
+    )
+    parser.add_argument(
+        "--cookies-content",
+        default=_cookies_content_from_args(
+            os.environ.get(COOKIES_CONTENT_ENV_VAR),
+            os.environ.get(COOKIES_BASE64_ENV_VAR),
+        ),
+        help=(
+            "yt-dlp cookies file content, defaults to "
+            f"${COOKIES_CONTENT_ENV_VAR} or base64 ${COOKIES_BASE64_ENV_VAR}"
+        ),
+    )
+    parser.add_argument(
+        "--cookies-from-browser",
+        default=os.environ.get(COOKIES_FROM_BROWSER_ENV_VAR),
+        help=(
+            "yt-dlp browser cookie source, defaults to "
+            f"${COOKIES_FROM_BROWSER_ENV_VAR}"
+        ),
     )
     parser.add_argument("--jpeg-quality", type=int, default=2)
     parser.add_argument(
