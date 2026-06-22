@@ -43,6 +43,7 @@ COOKIES_ENV_VAR = "YTDLP_COOKIES"
 COOKIES_CONTENT_ENV_VAR = "YTDLP_COOKIES_CONTENT"
 COOKIES_BASE64_ENV_VAR = "YTDLP_COOKIES_BASE64"
 COOKIES_FROM_BROWSER_ENV_VAR = "YTDLP_COOKIES_FROM_BROWSER"
+YOUTUBE_COOKIE_DOMAINS = ("youtube.com", "google.com", "googlevideo.com", "ytimg.com")
 CROP_FILTER = (
     "[0:v]fps={fps:g},split=2[score_src][timer_src];"
     "[score_src]crop=w=trunc(iw*0.25):h=trunc(ih*0.20):x=0:y=0[score];"
@@ -168,12 +169,52 @@ def _cookiefile_from_content(cookies: str | None, cookies_content: str | None):
                 pass
 
 
+def _is_cookie_comment(line: str) -> bool:
+    return line.startswith("#") and not line.startswith("#HttpOnly_")
+
+
+def _cookie_domain(line: str) -> str | None:
+    if line.startswith("#HttpOnly_"):
+        line = line.removeprefix("#HttpOnly_")
+    fields = line.split("\t")
+    if not fields or len(fields) < 7:
+        return None
+    return fields[0].lstrip(".").lower()
+
+
+def _cookiefile_stats(cookiefile: str | None) -> str:
+    if not cookiefile:
+        return "rows=0 youtube_related_rows=0"
+
+    rows = 0
+    youtube_related_rows = 0
+    try:
+        with open(cookiefile, encoding="utf-8") as cookie_file:
+            for raw_line in cookie_file:
+                line = raw_line.strip()
+                if not line or _is_cookie_comment(line):
+                    continue
+                rows += 1
+                domain = _cookie_domain(line)
+                if domain and any(
+                    domain == cookie_domain or domain.endswith(f".{cookie_domain}")
+                    for cookie_domain in YOUTUBE_COOKIE_DOMAINS
+                ):
+                    youtube_related_rows += 1
+    except OSError as exc:
+        return f"unreadable={exc.__class__.__name__}"
+
+    return f"rows={rows} youtube_related_rows={youtube_related_rows}"
+
+
 def _log_probe_config(options, yt_dlp_version):
     js_runtimes = sorted(options.get("js_runtimes") or [])
     node_path = shutil.which("node")
     cookie_source = "none"
+    cookie_stats = ""
     if options.get("cookiefile"):
         cookie_source = "file"
+        cookie_stats = f" cookie_stats={_cookiefile_stats(options.get('cookiefile'))}"
     elif options.get("cookiesfrombrowser"):
         cookie_source = "browser"
     log(
@@ -183,7 +224,8 @@ def _log_probe_config(options, yt_dlp_version):
         f"js_runtimes={js_runtimes} "
         f"remote_components={sorted(options.get('remote_components') or [])} "
         f"node_path={node_path or 'missing'} "
-        f"cookies={cookie_source}",
+        f"cookies={cookie_source}"
+        f"{cookie_stats}",
     )
 
 

@@ -88,6 +88,22 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
 
         self.assertFalse(cookie_path.exists())
 
+    def test_cookiefile_stats_counts_youtube_related_cookie_rows(self):
+        cookies = "\n".join(
+            [
+                "# Netscape HTTP Cookie File",
+                ".youtube.com\tTRUE\t/\tTRUE\t1893456000\tVISITOR_INFO1_LIVE\tvalue",
+                "#HttpOnly_.google.com\tTRUE\t/\tTRUE\t1893456000\tSID\tvalue",
+                ".example.com\tTRUE\t/\tTRUE\t1893456000\tfoo\tbar",
+                "",
+            ]
+        )
+        with runner._cookiefile_from_content(None, cookies) as cookiefile:
+            self.assertEqual(
+                runner._cookiefile_stats(cookiefile),
+                "rows=3 youtube_related_rows=2",
+            )
+
     def test_ffmpeg_extract_command_can_include_progress_output(self):
         command = runner._ffmpeg_extract_command(
             "https://example.com/video",
