@@ -377,6 +377,8 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
 
     def test_retry_failed_segments_requeues_cancelled_segments(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        archive.status = "cancelled"
+        archive.last_error = "archive cancelled by admin"
         db.session.flush()
         db.session.add(
             LivestreamFrameCaptureSegment(
@@ -398,6 +400,8 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(segment.status, "queued")
         self.assertIsNone(segment.last_error)
         self.assertIsNone(segment.finished_at)
+        self.assertEqual(segment.archive.status, "queued")
+        self.assertIsNone(segment.archive.last_error)
 
     def test_claim_next_segment_marks_running(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")

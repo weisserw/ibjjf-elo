@@ -274,7 +274,9 @@ def _format_selection_key(format_info: dict) -> tuple[int, int, int]:
 
 
 def _select_available_video_format(formats: list[dict]) -> dict | None:
-    video_formats = [format_info for format_info in formats if _has_video_url(format_info)]
+    video_formats = [
+        format_info for format_info in formats if _has_video_url(format_info)
+    ]
     if not video_formats:
         return None
 
@@ -321,7 +323,9 @@ def _format_label(format_info: dict) -> str:
 
 def _log_format_inventory(info: dict):
     formats = info.get("formats") or []
-    video_formats = [format_info for format_info in formats if _has_video_url(format_info)]
+    video_formats = [
+        format_info for format_info in formats if _has_video_url(format_info)
+    ]
     audio_only_count = sum(
         1
         for format_info in formats

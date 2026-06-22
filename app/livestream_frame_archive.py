@@ -233,6 +233,7 @@ def retry_failed_segments(session, archive_ids: list | None = None) -> int:
         segment.status = "queued"
         segment.last_error = None
         segment.finished_at = None
+        segment.archive.last_error = None
         recompute_archive_status(session, segment.archive)
     return len(segments)
 
