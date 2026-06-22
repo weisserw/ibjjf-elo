@@ -229,12 +229,20 @@ def retry_failed_segments(session, archive_ids: list | None = None) -> int:
         query = query.filter(LivestreamFrameCaptureSegment.archive_id.in_(archive_ids))
 
     segments = query.all()
+    affected_archive_ids = set(archive_ids or [])
     for segment in segments:
+        affected_archive_ids.add(segment.archive_id)
         segment.status = "queued"
         segment.last_error = None
         segment.finished_at = None
-        segment.archive.last_error = None
-        recompute_archive_status(session, segment.archive)
+
+    if affected_archive_ids:
+        archives = LivestreamFrameArchive.query.filter(
+            LivestreamFrameArchive.id.in_(affected_archive_ids)
+        ).all()
+        for archive in archives:
+            archive.last_error = None
+            recompute_archive_status(session, archive)
     return len(segments)
 
 

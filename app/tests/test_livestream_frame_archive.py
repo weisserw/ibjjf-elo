@@ -403,6 +403,18 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(segment.archive.status, "queued")
         self.assertIsNone(segment.archive.last_error)
 
+    def test_retry_failed_segments_clears_selected_archive_error_without_segments(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        archive.status = "error"
+        archive.last_error = "stale archive error"
+        db.session.commit()
+
+        requeued = archive_lib.retry_failed_segments(db.session, [archive.id])
+        db.session.commit()
+
+        self.assertEqual(requeued, 0)
+        self.assertIsNone(archive.last_error)
+
     def test_claim_next_segment_marks_running(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
         archive_lib.queue_archive_capture(db.session, archive)
