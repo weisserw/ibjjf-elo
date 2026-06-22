@@ -32,7 +32,12 @@ from models import LivestreamFrameArchive, LivestreamFrameCaptureSegment  # noqa
 from photos import bucket_name, get_s3_client  # noqa: E402
 
 
-DEFAULT_FORMAT_SELECTOR = "best[height<=1080]/best"
+DEFAULT_FORMAT_SELECTOR = (
+    "bestvideo[height<=720][vcodec^=avc1]/"
+    "best[height<=720][vcodec^=avc1]/"
+    "bestvideo[height<=720]/"
+    "best[height<=720]"
+)
 FFMPEG_PROGRESS_LOG_SECONDS = 30
 CROP_VARIANTS = ("score", "timer")
 CROP_FILTER = (

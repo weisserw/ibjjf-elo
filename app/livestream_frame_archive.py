@@ -223,7 +223,7 @@ def queue_archive_capture(
 
 def retry_failed_segments(session, archive_ids: list | None = None) -> int:
     query = LivestreamFrameCaptureSegment.query.filter(
-        LivestreamFrameCaptureSegment.status == "error"
+        LivestreamFrameCaptureSegment.status.in_(["error", "cancelled"])
     )
     if archive_ids:
         query = query.filter(LivestreamFrameCaptureSegment.archive_id.in_(archive_ids))

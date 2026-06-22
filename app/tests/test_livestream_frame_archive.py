@@ -49,6 +49,17 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         self.assertEqual(options["js_runtimes"], {"node": {}})
         self.assertEqual(options["remote_components"], ["ejs:github"])
 
+    def test_default_format_selector_caps_video_at_720p(self):
+        self.assertEqual(
+            runner.DEFAULT_FORMAT_SELECTOR,
+            (
+                "bestvideo[height<=720][vcodec^=avc1]/"
+                "best[height<=720][vcodec^=avc1]/"
+                "bestvideo[height<=720]/"
+                "best[height<=720]"
+            ),
+        )
+
     def test_yt_dlp_options_parse_runtime_path(self):
         options = runner._yt_dlp_options(
             "best",
@@ -76,8 +87,12 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         self.assertIn("pipe:1", command)
         self.assertIn("-nostats", command)
         self.assertLess(command.index("-t"), command.index("-i"))
+        self.assertNotIn("-skip_frame", command)
+        self.assertNotIn("-copyts", command)
+        self.assertNotIn("-frame_pts", command)
         self.assertIn("-filter_complex", command)
         filter_complex = command[command.index("-filter_complex") + 1]
+        self.assertIn("fps=1", filter_complex)
         self.assertIn("crop=w=trunc(iw*0.25):h=trunc(ih*0.20)", filter_complex)
         self.assertIn("crop=w=trunc(iw*0.22):h=trunc(ih*0.11)", filter_complex)
         self.assertIn("/tmp/frames/%06d_score.jpg", command)
@@ -276,6 +291,30 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(archive.uploaded_frame_count, 600)
         self.assertEqual(archive.last_uploaded_second, 599)
 
+    def test_retry_failed_segments_requeues_cancelled_segments(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        db.session.flush()
+        db.session.add(
+            LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=0,
+                end_second=600,
+                status="cancelled",
+                last_error="cancelled by admin",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        db.session.commit()
+
+        requeued = archive_lib.retry_failed_segments(db.session, [archive.id])
+        db.session.commit()
+
+        segment = LivestreamFrameCaptureSegment.query.one()
+        self.assertEqual(requeued, 1)
+        self.assertEqual(segment.status, "queued")
+        self.assertIsNone(segment.last_error)
+        self.assertIsNone(segment.finished_at)
+
     def test_claim_next_segment_marks_running(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
         archive_lib.queue_archive_capture(db.session, archive)
@@ -318,6 +357,8 @@ class UploadMappingTestCase(unittest.TestCase):
             (frames_dir / "000002_timer.jpg").write_bytes(b"two-timer")
             (frames_dir / "000003_score.jpg").write_bytes(b"three-score")
             (frames_dir / "000003_timer.jpg").write_bytes(b"three-timer")
+            (frames_dir / "000004_score.jpg").write_bytes(b"out-score")
+            (frames_dir / "000004_timer.jpg").write_bytes(b"out-timer")
             (frames_dir / "000001.jpg").write_bytes(b"full-frame")
 
             fake_s3 = FakeS3()
