@@ -32,12 +32,7 @@ from models import LivestreamFrameArchive, LivestreamFrameCaptureSegment  # noqa
 from photos import bucket_name, get_s3_client  # noqa: E402
 
 
-DEFAULT_FORMAT_SELECTOR = (
-    "bestvideo[height<=720][vcodec^=avc1]/"
-    "best[height<=720][vcodec^=avc1]/"
-    "bestvideo[height<=720]/"
-    "best[height<=720]"
-)
+DEFAULT_FORMAT_SELECTOR = "best[height<=1080]/best"
 FFMPEG_PROGRESS_LOG_SECONDS = 30
 CROP_VARIANTS = ("score", "timer")
 CROP_FILTER = (
@@ -154,6 +149,9 @@ def probe_youtube_archive(
         f"format_id={archive.format_id or 'unknown'} "
         f"resolution={archive.width or '?'}x{archive.height or '?'} "
         f"source_fps={archive.source_fps or 'unknown'} "
+        f"vcodec={archive.video_codec or 'unknown'} "
+        f"protocol={archive.protocol or 'unknown'} "
+        f"tbr={archive.tbr or 'unknown'} "
         f"created_segments={created_segments}"
     )
     return stream_url

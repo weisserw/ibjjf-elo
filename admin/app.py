@@ -650,7 +650,7 @@ def livestream_frame_archives():
             elif action == "retry_failed":
                 segment_count = retry_failed_segments(db.session, archive_ids or None)
                 db.session.commit()
-                message = f"Requeued {segment_count} failed segment(s)."
+                message = f"Requeued {segment_count} failed/cancelled segment(s)."
             elif action == "cancel":
                 segment_count = cancel_queued_segments(db.session, archive_ids or None)
                 db.session.commit()

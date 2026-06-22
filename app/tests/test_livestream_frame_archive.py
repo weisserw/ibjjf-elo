@@ -49,15 +49,10 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         self.assertEqual(options["js_runtimes"], {"node": {}})
         self.assertEqual(options["remote_components"], ["ejs:github"])
 
-    def test_default_format_selector_caps_video_at_720p(self):
+    def test_default_format_selector_uses_original_1080p_cap(self):
         self.assertEqual(
             runner.DEFAULT_FORMAT_SELECTOR,
-            (
-                "bestvideo[height<=720][vcodec^=avc1]/"
-                "best[height<=720][vcodec^=avc1]/"
-                "bestvideo[height<=720]/"
-                "best[height<=720]"
-            ),
+            "best[height<=1080]/best",
         )
 
     def test_yt_dlp_options_parse_runtime_path(self):
