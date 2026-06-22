@@ -40,9 +40,13 @@ from models import (
     AthleteMediaCoverage,
 )
 from livestream_frame_archive import (
+    DEFAULT_SEGMENT_SECONDS,
+    apply_probe_metadata,
     archive_progress_label,
     archive_usage_rows,
     cancel_queued_segments,
+    claim_next_segment,
+    create_missing_segments,
     get_archive_dashboard_rows,
     get_or_create_archive,
     queue_archive_capture,
@@ -87,6 +91,7 @@ MEDIA_COVERAGE_TYPES = (
     "breakdown",
 )
 MAX_MEDIA_TITLE_SCAN_BYTES = 4 * 1024 * 1024
+WORKER_API_PREFIX = "/api/livestream_frame_archives/worker/"
 
 
 def _append_task_log(task, text):
@@ -97,6 +102,86 @@ def _utc_iso(dt):
     if not dt:
         return None
     return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _archive_payload(archive):
+    if not archive:
+        return None
+    return {
+        "id": str(archive.id),
+        "youtube_video_id": archive.youtube_video_id,
+        "canonical_url": archive.canonical_url,
+        "s3_prefix": archive.s3_prefix,
+        "status": archive.status,
+        "frame_rate": archive.frame_rate,
+        "image_format": archive.image_format,
+        "jpeg_quality": archive.jpeg_quality,
+        "duration_seconds": archive.duration_seconds,
+        "expected_frame_count": archive.expected_frame_count,
+        "uploaded_frame_count": archive.uploaded_frame_count,
+        "last_uploaded_second": archive.last_uploaded_second,
+        "format_id": archive.format_id,
+        "format_note": archive.format_note,
+        "width": archive.width,
+        "height": archive.height,
+        "source_fps": archive.source_fps,
+        "video_codec": archive.video_codec,
+        "audio_codec": archive.audio_codec,
+        "tbr": archive.tbr,
+        "protocol": archive.protocol,
+        "yt_dlp_version": archive.yt_dlp_version,
+        "last_error": archive.last_error,
+        "created_at": _utc_iso(archive.created_at),
+        "updated_at": _utc_iso(archive.updated_at),
+        "started_at": _utc_iso(archive.started_at),
+        "completed_at": _utc_iso(archive.completed_at),
+    }
+
+
+def _segment_payload(segment, include_archive=True):
+    if not segment:
+        return None
+    payload = {
+        "id": str(segment.id),
+        "archive_id": str(segment.archive_id),
+        "start_second": segment.start_second,
+        "end_second": segment.end_second,
+        "status": segment.status,
+        "attempt_count": segment.attempt_count,
+        "uploaded_frame_count": segment.uploaded_frame_count,
+        "sampled_frame_count": segment.sampled_frame_count,
+        "last_uploaded_second": segment.last_uploaded_second,
+        "batch_s3_key": segment.batch_s3_key,
+        "batch_uploaded_at": _utc_iso(segment.batch_uploaded_at),
+        "background_task_id": (
+            str(segment.background_task_id) if segment.background_task_id else None
+        ),
+        "last_error": segment.last_error,
+        "created_at": _utc_iso(segment.created_at),
+        "updated_at": _utc_iso(segment.updated_at),
+        "started_at": _utc_iso(segment.started_at),
+        "finished_at": _utc_iso(segment.finished_at),
+    }
+    if include_archive:
+        payload["archive"] = _archive_payload(segment.archive)
+    return payload
+
+
+def _worker_api_authorized():
+    password = request.headers.get("X-Admin-Password")
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        password = auth_header.removeprefix("Bearer ").strip()
+    return password == ADMIN_PASSWORD
+
+
+def _parse_uuid(value, field_name):
+    if not value:
+        return None
+    try:
+        return uuid.UUID(value)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be a UUID") from exc
 
 
 def _run_import_task(task_id, args):
@@ -363,6 +448,10 @@ def _run_capture_livestream_frames_task(task_id, args):
 def require_login():
     if request.endpoint == "login" or request.endpoint == "static":
         return
+    if request.path.startswith(WORKER_API_PREFIX):
+        if _worker_api_authorized():
+            return
+        return jsonify({"error": "unauthorized"}), 401
     if "logged_in" not in session:
         return redirect(url_for("login"))
 
@@ -707,6 +796,139 @@ def livestream_frame_archive_detail(archive_id):
         canonical_url=canonical_youtube_url(archive.youtube_video_id),
         progress_label=archive_progress_label,
     )
+
+
+@app.route(f"{WORKER_API_PREFIX}segments/claim", methods=["POST"])
+def worker_claim_livestream_frame_segment():
+    data = request.get_json(silent=True) or {}
+    try:
+        archive_id = _parse_uuid(data.get("archive_id"), "archive_id")
+        background_task_id = _parse_uuid(
+            data.get("background_task_id"), "background_task_id"
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    segment = claim_next_segment(
+        db.session,
+        archive_id=archive_id,
+        youtube_video_id=data.get("youtube_video_id"),
+        background_task_id=background_task_id,
+    )
+    return jsonify({"segment": _segment_payload(segment)})
+
+
+@app.route(
+    f"{WORKER_API_PREFIX}archives/<archive_id>/probe_start",
+    methods=["POST"],
+)
+def worker_start_livestream_frame_probe(archive_id):
+    try:
+        archive_uuid = uuid.UUID(archive_id)
+    except ValueError:
+        return jsonify({"error": "archive_id must be a UUID"}), 400
+
+    archive = LivestreamFrameArchive.query.get(archive_uuid)
+    if not archive:
+        return jsonify({"error": "archive not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    archive.status = "probing"
+    archive.frame_rate = data.get("frame_rate") or archive.frame_rate
+    db.session.commit()
+    return jsonify({"archive": _archive_payload(archive)})
+
+
+@app.route(
+    f"{WORKER_API_PREFIX}archives/<archive_id>/probe_complete",
+    methods=["POST"],
+)
+def worker_complete_livestream_frame_probe(archive_id):
+    try:
+        archive_uuid = uuid.UUID(archive_id)
+    except ValueError:
+        return jsonify({"error": "archive_id must be a UUID"}), 400
+
+    archive = LivestreamFrameArchive.query.get(archive_uuid)
+    if not archive:
+        return jsonify({"error": "archive not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    selected = data.get("selected") or {}
+    info = {"duration": data.get("duration")}
+    segment_seconds = data.get("segment_seconds") or DEFAULT_SEGMENT_SECONDS
+    archive.frame_rate = data.get("frame_rate") or archive.frame_rate
+    apply_probe_metadata(archive, info, selected)
+    archive.yt_dlp_version = data.get("yt_dlp_version")
+    created_segments = create_missing_segments(db.session, archive, segment_seconds)
+    db.session.commit()
+    return jsonify(
+        {
+            "archive": _archive_payload(archive),
+            "created_segments": created_segments,
+        }
+    )
+
+
+@app.route(
+    f"{WORKER_API_PREFIX}segments/<segment_id>/complete",
+    methods=["POST"],
+)
+def worker_complete_livestream_frame_segment(segment_id):
+    try:
+        segment_uuid = uuid.UUID(segment_id)
+    except ValueError:
+        return jsonify({"error": "segment_id must be a UUID"}), 400
+
+    segment = LivestreamFrameCaptureSegment.query.get(segment_uuid)
+    if not segment:
+        return jsonify({"error": "segment not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    status = data.get("status") or "success"
+    if status not in {"success", "skipped"}:
+        return jsonify({"error": "status must be success or skipped"}), 400
+
+    segment.status = status
+    segment.uploaded_frame_count = data.get(
+        "uploaded_frame_count", segment.uploaded_frame_count
+    )
+    segment.sampled_frame_count = data.get(
+        "sampled_frame_count", segment.sampled_frame_count
+    )
+    segment.last_uploaded_second = data.get(
+        "last_uploaded_second", segment.last_uploaded_second
+    )
+    segment.batch_s3_key = data.get("batch_s3_key", segment.batch_s3_key)
+    if data.get("batch_uploaded_at"):
+        segment.batch_uploaded_at = datetime.utcnow()
+    segment.last_error = None
+    segment.finished_at = datetime.utcnow()
+    recompute_archive_status(db.session, segment.archive)
+    db.session.commit()
+    return jsonify({"segment": _segment_payload(segment)})
+
+
+@app.route(f"{WORKER_API_PREFIX}segments/<segment_id>/error", methods=["POST"])
+def worker_error_livestream_frame_segment(segment_id):
+    try:
+        segment_uuid = uuid.UUID(segment_id)
+    except ValueError:
+        return jsonify({"error": "segment_id must be a UUID"}), 400
+
+    segment = LivestreamFrameCaptureSegment.query.get(segment_uuid)
+    if not segment:
+        return jsonify({"error": "segment not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    error = str(data.get("error") or "unknown error")
+    segment.status = "error"
+    segment.last_error = error
+    segment.finished_at = datetime.utcnow()
+    segment.archive.last_error = error
+    recompute_archive_status(db.session, segment.archive)
+    db.session.commit()
+    return jsonify({"segment": _segment_payload(segment)})
 
 
 @app.route("/api/events/search")

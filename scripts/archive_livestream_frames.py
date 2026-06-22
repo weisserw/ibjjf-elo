@@ -17,7 +17,9 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urljoin
 
+import requests
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 APP_DIR = REPO_ROOT / "app"
@@ -43,6 +45,8 @@ COOKIES_ENV_VAR = "YTDLP_COOKIES"
 COOKIES_CONTENT_ENV_VAR = "YTDLP_COOKIES_CONTENT"
 COOKIES_BASE64_ENV_VAR = "YTDLP_COOKIES_BASE64"
 COOKIES_FROM_BROWSER_ENV_VAR = "YTDLP_COOKIES_FROM_BROWSER"
+ADMIN_URL_ENV_VAR = "LIVESTREAM_ARCHIVE_ADMIN_URL"
+ADMIN_PASSWORD_ENV_VAR = "LIVESTREAM_ARCHIVE_ADMIN_PASSWORD"
 YOUTUBE_COOKIE_DOMAINS = ("youtube.com", "google.com", "googlevideo.com", "ytimg.com")
 FORMAT_UNAVAILABLE_MARKER = "Requested format is not available"
 CROP_FILTER = (
@@ -50,6 +54,213 @@ CROP_FILTER = (
     "[score_src]crop=w=trunc(iw*0.25):h=trunc(ih*0.20):x=0:y=0[score];"
     "[timer_src]crop=w=trunc(iw*0.22):h=trunc(ih*0.11):x=trunc(iw*0.30):y=0[timer]"
 )
+
+
+class ApiObject:
+    def __init__(self, data: dict):
+        for key, value in data.items():
+            if key == "archive" and value is not None:
+                value = ApiObject(value)
+            setattr(self, key, value)
+
+    def update_from(self, data: dict):
+        for key, value in data.items():
+            if key == "archive" and value is not None:
+                current = getattr(self, key, None)
+                if isinstance(current, ApiObject):
+                    current.update_from(value)
+                    value = current
+                else:
+                    value = ApiObject(value)
+            setattr(self, key, value)
+
+
+class LocalArchiveState:
+    def claim_next_segment(
+        self,
+        archive_id=None,
+        youtube_video_id=None,
+        background_task_id=None,
+    ):
+        return claim_next_segment(
+            db.session,
+            archive_id=archive_id,
+            youtube_video_id=youtube_video_id,
+            background_task_id=background_task_id,
+        )
+
+    def mark_probe_started(self, archive, frame_rate: float):
+        archive.frame_rate = frame_rate
+        archive.status = "probing"
+        db.session.commit()
+
+    def mark_probe_complete(
+        self,
+        archive,
+        info: dict,
+        selected: dict,
+        yt_dlp_version: str,
+        segment_seconds: int,
+        frame_rate: float,
+    ) -> int:
+        archive.frame_rate = frame_rate
+        apply_probe_metadata(archive, info, selected)
+        archive.yt_dlp_version = yt_dlp_version
+        created_segments = create_missing_segments(db.session, archive, segment_seconds)
+        db.session.commit()
+        return created_segments
+
+    def mark_success(
+        self,
+        segment,
+        uploaded_frame_count: int,
+        last_uploaded_second: int | None,
+        sampled_frame_count: int,
+        batch_s3_key_value: str,
+    ):
+        segment.uploaded_frame_count = uploaded_frame_count
+        segment.sampled_frame_count = sampled_frame_count
+        segment.last_uploaded_second = last_uploaded_second
+        segment.batch_s3_key = batch_s3_key_value
+        segment.status = "success"
+        segment.finished_at = datetime.utcnow()
+        recompute_archive_status(db.session, segment.archive)
+        db.session.commit()
+
+    def mark_skipped(self, segment):
+        segment.status = "skipped"
+        segment.finished_at = datetime.utcnow()
+        recompute_archive_status(db.session, segment.archive)
+        db.session.commit()
+
+    def mark_error(self, segment, error: str):
+        db.session.rollback()
+        segment = db.session.get(LivestreamFrameCaptureSegment, segment.id)
+        archive = db.session.get(LivestreamFrameArchive, segment.archive_id)
+        segment.status = "error"
+        segment.last_error = error
+        segment.finished_at = datetime.utcnow()
+        archive.last_error = error
+        recompute_archive_status(db.session, archive)
+        db.session.commit()
+
+
+class AdminApiArchiveState:
+    def __init__(self, base_url: str, password: str, session=None):
+        self.base_url = base_url.rstrip("/") + "/"
+        self.password = password
+        self.session = session or requests.Session()
+
+    def _request(self, method: str, path: str, **kwargs):
+        headers = kwargs.pop("headers", {})
+        headers["X-Admin-Password"] = self.password
+        response = self.session.request(
+            method,
+            urljoin(self.base_url, path.lstrip("/")),
+            headers=headers,
+            timeout=60,
+            **kwargs,
+        )
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {}
+        if response.status_code >= 400:
+            message = payload.get("error") or response.text
+            raise RuntimeError(
+                f"admin API {method} {path} failed "
+                f"with HTTP {response.status_code}: {message}"
+            )
+        return payload
+
+    def claim_next_segment(
+        self,
+        archive_id=None,
+        youtube_video_id=None,
+        background_task_id=None,
+    ):
+        payload = self._request(
+            "POST",
+            "/api/livestream_frame_archives/worker/segments/claim",
+            json={
+                "archive_id": str(archive_id) if archive_id else None,
+                "youtube_video_id": youtube_video_id,
+                "background_task_id": (
+                    str(background_task_id) if background_task_id else None
+                ),
+            },
+        )
+        segment = payload.get("segment")
+        return ApiObject(segment) if segment else None
+
+    def mark_probe_started(self, archive, frame_rate: float):
+        payload = self._request(
+            "POST",
+            f"/api/livestream_frame_archives/worker/archives/{archive.id}/probe_start",
+            json={"frame_rate": frame_rate},
+        )
+        archive.update_from(payload["archive"])
+
+    def mark_probe_complete(
+        self,
+        archive,
+        info: dict,
+        selected: dict,
+        yt_dlp_version: str,
+        segment_seconds: int,
+        frame_rate: float,
+    ) -> int:
+        payload = self._request(
+            "POST",
+            f"/api/livestream_frame_archives/worker/archives/{archive.id}/probe_complete",
+            json={
+                "duration": info.get("duration"),
+                "selected": _selected_probe_fields(selected),
+                "yt_dlp_version": yt_dlp_version,
+                "segment_seconds": segment_seconds,
+                "frame_rate": frame_rate,
+            },
+        )
+        archive.update_from(payload["archive"])
+        return payload["created_segments"]
+
+    def mark_success(
+        self,
+        segment,
+        uploaded_frame_count: int,
+        last_uploaded_second: int | None,
+        sampled_frame_count: int,
+        batch_s3_key_value: str,
+    ):
+        payload = self._request(
+            "POST",
+            f"/api/livestream_frame_archives/worker/segments/{segment.id}/complete",
+            json={
+                "status": "success",
+                "uploaded_frame_count": uploaded_frame_count,
+                "sampled_frame_count": sampled_frame_count,
+                "last_uploaded_second": last_uploaded_second,
+                "batch_s3_key": batch_s3_key_value,
+                "batch_uploaded_at": datetime.utcnow().isoformat(),
+            },
+        )
+        segment.update_from(payload["segment"])
+
+    def mark_skipped(self, segment):
+        payload = self._request(
+            "POST",
+            f"/api/livestream_frame_archives/worker/segments/{segment.id}/complete",
+            json={"status": "skipped"},
+        )
+        segment.update_from(payload["segment"])
+
+    def mark_error(self, segment, error: str):
+        payload = self._request(
+            "POST",
+            f"/api/livestream_frame_archives/worker/segments/{segment.id}/error",
+            json={"error": error},
+        )
+        segment.update_from(payload["segment"])
 
 
 def _load_app():
@@ -242,6 +453,20 @@ def _selected_format(info):
     return info
 
 
+def _selected_probe_fields(selected: dict) -> dict:
+    return {
+        "format_id": selected.get("format_id"),
+        "format_note": selected.get("format_note"),
+        "width": selected.get("width"),
+        "height": selected.get("height"),
+        "fps": selected.get("fps"),
+        "vcodec": selected.get("vcodec"),
+        "acodec": selected.get("acodec"),
+        "tbr": selected.get("tbr"),
+        "protocol": selected.get("protocol"),
+    }
+
+
 def _format_int(format_info: dict, key: str) -> int:
     value = format_info.get(key)
     if value is None:
@@ -356,6 +581,7 @@ def _extract_info_without_format(url: str, options: dict):
 
 def probe_youtube_archive(
     archive: LivestreamFrameArchive,
+    state,
     format_selector: str,
     js_runtime: str | None,
     remote_components: list[str],
@@ -363,14 +589,14 @@ def probe_youtube_archive(
     cookies_content: str | None,
     cookies_from_browser: str | None,
     segment_seconds: int,
+    fps: float,
 ):
     import yt_dlp
     import yt_dlp.version
     from yt_dlp.utils import DownloadError
 
     log(f"Probing YouTube archive youtube_id={archive.youtube_video_id}")
-    archive.status = "probing"
-    db.session.commit()
+    state.mark_probe_started(archive, fps)
 
     with _cookiefile_from_content(cookies, cookies_content) as cookiefile:
         options = _yt_dlp_options(
@@ -404,10 +630,14 @@ def probe_youtube_archive(
     if not stream_url:
         raise RuntimeError("yt-dlp did not return a playable stream URL")
 
-    apply_probe_metadata(archive, info, selected)
-    archive.yt_dlp_version = yt_dlp.version.__version__
-    created_segments = create_missing_segments(db.session, archive, segment_seconds)
-    db.session.commit()
+    created_segments = state.mark_probe_complete(
+        archive,
+        info,
+        selected,
+        yt_dlp.version.__version__,
+        segment_seconds,
+        fps,
+    )
     log(
         f"Probe complete youtube_id={archive.youtube_video_id} "
         f"duration={_format_duration(archive.duration_seconds)} "
@@ -631,6 +861,7 @@ def segment_duration(archive: LivestreamFrameArchive, segment) -> int:
 
 def process_segment(
     segment: LivestreamFrameCaptureSegment,
+    state,
     format_selector: str,
     js_runtime: str | None,
     remote_components: list[str],
@@ -643,7 +874,6 @@ def process_segment(
     dry_run: bool = False,
 ):
     archive = segment.archive
-    archive.frame_rate = fps
     log(
         f"Processing segment id={segment.id} "
         f"youtube_id={archive.youtube_video_id} "
@@ -652,6 +882,7 @@ def process_segment(
     )
     stream_url = probe_youtube_archive(
         archive,
+        state,
         format_selector,
         js_runtime,
         remote_components,
@@ -659,15 +890,13 @@ def process_segment(
         cookies_content,
         cookies_from_browser,
         segment_seconds,
+        fps,
     )
 
     duration = segment_duration(archive, segment)
     if duration <= 0:
         log(f"Skipping segment id={segment.id}; duration is {duration}s")
-        segment.status = "skipped"
-        segment.finished_at = datetime.utcnow()
-        recompute_archive_status(db.session, archive)
-        db.session.commit()
+        state.mark_skipped(segment)
         return
 
     if dry_run:
@@ -675,10 +904,7 @@ def process_segment(
             f"Dry run: would extract {duration}s from {archive.youtube_video_id} "
             f"starting at {segment.start_second}"
         )
-        segment.status = "skipped"
-        segment.finished_at = datetime.utcnow()
-        recompute_archive_status(db.session, archive)
-        db.session.commit()
+        state.mark_skipped(segment)
         return
 
     s3_client = get_s3_client()
@@ -715,14 +941,7 @@ def process_segment(
             bucket_name,
         )
 
-    segment.uploaded_frame_count = uploaded
-    segment.sampled_frame_count = sampled
-    segment.last_uploaded_second = last_second
-    segment.batch_s3_key = batch_key
-    segment.status = "success"
-    segment.finished_at = datetime.utcnow()
-    recompute_archive_status(db.session, archive)
-    db.session.commit()
+    state.mark_success(segment, uploaded, last_second, sampled, batch_key)
     log(
         f"Segment success id={segment.id} batch_frames={uploaded} "
         f"crop_files={uploaded * len(CROP_VARIANTS)} last_second={last_second} "
@@ -730,15 +949,16 @@ def process_segment(
     )
 
 
-def run(args) -> int:
+def run(args, state=None) -> int:
+    if state is None:
+        state = LocalArchiveState()
     processed = 0
     while processed < args.max_segments:
         archive_id = uuid.UUID(args.archive_id) if args.archive_id else None
         background_task_id = (
             uuid.UUID(args.background_task_id) if args.background_task_id else None
         )
-        segment = claim_next_segment(
-            db.session,
+        segment = state.claim_next_segment(
             archive_id=archive_id,
             youtube_video_id=args.youtube_id,
             background_task_id=background_task_id,
@@ -756,6 +976,7 @@ def run(args) -> int:
         try:
             process_segment(
                 segment,
+                state,
                 args.format,
                 args.js_runtime,
                 args.remote_component,
@@ -769,15 +990,7 @@ def run(args) -> int:
             )
             processed += 1
         except Exception as exc:
-            db.session.rollback()
-            segment = db.session.get(LivestreamFrameCaptureSegment, segment.id)
-            archive = db.session.get(LivestreamFrameArchive, segment.archive_id)
-            segment.status = "error"
-            segment.last_error = str(exc)
-            segment.finished_at = datetime.utcnow()
-            archive.last_error = str(exc)
-            recompute_archive_status(db.session, archive)
-            db.session.commit()
+            state.mark_error(segment, str(exc))
             print(f"Segment {segment.id} failed: {exc}", file=sys.stderr)
             return 1
 
@@ -836,11 +1049,39 @@ def parse_args(argv=None):
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--background-task-id")
+    parser.add_argument(
+        "--admin-url",
+        default=os.environ.get(ADMIN_URL_ENV_VAR),
+        help=(
+            "Admin app base URL for REST-backed state, defaults to "
+            f"${ADMIN_URL_ENV_VAR}"
+        ),
+    )
+    parser.add_argument(
+        "--admin-password",
+        default=(
+            os.environ.get(ADMIN_PASSWORD_ENV_VAR) or os.environ.get("ADMIN_PASSWORD")
+        ),
+        help=(
+            "Admin password for REST-backed state, defaults to "
+            f"${ADMIN_PASSWORD_ENV_VAR} or $ADMIN_PASSWORD"
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def main(argv=None):
     args = parse_args(argv)
+    if args.admin_url:
+        if not args.admin_password:
+            print(
+                "--admin-password or LIVESTREAM_ARCHIVE_ADMIN_PASSWORD is required "
+                "when --admin-url is set",
+                file=sys.stderr,
+            )
+            return 2
+        return run(args, AdminApiArchiveState(args.admin_url, args.admin_password))
+
     app = _load_app()
     with app.app_context():
         return run(args)

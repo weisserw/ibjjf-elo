@@ -179,6 +179,118 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         self.assertEqual(command[-1], "/tmp/frames/%06d_timer.jpg")
 
 
+class ArchiveLivestreamFramesAdminApiStateTestCase(unittest.TestCase):
+    class FakeResponse:
+        def __init__(self, status_code=200, payload=None, text=""):
+            self.status_code = status_code
+            self.payload = payload or {}
+            self.text = text
+
+        def json(self):
+            return self.payload
+
+    class FakeSession:
+        def __init__(self, responses):
+            self.responses = list(responses)
+            self.requests = []
+
+        def request(self, method, url, **kwargs):
+            self.requests.append((method, url, kwargs))
+            return self.responses.pop(0)
+
+    def test_claim_next_segment_uses_admin_password_header(self):
+        fake_session = self.FakeSession(
+            [
+                self.FakeResponse(
+                    payload={
+                        "segment": {
+                            "id": "segment-1",
+                            "archive_id": "archive-1",
+                            "start_second": 600,
+                            "end_second": 900,
+                            "attempt_count": 2,
+                            "archive": {
+                                "id": "archive-1",
+                                "youtube_video_id": "HxZSos1k_MA",
+                                "canonical_url": "https://www.youtube.com/watch?v=HxZSos1k_MA",
+                                "frame_rate": 1.0,
+                                "image_format": "jpg",
+                                "duration_seconds": None,
+                            },
+                        }
+                    }
+                )
+            ]
+        )
+        state = runner.AdminApiArchiveState(
+            "https://admin.example.com", "secret", session=fake_session
+        )
+
+        segment = state.claim_next_segment(youtube_video_id="HxZSos1k_MA")
+
+        self.assertEqual(segment.id, "segment-1")
+        self.assertEqual(segment.archive.youtube_video_id, "HxZSos1k_MA")
+        method, url, kwargs = fake_session.requests[0]
+        self.assertEqual(method, "POST")
+        self.assertEqual(
+            url,
+            "https://admin.example.com/api/livestream_frame_archives/worker/segments/claim",
+        )
+        self.assertEqual(kwargs["headers"]["X-Admin-Password"], "secret")
+        self.assertEqual(kwargs["json"]["youtube_video_id"], "HxZSos1k_MA")
+
+    def test_mark_probe_complete_sends_sanitized_probe_fields_and_updates_archive(self):
+        fake_session = self.FakeSession(
+            [
+                self.FakeResponse(
+                    payload={
+                        "archive": {
+                            "id": "archive-1",
+                            "youtube_video_id": "HxZSos1k_MA",
+                            "duration_seconds": 1200,
+                            "frame_rate": 1.0,
+                        },
+                        "created_segments": 2,
+                    }
+                )
+            ]
+        )
+        state = runner.AdminApiArchiveState(
+            "https://admin.example.com", "secret", session=fake_session
+        )
+        archive = runner.ApiObject(
+            {
+                "id": "archive-1",
+                "youtube_video_id": "HxZSos1k_MA",
+                "duration_seconds": None,
+            }
+        )
+        selected = {
+            "format_id": "299",
+            "height": 1080,
+            "fps": 60,
+            "url": "https://video.example.com/private-token",
+        }
+
+        created = state.mark_probe_complete(
+            archive,
+            {"duration": 1199.2, "formats": ["large payload"]},
+            selected,
+            "2026.01.01",
+            600,
+            1.0,
+        )
+
+        self.assertEqual(created, 2)
+        self.assertEqual(archive.duration_seconds, 1200)
+        request_json = fake_session.requests[0][2]["json"]
+        self.assertEqual(request_json["duration"], 1199.2)
+        self.assertEqual(request_json["selected"]["format_id"], "299")
+        self.assertEqual(request_json["selected"]["height"], 1080)
+        self.assertNotIn("url", request_json["selected"])
+        self.assertNotIn("formats", request_json)
+
+
 class YoutubeUtilsTestCase(unittest.TestCase):
     def test_extract_youtube_video_id_from_watch_url(self):
         self.assertEqual(
