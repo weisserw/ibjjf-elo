@@ -36,7 +36,13 @@ from models import LivestreamFrameArchive, LivestreamFrameCaptureSegment  # noqa
 from photos import bucket_name, get_s3_client  # noqa: E402
 
 
-DEFAULT_FORMAT_SELECTOR = "best[height<=1080]/best"
+DEFAULT_FORMAT_SELECTOR = (
+    "bestvideo[vcodec^=avc1][height<=1080]/"
+    "bestvideo[height<=1080]/"
+    "best[height<=1080]/"
+    "bestvideo/"
+    "best"
+)
 FFMPEG_PROGRESS_LOG_SECONDS = 30
 CROP_VARIANTS = ("score", "timer")
 COOKIES_ENV_VAR = "YTDLP_COOKIES"
