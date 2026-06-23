@@ -312,6 +312,25 @@ def create_ratings_tables(
                     AND d2.age IN ({rated_ages_in})
                 )
             ),
+            registration_promotion_weights AS (
+                SELECT DISTINCT
+                    a.id AS athlete_id,
+                    d.gi,
+                    d.gender,
+                    {_public_age_sql("d")} AS age,
+                    d.belt,
+                    d.weight
+                FROM registration_link_competitors r
+                JOIN divisions d ON d.id = r.division_id
+                JOIN athletes a ON a.name = r.athlete_name
+                WHERE d.age IN ({rated_ages_in})
+                AND d.age NOT IN (:JUVENILE, :JUVENILE_1, :JUVENILE_2)
+                AND d.weight NOT IN (:OPEN_CLASS, :OPEN_CLASS_LIGHT, :OPEN_CLASS_HEAVY)
+                AND a.normalized_name NOT IN ({','.join("'" + b + "'" for b in banned)})
+                AND {
+                    "false" if date_where != "true" else "true"
+                }
+            ),
             athlete_weights_no_p4p AS (
                 SELECT DISTINCT
                     mp.athlete_id,
@@ -406,7 +425,65 @@ def create_ratings_tables(
                     AND aw.gender = rm.gender
                 WHERE rm.rn = 1
             ),
-            promoted_ratings AS (
+            rating_bases AS (
+                SELECT DISTINCT
+                    athlete_id,
+                    end_rating,
+                    end_match_count,
+                    gender,
+                    belt,
+                    gi,
+                    happened_at
+                FROM ratings
+            ),
+            registration_promoted_ratings AS (
+                SELECT
+                    rb.athlete_id,
+                    rb.end_rating + CASE WHEN pm.belt = 'BLACK' THEN :BLACK_PROMOTION_RATING_BUMP
+                                        ELSE :COLOR_PROMOTION_RATING_BUMP END AS end_rating,
+                    rb.end_match_count,
+                    rpw.gender,
+                    rpw.age,
+                    pm.belt,
+                    rpw.gi,
+                    rpw.weight,
+                    rb.happened_at
+                FROM rating_bases rb
+                JOIN {name}_promotion_belts pm ON pm.athlete_id = rb.athlete_id
+                JOIN registration_promotion_weights rpw ON rpw.athlete_id = rb.athlete_id
+                    AND rpw.belt = pm.belt
+                    AND rpw.gi = rb.gi
+                    AND rpw.gender = rb.gender
+                WHERE pm.belt_num - CASE WHEN rb.belt = 'WHITE' THEN 1
+                                        WHEN rb.belt = 'BLUE' THEN 2
+                                        WHEN rb.belt = 'PURPLE' THEN 3
+                                        WHEN rb.belt = 'BROWN' THEN 4
+                                        ELSE 5 END = 1
+                UNION
+                SELECT
+                    rb.athlete_id,
+                    rb.end_rating + CASE WHEN pm.belt = 'BLACK' THEN :BLACK_PROMOTION_RATING_BUMP
+                                        ELSE :COLOR_PROMOTION_RATING_BUMP END AS end_rating,
+                    rb.end_match_count,
+                    rpw.gender,
+                    rpw.age,
+                    pm.belt,
+                    rpw.gi,
+                    '' AS weight,
+                    rb.happened_at
+                FROM rating_bases rb
+                JOIN {name}_promotion_belts pm ON pm.athlete_id = rb.athlete_id
+                JOIN registration_promotion_weights rpw ON rpw.athlete_id = rb.athlete_id
+                    AND rpw.belt = pm.belt
+                    AND rpw.gi = rb.gi
+                    AND rpw.gender = rb.gender
+                WHERE pm.belt_num - CASE WHEN rb.belt = 'WHITE' THEN 1
+                                        WHEN rb.belt = 'BLUE' THEN 2
+                                        WHEN rb.belt = 'PURPLE' THEN 3
+                                        WHEN rb.belt = 'BROWN' THEN 4
+                                        ELSE 5 END = 1
+            ),
+            fallback_promoted_ratings AS (
                 SELECT
                     r.athlete_id,
                     r.end_rating + CASE WHEN pm.belt = 'BLACK' THEN :BLACK_PROMOTION_RATING_BUMP
@@ -425,6 +502,19 @@ def create_ratings_tables(
                                         WHEN r.belt = 'PURPLE' THEN 3
                                         WHEN r.belt = 'BROWN' THEN 4
                                         ELSE 5 END = 1
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM registration_promotion_weights rpw
+                    WHERE rpw.athlete_id = r.athlete_id
+                    AND rpw.belt = pm.belt
+                    AND rpw.gi = r.gi
+                    AND rpw.gender = r.gender
+                )
+            ),
+            promoted_ratings AS (
+                SELECT * FROM registration_promoted_ratings
+                UNION
+                SELECT * FROM fallback_promoted_ratings
             ),
             combined_ratings AS (
                 -- use promoted ratings where available, otherwise use regular ratings
@@ -483,6 +573,7 @@ def create_ratings_tables(
 
 def drop_ratings_tables(session, name: str) -> None:
     session.execute(text(f"DROP TABLE {name}_athlete_belts"))
+    session.execute(text(f"DROP TABLE {name}_promotion_belts"))
     session.execute(text(f"DROP TABLE {name}_athlete_adults"))
     session.execute(text(f"DROP TABLE {name}_athlete_won_matches"))
     session.execute(text(f"DROP TABLE {name}_athlete_lost_matches"))
