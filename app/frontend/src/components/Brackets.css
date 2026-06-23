@@ -252,9 +252,11 @@
   height: 100%;
 }
 
-.est-seed-text {
-  display: inline-block;
-  text-align: left;
+.registration-table-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 16px;
+  margin-bottom: 4px;
 }
 
 .est-seed-tied {
@@ -287,16 +289,6 @@
 
 .est-seed-plain {
   padding-right: 0.4em;
-}
-
-.est-seed-info {
-  margin-left: 0.4em;
-  cursor: pointer;
-  color: #2196f3;
-}
-
-.est-seed-info:hover {
-  color: #1976d2;
 }
 
 .est-seed-modal .modal-content {

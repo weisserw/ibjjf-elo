@@ -375,6 +375,7 @@ const translations = {
     "Point Total": "Total de Pontos",
     "Show": "Mostrar",
     "Add hypothetical athlete": "Adicionar atleta hipotético",
+    "View Seeding Points": "Ver Pontos de Seed",
 };
 
 export type translationKeys = keyof typeof translations;

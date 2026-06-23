@@ -19,7 +19,6 @@ interface BracketTableProps {
   sortColumn?: string;
   showSeed: boolean;
   showEstSeed?: boolean;
-  onEstSeedInfoClick?: () => void;
   showWeight?: boolean;
   showRank?: boolean;
   showEndRating?: boolean;
@@ -216,49 +215,12 @@ function BracketTable(props: BracketTableProps) {
             }
             {
               showEstSeed &&
-              <th className="has-text-right est-seed-header">
-                {(() => {
-                  const label = t("Est. Seed")
-                  const lastSpace = label.lastIndexOf(' ')
-                  const head = lastSpace >= 0 ? label.slice(0, lastSpace) : ''
-                  const tail = lastSpace >= 0 ? label.slice(lastSpace + 1) : label
-                  const sorted = !(sortColumn !== undefined && sortColumn !== 'est_seed')
-                  const tailText = `${tail}${sorted ? ' ↓' : ''}`
-                  const infoIcon = props.onEstSeedInfoClick && (
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      className="est-seed-info"
-                      aria-label={t("About estimated seeding")}
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); props.onEstSeedInfoClick?.() }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          props.onEstSeedInfoClick?.();
-                        }
-                      }}
-                    >
-                      <i className="fas fa-circle-info"></i>
-                    </span>
-                  )
-                  if (sorted) {
-                    return (
-                      <span className="est-seed-text">
-                        {head && <>{head}{' '}</>}
-                        <span className="no-wrap">{tailText}{infoIcon}</span>
-                      </span>
-                    )
-                  }
-                  return (
-                    <span className="est-seed-text">
-                      <a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>
-                        {head && <>{head}{' '}</>}
-                        <span className="no-wrap">{tailText}{infoIcon}</span>
-                      </a>
-                    </span>
-                  )
-                })()}
+              <th className="has-text-right">
+                {
+                  (sortColumn !== undefined && sortColumn !== 'est_seed') ?
+                    <a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>{t("Est. Seed")}</a> :
+                    <span className="no-wrap">{t("Est. Seed")} ↓</span>
+                }
               </th>
             }
             {

@@ -250,6 +250,11 @@ function BracketRegistration() {
     return null;
   }, [viewTab, seededBracket, idealBracket])
 
+  const showEstSeedDetails = useMemo(() => {
+    const categoryAge = selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[1] : null;
+    return categoryAge !== 'Juvenile' && categoryAge !== 'Juvenile 1' && categoryAge !== 'Juvenile 2';
+  }, [selectedRegistrationCategory])
+
   useEffect(() => {
     if (viewMode !== 'all') return;
     if (activeBracketViewTab !== null && viewTab !== activeBracketViewTab) {
@@ -707,31 +712,43 @@ function BracketRegistration() {
         }
         {
           viewMode === 'all' && (registrationEventUrl !== null && registrationCategories !== null && registrationCompetitors !== null) && (
-            <BracketTable competitors={sortedRegistrationCompetitors}
-                          sortColumn={usableSortColumn}
-                          showSeed={false}
-                          showEstSeed={true}
-                          onEstSeedInfoClick={() => setEstSeedModalOpen(true)}
-                          showRank={true}
-                          selectedCategory={selectedRegistrationCategory}
-                          showRatings={showRatings}
-                          belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
-                          isGi={isGi(registrationEventName ?? '')}
-                          sideSwaps={effectiveSideSwaps}
-                          sideSwapBailoutTeams={effectiveSideSwapBailoutTeams}
-                          afterTableContent={
-                            <HypotheticalAthleteSearch
-                              competitors={registrationCompetitors}
-                              selectedCategory={selectedRegistrationCategory}
-                              link={registrationEventUrl}
-                              gi={isGi(registrationEventName ?? '')}
-                              onHypotheticalSeed={handleHypotheticalSeed}
-                            />
-                          }
-                          columnClicked={columnClicked}
-                          athleteClicked={registrationAthleteClicked}
-                          calculateEnabled={calculateEnabledAthlete}
-                          onClearHypotheticalAthlete={clearHypotheticalRegistration} />
+            <>
+              {showEstSeedDetails && (
+                <div className="registration-table-actions">
+                  <button
+                    type="button"
+                    className="button is-info"
+                    onClick={() => setEstSeedModalOpen(true)}
+                  >
+                    {t('View Seeding Points')}
+                  </button>
+                </div>
+              )}
+              <BracketTable competitors={sortedRegistrationCompetitors}
+                            sortColumn={usableSortColumn}
+                            showSeed={false}
+                            showEstSeed={true}
+                            showRank={true}
+                            selectedCategory={selectedRegistrationCategory}
+                            showRatings={showRatings}
+                            belt={selectedRegistrationCategory ? selectedRegistrationCategory.split(' / ')[0] : ''}
+                            isGi={isGi(registrationEventName ?? '')}
+                            sideSwaps={effectiveSideSwaps}
+                            sideSwapBailoutTeams={effectiveSideSwapBailoutTeams}
+                            afterTableContent={
+                              <HypotheticalAthleteSearch
+                                competitors={registrationCompetitors}
+                                selectedCategory={selectedRegistrationCategory}
+                                link={registrationEventUrl}
+                                gi={isGi(registrationEventName ?? '')}
+                                onHypotheticalSeed={handleHypotheticalSeed}
+                              />
+                            }
+                            columnClicked={columnClicked}
+                            athleteClicked={registrationAthleteClicked}
+                            calculateEnabled={calculateEnabledAthlete}
+                            onClearHypotheticalAthlete={clearHypotheticalRegistration} />
+            </>
           )
         }
         {
