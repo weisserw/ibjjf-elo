@@ -469,7 +469,9 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         )
         db.session.commit()
 
-        queued = archive_lib.queue_archive_capture(db.session, archive)
+        queued = archive_lib.queue_archive_capture(
+            db.session, archive, segment_seconds=600
+        )
         db.session.commit()
 
         segment = LivestreamFrameCaptureSegment.query.one()
