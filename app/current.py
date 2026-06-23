@@ -445,14 +445,13 @@ def create_ratings_tables(
                     rpw.gender,
                     rpw.age,
                     pm.belt,
-                    rpw.gi,
+                    rb.gi,
                     rpw.weight,
                     rb.happened_at
                 FROM rating_bases rb
                 JOIN {name}_promotion_belts pm ON pm.athlete_id = rb.athlete_id
                 JOIN registration_promotion_weights rpw ON rpw.athlete_id = rb.athlete_id
                     AND rpw.belt = pm.belt
-                    AND rpw.gi = rb.gi
                     AND rpw.gender = rb.gender
                 WHERE pm.belt_num - CASE WHEN rb.belt = 'WHITE' THEN 1
                                         WHEN rb.belt = 'BLUE' THEN 2
@@ -468,14 +467,13 @@ def create_ratings_tables(
                     rpw.gender,
                     rpw.age,
                     pm.belt,
-                    rpw.gi,
+                    rb.gi,
                     '' AS weight,
                     rb.happened_at
                 FROM rating_bases rb
                 JOIN {name}_promotion_belts pm ON pm.athlete_id = rb.athlete_id
                 JOIN registration_promotion_weights rpw ON rpw.athlete_id = rb.athlete_id
                     AND rpw.belt = pm.belt
-                    AND rpw.gi = rb.gi
                     AND rpw.gender = rb.gender
                 WHERE pm.belt_num - CASE WHEN rb.belt = 'WHITE' THEN 1
                                         WHEN rb.belt = 'BLUE' THEN 2
@@ -507,7 +505,6 @@ def create_ratings_tables(
                     FROM registration_promotion_weights rpw
                     WHERE rpw.athlete_id = r.athlete_id
                     AND rpw.belt = pm.belt
-                    AND rpw.gi = r.gi
                     AND rpw.gender = r.gender
                 )
             ),

@@ -2,6 +2,7 @@ import os
 import sys
 import unittest
 from datetime import datetime, timedelta
+from unittest import mock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -41,7 +42,7 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
             weight=LIGHT,
         )
         brown_master_3_light = Division(
-            gi=True,
+            gi=False,
             gender=FEMALE,
             age=MASTER_3,
             belt=BROWN,
@@ -125,6 +126,9 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
         generate_current_ratings(db, gi=True, nogi=False, rank_previous_date=None)
         db.session.commit()
 
+    def setUp(self):
+        self.client = self.app_module.app.test_client()
+
     def test_future_registration_promotes_athlete_out_of_old_belt(self):
         with self.app_module.app.app_context():
             purple_rows = (
@@ -145,6 +149,7 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
                 .filter(
                     AthleteRating.athlete_id == self.promoted_id,
                     AthleteRating.belt == BROWN,
+                    AthleteRating.gi.is_(True),
                     AthleteRating.age == MASTER_3,
                     AthleteRating.weight == LIGHT,
                 )
@@ -163,6 +168,7 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
                 .filter(
                     AthleteRating.athlete_id == self.promoted_id,
                     AthleteRating.belt == BROWN,
+                    AthleteRating.gi.is_(True),
                     AthleteRating.age == MASTER_2,
                     AthleteRating.weight == LIGHT,
                 )
@@ -170,6 +176,41 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
             )
 
         self.assertIsNone(brown_master_2_light)
+
+    @mock.patch("routes.top.get_s3_client", return_value=None)
+    def test_top_returns_registration_promoted_athlete(self, _mock_s3):
+        response = self.client.get(
+            "/api/top",
+            query_string={
+                "gender": FEMALE,
+                "age": MASTER_3,
+                "belt": BROWN,
+                "gi": "true",
+                "weight": LIGHT,
+                "name": '"Promoted Master Athlete"',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = response.get_json()["rows"]
+        self.assertEqual([row["name"] for row in rows], ["Promoted Master Athlete"])
+
+    def test_athlete_profile_returns_registration_promoted_rank(self):
+        response = self.client.get(
+            "/api/athlete/promoted-master-athlete",
+            query_string={"gi": "true"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        ranks = response.get_json()["ranks"]
+        self.assertTrue(
+            any(
+                rank["belt"] == BROWN
+                and rank["age"] == MASTER_3
+                and rank["weight"] == LIGHT
+                for rank in ranks
+            )
+        )
 
 
 if __name__ == "__main__":
