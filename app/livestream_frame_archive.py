@@ -363,23 +363,12 @@ def get_archive_dashboard_rows(session) -> list[dict]:
     rows = []
     for youtube_video_id in sorted(set(usages) | set(archives)):
         archive = archives.get(youtube_video_id)
-        latest_task_id = None
-        if archive:
-            latest_segment = (
-                LivestreamFrameCaptureSegment.query.filter_by(archive_id=archive.id)
-                .filter(LivestreamFrameCaptureSegment.background_task_id.isnot(None))
-                .order_by(LivestreamFrameCaptureSegment.updated_at.desc())
-                .first()
-            )
-            if latest_segment:
-                latest_task_id = latest_segment.background_task_id
         rows.append(
             {
                 "youtube_video_id": youtube_video_id,
                 "canonical_url": canonical_youtube_url(youtube_video_id),
                 "archive": archive,
                 "usages": usages.get(youtube_video_id, []),
-                "latest_task_id": latest_task_id,
             }
         )
     return rows
