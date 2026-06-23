@@ -209,7 +209,9 @@ def queue_archive_capture(
     created = create_missing_segments(session, archive, segment_seconds)
     requeued = (
         LivestreamFrameCaptureSegment.query.filter_by(archive_id=archive.id)
-        .filter(LivestreamFrameCaptureSegment.status.in_(["pending", "error"]))
+        .filter(
+            LivestreamFrameCaptureSegment.status.in_(["pending", "error", "cancelled"])
+        )
         .update({"status": "queued", "last_error": None}, synchronize_session=False)
     )
     archive.status = "queued"

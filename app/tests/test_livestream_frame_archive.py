@@ -452,6 +452,33 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
             [(0, 600), (600, 3600), (3600, 7200)],
         )
 
+    def test_queue_archive_capture_requeues_cancelled_segment(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        archive.status = "cancelled"
+        archive.last_error = "archive cancelled by admin"
+        db.session.flush()
+        db.session.add(
+            LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=0,
+                end_second=600,
+                status="cancelled",
+                last_error="cancelled by admin",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        db.session.commit()
+
+        queued = archive_lib.queue_archive_capture(db.session, archive)
+        db.session.commit()
+
+        segment = LivestreamFrameCaptureSegment.query.one()
+        self.assertEqual(queued, 1)
+        self.assertEqual(segment.status, "queued")
+        self.assertIsNone(segment.last_error)
+        self.assertEqual(archive.status, "queued")
+        self.assertIsNone(archive.last_error)
+
     def test_recompute_archive_status_from_segments(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
         db.session.flush()
