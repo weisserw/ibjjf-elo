@@ -2429,6 +2429,11 @@ class BracketSlotsTestCase(unittest.TestCase):
         self.assertIn((2, None), slots)
         self.assertIn((3, None), slots)
 
+    def test_n6_slots_match_ibjjf_pairings(self):
+        slots, size = _bracket_slots(6)
+        self.assertEqual(size, 8)
+        self.assertEqual(slots, [(1, None), (4, 6), (2, None), (3, 5)])
+
     def test_n15_power_up_layout(self):
         # usePowerUpLayout: uses 16-slot table with seed 16 as a bye.
         slots, size = _bracket_slots(15)
@@ -2645,16 +2650,15 @@ class SideTestCase(unittest.TestCase):
                 self.assertEqual(_side(seed, 5), expected)
 
     def test_n6_play_in_seeds(self):
-        # N=6: play-in pairs (3,6) and (4,5) via effectiveLayout 4.
-        # Side 0: 1, 4, 5 — side 1: 2, 3, 6.
-        # Parity: seed 5 → side 1 (wrong), seed 6 → side 0 (wrong).
+        # N=6: IBJJF uses play-in pairs (4,6) and (3,5).
+        # Side 0: 1, 4, 6 — side 1: 2, 3, 5.
         for seed, expected in [
             (1, 0),
             (4, 0),
-            (5, 0),
+            (6, 0),
             (2, 1),
             (3, 1),
-            (6, 1),
+            (5, 1),
         ]:
             with self.subTest(seed=seed):
                 self.assertEqual(_side(seed, 6), expected)
