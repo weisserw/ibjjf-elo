@@ -145,6 +145,79 @@ def create_ratings_tables(
     session.execute(
         text(
             f"""
+            CREATE TEMPORARY TABLE {name}_athlete_rating_belts AS
+            WITH match_belts_by_style AS (
+                SELECT DISTINCT
+                    mp.athlete_id,
+                    d.gi,
+                    d.gender,
+                    d.belt,
+                    CASE WHEN d.belt = 'WHITE' THEN 1
+                         WHEN d.belt = 'BLUE' THEN 2
+                         WHEN d.belt = 'PURPLE' THEN 3
+                         WHEN d.belt = 'BROWN' THEN 4
+                         ELSE 5 END AS belt_num
+                FROM matches m
+                JOIN match_participants mp ON m.id = mp.match_id
+                JOIN divisions d ON d.id = m.division_id
+                JOIN {name}_athlete_belts ab ON ab.athlete_id = mp.athlete_id
+                WHERE {date_where}
+                AND d.age IN ({rated_ages_in})
+            ),
+            current_match_belts AS (
+                SELECT
+                    mbs.athlete_id,
+                    mbs.gi,
+                    mbs.gender,
+                    mbs.belt
+                FROM match_belts_by_style mbs
+                JOIN {name}_athlete_belts ab ON ab.athlete_id = mbs.athlete_id
+                    AND ab.belt = mbs.belt
+            ),
+            previous_promotion_belts AS (
+                SELECT
+                    mbs.athlete_id,
+                    mbs.gi,
+                    mbs.gender,
+                    mbs.belt
+                FROM match_belts_by_style mbs
+                JOIN {name}_promotion_belts pm ON pm.athlete_id = mbs.athlete_id
+                JOIN {name}_athlete_belts ab ON ab.athlete_id = mbs.athlete_id
+                WHERE pm.belt_num > 1
+                AND mbs.belt_num = pm.belt_num - 1
+                AND pm.belt_num >= CASE WHEN ab.belt = 'WHITE' THEN 1
+                                        WHEN ab.belt = 'BLUE' THEN 2
+                                        WHEN ab.belt = 'PURPLE' THEN 3
+                                        WHEN ab.belt = 'BROWN' THEN 4
+                                        ELSE 5 END
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM match_belts_by_style current
+                    WHERE current.athlete_id = mbs.athlete_id
+                    AND current.gi = mbs.gi
+                    AND current.gender = mbs.gender
+                    AND current.belt_num = pm.belt_num
+                )
+            )
+            SELECT * FROM current_match_belts
+            UNION
+            SELECT * FROM previous_promotion_belts
+            """
+        ),
+        {
+            "previous_date": previous_date,
+        },
+    )
+    session.execute(
+        text(
+            f"CREATE INDEX {name}_athlete_rating_belts_ix ON {name}_athlete_rating_belts (athlete_id, gi, gender, belt)"
+        )
+    )
+    session.execute(text(f"ANALYZE {name}_athlete_rating_belts"))
+
+    session.execute(
+        text(
+            f"""
             CREATE TEMPORARY TABLE {name}_athlete_adults AS
             WITH match_adults AS (
                 SELECT DISTINCT mp.athlete_id
@@ -205,7 +278,10 @@ def create_ratings_tables(
             FROM match_participants mp
             JOIN matches m ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
-            JOIN {name}_athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
+            JOIN {name}_athlete_rating_belts ab ON ab.athlete_id = mp.athlete_id
+                AND d.gi = ab.gi
+                AND d.gender = ab.gender
+                AND d.belt = ab.belt
             LEFT JOIN {name}_athlete_adults ta ON ta.athlete_id = mp.athlete_id
             WHERE mp.winner = TRUE
             AND {date_where}
@@ -248,7 +324,10 @@ def create_ratings_tables(
             FROM match_participants mp
             JOIN matches m ON m.id = mp.match_id
             JOIN divisions d ON d.id = m.division_id
-            JOIN {name}_athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
+            JOIN {name}_athlete_rating_belts ab ON ab.athlete_id = mp.athlete_id
+                AND d.gi = ab.gi
+                AND d.gender = ab.gender
+                AND d.belt = ab.belt
             LEFT JOIN {name}_athlete_adults ta ON ta.athlete_id = mp.athlete_id
             WHERE mp.winner = FALSE
             AND {date_where}
@@ -405,7 +484,10 @@ def create_ratings_tables(
                 FROM matches m
                 JOIN match_participants mp ON m.id = mp.match_id
                 JOIN divisions d ON d.id = m.division_id
-                JOIN {name}_athlete_belts ab ON ab.athlete_id = mp.athlete_id AND d.belt = ab.belt
+                JOIN {name}_athlete_rating_belts ab ON ab.athlete_id = mp.athlete_id
+                    AND d.gi = ab.gi
+                    AND d.gender = ab.gender
+                    AND d.belt = ab.belt
                 WHERE d.gi in ({gi_in}) AND {date_where}
                 AND d.age in ({rated_ages_in})
             ), ratings AS (
@@ -434,7 +516,8 @@ def create_ratings_tables(
                     belt,
                     gi,
                     happened_at
-                FROM ratings
+                FROM recent_matches
+                WHERE rn = 1
             ),
             registration_promoted_ratings AS (
                 SELECT
@@ -500,13 +583,6 @@ def create_ratings_tables(
                                         WHEN r.belt = 'PURPLE' THEN 3
                                         WHEN r.belt = 'BROWN' THEN 4
                                         ELSE 5 END = 1
-                AND NOT EXISTS (
-                    SELECT 1
-                    FROM registration_promotion_weights rpw
-                    WHERE rpw.athlete_id = r.athlete_id
-                    AND rpw.belt = pm.belt
-                    AND rpw.gender = r.gender
-                )
             ),
             promoted_ratings AS (
                 SELECT * FROM registration_promoted_ratings
@@ -522,6 +598,8 @@ def create_ratings_tables(
                     SELECT 1
                     FROM promoted_ratings pr
                     WHERE pr.athlete_id = r.athlete_id
+                    AND pr.gi = r.gi
+                    AND pr.gender = r.gender
                 )
             )
             SELECT
@@ -571,6 +649,7 @@ def create_ratings_tables(
 def drop_ratings_tables(session, name: str) -> None:
     session.execute(text(f"DROP TABLE {name}_athlete_belts"))
     session.execute(text(f"DROP TABLE {name}_promotion_belts"))
+    session.execute(text(f"DROP TABLE {name}_athlete_rating_belts"))
     session.execute(text(f"DROP TABLE {name}_athlete_adults"))
     session.execute(text(f"DROP TABLE {name}_athlete_won_matches"))
     session.execute(text(f"DROP TABLE {name}_athlete_lost_matches"))
