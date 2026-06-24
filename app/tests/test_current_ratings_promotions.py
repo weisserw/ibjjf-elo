@@ -110,6 +110,11 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
             normalized_name="cross style promoted athlete",
             slug="cross-style-promoted-athlete",
         )
+        no_gi_only_registered = Athlete(
+            name="No Gi Only Registered Athlete",
+            normalized_name="no gi only registered athlete",
+            slug="no-gi-only-registered-athlete",
+        )
         opponent = Athlete(
             name="Purple Master Opponent",
             normalized_name="purple master opponent",
@@ -126,6 +131,7 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
                 inactive_promoted,
                 same_weight_promoted,
                 cross_style_promoted,
+                no_gi_only_registered,
                 opponent,
                 inactive_opponent,
             ]
@@ -135,6 +141,7 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
         cls.inactive_promoted_id = inactive_promoted.id
         cls.same_weight_promoted_id = same_weight_promoted.id
         cls.cross_style_promoted_id = cross_style_promoted.id
+        cls.no_gi_only_registered_id = no_gi_only_registered.id
 
         match = Match(
             event_id=event.id,
@@ -178,6 +185,12 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
             happened_at=datetime.now() - timedelta(days=20),
             rated=True,
         )
+        no_gi_only_registered_match = Match(
+            event_id=event.id,
+            division_id=purple_master_2_light.id,
+            happened_at=datetime.now(),
+            rated=True,
+        )
         db.session.add_all(
             [
                 match,
@@ -187,6 +200,7 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
                 cross_style_gi_match,
                 cross_style_no_gi_match,
                 cross_style_old_no_gi_match,
+                no_gi_only_registered_match,
             ]
         )
         db.session.flush()
@@ -361,6 +375,30 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
                     start_match_count=5,
                     end_match_count=6,
                 ),
+                MatchParticipant(
+                    match_id=no_gi_only_registered_match.id,
+                    athlete_id=no_gi_only_registered.id,
+                    team_id=team.id,
+                    seed=1,
+                    red=True,
+                    winner=True,
+                    start_rating=1450.0,
+                    end_rating=1518.0,
+                    start_match_count=5,
+                    end_match_count=6,
+                ),
+                MatchParticipant(
+                    match_id=no_gi_only_registered_match.id,
+                    athlete_id=opponent.id,
+                    team_id=team.id,
+                    seed=2,
+                    red=False,
+                    winner=False,
+                    start_rating=1450.0,
+                    end_rating=1382.0,
+                    start_match_count=5,
+                    end_match_count=6,
+                ),
             ]
         )
 
@@ -401,6 +439,11 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
                     registration_link_id=registration_link.id,
                     athlete_name=cross_style_promoted.name,
                     division_id=gi_brown_master_3_light.id,
+                ),
+                RegistrationLinkCompetitor(
+                    registration_link_id=registration_link.id,
+                    athlete_name=no_gi_only_registered.name,
+                    division_id=brown_master_3_light.id,
                 ),
             ]
         )
@@ -482,7 +525,7 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
             brown_master_2_middle.rating, 1500.0 + COLOR_PROMOTION_RATING_BUMP
         )
 
-    def test_future_registration_promotes_inactive_gi_rating_base(self):
+    def test_future_registration_does_not_promote_inactive_gi_rating_base(self):
         with self.app_module.app.app_context():
             brown_master_3_light = (
                 db.session.query(AthleteRating)
@@ -496,12 +539,11 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
                 .one_or_none()
             )
 
-        self.assertIsNotNone(brown_master_3_light)
-        self.assertEqual(
-            brown_master_3_light.rating, 1500.0 + COLOR_PROMOTION_RATING_BUMP
-        )
+        self.assertIsNone(brown_master_3_light)
 
-    def test_future_registration_promotes_when_latest_match_weight_matches_registration(self):
+    def test_future_registration_promotes_when_latest_match_weight_matches_registration(
+        self,
+    ):
         with self.app_module.app.app_context():
             brown_master_3_light = (
                 db.session.query(AthleteRating)
@@ -569,6 +611,37 @@ class CurrentRatingsPromotionTestCase(TestDbMixin, unittest.TestCase):
         self.assertIsNotNone(brown_master_3_middle)
         self.assertEqual(brown_master_3_middle.rating, 1540.0)
         self.assertIsNone(brown_master_2_light)
+
+    def test_no_gi_registration_does_not_create_gi_registration_weight(self):
+        with self.app_module.app.app_context():
+            historical_gi_light = (
+                db.session.query(AthleteRating)
+                .filter(
+                    AthleteRating.athlete_id == self.no_gi_only_registered_id,
+                    AthleteRating.belt == BROWN,
+                    AthleteRating.gi.is_(True),
+                    AthleteRating.age == MASTER_2,
+                    AthleteRating.weight == LIGHT,
+                )
+                .one_or_none()
+            )
+            registration_gi_light = (
+                db.session.query(AthleteRating)
+                .filter(
+                    AthleteRating.athlete_id == self.no_gi_only_registered_id,
+                    AthleteRating.belt == BROWN,
+                    AthleteRating.gi.is_(True),
+                    AthleteRating.age == MASTER_3,
+                    AthleteRating.weight == LIGHT,
+                )
+                .one_or_none()
+            )
+
+        self.assertIsNotNone(historical_gi_light)
+        self.assertEqual(
+            historical_gi_light.rating, 1518.0 + COLOR_PROMOTION_RATING_BUMP
+        )
+        self.assertIsNone(registration_gi_light)
 
     @mock.patch("routes.top.get_s3_client", return_value=None)
     def test_top_returns_registration_promoted_athlete(self, _mock_s3):
