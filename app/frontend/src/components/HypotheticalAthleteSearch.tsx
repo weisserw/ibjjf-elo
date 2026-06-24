@@ -77,7 +77,7 @@ function HypotheticalAthleteSearch({
         axiosErrorToast(error)
       }
     }, 300, { trailing: true }),
-    [divisionGender, gi, isRegisteredSuggestion],
+    [divisionGender, isRegisteredSuggestion],
   )
 
   useEffect(() => {

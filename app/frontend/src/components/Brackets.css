@@ -348,6 +348,8 @@
   align-items: center;
   gap: 0.75rem;
   max-width: 30rem;
+  position: relative;
+  z-index: 30;
 }
 
 .est-seed-hypothetical-search .react-autosuggest__container {

@@ -189,92 +189,93 @@ function BracketTable(props: BracketTableProps) {
   }
 
   return (
-    <div className="table-container">
+    <>
       {
         props.showWeight &&
         <div className="notification mt-5">
           {t("Our open class ranking uses a combination of weight and skill")}
         </div>
       }
-      <table className={classNames("table is-fullwidth bracket-table", {"bracket-table-with-after-content": props.afterTableContent})}>
-        <thead>
-          <tr>
-            {
-              props.showRatings &&
-              <th></th>
-            }
-            {
-              props.showRatings &&
-              <th className="has-text-right">
-                {
-                  (sortColumn !== undefined && sortColumn !== 'rating') ?
-                    <a href="#" onClick={columnClicked?.bind(null, 'rating')}>#</a> :
-                    <span className="no-wrap"># ↓</span>
-                }
-              </th>
-            }
-            {
-              showEstSeed &&
-              <th className="has-text-right">
-                {
-                  (sortColumn !== undefined && sortColumn !== 'est_seed') ?
-                    <a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>{t("Est. Seed")}</a> :
-                    <span className="no-wrap">{t("Est. Seed")} ↓</span>
-                }
-              </th>
-            }
-            {
-              props.showSeed &&
-              <th className="has-text-right">
-                {
-                  (sortColumn !== undefined && sortColumn !== 'seed') ?
-                    <a href="#" onClick={columnClicked?.bind(null, 'seed')}>{t("IBJJF Seed")}</a> :
-                    <span>{t("IBJJF Seed")} ↓</span>
-                }
-              </th>
-            }
-            <th></th>
-            <th>{t("Name")}</th>
-            <th className="is-visible-mobile-table-cell cell-no-padding"></th>
-            <th>{t("Team")}</th>
-            {
-              props.showWeight &&
-              <th>{t("Weight")}</th>
-            }
-            {
-              props.showNext &&
-              <th>
+      <div className="table-container">
+        <table className={classNames("table is-fullwidth bracket-table", {"bracket-table-with-after-content": props.afterTableContent})}>
+          <thead>
+            <tr>
               {
-                (sortColumn !== undefined && sortColumn !== 'next') ?
-                  <a href="#" onClick={columnClicked?.bind(null, 'next')}>{t("Next")}</a> :
-                  <span>{t("Next")} ↓</span>
+                props.showRatings &&
+                <th></th>
               }
-              </th>
-            }
-            {
-             props.showRatings &&
-              <>
+              {
+                props.showRatings &&
                 <th className="has-text-right">
+                  {
+                    (sortColumn !== undefined && sortColumn !== 'rating') ?
+                      <a href="#" onClick={columnClicked?.bind(null, 'rating')}>#</a> :
+                      <span className="no-wrap"># ↓</span>
+                  }
+                </th>
+              }
+              {
+                showEstSeed &&
+                <th className="has-text-right">
+                  {
+                    (sortColumn !== undefined && sortColumn !== 'est_seed') ?
+                      <a href="#" onClick={columnClicked?.bind(null, 'est_seed')}>{t("Est. Seed")}</a> :
+                      <span className="no-wrap">{t("Est. Seed")} ↓</span>
+                  }
+                </th>
+              }
+              {
+                props.showSeed &&
+                <th className="has-text-right">
+                  {
+                    (sortColumn !== undefined && sortColumn !== 'seed') ?
+                      <a href="#" onClick={columnClicked?.bind(null, 'seed')}>{t("IBJJF Seed")}</a> :
+                      <span>{t("IBJJF Seed")} ↓</span>
+                  }
+                </th>
+              }
+              <th></th>
+              <th>{t("Name")}</th>
+              <th className="is-visible-mobile-table-cell cell-no-padding"></th>
+              <th>{t("Team")}</th>
+              {
+                props.showWeight &&
+                <th>{t("Weight")}</th>
+              }
+              {
+                props.showNext &&
+                <th>
                 {
-                  props.showEndRating ? t('Start Rating') : t('Rating')
+                  (sortColumn !== undefined && sortColumn !== 'next') ?
+                    <a href="#" onClick={columnClicked?.bind(null, 'next')}>{t("Next")}</a> :
+                    <span>{t("Next")} ↓</span>
                 }
                 </th>
-              </>
-            }
-            <th></th>
+              }
+              {
+               props.showRatings &&
+                <>
+                  <th className="has-text-right">
+                  {
+                    props.showEndRating ? t('Start Rating') : t('Rating')
+                  }
+                  </th>
+                </>
+              }
+              <th></th>
+              {
+                (props.showRatings && props.showEndRating) &&
+                <th className="has-text-right">{t('End Rating')}</th>
+              }
+              {
+                (props.showRatings && props.showRank) &&
+                <th className="has-text-right">{t('Rank')}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
             {
-              (props.showRatings && props.showEndRating) &&
-              <th className="has-text-right">{t('End Rating')}</th>
-            }
-            {
-              (props.showRatings && props.showRank) &&
-              <th className="has-text-right">{t('Rank')}</th>
-            }
-          </tr>
-        </thead>
-        <tbody>
-          {
-            competitors?.map(competitor => {
+              competitors?.map(competitor => {
               const [badge, badgeDesc] = badgeForPercentile(competitor.percentile, belt, competitor.percentile_age);
               const matLink = (competitor.next_where && competitor.next_when) ? getMatLink(competitor.next_where, competitor.next_when, props.matLinks) : null;
               
@@ -467,10 +468,11 @@ function BracketTable(props: BracketTableProps) {
                   <td className="has-text-right">{immatureClass(competitor.match_count) !== 'very-immature' && (competitor.rank ?? '')}</td>
                 }
               </tr>
-            )})
-          }
-        </tbody>
-      </table>
+              )})
+            }
+          </tbody>
+        </table>
+      </div>
       {props.afterTableContent}
       {
         props.showRatings &&
@@ -488,7 +490,7 @@ function BracketTable(props: BracketTableProps) {
       <Tooltip id="est-seed-swap-tied-tooltip" className="tooltip-multiline" />
       <Tooltip id="team-bailout-tooltip" className="tooltip-multiline" />
       <Tooltip id="hypothetical-athlete-tooltip" className="tooltip-normal" />
-    </div>
+    </>
   );
 }
 
