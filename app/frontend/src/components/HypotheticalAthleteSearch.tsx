@@ -70,7 +70,6 @@ function HypotheticalAthleteSearch({
           params: {
             search: value,
             gender: divisionGender,
-            gi: gi ? 'true' : 'false',
           },
         })
         setAthleteSuggestions(response.data.filter(suggestion => !isRegisteredSuggestion(suggestion)))
