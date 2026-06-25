@@ -88,6 +88,33 @@ EVENT_NAME_ALIASES = {
     "Itajaí International Open IBJJF Jiu-Jitsu No-Gi Championship 2024": (
         "Itaji International No Gi Open 2024 (Archive)"
     ),
+    "Master International Jiu-Jitsu IBJJF Championship – South America 2022": (
+        "Master International Jiu-Jitsu Championship - South America 2022 (Results)"
+    ),
+    "Master International Jiu-Jitsu IBJJF Championship – South America 2023": (
+        "Master International Jiu-Jitsu Championship - South America 2023 (Results)"
+    ),
+    "Master International Jiu-Jitsu IBJJF Championship – South America 2024": (
+        "Master International Jiu-Jitsu Championship - South America 2024 (Results)"
+    ),
+    "Master International Jiu-Jitsu IBJJF Championship – Europe 2022": (
+        "Master International Jiu-Jitsu Championship - Europe 2022 (Results)"
+    ),
+    "Master International Jiu-Jitsu IBJJF Championship – Europe 2023": (
+        "Master International Jiu-Jitsu Championship - Europe 2023 (Results)"
+    ),
+    "Master International Jiu-Jitsu IBJJF Championship – Europe 2024": (
+        "Master International Jiu-Jitsu Championship - Europe 2024 (Results)"
+    ),
+    "Master International Jiu-Jitsu IBJJF Championship – North America 2022": (
+        "Master International Jiu-Jitsu IBJJF Championship – North America 2022 (Archive)"
+    ),
+    "Master International Jiu-Jitsu IBJJF Championship – North America 2023": (
+        "Master International Jiu-Jitsu Championship - North America 2023 (Flo)"
+    ),
+    "Master International Jiu-Jitsu IBJJF Championship – North America 2024": (
+        "Master International Jiu-Jitsu Championship - North America 2024 (Flo)"
+    ),
     "Campeonato Brasileiro de Jiu-Jitsu 2022": (
         "Campeonato Brasileiro de Jiu-Jitsu (Juvenil, Adulto e Master) 2022 (BJJHeroes)"
     ),
