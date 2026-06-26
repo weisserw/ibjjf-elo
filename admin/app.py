@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from datetime import date, datetime, timedelta, timezone
 from flask import Flask, render_template, redirect, url_for, request, session, jsonify
 from urllib.parse import urlparse, urlencode, urlunparse
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, case
 from sqlalchemy.exc import IntegrityError
 
 
@@ -61,6 +61,7 @@ from livestream_frame_text_scan import (
     DEFAULT_COARSE_INTERVAL_SECONDS,
     DEFAULT_PARSER_PROFILE,
     DEFAULT_SCORE_ENGINE,
+    TEXT_SCAN_SEGMENT_STATUSES,
     cancel_queued_text_scan_segments,
     claim_next_text_scan_segment,
     mark_text_scan_segment_error,
@@ -302,6 +303,171 @@ def _text_event_payload(event):
         "created_at": _utc_iso(event.created_at),
         "updated_at": _utc_iso(event.updated_at),
     }
+
+
+def _text_scan_progress_label(scan):
+    if not scan:
+        return ""
+    return f"{scan.processed_segment_count or 0} / {scan.total_segment_count or 0}"
+
+
+def _text_event_type_counts_query():
+    score_condition = or_(
+        LivestreamFrameTextEvent.top_points.isnot(None),
+        LivestreamFrameTextEvent.top_advantages.isnot(None),
+        LivestreamFrameTextEvent.top_penalties.isnot(None),
+        LivestreamFrameTextEvent.bottom_points.isnot(None),
+        LivestreamFrameTextEvent.bottom_advantages.isnot(None),
+        LivestreamFrameTextEvent.bottom_penalties.isnot(None),
+    )
+    timer_condition = or_(
+        LivestreamFrameTextEvent.timer_state.isnot(None),
+        LivestreamFrameTextEvent.timer_value.isnot(None),
+    )
+    athlete_name_condition = or_(
+        LivestreamFrameTextEvent.top_athlete_name.isnot(None),
+        LivestreamFrameTextEvent.bottom_athlete_name.isnot(None),
+    )
+    team_name_condition = or_(
+        LivestreamFrameTextEvent.top_team_name.isnot(None),
+        LivestreamFrameTextEvent.bottom_team_name.isnot(None),
+    )
+    return db.session.query(
+        LivestreamFrameTextEvent.scan_id.label("scan_id"),
+        func.count(LivestreamFrameTextEvent.id).label("total"),
+        func.sum(case((score_condition, 1), else_=0)).label("score"),
+        func.sum(case((timer_condition, 1), else_=0)).label("timer"),
+        func.sum(case((athlete_name_condition, 1), else_=0)).label("athlete_names"),
+        func.sum(case((team_name_condition, 1), else_=0)).label("team_names"),
+        func.sum(
+            case((LivestreamFrameTextEvent.profile_id.isnot(None), 1), else_=0)
+        ).label("profiles"),
+        func.sum(
+            case((LivestreamFrameTextEvent.needs_review.is_(True), 1), else_=0)
+        ).label("needs_review"),
+    ).group_by(LivestreamFrameTextEvent.scan_id)
+
+
+def _empty_text_event_counts():
+    return {
+        "total": 0,
+        "score": 0,
+        "timer": 0,
+        "athlete_names": 0,
+        "team_names": 0,
+        "profiles": 0,
+        "needs_review": 0,
+    }
+
+
+def _text_event_counts_for_scan_ids(scan_ids):
+    if not scan_ids:
+        return {}
+    counts = {}
+    for row in _text_event_type_counts_query().filter(
+        LivestreamFrameTextEvent.scan_id.in_(scan_ids)
+    ):
+        counts[row.scan_id] = {
+            "total": row.total or 0,
+            "score": row.score or 0,
+            "timer": row.timer or 0,
+            "athlete_names": row.athlete_names or 0,
+            "team_names": row.team_names or 0,
+            "profiles": row.profiles or 0,
+            "needs_review": row.needs_review or 0,
+        }
+    return counts
+
+
+def _text_scan_segment_status_counts(scan_ids):
+    if not scan_ids:
+        return {}
+    counts = {}
+    rows = (
+        db.session.query(
+            LivestreamFrameTextScanSegment.scan_id,
+            LivestreamFrameTextScanSegment.status,
+            func.count(LivestreamFrameTextScanSegment.id),
+        )
+        .filter(LivestreamFrameTextScanSegment.scan_id.in_(scan_ids))
+        .group_by(
+            LivestreamFrameTextScanSegment.scan_id,
+            LivestreamFrameTextScanSegment.status,
+        )
+        .all()
+    )
+    for scan_id, status, count in rows:
+        counts.setdefault(scan_id, {})[status] = count
+    return counts
+
+
+def _livestream_frame_text_scan_rows():
+    archive_rows = get_archive_dashboard_rows(db.session)
+    archive_ids = [
+        row["archive"].id for row in archive_rows if row.get("archive") is not None
+    ]
+    scans = []
+    if archive_ids:
+        scans = LivestreamFrameTextScan.query.filter(
+            LivestreamFrameTextScan.archive_id.in_(archive_ids)
+        ).all()
+    scan_by_archive_id = {scan.archive_id: scan for scan in scans}
+    scan_ids = [scan.id for scan in scans]
+    event_counts_by_scan_id = _text_event_counts_for_scan_ids(scan_ids)
+    segment_counts_by_scan_id = _text_scan_segment_status_counts(scan_ids)
+
+    rows = []
+    for row in archive_rows:
+        archive = row.get("archive")
+        scan = scan_by_archive_id.get(archive.id) if archive else None
+        capture_segments = list(archive.segments) if archive else []
+        successful_capture_segments = [
+            segment for segment in capture_segments if segment.status == "success"
+        ]
+        ready_to_queue = (
+            archive is not None
+            and archive.status == "success"
+            and scan is None
+            and bool(successful_capture_segments)
+        )
+        rows.append(
+            {
+                **row,
+                "scan": scan,
+                "ready_to_queue": ready_to_queue,
+                "capture_segment_count": len(capture_segments),
+                "successful_capture_segment_count": len(successful_capture_segments),
+                "segment_status_counts": (
+                    segment_counts_by_scan_id.get(scan.id, {}) if scan else {}
+                ),
+                "event_counts": (
+                    event_counts_by_scan_id.get(scan.id, _empty_text_event_counts())
+                    if scan
+                    else _empty_text_event_counts()
+                ),
+            }
+        )
+    return rows
+
+
+def _parse_uuid_list(values):
+    parsed = []
+    for value in values:
+        if not value:
+            continue
+        parsed.append(uuid.UUID(value))
+    return parsed
+
+
+def _hms(seconds):
+    if seconds is None:
+        return ""
+    seconds = int(seconds)
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours:
+        return f"{hours:d}:{minutes:02d}:{seconds:02d}"
+    return f"{minutes:d}:{seconds:02d}"
 
 
 def _text_event_data_from_payload(payload):
@@ -901,6 +1067,145 @@ def livestream_frame_archive_detail(archive_id):
         usages=usages,
         canonical_url=canonical_youtube_url(archive.youtube_video_id),
         progress_label=archive_progress_label,
+    )
+
+
+@app.route("/livestream_frame_text_scans", methods=["GET", "POST"])
+def livestream_frame_text_scans():
+    message = request.args.get("message")
+    error = None
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        try:
+            archive_ids = _parse_uuid_list(request.form.getlist("selected_archive_id"))
+            scan_ids = [
+                scan.id
+                for scan in LivestreamFrameTextScan.query.filter(
+                    LivestreamFrameTextScan.archive_id.in_(archive_ids)
+                ).all()
+            ]
+
+            if action == "queue_ready":
+                scan_archive_ids = [
+                    row[0]
+                    for row in db.session.query(LivestreamFrameTextScan.archive_id)
+                ]
+                successful_capture_archive_ids = [
+                    row[0]
+                    for row in db.session.query(
+                        LivestreamFrameCaptureSegment.archive_id
+                    )
+                    .filter(LivestreamFrameCaptureSegment.status == "success")
+                    .distinct()
+                ]
+                archives = (
+                    LivestreamFrameArchive.query.filter(
+                        LivestreamFrameArchive.status == "success",
+                        ~LivestreamFrameArchive.id.in_(scan_archive_ids),
+                        LivestreamFrameArchive.id.in_(successful_capture_archive_ids),
+                    )
+                    .order_by(LivestreamFrameArchive.created_at)
+                    .all()
+                )
+                segment_count = 0
+                for archive in archives:
+                    segment_count += queue_text_scan(db.session, archive)
+                db.session.commit()
+                message = f"Queued {segment_count} text scan segment(s)."
+            elif action == "queue_selected":
+                archives = (
+                    LivestreamFrameArchive.query.filter(
+                        LivestreamFrameArchive.id.in_(archive_ids),
+                        LivestreamFrameArchive.status == "success",
+                    )
+                    .order_by(LivestreamFrameArchive.created_at)
+                    .all()
+                )
+                segment_count = 0
+                for archive in archives:
+                    segment_count += queue_text_scan(db.session, archive)
+                db.session.commit()
+                message = f"Queued {segment_count} text scan segment(s)."
+            elif action == "retry_failed":
+                segment_count = retry_failed_text_scan_segments(
+                    db.session, scan_ids or None
+                )
+                db.session.commit()
+                message = f"Requeued {segment_count} failed/cancelled segment(s)."
+            elif action == "cancel":
+                segment_count = cancel_queued_text_scan_segments(
+                    db.session, scan_ids or None
+                )
+                db.session.commit()
+                message = f"Cancelled {segment_count} queued/running segment(s)."
+        except Exception as exc:
+            db.session.rollback()
+            error = str(exc)
+
+    rows = _livestream_frame_text_scan_rows()
+    ready_count = sum(1 for row in rows if row["ready_to_queue"])
+    active_count = sum(
+        1
+        for row in rows
+        if row["scan"] and row["scan"].status in {"queued", "running", "partial"}
+    )
+    return render_template(
+        "livestream_frame_text_scans.html",
+        rows=rows,
+        ready_count=ready_count,
+        active_count=active_count,
+        message=message,
+        error=error,
+        progress_label=_text_scan_progress_label,
+        segment_statuses=TEXT_SCAN_SEGMENT_STATUSES,
+    )
+
+
+@app.route("/livestream_frame_text_scans/<archive_id>")
+def livestream_frame_text_scan_detail(archive_id):
+    archive = LivestreamFrameArchive.query.get(uuid.UUID(archive_id))
+    if not archive:
+        return redirect(url_for("livestream_frame_text_scans"))
+
+    scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one_or_none()
+    segments = []
+    events = []
+    event_counts = _empty_text_event_counts()
+    segment_status_counts = {}
+    if scan:
+        segments = (
+            LivestreamFrameTextScanSegment.query.filter_by(scan_id=scan.id)
+            .order_by(LivestreamFrameTextScanSegment.start_second)
+            .all()
+        )
+        events = (
+            LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id)
+            .order_by(LivestreamFrameTextEvent.frame_second.desc())
+            .limit(200)
+            .all()
+        )
+        event_counts = _text_event_counts_for_scan_ids([scan.id]).get(
+            scan.id, event_counts
+        )
+        segment_status_counts = _text_scan_segment_status_counts([scan.id]).get(
+            scan.id, {}
+        )
+
+    usages = archive_usage_rows(db.session, archive.youtube_video_id)
+    return render_template(
+        "livestream_frame_text_scan_detail.html",
+        archive=archive,
+        scan=scan,
+        segments=segments,
+        events=events,
+        usages=usages,
+        event_counts=event_counts,
+        segment_status_counts=segment_status_counts,
+        segment_statuses=TEXT_SCAN_SEGMENT_STATUSES,
+        canonical_url=canonical_youtube_url(archive.youtube_video_id),
+        progress_label=_text_scan_progress_label,
+        time_label=_hms,
     )
 
 

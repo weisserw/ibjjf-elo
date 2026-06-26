@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Livestream Frame Text Scans{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <div class="is-flex is-justify-content-space-between is-align-items-center mb-4">
+        <h1 class="title is-4">Livestream Frame Text Scans</h1>
+        <a class="button is-light" href="{{ url_for('index') }}">Back to Dashboard</a>
+    </div>
+
+    {% if message %}
+    <div class="notification is-success is-light">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="notification is-danger is-light">{{ error }}</div>
+    {% endif %}
+
+    <div class="box">
+        <div class="level">
+            <div class="level-left">
+                <div class="level-item">
+                    <div>
+                        <p class="heading">Ready to queue</p>
+                        <p class="title is-5">{{ ready_count }}</p>
+                    </div>
+                </div>
+                <div class="level-item">
+                    <div>
+                        <p class="heading">Active scans</p>
+                        <p class="title is-5">{{ active_count }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="level-right">
+                <form method="POST">
+                    <input type="hidden" name="action" value="queue_ready">
+                    <button class="button is-info" type="submit">Queue ready streams</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="buttons">
+            <button class="button is-info is-small" name="action" value="queue_selected" type="submit">Queue selected</button>
+            <button class="button is-warning is-small" name="action" value="retry_failed" type="submit">Retry failed/cancelled</button>
+            <button class="button is-danger is-small" name="action" value="cancel" type="submit">Cancel queued/running</button>
+        </div>
+
+        <div class="table-container">
+            <table class="table is-fullwidth is-striped is-size-7">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>YouTube ID</th>
+                        <th>Events / days / mats</th>
+                        <th>Archive</th>
+                        <th>Text scan</th>
+                        <th>Segments</th>
+                        <th>Event counts</th>
+                        <th>Last error</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    {% set archive = row.archive %}
+                    {% set scan = row.scan %}
+                    {% set counts = row.event_counts %}
+                    <tr>
+                        <td>
+                            {% if archive %}
+                            <input type="checkbox" name="selected_archive_id" value="{{ archive.id }}">
+                            {% endif %}
+                        </td>
+                        <td><code>{{ row.youtube_video_id }}</code></td>
+                        <td>
+                            {% for usage in row.usages %}
+                            <div>
+                                {{ usage.event_name or usage.stream.event_id }}
+                                day {{ usage.stream.day_number }},
+                                mat {{ usage.stream.mat_number }}
+                            </div>
+                            {% else %}
+                            <span class="has-text-grey">No current live_streams rows</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if archive %}
+                            <div>{{ archive.status }}</div>
+                            <div class="has-text-grey">{{ row.successful_capture_segment_count }} / {{ row.capture_segment_count }} frame batches</div>
+                            {% else %}
+                            <span class="has-text-grey">not synced</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if scan %}
+                            <div>{{ scan.status }}</div>
+                            <div class="has-text-grey">{{ progress_label(scan) }}</div>
+                            <div class="has-text-grey">{{ scan.parser_profile }} / {{ scan.score_engine }}</div>
+                            {% elif row.ready_to_queue %}
+                            <span class="tag is-success is-light">ready</span>
+                            {% elif archive and archive.status == 'success' %}
+                            <span class="tag is-warning is-light">no successful batches</span>
+                            {% else %}
+                            <span class="has-text-grey">waiting for archive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if scan %}
+                            {% for status in segment_statuses %}
+                                {% if row.segment_status_counts.get(status, 0) %}
+                                <span class="tag is-light">{{ status }} {{ row.segment_status_counts.get(status) }}</span>
+                                {% endif %}
+                            {% endfor %}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if scan %}
+                            <div>total {{ counts.total }}</div>
+                            <div>score {{ counts.score }} / timer {{ counts.timer }}</div>
+                            <div>athletes {{ counts.athlete_names }} / teams {{ counts.team_names }}</div>
+                            {% if counts.profiles or counts.needs_review %}
+                            <div>profiles {{ counts.profiles }} / review {{ counts.needs_review }}</div>
+                            {% endif %}
+                            {% endif %}
+                        </td>
+                        <td class="has-text-danger">{{ scan.last_error if scan and scan.last_error else '' }}</td>
+                        <td>
+                            {% if archive %}
+                            <a href="{{ url_for('livestream_frame_text_scan_detail', archive_id=archive.id) }}">Detail</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9">No YouTube livestreams found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+{% endblock %}
