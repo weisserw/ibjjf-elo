@@ -575,6 +575,199 @@ class LivestreamFrameCaptureSegment(db.Model):
     )
 
 
+class LivestreamFrameTextScan(db.Model):
+    __tablename__ = "livestream_frame_text_scans"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    archive_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("livestream_frame_archives.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    status = Column(String, nullable=False, default="pending")
+    parser_profile = Column(String, nullable=False, default="auto")
+    score_engine = Column(String, nullable=False, default="tesseract")
+    name_engine = Column(String, nullable=True)
+    coarse_interval_seconds = Column(Integer, nullable=False, default=120)
+    total_segment_count = Column(Integer, nullable=False, default=0)
+    processed_segment_count = Column(Integer, nullable=False, default=0)
+    last_processed_second = Column(Integer, nullable=True)
+    background_task_id = Column(
+        UUID(as_uuid=True), ForeignKey("background_tasks.id"), nullable=True
+    )
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    archive = relationship("LivestreamFrameArchive")
+    background_task = relationship("BackgroundTask")
+    segments = relationship(
+        "LivestreamFrameTextScanSegment",
+        back_populates="scan",
+        cascade="all, delete-orphan",
+        order_by="LivestreamFrameTextScanSegment.start_second",
+    )
+    events = relationship(
+        "LivestreamFrameTextEvent",
+        back_populates="scan",
+        cascade="all, delete-orphan",
+        order_by="LivestreamFrameTextEvent.frame_second",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("archive_id", name="uq_livestream_frame_text_scans_archive"),
+        Index("ix_livestream_frame_text_scans_status", "status"),
+        Index(
+            "ix_livestream_frame_text_scans_background_task_id",
+            "background_task_id",
+        ),
+    )
+
+
+class LivestreamFrameTextScanSegment(db.Model):
+    __tablename__ = "livestream_frame_text_scan_segments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    scan_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("livestream_frame_text_scans.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    archive_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("livestream_frame_archives.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    capture_segment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("livestream_frame_capture_segments.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    start_second = Column(Integer, nullable=False)
+    end_second = Column(Integer, nullable=False)
+    status = Column(String, nullable=False, default="pending")
+    attempt_count = Column(Integer, nullable=False, default=0)
+    event_count = Column(Integer, nullable=False, default=0)
+    last_processed_second = Column(Integer, nullable=True)
+    background_task_id = Column(
+        UUID(as_uuid=True), ForeignKey("background_tasks.id"), nullable=True
+    )
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+
+    scan = relationship("LivestreamFrameTextScan", back_populates="segments")
+    archive = relationship("LivestreamFrameArchive")
+    capture_segment = relationship("LivestreamFrameCaptureSegment")
+    background_task = relationship("BackgroundTask")
+    events = relationship(
+        "LivestreamFrameTextEvent",
+        back_populates="scan_segment",
+        cascade="all, delete-orphan",
+        order_by="LivestreamFrameTextEvent.frame_second",
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "scan_id",
+            "capture_segment_id",
+            name="uq_livestream_frame_text_scan_segments_capture",
+        ),
+        Index("ix_livestream_frame_text_scan_segments_scan_id", "scan_id"),
+        Index("ix_livestream_frame_text_scan_segments_archive_id", "archive_id"),
+        Index("ix_livestream_frame_text_scan_segments_status", "status"),
+        Index(
+            "ix_livestream_frame_text_scan_segments_archive_start",
+            "archive_id",
+            "start_second",
+        ),
+        Index(
+            "ix_livestream_frame_text_scan_segments_background_task_id",
+            "background_task_id",
+        ),
+    )
+
+
+class LivestreamFrameTextEvent(db.Model):
+    __tablename__ = "livestream_frame_text_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    scan_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("livestream_frame_text_scans.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    archive_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("livestream_frame_archives.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    scan_segment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("livestream_frame_text_scan_segments.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    capture_segment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("livestream_frame_capture_segments.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    frame_second = Column(Integer, nullable=False)
+    top_points = Column(Integer, nullable=True)
+    top_advantages = Column(Integer, nullable=True)
+    top_penalties = Column(Integer, nullable=True)
+    bottom_points = Column(Integer, nullable=True)
+    bottom_advantages = Column(Integer, nullable=True)
+    bottom_penalties = Column(Integer, nullable=True)
+    timer_state = Column(String, nullable=True)
+    timer_value = Column(String, nullable=True)
+    top_athlete_name = Column(Text, nullable=True)
+    top_team_name = Column(Text, nullable=True)
+    bottom_athlete_name = Column(Text, nullable=True)
+    bottom_team_name = Column(Text, nullable=True)
+    profile_id = Column(String, nullable=True)
+    score_engine = Column(String, nullable=True)
+    name_engine = Column(String, nullable=True)
+    confidence = Column(Float, nullable=True)
+    needs_review = Column(Boolean, nullable=False, default=False)
+    evidence_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    scan = relationship("LivestreamFrameTextScan", back_populates="events")
+    archive = relationship("LivestreamFrameArchive")
+    scan_segment = relationship(
+        "LivestreamFrameTextScanSegment", back_populates="events"
+    )
+    capture_segment = relationship("LivestreamFrameCaptureSegment")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "archive_id",
+            "frame_second",
+            name="uq_livestream_frame_text_events_archive_second",
+        ),
+        Index("ix_livestream_frame_text_events_scan_id", "scan_id"),
+        Index("ix_livestream_frame_text_events_archive_id", "archive_id"),
+        Index(
+            "ix_livestream_frame_text_events_archive_second",
+            "archive_id",
+            "frame_second",
+        ),
+        Index("ix_livestream_frame_text_events_scan_segment_id", "scan_segment_id"),
+    )
+
+
 class FloEventTag(db.Model):
     __tablename__ = "flo_event_tags"
 

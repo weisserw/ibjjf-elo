@@ -35,6 +35,9 @@ from models import (
     BackgroundTask,
     LivestreamFrameArchive,
     LivestreamFrameCaptureSegment,
+    LivestreamFrameTextEvent,
+    LivestreamFrameTextScan,
+    LivestreamFrameTextScanSegment,
     FloSearchName,
     TeamNameMapping,
     AthleteMediaCoverage,
@@ -53,6 +56,19 @@ from livestream_frame_archive import (
     recompute_archive_status,
     retry_failed_segments,
     sync_archives_from_livestreams,
+)
+from livestream_frame_text_scan import (
+    DEFAULT_COARSE_INTERVAL_SECONDS,
+    DEFAULT_PARSER_PROFILE,
+    DEFAULT_SCORE_ENGINE,
+    cancel_queued_text_scan_segments,
+    claim_next_text_scan_segment,
+    mark_text_scan_segment_error,
+    mark_text_scan_segment_success,
+    queue_text_scan,
+    reconstruct_text_state,
+    retry_failed_text_scan_segments,
+    TextEventData,
 )
 from youtube_utils import canonical_youtube_url
 from normalize import normalize
@@ -165,6 +181,151 @@ def _segment_payload(segment, include_archive=True):
     if include_archive:
         payload["archive"] = _archive_payload(segment.archive)
     return payload
+
+
+def _text_scan_payload(scan):
+    if not scan:
+        return None
+    return {
+        "id": str(scan.id),
+        "archive_id": str(scan.archive_id),
+        "status": scan.status,
+        "parser_profile": scan.parser_profile,
+        "score_engine": scan.score_engine,
+        "name_engine": scan.name_engine,
+        "coarse_interval_seconds": scan.coarse_interval_seconds,
+        "total_segment_count": scan.total_segment_count,
+        "processed_segment_count": scan.processed_segment_count,
+        "last_processed_second": scan.last_processed_second,
+        "background_task_id": (
+            str(scan.background_task_id) if scan.background_task_id else None
+        ),
+        "last_error": scan.last_error,
+        "created_at": _utc_iso(scan.created_at),
+        "updated_at": _utc_iso(scan.updated_at),
+        "started_at": _utc_iso(scan.started_at),
+        "completed_at": _utc_iso(scan.completed_at),
+    }
+
+
+def _text_scan_capture_segment_payload(capture_segment):
+    if not capture_segment:
+        return None
+    return {
+        "id": str(capture_segment.id),
+        "archive_id": str(capture_segment.archive_id),
+        "start_second": capture_segment.start_second,
+        "end_second": capture_segment.end_second,
+        "status": capture_segment.status,
+        "batch_s3_key": capture_segment.batch_s3_key,
+        "last_uploaded_second": capture_segment.last_uploaded_second,
+    }
+
+
+def _text_scan_segment_payload(segment, include_scan=True, include_archive=True):
+    if not segment:
+        return None
+    payload = {
+        "id": str(segment.id),
+        "scan_id": str(segment.scan_id),
+        "archive_id": str(segment.archive_id),
+        "capture_segment_id": str(segment.capture_segment_id),
+        "start_second": segment.start_second,
+        "end_second": segment.end_second,
+        "status": segment.status,
+        "attempt_count": segment.attempt_count,
+        "event_count": segment.event_count,
+        "last_processed_second": segment.last_processed_second,
+        "background_task_id": (
+            str(segment.background_task_id) if segment.background_task_id else None
+        ),
+        "last_error": segment.last_error,
+        "created_at": _utc_iso(segment.created_at),
+        "updated_at": _utc_iso(segment.updated_at),
+        "started_at": _utc_iso(segment.started_at),
+        "finished_at": _utc_iso(segment.finished_at),
+        "capture_segment": _text_scan_capture_segment_payload(segment.capture_segment),
+    }
+    if include_archive:
+        capture_segments = (
+            LivestreamFrameCaptureSegment.query.filter_by(
+                archive_id=segment.archive_id, status="success"
+            )
+            .order_by(LivestreamFrameCaptureSegment.start_second)
+            .all()
+        )
+        payload["archive_capture_segments"] = [
+            _text_scan_capture_segment_payload(capture_segment)
+            for capture_segment in capture_segments
+        ]
+    if include_scan:
+        payload["scan"] = _text_scan_payload(segment.scan)
+    if include_archive:
+        payload["archive"] = _archive_payload(segment.archive)
+    return payload
+
+
+def _text_event_payload(event):
+    if not event:
+        return None
+    evidence = None
+    if event.evidence_json:
+        try:
+            evidence = json.loads(event.evidence_json)
+        except json.JSONDecodeError:
+            evidence = {"raw": event.evidence_json}
+    return {
+        "id": str(event.id),
+        "scan_id": str(event.scan_id),
+        "archive_id": str(event.archive_id),
+        "scan_segment_id": str(event.scan_segment_id),
+        "capture_segment_id": str(event.capture_segment_id),
+        "frame_second": event.frame_second,
+        "top_points": event.top_points,
+        "top_advantages": event.top_advantages,
+        "top_penalties": event.top_penalties,
+        "bottom_points": event.bottom_points,
+        "bottom_advantages": event.bottom_advantages,
+        "bottom_penalties": event.bottom_penalties,
+        "timer_state": event.timer_state,
+        "timer_value": event.timer_value,
+        "top_athlete_name": event.top_athlete_name,
+        "top_team_name": event.top_team_name,
+        "bottom_athlete_name": event.bottom_athlete_name,
+        "bottom_team_name": event.bottom_team_name,
+        "profile_id": event.profile_id,
+        "score_engine": event.score_engine,
+        "name_engine": event.name_engine,
+        "confidence": event.confidence,
+        "needs_review": event.needs_review,
+        "evidence": evidence,
+        "created_at": _utc_iso(event.created_at),
+        "updated_at": _utc_iso(event.updated_at),
+    }
+
+
+def _text_event_data_from_payload(payload):
+    return TextEventData(
+        frame_second=int(payload["frame_second"]),
+        top_points=payload.get("top_points"),
+        top_advantages=payload.get("top_advantages"),
+        top_penalties=payload.get("top_penalties"),
+        bottom_points=payload.get("bottom_points"),
+        bottom_advantages=payload.get("bottom_advantages"),
+        bottom_penalties=payload.get("bottom_penalties"),
+        timer_state=payload.get("timer_state"),
+        timer_value=payload.get("timer_value"),
+        top_athlete_name=payload.get("top_athlete_name"),
+        top_team_name=payload.get("top_team_name"),
+        bottom_athlete_name=payload.get("bottom_athlete_name"),
+        bottom_team_name=payload.get("bottom_team_name"),
+        profile_id=payload.get("profile_id"),
+        score_engine=payload.get("score_engine"),
+        name_engine=payload.get("name_engine"),
+        confidence=payload.get("confidence"),
+        needs_review=bool(payload.get("needs_review")),
+        evidence=payload.get("evidence"),
+    )
 
 
 def _worker_api_authorized():
@@ -874,6 +1035,186 @@ def worker_error_livestream_frame_segment(segment_id):
     recompute_archive_status(db.session, segment.archive)
     db.session.commit()
     return jsonify({"segment": _segment_payload(segment)})
+
+
+@app.route("/api/livestream_frame_text_scans/queue", methods=["POST"])
+def queue_livestream_frame_text_scans():
+    data = request.get_json(silent=True) or {}
+    archive_ids = data.get("archive_ids") or []
+    youtube_video_ids = data.get("youtube_video_ids") or []
+    parser_profile = data.get("parser_profile") or DEFAULT_PARSER_PROFILE
+    score_engine = data.get("score_engine") or DEFAULT_SCORE_ENGINE
+    name_engine = data.get("name_engine")
+    coarse_interval_seconds = (
+        data.get("coarse_interval_seconds") or DEFAULT_COARSE_INTERVAL_SECONDS
+    )
+
+    archives_query = LivestreamFrameArchive.query.filter(
+        LivestreamFrameArchive.status == "success"
+    )
+    filters = []
+    if archive_ids:
+        try:
+            filters.append(
+                LivestreamFrameArchive.id.in_(
+                    [uuid.UUID(str(archive_id)) for archive_id in archive_ids]
+                )
+            )
+        except ValueError:
+            return jsonify({"error": "archive_ids must be UUIDs"}), 400
+    if youtube_video_ids:
+        filters.append(LivestreamFrameArchive.youtube_video_id.in_(youtube_video_ids))
+    if filters:
+        archives_query = archives_query.filter(or_(*filters))
+
+    queued = 0
+    scans = []
+    for archive in archives_query.order_by(LivestreamFrameArchive.created_at).all():
+        queued += queue_text_scan(
+            db.session,
+            archive,
+            parser_profile=parser_profile,
+            score_engine=score_engine,
+            name_engine=name_engine,
+            coarse_interval_seconds=coarse_interval_seconds,
+        )
+        scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
+        scans.append(scan)
+    db.session.commit()
+    return jsonify(
+        {
+            "queued_segments": queued,
+            "scans": [_text_scan_payload(scan) for scan in scans],
+        }
+    )
+
+
+@app.route("/api/livestream_frame_text_scans/retry", methods=["POST"])
+def retry_livestream_frame_text_scans():
+    data = request.get_json(silent=True) or {}
+    try:
+        scan_ids = [uuid.UUID(str(scan_id)) for scan_id in (data.get("scan_ids") or [])]
+    except ValueError:
+        return jsonify({"error": "scan_ids must be UUIDs"}), 400
+    count = retry_failed_text_scan_segments(db.session, scan_ids or None)
+    db.session.commit()
+    return jsonify({"segments": count})
+
+
+@app.route("/api/livestream_frame_text_scans/cancel", methods=["POST"])
+def cancel_livestream_frame_text_scans():
+    data = request.get_json(silent=True) or {}
+    try:
+        scan_ids = [uuid.UUID(str(scan_id)) for scan_id in (data.get("scan_ids") or [])]
+    except ValueError:
+        return jsonify({"error": "scan_ids must be UUIDs"}), 400
+    count = cancel_queued_text_scan_segments(db.session, scan_ids or None)
+    db.session.commit()
+    return jsonify({"segments": count})
+
+
+@app.route(
+    f"{WORKER_API_PREFIX}text_scan_segments/claim",
+    methods=["POST"],
+)
+def worker_claim_livestream_frame_text_scan_segment():
+    data = request.get_json(silent=True) or {}
+    try:
+        scan_id = _parse_uuid(data.get("scan_id"), "scan_id")
+        archive_id = _parse_uuid(data.get("archive_id"), "archive_id")
+        background_task_id = _parse_uuid(
+            data.get("background_task_id"), "background_task_id"
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    segment = claim_next_text_scan_segment(
+        db.session,
+        scan_id=scan_id,
+        archive_id=archive_id,
+        youtube_video_id=data.get("youtube_video_id"),
+        background_task_id=background_task_id,
+    )
+    return jsonify({"segment": _text_scan_segment_payload(segment)})
+
+
+@app.route(
+    f"{WORKER_API_PREFIX}text_scan_segments/<segment_id>/complete",
+    methods=["POST"],
+)
+def worker_complete_livestream_frame_text_scan_segment(segment_id):
+    try:
+        segment_uuid = uuid.UUID(segment_id)
+    except ValueError:
+        return jsonify({"error": "segment_id must be a UUID"}), 400
+
+    segment = LivestreamFrameTextScanSegment.query.get(segment_uuid)
+    if not segment:
+        return jsonify({"error": "segment not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    events_payload = data.get("events") or []
+    if not isinstance(events_payload, list):
+        return jsonify({"error": "events must be a list"}), 400
+    try:
+        events = [_text_event_data_from_payload(item) for item in events_payload]
+    except (KeyError, TypeError, ValueError) as exc:
+        return jsonify({"error": f"invalid event payload: {exc}"}), 400
+
+    mark_text_scan_segment_success(db.session, segment, events)
+    db.session.commit()
+    stored_events = (
+        LivestreamFrameTextEvent.query.filter_by(scan_segment_id=segment.id)
+        .order_by(LivestreamFrameTextEvent.frame_second)
+        .all()
+    )
+    return jsonify(
+        {
+            "segment": _text_scan_segment_payload(segment),
+            "events": [_text_event_payload(event) for event in stored_events],
+        }
+    )
+
+
+@app.route(
+    f"{WORKER_API_PREFIX}text_scan_segments/<segment_id>/initial_state",
+    methods=["GET"],
+)
+def worker_livestream_frame_text_scan_segment_initial_state(segment_id):
+    try:
+        segment_uuid = uuid.UUID(segment_id)
+    except ValueError:
+        return jsonify({"error": "segment_id must be a UUID"}), 400
+
+    segment = LivestreamFrameTextScanSegment.query.get(segment_uuid)
+    if not segment:
+        return jsonify({"error": "segment not found"}), 404
+
+    state = reconstruct_text_state(
+        db.session, segment.archive_id, before_second=segment.start_second
+    )
+    return jsonify({"state": state.__dict__})
+
+
+@app.route(
+    f"{WORKER_API_PREFIX}text_scan_segments/<segment_id>/error",
+    methods=["POST"],
+)
+def worker_error_livestream_frame_text_scan_segment(segment_id):
+    try:
+        segment_uuid = uuid.UUID(segment_id)
+    except ValueError:
+        return jsonify({"error": "segment_id must be a UUID"}), 400
+
+    segment = LivestreamFrameTextScanSegment.query.get(segment_uuid)
+    if not segment:
+        return jsonify({"error": "segment not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    error = str(data.get("error") or "unknown error")
+    mark_text_scan_segment_error(db.session, segment, error)
+    db.session.commit()
+    return jsonify({"segment": _text_scan_segment_payload(segment)})
 
 
 @app.route("/api/events/search")
