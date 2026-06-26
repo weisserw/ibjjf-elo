@@ -101,6 +101,7 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
                 37: {"top_points": 2},
             }
         )
+        debug_messages = []
 
         events = text_scan.scan_frame_text_segment(
             provider,
@@ -108,11 +109,66 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             0,
             121,
             coarse_interval_seconds=120,
+            debug_callback=debug_messages.append,
         )
 
         self.assertEqual([event.frame_second for event in events], [0, 37])
         self.assertEqual(events[1].top_points, 2)
         self.assertIn(37, parser.calls)
+        self.assertTrue(
+            any("binary search start range=1-120" in item for item in debug_messages)
+        )
+        self.assertTrue(
+            any("binary search result second=37" in item for item in debug_messages)
+        )
+        self.assertTrue(
+            any("event second=37 fields=top_points" in item for item in debug_messages)
+        )
+
+    def test_name_only_changes_do_not_emit_events(self):
+        provider = DictFrameProvider()
+        parser = TimelineParser(
+            {
+                0: {"top_athlete_name": "ALICE"},
+                37: {"top_athlete_name": "BOB"},
+            }
+        )
+        debug_messages = []
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            parser,
+            0,
+            121,
+            coarse_interval_seconds=120,
+            debug_callback=debug_messages.append,
+        )
+
+        self.assertEqual(events, [])
+        self.assertFalse(any("binary search start" in item for item in debug_messages))
+
+    def test_name_noise_does_not_pull_score_binary_search_earlier(self):
+        provider = DictFrameProvider()
+
+        class NoisyNameParser:
+            def parse(self, frame_second, score_image, timer_image):
+                return text_scan.FrameReading(
+                    frame_second=frame_second,
+                    top_points=2 if frame_second >= 37 else 0,
+                    top_athlete_name=f"NOISE {frame_second}",
+                )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            NoisyNameParser(),
+            0,
+            121,
+            coarse_interval_seconds=120,
+        )
+
+        self.assertEqual([event.frame_second for event in events], [0, 37])
+        self.assertEqual(events[1].top_points, 2)
+        self.assertEqual(events[1].top_athlete_name, "NOISE 37")
 
     def test_running_timer_tickdown_does_not_emit_events(self):
         provider = DictFrameProvider()
@@ -138,6 +194,33 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
         self.assertEqual(events[0].frame_second, 0)
         self.assertEqual(events[0].timer_state, "running")
         self.assertEqual(events[0].timer_value, "5:00")
+
+    def test_repeated_running_timer_value_does_not_emit_duplicate_events(self):
+        provider = DictFrameProvider()
+
+        class TimerParser:
+            def parse(self, frame_second, score_image, timer_image):
+                return text_scan.FrameReading(
+                    frame_second=frame_second,
+                    timer_state="running",
+                    timer_value="4:00",
+                )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            TimerParser(),
+            0,
+            241,
+            coarse_interval_seconds=120,
+        )
+
+        self.assertEqual(
+            [
+                (event.frame_second, event.timer_state, event.timer_value)
+                for event in events
+            ],
+            [(0, "running", "4:00")],
+        )
 
     def test_timer_stop_and_blank_are_sparse_events(self):
         provider = DictFrameProvider()
@@ -241,6 +324,15 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "successful frame archives"):
             text_scan.queue_text_scan(db.session, archive)
 
+    def test_queue_text_scan_defaults_name_engine_to_tesseract(self):
+        archive, _ = self._archive_with_segments()
+
+        text_scan.queue_text_scan(db.session, archive)
+        db.session.commit()
+
+        scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
+        self.assertEqual(scan.name_engine, "tesseract")
+
     def test_queue_and_claim_segments_sequentially(self):
         archive, _ = self._archive_with_segments()
         text_scan.queue_text_scan(db.session, archive, score_engine="none")
@@ -313,6 +405,159 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
 
 
 class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
+    def _name_parser(self, name_engine="tesseract"):
+        parser = runner.TesseractTextParser.__new__(runner.TesseractTextParser)
+        parser.name_engine = name_engine
+        return parser
+
+    def _score_parser(self):
+        parser = runner.TesseractTextParser.__new__(runner.TesseractTextParser)
+        return parser
+
+    def test_parse_args_defaults_name_engine_to_tesseract(self):
+        args = runner.parse_args([])
+
+        self.assertEqual(args.name_engine, "tesseract")
+
+    def test_tesseract_parser_reads_score_rows_from_scoreboard_text(self):
+        parser = self._score_parser()
+
+        fields = parser._parse_score(
+            "\n".join(
+                [
+                    "MARIA SILVA 0 1 0",
+                    "CHECKMAT",
+                    "ANA SOUZA 2 0 1",
+                    "ALLIANCE",
+                ]
+            )
+        )
+
+        self.assertEqual(
+            fields,
+            {
+                "top_points": 0,
+                "top_advantages": 1,
+                "top_penalties": 0,
+                "bottom_points": 2,
+                "bottom_advantages": 0,
+                "bottom_penalties": 1,
+            },
+        )
+
+    def test_tesseract_parser_reads_contiguous_score_row_digits(self):
+        parser = self._score_parser()
+
+        fields = parser._parse_score("000\n210")
+
+        self.assertEqual(fields["top_points"], 0)
+        self.assertEqual(fields["top_advantages"], 0)
+        self.assertEqual(fields["top_penalties"], 0)
+        self.assertEqual(fields["bottom_points"], 2)
+        self.assertEqual(fields["bottom_advantages"], 1)
+        self.assertEqual(fields["bottom_penalties"], 0)
+
+    def test_tesseract_parser_reads_score_cells_before_grid_fallback(self):
+        parser = self._score_parser()
+        values = iter([(0, "0"), (0, "0"), (0, "0"), (2, "2"), (1, "1"), (1, "1")])
+        parser._template_score_digit = lambda image, cell_index: next(values)
+
+        from PIL import Image
+
+        fields, text = parser._parse_score_cells_from_image(
+            Image.new("RGB", (320, 144))
+        )
+
+        self.assertEqual(text, "000\n211")
+        self.assertEqual(fields["top_points"], 0)
+        self.assertEqual(fields["bottom_points"], 2)
+        self.assertEqual(fields["bottom_advantages"], 1)
+        self.assertEqual(fields["bottom_penalties"], 1)
+
+    def test_tesseract_parser_normalizes_score_ocr_digit_confusions(self):
+        parser = self._score_parser()
+
+        fields = parser._parse_score("MARIA O I O\nANA 2 O l")
+
+        self.assertEqual(fields["top_points"], 0)
+        self.assertEqual(fields["top_advantages"], 1)
+        self.assertEqual(fields["top_penalties"], 0)
+        self.assertEqual(fields["bottom_points"], 2)
+        self.assertEqual(fields["bottom_advantages"], 0)
+        self.assertEqual(fields["bottom_penalties"], 1)
+
+    def test_tesseract_parser_reads_names_from_scoreboard_text(self):
+        parser = self._name_parser()
+
+        fields = parser._parse_names(
+            "\n".join(
+                [
+                    "MARIA SILVA",
+                    "CHECKMAT",
+                    "0 0 0",
+                    "ANA SOUZA",
+                    "ALLIANCE",
+                    "2 1 0",
+                ]
+            )
+        )
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "MARIA SILVA",
+                "bottom_athlete_name": "ANA SOUZA",
+            },
+        )
+
+    def test_tesseract_parser_skips_names_when_name_engine_disabled(self):
+        parser = self._name_parser(name_engine=None)
+
+        self.assertEqual(parser._parse_names("MARIA SILVA\n0 0 0"), {})
+
+    def test_tesseract_parser_name_only_mode_does_not_emit_score_or_timer(self):
+        parser = self._name_parser()
+        parser.parser_profile = "auto"
+        parser.score_engine = "none"
+        parser._image_from_bytes = lambda image_bytes: image_bytes
+        parser._ocr = lambda image, config="": (
+            "MARIA SILVA\nCHECKMAT\n0 0 0\nANA SOUZA\nALLIANCE\n2 1 0"
+        )
+
+        reading = parser.parse(12, b"score", b"timer")
+
+        self.assertEqual(reading.top_athlete_name, "MARIA SILVA")
+        self.assertEqual(reading.bottom_athlete_name, "ANA SOUZA")
+        self.assertIsNone(reading.top_points)
+        self.assertIsNone(reading.timer_state)
+
+    def test_tesseract_parser_uses_score_grid_ocr_for_score_fields(self):
+        parser = self._name_parser()
+        parser.parser_profile = "auto"
+        parser.score_engine = "tesseract"
+        parser._image_from_bytes = lambda image_bytes: image_bytes
+        parser._ocr = lambda image, config="": (
+            "KEANU ALIKA ORA-A. i) ~\nJOSIAH KALANI YUEN 0 . ."
+        )
+        parser._parse_score_from_image = lambda image: (
+            {
+                "top_points": 0,
+                "top_advantages": 0,
+                "top_penalties": 0,
+                "bottom_points": 2,
+                "bottom_advantages": 1,
+                "bottom_penalties": 0,
+            },
+            "000\n210",
+        )
+
+        reading = parser.parse(548, b"score", b"timer")
+
+        self.assertEqual(reading.top_points, 0)
+        self.assertEqual(reading.bottom_points, 2)
+        self.assertEqual(reading.bottom_advantages, 1)
+        self.assertEqual(reading.evidence["score_grid_text"], "000\n210")
+
     def test_validate_ocr_engines_accepts_none_without_imports(self):
         runner.validate_ocr_engines("none", None)
 

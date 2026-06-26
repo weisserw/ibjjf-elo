@@ -5,7 +5,7 @@ import json
 import tarfile
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Callable, Protocol
 
 from sqlalchemy import exists
 from sqlalchemy.orm import selectinload
@@ -40,6 +40,7 @@ TEXT_SCAN_SEGMENT_STATUSES = (
 DEFAULT_COARSE_INTERVAL_SECONDS = 120
 DEFAULT_PARSER_PROFILE = "auto"
 DEFAULT_SCORE_ENGINE = "tesseract"
+DEFAULT_NAME_ENGINE = "tesseract"
 SCORE_FIELDS = (
     "top_points",
     "top_advantages",
@@ -54,6 +55,7 @@ NAME_FIELDS = (
     "bottom_athlete_name",
     "bottom_team_name",
 )
+DebugCallback = Callable[[str], None]
 
 
 @dataclass(frozen=True)
@@ -194,7 +196,7 @@ def get_or_create_text_scan(
     archive: LivestreamFrameArchive,
     parser_profile: str = DEFAULT_PARSER_PROFILE,
     score_engine: str = DEFAULT_SCORE_ENGINE,
-    name_engine: str | None = None,
+    name_engine: str | None = DEFAULT_NAME_ENGINE,
     coarse_interval_seconds: int = DEFAULT_COARSE_INTERVAL_SECONDS,
 ) -> tuple[LivestreamFrameTextScan, bool]:
     scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one_or_none()
@@ -217,7 +219,7 @@ def queue_text_scan(
     archive: LivestreamFrameArchive,
     parser_profile: str = DEFAULT_PARSER_PROFILE,
     score_engine: str = DEFAULT_SCORE_ENGINE,
-    name_engine: str | None = None,
+    name_engine: str | None = DEFAULT_NAME_ENGINE,
     coarse_interval_seconds: int = DEFAULT_COARSE_INTERVAL_SECONDS,
 ) -> int:
     if archive.status != "success":
@@ -486,12 +488,18 @@ def reading_changes(state: TextState, reading: FrameReading) -> dict:
 
     if reading.timer_state is not None:
         expected_value = expected_timer_value(state, reading.frame_second)
-        if (
-            state.timer_state != reading.timer_state
-            or reading.timer_state != "running"
-            and state.timer_value != reading.timer_value
-            or reading.timer_state == "running"
+        if state.timer_state != reading.timer_state:
+            changes["timer_state"] = reading.timer_state
+            changes["timer_value"] = reading.timer_value
+        elif reading.timer_state == "running" and (
+            state.timer_value != reading.timer_value
             and expected_value != reading.timer_value
+        ):
+            changes["timer_state"] = reading.timer_state
+            changes["timer_value"] = reading.timer_value
+        elif (
+            reading.timer_state != "running"
+            and state.timer_value != reading.timer_value
         ):
             changes["timer_state"] = reading.timer_state
             changes["timer_value"] = reading.timer_value
@@ -515,6 +523,27 @@ def event_from_reading(reading: FrameReading, changes: dict) -> TextEventData:
     }
     event_kwargs.update(changes)
     return TextEventData(**event_kwargs)
+
+
+def _format_change_fields(changes: dict) -> str:
+    return ",".join(sorted(changes)) if changes else "none"
+
+
+def _precise_scan_changes(changes: dict) -> dict:
+    return {
+        field: value
+        for field, value in changes.items()
+        if field in SCORE_FIELDS or field in ("timer_state", "timer_value")
+    }
+
+
+def _name_changes(state: TextState, reading: FrameReading) -> dict:
+    return {
+        field: value
+        for field in NAME_FIELDS
+        if (value := getattr(reading, field)) is not None
+        and getattr(state, field) != value
+    }
 
 
 def coarse_probe_seconds(
@@ -544,16 +573,39 @@ def _find_first_changed_second(
     base_state: TextState,
     low_second: int,
     high_second: int,
+    debug_callback: DebugCallback | None = None,
+    change_filter=None,
 ) -> int:
+    change_filter = change_filter or (lambda changes: changes)
     left = low_second + 1
     right = high_second
+    if debug_callback:
+        debug_callback(
+            f"binary search start range={left}-{right} "
+            f"base_second={low_second} probe_second={high_second}"
+        )
     while left < right:
         mid = (left + right) // 2
         reading = _read_frame(provider, parser, mid)
-        if reading_changes(base_state, reading):
+        changes = change_filter(reading_changes(base_state, reading))
+        if changes:
+            next_left = left
+            next_right = mid
+        else:
+            next_left = mid + 1
+            next_right = right
+        if debug_callback:
+            debug_callback(
+                f"binary search step mid={mid} changed={bool(changes)} "
+                f"fields={_format_change_fields(changes)} "
+                f"next_range={next_left}-{next_right}"
+            )
+        if changes:
             right = mid
         else:
             left = mid + 1
+    if debug_callback:
+        debug_callback(f"binary search result second={left}")
     return left
 
 
@@ -564,17 +616,33 @@ def scan_frame_text_segment(
     end_second: int,
     initial_state: TextState | None = None,
     coarse_interval_seconds: int = DEFAULT_COARSE_INTERVAL_SECONDS,
+    debug_callback: DebugCallback | None = None,
 ) -> list[TextEventData]:
     state = initial_state.copy() if initial_state else TextState()
     events: list[TextEventData] = []
     previous_probe_second = start_second - 1
-    for probe_second in coarse_probe_seconds(
+    probe_seconds = coarse_probe_seconds(
         start_second, end_second, coarse_interval_seconds
-    ):
+    )
+    if debug_callback:
+        first_probe = probe_seconds[0] if probe_seconds else None
+        last_probe = probe_seconds[-1] if probe_seconds else None
+        debug_callback(
+            f"coarse probes count={len(probe_seconds)} "
+            f"first={first_probe} last={last_probe} interval={coarse_interval_seconds}"
+        )
+    for probe_second in probe_seconds:
         while True:
             reading = _read_frame(provider, parser, probe_second)
             changes = reading_changes(state, reading)
-            if not changes:
+            scan_changes = _precise_scan_changes(changes)
+            if debug_callback:
+                debug_callback(
+                    f"coarse probe second={probe_second} "
+                    f"previous={previous_probe_second} changed={bool(scan_changes)} "
+                    f"fields={_format_change_fields(scan_changes)}"
+                )
+            if not scan_changes:
                 previous_probe_second = probe_second
                 break
 
@@ -587,15 +655,36 @@ def scan_frame_text_segment(
                     state,
                     previous_probe_second,
                     probe_second,
+                    debug_callback=debug_callback,
+                    change_filter=_precise_scan_changes,
                 )
             )
+            if refined_second == probe_second and debug_callback:
+                debug_callback(
+                    f"using coarse probe second={probe_second} "
+                    f"fields={_format_change_fields(scan_changes)}"
+                )
             refined_reading = _read_frame(provider, parser, refined_second)
             refined_changes = reading_changes(state, refined_reading)
-            if not refined_changes:
+            refined_scan_changes = _precise_scan_changes(refined_changes)
+            if not refined_scan_changes:
+                if debug_callback:
+                    debug_callback(
+                        f"refined probe second={refined_second} changed=False"
+                    )
                 previous_probe_second = refined_second
                 continue
-            event = event_from_reading(refined_reading, refined_changes)
+            event_changes = {
+                **refined_scan_changes,
+                **_name_changes(state, refined_reading),
+            }
+            event = event_from_reading(refined_reading, event_changes)
             events.append(event)
+            if debug_callback:
+                debug_callback(
+                    f"event second={event.frame_second} "
+                    f"fields={_format_change_fields(event_changes)}"
+                )
             state = apply_event_to_state(state, event)
             if refined_second >= probe_second:
                 previous_probe_second = refined_second

@@ -66,9 +66,7 @@
             <span class="tag is-light">score {{ event_counts.score }}</span>
             <span class="tag is-light">timer {{ event_counts.timer }}</span>
             <span class="tag is-light">athletes {{ event_counts.athlete_names }}</span>
-            <span class="tag is-light">teams {{ event_counts.team_names }}</span>
             <span class="tag is-light">profiles {{ event_counts.profiles }}</span>
-            <span class="tag is-light">needs review {{ event_counts.needs_review }}</span>
         </div>
     </div>
 
@@ -90,7 +88,6 @@
                     <th>Attempts</th>
                     <th>Events</th>
                     <th>Last processed</th>
-                    <th>Task</th>
                     <th>Last error</th>
                 </tr>
             </thead>
@@ -103,22 +100,17 @@
                     <td>{{ segment.attempt_count }}</td>
                     <td>{{ segment.event_count }}</td>
                     <td>{{ time_label(segment.last_processed_second) }}</td>
-                    <td>
-                        {% if segment.background_task_id %}
-                        <a href="{{ url_for('task_detail', task_id=segment.background_task_id) }}">View</a>
-                        {% endif %}
-                    </td>
                     <td class="has-text-danger">{{ segment.last_error or '' }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="8">No text scan segments queued.</td></tr>
+                <tr><td colspan="7">No text scan segments queued.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
     <div class="box">
-        <h2 class="title is-5">Recent Events</h2>
+        <h2 class="title is-5">Events</h2>
         <table class="table is-fullwidth is-striped is-size-7">
             <thead>
                 <tr>
@@ -126,10 +118,7 @@
                     <th>Score</th>
                     <th>Timer</th>
                     <th>Athletes</th>
-                    <th>Teams</th>
                     <th>Profile</th>
-                    <th>Confidence</th>
-                    <th>Review</th>
                 </tr>
             </thead>
             <tbody>
@@ -156,16 +145,10 @@
                         {% if event.top_athlete_name %}<div>top {{ event.top_athlete_name }}</div>{% endif %}
                         {% if event.bottom_athlete_name %}<div>bottom {{ event.bottom_athlete_name }}</div>{% endif %}
                     </td>
-                    <td>
-                        {% if event.top_team_name %}<div>top {{ event.top_team_name }}</div>{% endif %}
-                        {% if event.bottom_team_name %}<div>bottom {{ event.bottom_team_name }}</div>{% endif %}
-                    </td>
                     <td>{{ event.profile_id or '' }}</td>
-                    <td>{{ '%.2f'|format(event.confidence) if event.confidence is not none else '' }}</td>
-                    <td>{{ 'yes' if event.needs_review else '' }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="8">No text events found yet.</td></tr>
+                <tr><td colspan="5">No text events found yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

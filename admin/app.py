@@ -59,6 +59,7 @@ from livestream_frame_archive import (
 )
 from livestream_frame_text_scan import (
     DEFAULT_COARSE_INTERVAL_SECONDS,
+    DEFAULT_NAME_ENGINE,
     DEFAULT_PARSER_PROFILE,
     DEFAULT_SCORE_ENGINE,
     TEXT_SCAN_SEGMENT_STATUSES,
@@ -1181,8 +1182,7 @@ def livestream_frame_text_scan_detail(archive_id):
         )
         events = (
             LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id)
-            .order_by(LivestreamFrameTextEvent.frame_second.desc())
-            .limit(200)
+            .order_by(LivestreamFrameTextEvent.frame_second)
             .all()
         )
         event_counts = _text_event_counts_for_scan_ids([scan.id]).get(
@@ -1349,7 +1349,7 @@ def queue_livestream_frame_text_scans():
     youtube_video_ids = data.get("youtube_video_ids") or []
     parser_profile = data.get("parser_profile") or DEFAULT_PARSER_PROFILE
     score_engine = data.get("score_engine") or DEFAULT_SCORE_ENGINE
-    name_engine = data.get("name_engine")
+    name_engine = data.get("name_engine") or DEFAULT_NAME_ENGINE
     coarse_interval_seconds = (
         data.get("coarse_interval_seconds") or DEFAULT_COARSE_INTERVAL_SECONDS
     )
