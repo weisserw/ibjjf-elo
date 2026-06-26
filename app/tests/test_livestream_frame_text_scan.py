@@ -620,7 +620,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
 
-    def test_tesseract_parser_ocr_scans_left_name_column(self):
+    def test_tesseract_parser_falls_back_to_complete_column_text(self):
         class FakeScoreImage:
             size = (320, 140)
 
@@ -634,14 +634,18 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser = self._name_parser()
         parser._prepare_name_ocr_image = lambda image: f"prepared-{image}"
         parser._ocr = mock.Mock(
-            return_value="\n".join(
-                [
-                    "KEANU ALIKA ORA-A",
-                    "ROMA JJ ACADEMY",
-                    "JOSIAH KALANI YUEN",
-                    "RODRIGO PINHEIRO BJJ",
-                ]
-            )
+            side_effect=[
+                "\n".join(
+                    [
+                        "KEANU ALIKA ORA-A",
+                        "ROMA JJ ACADEMY",
+                        "JOSIAH KALANI YUEN",
+                        "RODRIGO PINHEIRO BJJ",
+                    ]
+                ),
+                "",
+                "",
+            ]
         )
         score_image = FakeScoreImage()
 
@@ -655,8 +659,49 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
         self.assertIn("KEANU ALIKA ORA-A", scoreboard_text)
-        self.assertEqual(score_image.boxes, [(0, 0, 153, 120)])
-        parser._ocr.assert_called_once_with("prepared-crop-1", "--psm 6")
+        self.assertEqual(score_image.boxes[0], (0, 0, 153, 120))
+        self.assertEqual(len(score_image.boxes), 3)
+        parser._ocr.assert_has_calls(
+            [
+                mock.call("prepared-crop-1", "--psm 6"),
+                mock.call("prepared-crop-2", "--psm 7"),
+                mock.call("prepared-crop-3", "--psm 7"),
+            ]
+        )
+
+    def test_tesseract_parser_prefers_split_rows_over_ambiguous_column_pair(self):
+        class FakeScoreImage:
+            size = (320, 140)
+
+            def __init__(self):
+                self.boxes = []
+
+            def crop(self, box):
+                self.boxes.append(box)
+                return f"crop-{len(self.boxes)}"
+
+        parser = self._name_parser()
+        parser._prepare_name_ocr_image = lambda image: f"prepared-{image}"
+        parser._ocr = mock.Mock(
+            side_effect=[
+                "\n".join(["KEANU ALIKA ORA-A", "ROMA JJ ACADEMY"]),
+                "KEANU ALIKA ORA-A",
+                "JOSIAH KALANI YUEN",
+            ]
+        )
+        score_image = FakeScoreImage()
+
+        scoreboard_text, fields = parser._ocr_name_fields(score_image)
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "KEANU ALIKA ORA-A",
+                "bottom_athlete_name": "JOSIAH KALANI YUEN",
+            },
+        )
+        self.assertIn("ROMA JJ ACADEMY", scoreboard_text)
+        self.assertEqual(len(score_image.boxes), 3)
 
     def test_tesseract_parser_falls_back_to_split_rows(self):
         class FakeScoreImage:

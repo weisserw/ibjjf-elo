@@ -648,9 +648,11 @@ class FrameImageTextParser:
             score_image.crop(_name_column_box(score_image.size))
         )
         column_text = self._ocr(column_image, "--psm 6")
-        fields = self._complete_athlete_name_fields(self._parse_names(column_text))
-        if fields:
-            return column_text, fields
+        victory_fields = self._complete_athlete_name_fields(
+            self._parse_victory_names(column_text)
+        )
+        if victory_fields:
+            return column_text, victory_fields
 
         row_fields = {}
         row_texts = []
@@ -666,7 +668,14 @@ class FrameImageTextParser:
             if name:
                 row_fields[field_name] = name
         text = "\n".join([column_text, *row_texts]).strip()
-        return text, self._complete_athlete_name_fields(row_fields)
+        fields = self._complete_athlete_name_fields(row_fields)
+        if fields:
+            return text, fields
+
+        fields = self._complete_athlete_name_fields(
+            self._parse_names(column_text, allow_two_line_fallback=False)
+        )
+        return text, fields
 
     def _clean_name_line(self, line: str) -> str | None:
         line = re.sub(r"[|_]+", " ", line)
@@ -728,7 +737,7 @@ class FrameImageTextParser:
                 return fields
         return {}
 
-    def _parse_names(self, text: str) -> dict:
+    def _parse_names(self, text: str, *, allow_two_line_fallback: bool = True) -> dict:
         if self.name_engine in (None, "none"):
             return {}
 
@@ -761,6 +770,8 @@ class FrameImageTextParser:
             blocks.append(current_block)
 
         if len(blocks) < 2 and len(fallback_lines) >= 2:
+            if not allow_two_line_fallback and len(fallback_lines) < 4:
+                return {}
             midpoint = len(fallback_lines) // 2
             blocks = [fallback_lines[:midpoint], fallback_lines[midpoint:]]
 
