@@ -150,7 +150,9 @@
                     </td>
                     <td>
                         {% if row.event.top_athlete_name %}<div>{{ row.event.top_athlete_name }}</div>{% endif %}
+                        {% if row.event.top_team_name %}<div>{{ row.event.top_team_name }}</div>{% endif %}
                         {% if row.event.bottom_athlete_name %}<div>{{ row.event.bottom_athlete_name }}</div>{% endif %}
+                        {% if row.event.bottom_team_name %}<div>{{ row.event.bottom_team_name }}</div>{% endif %}
                     </td>
                     <td>{{ row.event.profile_id or '' }}</td>
                 </tr>

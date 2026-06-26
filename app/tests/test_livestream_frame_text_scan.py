@@ -168,7 +168,62 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
 
         self.assertEqual([event.frame_second for event in events], [0, 37])
         self.assertEqual(events[1].top_points, 2)
-        self.assertEqual(events[1].top_athlete_name, "NOISE 37")
+        self.assertIsNone(events[1].top_athlete_name)
+
+    def test_score_events_include_complete_athlete_name_pair(self):
+        provider = DictFrameProvider()
+
+        class NamePairParser:
+            def parse(self, frame_second, score_image, timer_image):
+                return text_scan.FrameReading(
+                    frame_second=frame_second,
+                    top_points=2 if frame_second >= 37 else 0,
+                    top_athlete_name="ALICE SMITH",
+                    bottom_athlete_name="BOB JONES",
+                )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            NamePairParser(),
+            0,
+            121,
+            coarse_interval_seconds=120,
+        )
+
+        self.assertEqual([event.frame_second for event in events], [0, 37])
+        self.assertEqual(events[0].top_athlete_name, "ALICE SMITH")
+        self.assertEqual(events[0].bottom_athlete_name, "BOB JONES")
+        self.assertEqual(events[1].top_athlete_name, "ALICE SMITH")
+        self.assertEqual(events[1].bottom_athlete_name, "BOB JONES")
+
+    def test_score_events_include_victory_team_line(self):
+        provider = DictFrameProvider()
+
+        class VictoryParser:
+            def parse(self, frame_second, score_image, timer_image):
+                return text_scan.FrameReading(
+                    frame_second=frame_second,
+                    top_points=2 if frame_second >= 37 else 0,
+                    top_athlete_name="Victory",
+                    bottom_athlete_name="ALICE SMITH",
+                    bottom_team_name="CHECKMAT",
+                )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            VictoryParser(),
+            0,
+            121,
+            coarse_interval_seconds=120,
+        )
+
+        self.assertEqual([event.frame_second for event in events], [0, 37])
+        self.assertEqual(events[0].top_athlete_name, "Victory")
+        self.assertEqual(events[0].bottom_athlete_name, "ALICE SMITH")
+        self.assertEqual(events[0].bottom_team_name, "CHECKMAT")
+        self.assertEqual(events[1].top_athlete_name, "Victory")
+        self.assertEqual(events[1].bottom_athlete_name, "ALICE SMITH")
+        self.assertEqual(events[1].bottom_team_name, "CHECKMAT")
 
     def test_running_timer_tickdown_does_not_emit_events(self):
         provider = DictFrameProvider()
@@ -487,6 +542,174 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                 "bottom_athlete_name": "ANA SOUZA",
             },
         )
+
+    def test_tesseract_parser_strips_score_junk_from_name_lines(self):
+        parser = self._name_parser()
+
+        fields = parser._parse_names(
+            "\n".join(
+                [
+                    "KEANU ALIKA ORA-A 0 . ~",
+                    "JOSIAH KALANI YUEN, 8 =p ;",
+                ]
+            )
+        )
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "KEANU ALIKA ORA-A",
+                "bottom_athlete_name": "JOSIAH KALANI YUEN",
+            },
+        )
+
+    def test_tesseract_parser_ignores_short_junk_name_lines(self):
+        parser = self._name_parser()
+
+        fields = parser._parse_names("S\ney 1\nrs PT\nMARIA SILVA\nANA SOUZA")
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "MARIA SILVA",
+                "bottom_athlete_name": "ANA SOUZA",
+            },
+        )
+
+    def test_tesseract_parser_reads_victory_screen(self):
+        parser = self._name_parser()
+
+        fields = parser._parse_names(
+            "\n".join(
+                [
+                    "Victory",
+                    "Josiah Kalani Yuen",
+                    "Rodrigo Pinheiro BJJ",
+                ]
+            )
+        )
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "Victory",
+                "bottom_athlete_name": "Josiah Kalani Yuen",
+                "bottom_team_name": "Rodrigo Pinheiro BJJ",
+            },
+        )
+
+    def test_tesseract_parser_reads_cropped_victory_screen(self):
+        parser = self._name_parser()
+
+        fields = parser._parse_names(
+            "\n".join(
+                [
+                    "ictory",
+                    "Josiah Kalani Yuen",
+                    "Rodrigo Pinheiro BJJ",
+                ]
+            )
+        )
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "Victory",
+                "bottom_athlete_name": "Josiah Kalani Yuen",
+                "bottom_team_name": "Rodrigo Pinheiro BJJ",
+            },
+        )
+
+    def test_tesseract_parser_ocr_scans_left_name_column(self):
+        class FakeScoreImage:
+            size = (320, 140)
+
+            def __init__(self):
+                self.boxes = []
+
+            def crop(self, box):
+                self.boxes.append(box)
+                return f"crop-{len(self.boxes)}"
+
+        parser = self._name_parser()
+        parser._prepare_name_ocr_image = lambda image: f"prepared-{image}"
+        parser._ocr = mock.Mock(
+            return_value="\n".join(
+                [
+                    "KEANU ALIKA ORA-A",
+                    "ROMA JJ ACADEMY",
+                    "JOSIAH KALANI YUEN",
+                    "RODRIGO PINHEIRO BJJ",
+                ]
+            )
+        )
+        score_image = FakeScoreImage()
+
+        scoreboard_text, fields = parser._ocr_name_fields(score_image)
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "KEANU ALIKA ORA-A",
+                "bottom_athlete_name": "JOSIAH KALANI YUEN",
+            },
+        )
+        self.assertIn("KEANU ALIKA ORA-A", scoreboard_text)
+        self.assertEqual(score_image.boxes, [(0, 0, 153, 120)])
+        parser._ocr.assert_called_once_with("prepared-crop-1", "--psm 6")
+
+    def test_tesseract_parser_falls_back_to_split_rows(self):
+        class FakeScoreImage:
+            size = (320, 140)
+
+            def __init__(self):
+                self.boxes = []
+
+            def crop(self, box):
+                self.boxes.append(box)
+                return f"crop-{len(self.boxes)}"
+
+        parser = self._name_parser()
+        parser._prepare_name_ocr_image = lambda image: f"prepared-{image}"
+        parser._ocr = mock.Mock(
+            side_effect=["", "KEANU ALIKA ORA-A", "JOSIAH KALANI YUEN"]
+        )
+        score_image = FakeScoreImage()
+
+        _, fields = parser._ocr_name_fields(score_image)
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "KEANU ALIKA ORA-A",
+                "bottom_athlete_name": "JOSIAH KALANI YUEN",
+            },
+        )
+        self.assertEqual(len(score_image.boxes), 3)
+        self.assertLessEqual(max(box[2] for box in score_image.boxes), 154)
+        self.assertLess(score_image.boxes[1][3], score_image.boxes[2][1])
+        parser._ocr.assert_has_calls(
+            [
+                mock.call("prepared-crop-1", "--psm 6"),
+                mock.call("prepared-crop-2", "--psm 7"),
+                mock.call("prepared-crop-3", "--psm 7"),
+            ]
+        )
+
+    def test_tesseract_parser_suppresses_partial_name_ocr(self):
+        class FakeScoreImage:
+            size = (320, 140)
+
+            def crop(self, box):
+                return box
+
+        parser = self._name_parser()
+        parser._prepare_name_ocr_image = lambda image: image
+        parser._ocr = mock.Mock(side_effect=["", "KEANU ALIKA ORA-A", ""])
+
+        _, fields = parser._ocr_name_fields(FakeScoreImage())
+
+        self.assertEqual(fields, {})
 
     def test_tesseract_parser_skips_names_when_name_engine_disabled(self):
         parser = self._name_parser(name_engine=None)

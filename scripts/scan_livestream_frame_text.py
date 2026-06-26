@@ -20,13 +20,14 @@ import requests
 try:
     import cv2
     import numpy as np
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw, ImageFont, ImageOps
 except ImportError:  # pragma: no cover - validated before worker scans run.
     cv2 = None
     np = None
     Image = None
     ImageDraw = None
     ImageFont = None
+    ImageOps = None
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 APP_DIR = REPO_ROOT / "app"
@@ -59,6 +60,11 @@ SUPPORTED_SCORE_ENGINES = ("none", "fixed_digit")
 SUPPORTED_NAME_ENGINES = ("none", "tesseract")
 SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
+NAME_COLUMN_RIGHT_RATIO = 0.481
+NAME_ROW_Y_EDGES = (0.0, 0.431, 0.861)
+NAME_LINE_TOP_RATIO = 0.02
+NAME_LINE_BOTTOM_RATIO = 0.42
+NAME_OCR_SCALE = 3
 
 
 class ApiObject:
@@ -268,6 +274,32 @@ def _score_cell_boxes(
         )
         for row in range(2)
         for col in range(3)
+    )
+
+
+def _name_line_boxes(
+    image_size: tuple[int, int]
+) -> tuple[tuple[int, int, int, int], ...]:
+    width, height = image_size
+    right = int(width * NAME_COLUMN_RIGHT_RATIO)
+    boxes = []
+    for row in range(2):
+        row_top = int(height * NAME_ROW_Y_EDGES[row])
+        row_bottom = int(height * NAME_ROW_Y_EDGES[row + 1])
+        row_height = row_bottom - row_top
+        top = row_top + int(row_height * NAME_LINE_TOP_RATIO)
+        bottom = row_top + int(row_height * NAME_LINE_BOTTOM_RATIO)
+        boxes.append((0, top, right, max(top + 1, bottom)))
+    return tuple(boxes)
+
+
+def _name_column_box(image_size: tuple[int, int]) -> tuple[int, int, int, int]:
+    width, height = image_size
+    return (
+        0,
+        0,
+        int(width * NAME_COLUMN_RIGHT_RATIO),
+        int(height * NAME_ROW_Y_EDGES[-1]),
     )
 
 
@@ -568,9 +600,86 @@ class FrameImageTextParser:
 
         return pytesseract.image_to_string(image, config=config).strip()
 
+    def _prepare_name_ocr_image(self, image):
+        if image is None:
+            return None
+        if Image is None or ImageOps is None:
+            return image
+
+        prepared = ImageOps.autocontrast(ImageOps.grayscale(image))
+        return prepared.resize(
+            (prepared.width * NAME_OCR_SCALE, prepared.height * NAME_OCR_SCALE),
+            Image.Resampling.LANCZOS,
+        )
+
+    def _name_from_row_text(self, text: str) -> str | None:
+        for raw_line in text.splitlines():
+            cleaned_line = self._clean_name_line(raw_line)
+            if cleaned_line:
+                return cleaned_line
+        return None
+
+    def _complete_athlete_name_fields(self, fields: dict) -> dict:
+        if fields.get("top_athlete_name") == "Victory" and fields.get(
+            "bottom_athlete_name"
+        ):
+            complete_fields = {
+                "top_athlete_name": "Victory",
+                "bottom_athlete_name": fields["bottom_athlete_name"],
+            }
+            if fields.get("bottom_team_name"):
+                complete_fields["bottom_team_name"] = fields["bottom_team_name"]
+            return complete_fields
+        if fields.get("top_athlete_name") and fields.get("bottom_athlete_name"):
+            return {
+                "top_athlete_name": fields["top_athlete_name"],
+                "bottom_athlete_name": fields["bottom_athlete_name"],
+            }
+        return {}
+
+    def _ocr_name_fields(self, score_image) -> tuple[str, dict]:
+        if score_image is None:
+            return "", {}
+        if not hasattr(score_image, "crop") or not hasattr(score_image, "size"):
+            text = self._ocr(score_image, "--psm 6")
+            return text, self._complete_athlete_name_fields(self._parse_names(text))
+
+        column_image = self._prepare_name_ocr_image(
+            score_image.crop(_name_column_box(score_image.size))
+        )
+        column_text = self._ocr(column_image, "--psm 6")
+        fields = self._complete_athlete_name_fields(self._parse_names(column_text))
+        if fields:
+            return column_text, fields
+
+        row_fields = {}
+        row_texts = []
+        for field_name, box in zip(
+            ("top_athlete_name", "bottom_athlete_name"),
+            _name_line_boxes(score_image.size),
+        ):
+            name_image = self._prepare_name_ocr_image(score_image.crop(box))
+            row_text = self._ocr(name_image, "--psm 7")
+            if row_text:
+                row_texts.append(row_text)
+            name = self._name_from_row_text(row_text)
+            if name:
+                row_fields[field_name] = name
+        text = "\n".join([column_text, *row_texts]).strip()
+        return text, self._complete_athlete_name_fields(row_fields)
+
     def _clean_name_line(self, line: str) -> str | None:
         line = re.sub(r"[|_]+", " ", line)
+        tokens = []
+        for token in line.split():
+            if re.search(r"\d", token):
+                break
+            if not re.match(r"^[A-Za-z][A-Za-z'.,:-]*$", token):
+                continue
+            tokens.append(token)
+        line = " ".join(tokens)
         line = re.sub(r"\s+", " ", line).strip(" -:")
+        line = re.sub(r"[^A-Za-z]+$", "", line).strip()
         if not re.search(r"[A-Za-z]", line):
             return None
         if re.fullmatch(
@@ -580,11 +689,52 @@ class FrameImageTextParser:
             flags=re.IGNORECASE,
         ):
             return None
+        alpha_tokens = re.findall(r"[A-Za-z][A-Za-z'-]*", line)
+        substantial_tokens = [
+            token for token in alpha_tokens if len(re.sub(r"[^A-Za-z]", "", token)) >= 2
+        ]
+        total_letters = sum(
+            len(re.sub(r"[^A-Za-z]", "", token)) for token in alpha_tokens
+        )
+        if len(substantial_tokens) < 2 or total_letters < 6:
+            return None
         return line
+
+    def _is_victory_line(self, line: str) -> bool:
+        letters = re.sub(r"[^A-Za-z]", "", line).lower()
+        return letters == "victory" or letters == "ictory"
+
+    def _parse_victory_names(self, text: str) -> dict:
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        for index, line in enumerate(lines):
+            if not self._is_victory_line(line):
+                continue
+
+            content_lines = []
+            for raw_line in lines[index + 1 :]:
+                cleaned_line = self._clean_name_line(raw_line)
+                if cleaned_line:
+                    content_lines.append(cleaned_line)
+                if len(content_lines) >= 2:
+                    break
+
+            if content_lines:
+                fields = {
+                    "top_athlete_name": "Victory",
+                    "bottom_athlete_name": content_lines[0],
+                }
+                if len(content_lines) >= 2:
+                    fields["bottom_team_name"] = content_lines[1]
+                return fields
+        return {}
 
     def _parse_names(self, text: str) -> dict:
         if self.name_engine in (None, "none"):
             return {}
+
+        victory_fields = self._parse_victory_names(text)
+        if victory_fields:
+            return victory_fields
 
         score_row_pattern = re.compile(r"\b\d{1,2}\s+\d{1,2}\s+\d{1,2}\b")
         blocks = []
@@ -626,13 +776,15 @@ class FrameImageTextParser:
         timer = self._image_from_bytes(timer_image)
         score_enabled = self.score_engine not in (None, "none")
         name_enabled = self.name_engine not in (None, "none")
-        scoreboard_text = self._ocr(score, "--psm 6") if name_enabled else ""
+        if name_enabled:
+            scoreboard_text, name_fields = self._ocr_name_fields(score)
+        else:
+            scoreboard_text, name_fields = "", {}
         score_reading = self.score_reader.read(score) if self.score_reader else None
         timer_reading = self.timer_reader.read(timer) if self.timer_reader else None
         score_fields = score_fields_from_reading(score_reading) if score_enabled else {}
         timer_state = timer_reading.state if timer_reading else None
         timer_value = timer_reading.value if timer_reading else None
-        name_fields = self._parse_names(scoreboard_text) if name_enabled else {}
         return FrameReading(
             frame_second=frame_second,
             **score_fields,

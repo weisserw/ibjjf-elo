@@ -558,12 +558,24 @@ def _precise_scan_changes(changes: dict) -> dict:
 
 
 def _name_changes(state: TextState, reading: FrameReading) -> dict:
-    return {
-        field: value
-        for field in NAME_FIELDS
-        if (value := getattr(reading, field)) is not None
-        and getattr(state, field) != value
-    }
+    changes = {}
+    if reading.top_athlete_name and reading.bottom_athlete_name:
+        changes["top_athlete_name"] = reading.top_athlete_name
+        changes["bottom_athlete_name"] = reading.bottom_athlete_name
+
+    if (
+        reading.top_team_name
+        and reading.bottom_team_name
+        and (
+            state.top_team_name != reading.top_team_name
+            or state.bottom_team_name != reading.bottom_team_name
+        )
+    ):
+        changes["top_team_name"] = reading.top_team_name
+        changes["bottom_team_name"] = reading.bottom_team_name
+    elif reading.top_athlete_name == "Victory" and reading.bottom_team_name:
+        changes["bottom_team_name"] = reading.bottom_team_name
+    return changes
 
 
 def coarse_probe_seconds(
