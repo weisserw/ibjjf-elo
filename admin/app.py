@@ -11,6 +11,7 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import date, datetime, timedelta, timezone
 from flask import Flask, render_template, redirect, url_for, request, session, jsonify
+from types import SimpleNamespace
 from urllib.parse import urlparse, urlencode, urlunparse
 from sqlalchemy import or_, func, case
 from sqlalchemy.exc import IntegrityError
@@ -62,7 +63,10 @@ from livestream_frame_text_scan import (
     DEFAULT_NAME_ENGINE,
     DEFAULT_PARSER_PROFILE,
     DEFAULT_SCORE_ENGINE,
+    SCORE_FIELDS,
     TEXT_SCAN_SEGMENT_STATUSES,
+    TextState,
+    apply_event_to_state,
     cancel_queued_text_scan_segments,
     claim_next_text_scan_segment,
     mark_text_scan_segment_error,
@@ -378,6 +382,24 @@ def _text_event_counts_for_scan_ids(scan_ids):
             "needs_review": row.needs_review or 0,
         }
     return counts
+
+
+def _text_event_display_rows(events):
+    rows = []
+    state = TextState()
+    for event in events:
+        has_score_change = any(
+            getattr(event, field, None) is not None for field in SCORE_FIELDS
+        )
+        state = apply_event_to_state(state, event)
+        rows.append(
+            SimpleNamespace(
+                event=event,
+                score=state.copy(),
+                has_score_change=has_score_change,
+            )
+        )
+    return rows
 
 
 def _text_scan_segment_status_counts(scan_ids):
@@ -1193,12 +1215,13 @@ def livestream_frame_text_scan_detail(archive_id):
         )
 
     usages = archive_usage_rows(db.session, archive.youtube_video_id)
+    event_rows = _text_event_display_rows(events)
     return render_template(
         "livestream_frame_text_scan_detail.html",
         archive=archive,
         scan=scan,
         segments=segments,
-        events=events,
+        event_rows=event_rows,
         usages=usages,
         event_counts=event_counts,
         segment_status_counts=segment_status_counts,

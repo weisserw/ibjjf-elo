@@ -586,7 +586,7 @@ class LivestreamFrameTextScan(db.Model):
     )
     status = Column(String, nullable=False, default="pending")
     parser_profile = Column(String, nullable=False, default="auto")
-    score_engine = Column(String, nullable=False, default="tesseract")
+    score_engine = Column(String, nullable=False, default="fixed_digit")
     name_engine = Column(String, nullable=True, default="tesseract")
     coarse_interval_seconds = Column(Integer, nullable=False, default=120)
     total_segment_count = Column(Integer, nullable=False, default=0)

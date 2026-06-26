@@ -122,30 +122,32 @@
                 </tr>
             </thead>
             <tbody>
-                {% for event in events %}
+                {% for row in event_rows %}
                 <tr>
-                    <td>{{ time_label(event.frame_second) }}</td>
+                    <td>{{ time_label(row.event.frame_second) }}</td>
                     <td>
-                        {% if event.top_points is not none or event.bottom_points is not none %}
-                        {{ event.top_points if event.top_points is not none else '-' }} - {{ event.bottom_points if event.bottom_points is not none else '-' }}
+                        {% if row.has_score_change %}
+                        {% if row.score.top_points is not none or row.score.bottom_points is not none %}
+                        {{ row.score.top_points if row.score.top_points is not none else '-' }} - {{ row.score.bottom_points if row.score.bottom_points is not none else '-' }}
                         {% endif %}
-                        {% if event.top_advantages is not none or event.bottom_advantages is not none or event.top_penalties is not none or event.bottom_penalties is not none %}
+                        {% if row.score.top_advantages is not none or row.score.bottom_advantages is not none or row.score.top_penalties is not none or row.score.bottom_penalties is not none %}
                         <div class="has-text-grey">
-                            adv {{ event.top_advantages if event.top_advantages is not none else '-' }}-{{ event.bottom_advantages if event.bottom_advantages is not none else '-' }},
-                            pen {{ event.top_penalties if event.top_penalties is not none else '-' }}-{{ event.bottom_penalties if event.bottom_penalties is not none else '-' }}
+                            adv {{ row.score.top_advantages if row.score.top_advantages is not none else '-' }}-{{ row.score.bottom_advantages if row.score.bottom_advantages is not none else '-' }},
+                            pen {{ row.score.top_penalties if row.score.top_penalties is not none else '-' }}-{{ row.score.bottom_penalties if row.score.bottom_penalties is not none else '-' }}
                         </div>
                         {% endif %}
-                    </td>
-                    <td>
-                        {% if event.timer_state or event.timer_value %}
-                        {{ event.timer_state or '' }} {{ event.timer_value or '' }}
                         {% endif %}
                     </td>
                     <td>
-                        {% if event.top_athlete_name %}<div>top {{ event.top_athlete_name }}</div>{% endif %}
-                        {% if event.bottom_athlete_name %}<div>bottom {{ event.bottom_athlete_name }}</div>{% endif %}
+                        {% if row.event.timer_state or row.event.timer_value %}
+                        {{ row.event.timer_state or '' }} {{ row.event.timer_value or '' }}
+                        {% endif %}
                     </td>
-                    <td>{{ event.profile_id or '' }}</td>
+                    <td>
+                        {% if row.event.top_athlete_name %}<div>top {{ row.event.top_athlete_name }}</div>{% endif %}
+                        {% if row.event.bottom_athlete_name %}<div>bottom {{ row.event.bottom_athlete_name }}</div>{% endif %}
+                    </td>
+                    <td>{{ row.event.profile_id or '' }}</td>
                 </tr>
                 {% else %}
                 <tr><td colspan="5">No text events found yet.</td></tr>

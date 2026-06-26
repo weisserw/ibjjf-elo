@@ -4,17 +4,29 @@
 from __future__ import annotations
 
 import argparse
+import io
 import os
 import re
 import shutil
 import sys
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urljoin
 
 import requests
+
+try:
+    import cv2
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageFont
+except ImportError:  # pragma: no cover - validated before worker scans run.
+    cv2 = None
+    np = None
+    Image = None
+    ImageDraw = None
+    ImageFont = None
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 APP_DIR = REPO_ROOT / "app"
@@ -41,7 +53,10 @@ from photos import bucket_name, get_s3_client  # noqa: E402
 
 ADMIN_URL_ENV_VAR = "LIVESTREAM_ARCHIVE_ADMIN_URL"
 ADMIN_PASSWORD_ENV_VAR = "LIVESTREAM_ARCHIVE_ADMIN_PASSWORD"
-SUPPORTED_ENGINES = ("none", "tesseract", "paddle")
+SUPPORTED_SCORE_ENGINES = ("none", "fixed_digit")
+SUPPORTED_NAME_ENGINES = ("none", "tesseract")
+SCORE_TEMPLATE_SIZE = (24, 36)
+TIMER_TEMPLATE_SIZE = (28, 48)
 
 
 class ApiObject:
@@ -194,25 +209,355 @@ class EmptyTextParser:
         return FrameReading(frame_second=frame_second, score_engine="none")
 
 
-class TesseractTextParser:
-    SCORE_DIGIT_TEMPLATE_SIZE = (24, 36)
-    SCORE_DIGIT_MIN_MATCH = 0.78
+@dataclass(frozen=True)
+class DigitTemplate:
+    digit: int
+    mask: int
+    pixel_count: int
+    source: str
 
+
+@dataclass(frozen=True)
+class DigitPrediction:
+    digit: int | None
+    similarity: float
+    source: str
+
+
+@dataclass(frozen=True)
+class ScoreboardDigitReading:
+    digits: tuple[int, int, int, int, int, int] | None
+    predictions: tuple[DigitPrediction, ...]
+    has_layout: bool
+
+
+@dataclass(frozen=True)
+class TimerDigitReading:
+    state: str | None
+    value: str | None
+    predictions: tuple[DigitPrediction, ...]
+
+
+def _require_fixed_digit_dependencies():
+    if (
+        cv2 is None
+        or np is None
+        or Image is None
+        or ImageDraw is None
+        or ImageFont is None
+    ):
+        raise RuntimeError(
+            "fixed_digit score engine requires opencv-python, numpy, and pillow"
+        )
+
+
+def _score_cell_boxes(
+    image_size: tuple[int, int]
+) -> tuple[tuple[int, int, int, int], ...]:
+    width, height = image_size
+    x_edges = (0.481, 0.638, 0.791, 0.919)
+    y_edges = (0.0, 0.431, 0.861)
+    return tuple(
+        (
+            int(width * x_edges[col]),
+            int(height * y_edges[row]),
+            int(width * x_edges[col + 1]),
+            int(height * y_edges[row + 1]),
+        )
+        for row in range(2)
+        for col in range(3)
+    )
+
+
+def _inner_cell(image):
+    margin = max(2, min(image.size) // 12)
+    return image.crop((margin, margin, image.width - margin, image.height - margin))
+
+
+def _score_cell_has_background(image, cell_index: int) -> bool:
+    rgb = np.asarray(image.convert("RGB"))
+    red = rgb[:, :, 0]
+    green = rgb[:, :, 1]
+    blue = rgb[:, :, 2]
+    if cell_index % 3 == 2:
+        mask = (red > 120) & (green < 110) & (blue < 130)
+    else:
+        mask = (green > 100) & (blue < 150) & (red < 190)
+    return bool(mask.mean() >= 0.12)
+
+
+def _score_digit_threshold(image):
+    rgb = np.asarray(image.convert("RGB"))
+    red = rgb[:, :, 0]
+    green = rgb[:, :, 1]
+    blue = rgb[:, :, 2]
+    spread = np.maximum.reduce([red, green, blue]) - np.minimum.reduce(
+        [red, green, blue]
+    )
+    return (red > 145) & (green > 145) & (blue > 95) & (spread < 120)
+
+
+def _largest_component(mask, min_area: int):
+    component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
+        mask.astype("uint8"), 8
+    )
+    if component_count <= 1:
+        return None
+    areas = stats[1:, cv2.CC_STAT_AREA]
+    component_index = 1 + int(np.argmax(areas))
+    if int(areas.max()) < min_area:
+        return None
+    x, y, width, height, _ = stats[component_index]
+    return labels[y : y + height, x : x + width] == component_index
+
+
+def _normalize_mask(mask, size: tuple[int, int]):
+    image = Image.fromarray(mask.astype("uint8") * 255, "L")
+    return np.asarray(image.resize(size, Image.Resampling.NEAREST)) > 0
+
+
+def _score_digit_mask(image):
+    threshold = _score_digit_threshold(image)
+    component = _largest_component(threshold, min_area=20)
+    if component is None:
+        return None
+    return _normalize_mask(component, SCORE_TEMPLATE_SIZE)
+
+
+def _font_paths() -> tuple[str, ...]:
+    return (
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Verdana Bold.ttf",
+        "DejaVuSans-Bold.ttf",
+    )
+
+
+def _render_digit_template(digit: int, font, size: tuple[int, int]):
+    canvas = Image.new("L", (140, 140), 0)
+    draw = ImageDraw.Draw(canvas)
+    bbox = draw.textbbox((0, 0), str(digit), font=font)
+    draw.text((10 - bbox[0], 10 - bbox[1]), str(digit), font=font, fill=255)
+    glyph_box = canvas.getbbox()
+    if glyph_box is None:
+        return None
+    return np.asarray(canvas.crop(glyph_box).resize(size, Image.Resampling.NEAREST)) > 0
+
+
+def _pack_mask(mask) -> tuple[int, int]:
+    flat = np.ascontiguousarray(mask.reshape(-1), dtype=np.uint8)
+    packed_bytes = np.packbits(flat, bitorder="little").tobytes()
+    return int.from_bytes(packed_bytes, "little"), int(flat.sum())
+
+
+def _generated_templates(
+    size: tuple[int, int], font_sizes: range, source_prefix: str
+) -> list[DigitTemplate]:
+    _require_fixed_digit_dependencies()
+    templates = []
+    for font_path in _font_paths():
+        for font_size in font_sizes:
+            try:
+                font = ImageFont.truetype(font_path, font_size)
+            except OSError:
+                continue
+            for digit in range(10):
+                mask = _render_digit_template(digit, font, size)
+                if mask is None:
+                    continue
+                packed, pixel_count = _pack_mask(mask)
+                templates.append(
+                    DigitTemplate(
+                        digit,
+                        packed,
+                        pixel_count,
+                        f"{source_prefix}:{Path(font_path).name}:{font_size}",
+                    )
+                )
+    if templates:
+        return templates
+
+    font = ImageFont.load_default()
+    for digit in range(10):
+        mask = _render_digit_template(digit, font, size)
+        if mask is None:
+            continue
+        packed, pixel_count = _pack_mask(mask)
+        templates.append(
+            DigitTemplate(digit, packed, pixel_count, f"{source_prefix}:default")
+        )
+    return templates
+
+
+def _packed_jaccard(mask: int, pixel_count: int, template: DigitTemplate) -> float:
+    intersection = (mask & template.mask).bit_count()
+    union = pixel_count + template.pixel_count - intersection
+    return float(intersection / union) if union else 0.0
+
+
+class FixedDigitClassifier:
+    def __init__(
+        self,
+        size: tuple[int, int],
+        font_sizes: range,
+        source_prefix: str,
+        templates: list[DigitTemplate] | None = None,
+    ):
+        self.size = size
+        self.templates = templates or _generated_templates(
+            size, font_sizes, source_prefix
+        )
+
+    def predict(self, mask) -> DigitPrediction:
+        packed, pixel_count = _pack_mask(mask)
+        best_digit = None
+        best_similarity = 0.0
+        best_source = "none"
+        for template in self.templates:
+            similarity = _packed_jaccard(packed, pixel_count, template)
+            if similarity > best_similarity:
+                best_digit = template.digit
+                best_similarity = similarity
+                best_source = template.source
+        return DigitPrediction(best_digit, best_similarity, best_source)
+
+
+class ScoreboardDigitReader:
+    def __init__(self, classifier: FixedDigitClassifier | None = None):
+        self.classifier = classifier or FixedDigitClassifier(
+            SCORE_TEMPLATE_SIZE, range(28, 50, 4), "score-font"
+        )
+
+    def read(self, image) -> ScoreboardDigitReading:
+        if image is None:
+            return ScoreboardDigitReading(None, (), False)
+        boxes = _score_cell_boxes(image.size)
+        predictions = []
+        has_layout = True
+        for index, box in enumerate(boxes):
+            cell = _inner_cell(image.crop(box))
+            if not _score_cell_has_background(cell, index):
+                has_layout = False
+            mask = _score_digit_mask(cell)
+            if mask is None:
+                predictions.append(DigitPrediction(None, 0.0, "none"))
+            else:
+                predictions.append(self.classifier.predict(mask))
+        if not has_layout or any(
+            prediction.digit is None for prediction in predictions
+        ):
+            return ScoreboardDigitReading(None, tuple(predictions), has_layout)
+        return ScoreboardDigitReading(
+            tuple(prediction.digit for prediction in predictions),
+            tuple(predictions),
+            True,
+        )
+
+
+class TimerDigitReader:
+    def __init__(self, classifier: FixedDigitClassifier | None = None):
+        self.classifier = classifier or FixedDigitClassifier(
+            TIMER_TEMPLATE_SIZE, range(44, 73, 4), "timer-font"
+        )
+
+    def _state(self, image) -> str | None:
+        if image is None:
+            return None
+        rgb = np.asarray(image.convert("RGB"))
+        red = rgb[:, :, 0]
+        green = rgb[:, :, 1]
+        blue = rgb[:, :, 2]
+        red_background = ((red > 130) & (green < 100) & (blue < 120)).mean()
+        green_foreground = (
+            (green > 140) & (red < 120) & (blue < 140) & ((green - red) > 40)
+        ).mean()
+        dark_background = ((red < 60) & (green < 60) & (blue < 60)).mean()
+        if red_background > 0.25:
+            return "stopped"
+        if green_foreground > 0.03 and dark_background > 0.30:
+            return "running"
+        return "blank"
+
+    def _threshold(self, image, state: str):
+        rgb = np.asarray(image.convert("RGB"))
+        red = rgb[:, :, 0]
+        green = rgb[:, :, 1]
+        blue = rgb[:, :, 2]
+        if state == "stopped":
+            return (red < 70) & (green < 70) & (blue < 70)
+        return (green > 110) & (red < 120) & (blue < 130) & ((green - red) > 40)
+
+    def read(self, image) -> TimerDigitReading:
+        state = self._state(image)
+        if image is None or state in (None, "blank"):
+            return TimerDigitReading(state, None, ())
+
+        full_threshold = self._threshold(image, state)
+        width, height = image.size
+        display_left = int(width * 0.10)
+        display_right = int(width * 0.74)
+        display_bottom = int(height * 0.72)
+        display_mask = full_threshold[:display_bottom, display_left:display_right]
+        component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
+            display_mask.astype("uint8"), 8
+        )
+
+        components = []
+        for component_index in range(1, component_count):
+            x, y, component_width, component_height, area = stats[component_index]
+            if area < 40 or component_height < 20 or component_width < 8:
+                continue
+            components.append(
+                (
+                    int(x + display_left),
+                    int(y),
+                    int(component_width),
+                    int(component_height),
+                    int(component_index),
+                )
+            )
+        components.sort(key=lambda item: item[0])
+
+        predictions = []
+        for x, y, component_width, component_height, component_index in components:
+            component_mask = (
+                labels[
+                    y : y + component_height,
+                    x - display_left : x - display_left + component_width,
+                ]
+                == component_index
+            )
+            normalized = _normalize_mask(component_mask, TIMER_TEMPLATE_SIZE)
+            predictions.append(self.classifier.predict(normalized))
+
+        digits = [
+            prediction.digit
+            for prediction in predictions
+            if prediction.digit is not None
+        ]
+        if len(digits) == 3:
+            value = f"{digits[0]}:{digits[1]}{digits[2]}"
+        elif len(digits) == 4:
+            value = f"{digits[0]}{digits[1]}:{digits[2]}{digits[3]}"
+        else:
+            value = None
+        return TimerDigitReading(state, value, tuple(predictions))
+
+
+class FrameImageTextParser:
     def __init__(self, parser_profile: str, score_engine: str, name_engine: str | None):
         self.parser_profile = parser_profile
         self.score_engine = score_engine
         self.name_engine = name_engine
-        self._score_digit_templates_cache = None
-        import pytesseract  # noqa: F401
-        from PIL import Image  # noqa: F401
+        score_enabled = score_engine not in (None, "none")
+        self.score_reader = ScoreboardDigitReader() if score_enabled else None
+        self.timer_reader = TimerDigitReader() if score_enabled else None
+        if name_engine not in (None, "none"):
+            import pytesseract  # noqa: F401
 
     def _image_from_bytes(self, image_bytes):
         if not image_bytes:
             return None
-        from PIL import Image
-        import io
-
-        return Image.open(io.BytesIO(image_bytes))
+        return Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
     def _ocr(self, image, config: str = "") -> str:
         if image is None:
@@ -220,401 +565,6 @@ class TesseractTextParser:
         import pytesseract
 
         return pytesseract.image_to_string(image, config=config).strip()
-
-    def _ocr_digit_text(self, image, config: str = "--psm 6") -> str:
-        return self._ocr(
-            image,
-            f"{config} -c tessedit_char_whitelist=0123456789OoIl",
-        )
-
-    def _parse_timer(self, text: str) -> tuple[str | None, str | None]:
-        match = re.search(r"\b(\d{1,2})\s*[:;]\s*(\d{2})\b", text)
-        if not match:
-            return None, None
-        return "running", f"{int(match.group(1))}:{match.group(2)}"
-
-    def _score_token_value(self, token: str) -> int | None:
-        token = token.strip()
-        if not token:
-            return None
-        token = token.translate(str.maketrans({"O": "0", "o": "0", "I": "1", "l": "1"}))
-        if not re.fullmatch(r"\d{1,2}", token):
-            return None
-        return int(token)
-
-    def _score_row_values(self, line: str) -> list[int] | None:
-        tokens = []
-        for match in re.findall(r"[0-9OoIl]+", line):
-            if len(match) >= 3:
-                tokens.extend(match)
-            else:
-                tokens.append(match)
-        values = []
-        for token in tokens:
-            value = self._score_token_value(token)
-            if value is not None:
-                values.append(value)
-        if len(values) < 3:
-            return None
-        return values[-3:]
-
-    def _score_grid_image(self, score_image):
-        if score_image is None:
-            return None
-        width, height = score_image.size
-        return score_image.crop(
-            (
-                int(width * 0.47),
-                0,
-                int(width * 0.92),
-                int(height * 0.88),
-            )
-        )
-
-    def _prepare_score_image(self, image):
-        from PIL import ImageOps
-
-        gray = ImageOps.grayscale(image)
-        return gray.resize((gray.width * 5, gray.height * 5))
-
-    def _prepare_score_cell_image(self, image):
-        from PIL import ImageEnhance, ImageOps
-
-        gray = ImageOps.grayscale(image).resize((image.width * 8, image.height * 8))
-        boosted = ImageEnhance.Contrast(gray).enhance(3)
-        return boosted.point(lambda value: 255 if value > 180 else 0)
-
-    def _score_cell_inner_image(self, image):
-        margin = max(2, min(image.size) // 12)
-        return image.crop(
-            (
-                margin,
-                margin,
-                image.width - margin,
-                image.height - margin,
-            )
-        )
-
-    def _score_cell_has_background(self, image, cell_index: int) -> bool:
-        rgb_image = image.convert("RGB")
-        width, height = rgb_image.size
-        if width == 0 or height == 0:
-            return False
-
-        pixels = rgb_image.load()
-        background_pixels = 0
-        for y in range(height):
-            for x in range(width):
-                red, green, blue = pixels[x, y]
-                if cell_index % 3 == 2:
-                    if red > 120 and green < 90 and blue < 110:
-                        background_pixels += 1
-                elif green > 110 and blue < 100:
-                    background_pixels += 1
-
-        return background_pixels >= width * height * 0.12
-
-    def _score_digit_font_candidates(self):
-        return (
-            "Arial Bold.ttf",
-            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-            "Verdana Bold.ttf",
-            "/System/Library/Fonts/Supplemental/Verdana Bold.ttf",
-            "DejaVuSans-Bold.ttf",
-        )
-
-    def _score_digit_templates(self):
-        if self._score_digit_templates_cache is not None:
-            return self._score_digit_templates_cache
-
-        from PIL import Image, ImageDraw, ImageFont
-
-        templates = []
-        loaded_font = None
-        for font_path in self._score_digit_font_candidates():
-            try:
-                ImageFont.truetype(font_path, 32)
-                loaded_font = font_path
-                break
-            except OSError:
-                continue
-
-        width, height = self.SCORE_DIGIT_TEMPLATE_SIZE
-        for digit in range(10):
-            for font_size in range(28, 45, 4):
-                font = (
-                    ImageFont.load_default()
-                    if loaded_font is None
-                    else ImageFont.truetype(loaded_font, font_size)
-                )
-                canvas = Image.new("L", (80, 80), 0)
-                draw = ImageDraw.Draw(canvas)
-                bbox = draw.textbbox((0, 0), str(digit), font=font)
-                draw.text(
-                    (5 - bbox[0], 5 - bbox[1]),
-                    str(digit),
-                    font=font,
-                    fill=255,
-                )
-                glyph_box = canvas.getbbox()
-                if glyph_box is None:
-                    continue
-                glyph = canvas.crop(glyph_box).resize(
-                    (width, height), Image.Resampling.NEAREST
-                )
-                mask = 0
-                pixel_count = 0
-                for y in range(height):
-                    for x in range(width):
-                        if glyph.getpixel((x, y)) > 0:
-                            mask |= 1 << (y * width + x)
-                            pixel_count += 1
-                templates.append((digit, mask, pixel_count))
-
-        self._score_digit_templates_cache = templates
-        return templates
-
-    def _score_digit_mask(self, image):
-        from PIL import Image
-
-        rgb_image = image.convert("RGB")
-        width, height = rgb_image.size
-        pixels = rgb_image.load()
-        foreground = bytearray(width * height)
-        for y in range(height):
-            for x in range(width):
-                red, green, blue = pixels[x, y]
-                if (
-                    red > 145
-                    and green > 145
-                    and blue > 95
-                    and max(red, green, blue) - min(red, green, blue) < 120
-                ):
-                    foreground[y * width + x] = 1
-
-        seen = bytearray(width * height)
-        largest_component = []
-        for index, is_foreground in enumerate(foreground):
-            if not is_foreground or seen[index]:
-                continue
-
-            stack = [index]
-            seen[index] = 1
-            component = []
-            while stack:
-                current = stack.pop()
-                component.append(current)
-                x = current % width
-                y = current // width
-                neighbors = []
-                if x > 0:
-                    neighbors.append(current - 1)
-                if x + 1 < width:
-                    neighbors.append(current + 1)
-                if y > 0:
-                    neighbors.append(current - width)
-                if y + 1 < height:
-                    neighbors.append(current + width)
-                for neighbor in neighbors:
-                    if foreground[neighbor] and not seen[neighbor]:
-                        seen[neighbor] = 1
-                        stack.append(neighbor)
-
-            if len(component) > len(largest_component):
-                largest_component = component
-
-        if len(largest_component) < 40:
-            return None
-
-        xs = [index % width for index in largest_component]
-        ys = [index // width for index in largest_component]
-        left, right = min(xs), max(xs)
-        top, bottom = min(ys), max(ys)
-        glyph_width = right - left + 1
-        glyph_height = bottom - top + 1
-        glyph_data = bytearray(glyph_width * glyph_height)
-        for index in largest_component:
-            point_x = index % width
-            point_y = index // width
-            glyph_data[(point_y - top) * glyph_width + point_x - left] = 255
-        glyph = Image.frombytes("L", (glyph_width, glyph_height), bytes(glyph_data))
-
-        template_width, template_height = self.SCORE_DIGIT_TEMPLATE_SIZE
-        glyph = glyph.resize(
-            (template_width, template_height), Image.Resampling.NEAREST
-        )
-        mask = 0
-        pixel_count = 0
-        for y in range(template_height):
-            for x in range(template_width):
-                if glyph.getpixel((x, y)) > 0:
-                    mask |= 1 << (y * template_width + x)
-                    pixel_count += 1
-        return mask, pixel_count
-
-    def _template_score_digit(self, image, cell_index: int) -> tuple[int | None, str]:
-        inner_image = self._score_cell_inner_image(image)
-        if not self._score_cell_has_background(inner_image, cell_index):
-            return None, ""
-
-        digit_mask_data = self._score_digit_mask(inner_image)
-        if not digit_mask_data:
-            return None, ""
-        digit_mask, digit_pixel_count = digit_mask_data
-
-        best_digit = None
-        best_score = 0.0
-        for digit, template_mask, template_pixel_count in self._score_digit_templates():
-            intersection = (digit_mask & template_mask).bit_count()
-            union = digit_pixel_count + template_pixel_count - intersection
-            score = intersection / union if union else 0.0
-            if score > best_score:
-                best_digit = digit
-                best_score = score
-
-        if best_digit is None or best_score < self.SCORE_DIGIT_MIN_MATCH:
-            return None, ""
-        return best_digit, str(best_digit)
-
-    def _score_cell_boxes(self, score_image):
-        width, height = score_image.size
-        x_edges = (0.481, 0.638, 0.791, 0.919)
-        y_edges = (0.0, 0.431, 0.861)
-        return [
-            (
-                int(width * x_edges[col]),
-                int(height * y_edges[row]),
-                int(width * x_edges[col + 1]),
-                int(height * y_edges[row + 1]),
-            )
-            for row in range(2)
-            for col in range(3)
-        ]
-
-    def _score_image_has_cell_layout(self, score_image) -> bool:
-        if score_image is None:
-            return False
-        for cell_index, box in enumerate(self._score_cell_boxes(score_image)):
-            cell_image = self._score_cell_inner_image(score_image.crop(box))
-            if not self._score_cell_has_background(cell_image, cell_index):
-                return False
-        return True
-
-    def _ocr_score_cell(self, image) -> tuple[int | None, str]:
-        prepared = self._prepare_score_cell_image(image)
-        for psm in ("--psm 8", "--psm 13"):
-            text = self._ocr_digit_text(prepared, psm).replace("\n", "").strip()
-            value = self._score_token_value(text)
-            if value is not None and 0 <= value <= 9:
-                return value, text
-        return None, ""
-
-    def _parse_score_cells_from_image(self, score_image) -> tuple[dict, str]:
-        if score_image is None:
-            return {}, ""
-
-        values = []
-        cell_texts = []
-        for cell_index, box in enumerate(self._score_cell_boxes(score_image)):
-            cell_image = score_image.crop(box)
-            value, text = self._template_score_digit(cell_image, cell_index)
-            values.append(value)
-            cell_texts.append(str(value) if value is not None else (text or "?"))
-        cell_text = "".join(cell_texts[:3])
-        cell_text += "\n" + "".join(cell_texts[3:])
-        if any(value is None for value in values):
-            return {}, cell_text
-        return (
-            {
-                "top_points": values[0],
-                "top_advantages": values[1],
-                "top_penalties": values[2],
-                "bottom_points": values[3],
-                "bottom_advantages": values[4],
-                "bottom_penalties": values[5],
-            },
-            cell_text,
-        )
-
-    def _ocr_score_row(self, image) -> tuple[list[int] | None, str]:
-        for psm in ("--psm 7", "--psm 8", "--psm 13"):
-            text = self._ocr_digit_text(image, psm)
-            row = self._score_row_values(text)
-            if row:
-                return row, text
-        return None, ""
-
-    def _parse_score_from_image(self, score_image) -> tuple[dict, str]:
-        if not self._score_image_has_cell_layout(score_image):
-            return {}, ""
-
-        cell_fields, cell_text = self._parse_score_cells_from_image(score_image)
-        if cell_fields:
-            return cell_fields, cell_text
-
-        grid_image = self._score_grid_image(score_image)
-        if grid_image is None:
-            return {}, cell_text
-
-        prepared_grid = self._prepare_score_image(grid_image)
-        grid_text = self._ocr_digit_text(prepared_grid, "--psm 6")
-        score_fields = self._parse_score(grid_text)
-        if score_fields:
-            return score_fields, grid_text
-
-        width, height = prepared_grid.size
-        top_row = prepared_grid.crop((0, 0, width, height // 2))
-        bottom_row = prepared_grid.crop((0, height // 2, width, height))
-        top_values, top_text = self._ocr_score_row(top_row)
-        bottom_values, bottom_text = self._ocr_score_row(bottom_row)
-        row_text = "\n".join([top_text, bottom_text])
-        if top_values and bottom_values:
-            return (
-                {
-                    "top_points": top_values[0],
-                    "top_advantages": top_values[1],
-                    "top_penalties": top_values[2],
-                    "bottom_points": bottom_values[0],
-                    "bottom_advantages": bottom_values[1],
-                    "bottom_penalties": bottom_values[2],
-                },
-                row_text,
-            )
-        return {}, row_text or cell_text
-
-    def _parse_score(self, text: str) -> dict:
-        rows = []
-        for line in text.splitlines():
-            row = self._score_row_values(line)
-            if row:
-                rows.append(row)
-        if len(rows) >= 2:
-            top_row, bottom_row = rows[-2], rows[-1]
-            return {
-                "top_points": top_row[0],
-                "top_advantages": top_row[1],
-                "top_penalties": top_row[2],
-                "bottom_points": bottom_row[0],
-                "bottom_advantages": bottom_row[1],
-                "bottom_penalties": bottom_row[2],
-            }
-
-        fallback_values = []
-        for token in re.findall(r"[0-9OoIl]{1,2}", text):
-            value = self._score_token_value(token)
-            if value is not None:
-                fallback_values.append(value)
-        if len(fallback_values) < 6:
-            return {}
-        digits = fallback_values[-6:]
-        return {
-            "top_points": digits[0],
-            "top_advantages": digits[1],
-            "top_penalties": digits[2],
-            "bottom_points": digits[3],
-            "bottom_advantages": digits[4],
-            "bottom_penalties": digits[5],
-        }
 
     def _clean_name_line(self, line: str) -> str | None:
         line = re.sub(r"[|_]+", " ", line)
@@ -674,18 +624,12 @@ class TesseractTextParser:
         timer = self._image_from_bytes(timer_image)
         score_enabled = self.score_engine not in (None, "none")
         name_enabled = self.name_engine not in (None, "none")
-        timer_text = self._ocr(timer, "--psm 7") if score_enabled else ""
-        scoreboard_text = (
-            self._ocr(score, "--psm 6") if score_enabled or name_enabled else ""
-        )
-        score_fields, score_grid_text = (
-            self._parse_score_from_image(score) if score_enabled else ({}, "")
-        )
-        timer_state, timer_value = (
-            self._parse_timer(timer_text) if score_enabled else (None, None)
-        )
-        if score_enabled and not score_fields:
-            score_fields = self._parse_score(scoreboard_text)
+        scoreboard_text = self._ocr(score, "--psm 6") if name_enabled else ""
+        score_reading = self.score_reader.read(score) if self.score_reader else None
+        timer_reading = self.timer_reader.read(timer) if self.timer_reader else None
+        score_fields = score_fields_from_reading(score_reading) if score_enabled else {}
+        timer_state = timer_reading.state if timer_reading else None
+        timer_value = timer_reading.value if timer_reading else None
         name_fields = self._parse_names(scoreboard_text) if name_enabled else {}
         return FrameReading(
             frame_second=frame_second,
@@ -697,11 +641,47 @@ class TesseractTextParser:
             score_engine=self.score_engine,
             name_engine=self.name_engine,
             evidence={
-                "timer_text": timer_text,
                 "scoreboard_text": scoreboard_text,
-                "score_grid_text": score_grid_text,
+                "score_digits": score_digits_text(score_reading),
+                "score_digit_similarities": score_digit_similarities(score_reading),
+                "timer_digit_similarities": timer_digit_similarities(timer_reading),
             },
         )
+
+
+TesseractTextParser = FrameImageTextParser
+
+
+def score_fields_from_reading(reading: ScoreboardDigitReading | None) -> dict:
+    if reading is None or reading.digits is None:
+        return {}
+    return {
+        "top_points": reading.digits[0],
+        "top_advantages": reading.digits[1],
+        "top_penalties": reading.digits[2],
+        "bottom_points": reading.digits[3],
+        "bottom_advantages": reading.digits[4],
+        "bottom_penalties": reading.digits[5],
+    }
+
+
+def score_digits_text(reading: ScoreboardDigitReading | None) -> str:
+    if reading is None or reading.digits is None:
+        return ""
+    digits = "".join(str(digit) for digit in reading.digits)
+    return f"{digits[:3]}/{digits[3:]}"
+
+
+def score_digit_similarities(reading: ScoreboardDigitReading | None) -> list[float]:
+    if reading is None:
+        return []
+    return [round(prediction.similarity, 4) for prediction in reading.predictions]
+
+
+def timer_digit_similarities(reading: TimerDigitReading | None) -> list[float]:
+    if reading is None:
+        return []
+    return [round(prediction.similarity, 4) for prediction in reading.predictions]
 
 
 def _load_app():
@@ -716,35 +696,30 @@ def log(message: str):
 
 
 def validate_ocr_engines(score_engine: str, name_engine: str | None):
-    engines = [score_engine]
-    if name_engine:
-        engines.append(name_engine)
-    for engine in engines:
-        if engine not in SUPPORTED_ENGINES:
-            raise RuntimeError(f"unsupported OCR engine: {engine}")
-        if engine == "none":
-            continue
-        if engine == "tesseract":
-            try:
-                import pytesseract  # noqa: F401
-                from PIL import Image  # noqa: F401
-            except ImportError as exc:
-                raise RuntimeError(
-                    "tesseract engine requires pytesseract and pillow"
-                ) from exc
-            if not shutil.which("tesseract"):
-                raise RuntimeError("tesseract engine requires the tesseract binary")
-        if engine == "paddle":
-            try:
-                import paddleocr  # noqa: F401
-            except ImportError as exc:
-                raise RuntimeError("paddle engine requires paddleocr") from exc
+    if score_engine not in SUPPORTED_SCORE_ENGINES:
+        raise RuntimeError(f"unsupported score engine: {score_engine}")
+    if score_engine == "fixed_digit":
+        _require_fixed_digit_dependencies()
+
+    if name_engine is not None and name_engine not in SUPPORTED_NAME_ENGINES:
+        raise RuntimeError(f"unsupported name engine: {name_engine}")
+    if name_engine == "tesseract":
+        try:
+            import pytesseract  # noqa: F401
+        except ImportError as exc:
+            raise RuntimeError(
+                "tesseract name engine requires pytesseract and pillow"
+            ) from exc
+        if Image is None:
+            raise RuntimeError("tesseract name engine requires pytesseract and pillow")
+        if not shutil.which("tesseract"):
+            raise RuntimeError("tesseract name engine requires the tesseract binary")
 
 
 def build_parser(parser_profile: str, score_engine: str, name_engine: str | None):
     if score_engine == "none" and name_engine in (None, "none"):
         return EmptyTextParser()
-    return TesseractTextParser(parser_profile, score_engine, name_engine)
+    return FrameImageTextParser(parser_profile, score_engine, name_engine)
 
 
 def event_payload(event):
