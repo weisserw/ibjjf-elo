@@ -124,8 +124,12 @@ class FrameReading:
 
 class FrameTextParser(Protocol):
     def parse(
-        self, frame_second: int, score_image: bytes | None, timer_image: bytes | None
-    ) -> FrameReading: ...
+        self,
+        frame_second: int,
+        score_image: bytes | None,
+        timer_image: bytes | None,
+    ) -> FrameReading:
+        pass
 
 
 class FrameBatchProvider:

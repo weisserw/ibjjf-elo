@@ -34,10 +34,7 @@ from livestream_frame_text_scan import (  # noqa: E402
     scan_frame_text_segment,
     claim_next_text_scan_segment,
 )
-from models import (  # noqa: E402
-    LivestreamFrameCaptureSegment,
-    LivestreamFrameTextScanSegment,
-)
+from models import LivestreamFrameCaptureSegment  # noqa: E402
 from photos import bucket_name, get_s3_client  # noqa: E402
 
 

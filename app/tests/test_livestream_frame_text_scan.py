@@ -1,11 +1,8 @@
 import io
-import json
 import os
 import sys
 import tarfile
-import tempfile
 import unittest
-from pathlib import Path
 from unittest import mock
 
 from sqlalchemy import create_engine
