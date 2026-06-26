@@ -39,6 +39,8 @@ from livestream_frame_text_scan import (  # noqa: E402
     DEFAULT_PARSER_PROFILE,
     DEFAULT_SCORE_ENGINE,
     FrameReading,
+    SCOREBOARD_STATE_BLANK,
+    SCOREBOARD_STATE_VISIBLE,
     S3FrameBatchProvider,
     TextState,
     mark_text_scan_segment_error,
@@ -653,9 +655,14 @@ TesseractTextParser = FrameImageTextParser
 
 
 def score_fields_from_reading(reading: ScoreboardDigitReading | None) -> dict:
-    if reading is None or reading.digits is None:
+    if reading is None:
+        return {}
+    if reading.digits is None:
+        if reading.predictions and not reading.has_layout:
+            return {"scoreboard_state": SCOREBOARD_STATE_BLANK}
         return {}
     return {
+        "scoreboard_state": SCOREBOARD_STATE_VISIBLE,
         "top_points": reading.digits[0],
         "top_advantages": reading.digits[1],
         "top_penalties": reading.digits[2],

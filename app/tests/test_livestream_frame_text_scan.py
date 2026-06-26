@@ -262,6 +262,49 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             [(0, "running", "5:00"), (50, "stopped", "4:10"), (80, "blank", None)],
         )
 
+    def test_sampled_scoreboard_blank_then_zero_zero_return_are_sparse_events(self):
+        provider = DictFrameProvider()
+        zero_zero = {
+            "scoreboard_state": text_scan.SCOREBOARD_STATE_VISIBLE,
+            "top_points": 0,
+            "top_advantages": 0,
+            "top_penalties": 0,
+            "bottom_points": 0,
+            "bottom_advantages": 0,
+            "bottom_penalties": 0,
+        }
+        parser = TimelineParser(
+            {
+                0: zero_zero,
+                20: {
+                    "scoreboard_state": text_scan.SCOREBOARD_STATE_VISIBLE,
+                    "top_points": 2,
+                    "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                },
+                40: {"scoreboard_state": text_scan.SCOREBOARD_STATE_BLANK},
+                60: zero_zero,
+            }
+        )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            parser,
+            0,
+            81,
+            coarse_interval_seconds=20,
+        )
+
+        self.assertEqual([event.frame_second for event in events], [0, 20, 40, 60])
+        self.assertEqual(events[2].scoreboard_state, text_scan.SCOREBOARD_STATE_BLANK)
+        self.assertIsNone(events[2].top_points)
+        self.assertEqual(events[3].scoreboard_state, text_scan.SCOREBOARD_STATE_VISIBLE)
+        self.assertEqual(events[3].top_points, 0)
+        self.assertEqual(events[3].bottom_points, 0)
+
 
 class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
     @classmethod
@@ -364,6 +407,10 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
             ),
             text_scan.TextEventData(frame_second=10, top_points=2),
             text_scan.TextEventData(
+                frame_second=20,
+                scoreboard_state=text_scan.SCOREBOARD_STATE_BLANK,
+            ),
+            text_scan.TextEventData(
                 frame_second=70, timer_state="blank", timer_value=None
             ),
         ]
@@ -371,8 +418,9 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
         db.session.commit()
 
         state = text_scan.reconstruct_text_state(db.session, archive.id)
-        self.assertEqual(state.top_points, 2)
-        self.assertEqual(state.bottom_points, 0)
+        self.assertEqual(state.scoreboard_state, text_scan.SCOREBOARD_STATE_BLANK)
+        self.assertIsNone(state.top_points)
+        self.assertIsNone(state.bottom_points)
         self.assertEqual(state.timer_state, "blank")
         self.assertIsNone(state.timer_value)
 
@@ -496,12 +544,34 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         reading = parser.parse(548, b"score", b"timer")
 
+        self.assertEqual(reading.scoreboard_state, text_scan.SCOREBOARD_STATE_VISIBLE)
         self.assertEqual(reading.top_points, 0)
         self.assertEqual(reading.bottom_points, 2)
         self.assertEqual(reading.bottom_advantages, 1)
         self.assertEqual(reading.timer_state, "stopped")
         self.assertEqual(reading.timer_value, "4:00")
         self.assertEqual(reading.evidence["score_digits"], "000/210")
+
+    def test_score_fields_from_reading_marks_missing_layout_as_blank(self):
+        reading = runner.ScoreboardDigitReading(
+            None,
+            tuple(runner.DigitPrediction(None, 0.0, "none") for _ in range(6)),
+            False,
+        )
+
+        self.assertEqual(
+            runner.score_fields_from_reading(reading),
+            {"scoreboard_state": text_scan.SCOREBOARD_STATE_BLANK},
+        )
+
+    def test_score_fields_from_reading_ignores_unreadable_visible_layout(self):
+        reading = runner.ScoreboardDigitReading(
+            None,
+            tuple(runner.DigitPrediction(None, 0.0, "none") for _ in range(6)),
+            True,
+        )
+
+        self.assertEqual(runner.score_fields_from_reading(reading), {})
 
     def test_validate_ocr_engines_accepts_none_without_imports(self):
         runner.validate_ocr_engines("none", None)
@@ -624,6 +694,7 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
                 "events": [
                     {
                         "frame_second": 0,
+                        "scoreboard_state": text_scan.SCOREBOARD_STATE_VISIBLE,
                         "top_points": 2,
                         "timer_state": "running",
                         "timer_value": "5:00",
@@ -636,6 +707,9 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(complete.status_code, 200)
         body = complete.get_json()
         self.assertEqual(body["segment"]["status"], "success")
+        self.assertEqual(
+            body["events"][0]["scoreboard_state"], text_scan.SCOREBOARD_STATE_VISIBLE
+        )
         self.assertEqual(body["events"][0]["top_points"], 2)
         self.assertEqual(body["events"][0]["evidence"], {"source": "test"})
 
@@ -657,23 +731,42 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
                 text_scan.TextEventData(frame_second=10, bottom_points=8),
                 text_scan.TextEventData(
                     frame_second=15,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_BLANK,
+                ),
+                text_scan.TextEventData(
+                    frame_second=18,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                ),
+                text_scan.TextEventData(
+                    frame_second=20,
                     timer_state="running",
                     timer_value="4:42",
                 ),
-                text_scan.TextEventData(frame_second=20, top_penalties=1),
+                text_scan.TextEventData(frame_second=25, top_penalties=1),
             ]
         )
 
         self.assertTrue(rows[0].has_score_change)
         self.assertTrue(rows[1].has_score_change)
-        self.assertFalse(rows[2].has_score_change)
+        self.assertTrue(rows[2].has_score_change)
+        self.assertTrue(rows[2].is_scoreboard_blank)
         self.assertTrue(rows[3].has_score_change)
+        self.assertFalse(rows[3].is_scoreboard_blank)
+        self.assertFalse(rows[4].has_score_change)
+        self.assertTrue(rows[5].has_score_change)
         self.assertEqual(rows[1].score.top_points, 0)
         self.assertEqual(rows[1].score.bottom_points, 8)
         self.assertEqual(rows[1].score.bottom_advantages, 0)
-        self.assertEqual(rows[2].score.bottom_points, 8)
-        self.assertEqual(rows[3].score.top_penalties, 1)
-        self.assertEqual(rows[3].score.bottom_penalties, 0)
+        self.assertIsNone(rows[2].score.bottom_points)
+        self.assertEqual(rows[3].score.bottom_points, 0)
+        self.assertEqual(rows[5].score.top_penalties, 1)
+        self.assertEqual(rows[5].score.bottom_penalties, 0)
 
 
 if __name__ == "__main__":

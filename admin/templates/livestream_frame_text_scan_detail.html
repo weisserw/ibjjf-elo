@@ -127,13 +127,18 @@
                     <td>{{ time_label(row.event.frame_second) }}</td>
                     <td>
                         {% if row.has_score_change %}
-                        {% if row.score.top_points is not none or row.score.bottom_points is not none %}
-                        {{ row.score.top_points if row.score.top_points is not none else '-' }} - {{ row.score.bottom_points if row.score.bottom_points is not none else '-' }}
-                        {% endif %}
-                        {% if row.score.top_advantages is not none or row.score.bottom_advantages is not none or row.score.top_penalties is not none or row.score.bottom_penalties is not none %}
-                        <div class="has-text-grey">
-                            adv {{ row.score.top_advantages if row.score.top_advantages is not none else '-' }}-{{ row.score.bottom_advantages if row.score.bottom_advantages is not none else '-' }},
-                            pen {{ row.score.top_penalties if row.score.top_penalties is not none else '-' }}-{{ row.score.bottom_penalties if row.score.bottom_penalties is not none else '-' }}
+                        {% if row.is_scoreboard_blank %}
+                        <span class="has-text-grey">blank</span>
+                        {% else %}
+                        <div>
+                            {{ row.score.top_points if row.score.top_points is not none else '-' }}
+                            {{ row.score.top_advantages if row.score.top_advantages is not none else '-' }}
+                            {{ row.score.top_penalties if row.score.top_penalties is not none else '-' }}
+                        </div>
+                        <div>
+                            {{ row.score.bottom_points if row.score.bottom_points is not none else '-' }}
+                            {{ row.score.bottom_advantages if row.score.bottom_advantages is not none else '-' }}
+                            {{ row.score.bottom_penalties if row.score.bottom_penalties is not none else '-' }}
                         </div>
                         {% endif %}
                         {% endif %}
@@ -144,8 +149,8 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if row.event.top_athlete_name %}<div>top {{ row.event.top_athlete_name }}</div>{% endif %}
-                        {% if row.event.bottom_athlete_name %}<div>bottom {{ row.event.bottom_athlete_name }}</div>{% endif %}
+                        {% if row.event.top_athlete_name %}<div>{{ row.event.top_athlete_name }}</div>{% endif %}
+                        {% if row.event.bottom_athlete_name %}<div>{{ row.event.bottom_athlete_name }}</div>{% endif %}
                     </td>
                     <td>{{ row.event.profile_id or '' }}</td>
                 </tr>

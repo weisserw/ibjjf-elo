@@ -63,6 +63,7 @@ from livestream_frame_text_scan import (
     DEFAULT_NAME_ENGINE,
     DEFAULT_PARSER_PROFILE,
     DEFAULT_SCORE_ENGINE,
+    SCOREBOARD_STATE_BLANK,
     SCORE_FIELDS,
     TEXT_SCAN_SEGMENT_STATUSES,
     TextState,
@@ -293,6 +294,7 @@ def _text_event_payload(event):
         "bottom_points": event.bottom_points,
         "bottom_advantages": event.bottom_advantages,
         "bottom_penalties": event.bottom_penalties,
+        "scoreboard_state": event.scoreboard_state,
         "timer_state": event.timer_state,
         "timer_value": event.timer_value,
         "top_athlete_name": event.top_athlete_name,
@@ -324,6 +326,7 @@ def _text_event_type_counts_query():
         LivestreamFrameTextEvent.bottom_points.isnot(None),
         LivestreamFrameTextEvent.bottom_advantages.isnot(None),
         LivestreamFrameTextEvent.bottom_penalties.isnot(None),
+        LivestreamFrameTextEvent.scoreboard_state.isnot(None),
     )
     timer_condition = or_(
         LivestreamFrameTextEvent.timer_state.isnot(None),
@@ -388,8 +391,9 @@ def _text_event_display_rows(events):
     rows = []
     state = TextState()
     for event in events:
-        has_score_change = any(
-            getattr(event, field, None) is not None for field in SCORE_FIELDS
+        has_score_change = (
+            any(getattr(event, field, None) is not None for field in SCORE_FIELDS)
+            or getattr(event, "scoreboard_state", None) is not None
         )
         state = apply_event_to_state(state, event)
         rows.append(
@@ -397,6 +401,7 @@ def _text_event_display_rows(events):
                 event=event,
                 score=state.copy(),
                 has_score_change=has_score_change,
+                is_scoreboard_blank=state.scoreboard_state == SCOREBOARD_STATE_BLANK,
             )
         )
     return rows
@@ -502,6 +507,7 @@ def _text_event_data_from_payload(payload):
         bottom_points=payload.get("bottom_points"),
         bottom_advantages=payload.get("bottom_advantages"),
         bottom_penalties=payload.get("bottom_penalties"),
+        scoreboard_state=payload.get("scoreboard_state"),
         timer_state=payload.get("timer_state"),
         timer_value=payload.get("timer_value"),
         top_athlete_name=payload.get("top_athlete_name"),

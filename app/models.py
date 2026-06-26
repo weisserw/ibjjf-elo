@@ -727,6 +727,7 @@ class LivestreamFrameTextEvent(db.Model):
     bottom_points = Column(Integer, nullable=True)
     bottom_advantages = Column(Integer, nullable=True)
     bottom_penalties = Column(Integer, nullable=True)
+    scoreboard_state = Column(String, nullable=True)
     timer_state = Column(String, nullable=True)
     timer_value = Column(String, nullable=True)
     top_athlete_name = Column(Text, nullable=True)

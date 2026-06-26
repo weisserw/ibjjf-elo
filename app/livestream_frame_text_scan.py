@@ -49,6 +49,9 @@ SCORE_FIELDS = (
     "bottom_advantages",
     "bottom_penalties",
 )
+SCOREBOARD_STATE_VISIBLE = "visible"
+SCOREBOARD_STATE_BLANK = "blank"
+SCOREBOARD_STATES = (SCOREBOARD_STATE_VISIBLE, SCOREBOARD_STATE_BLANK)
 NAME_FIELDS = (
     "top_athlete_name",
     "top_team_name",
@@ -67,6 +70,7 @@ class TextEventData:
     bottom_points: int | None = None
     bottom_advantages: int | None = None
     bottom_penalties: int | None = None
+    scoreboard_state: str | None = None
     timer_state: str | None = None
     timer_value: str | None = None
     top_athlete_name: str | None = None
@@ -89,6 +93,7 @@ class TextState:
     bottom_points: int | None = None
     bottom_advantages: int | None = None
     bottom_penalties: int | None = None
+    scoreboard_state: str | None = None
     timer_state: str | None = None
     timer_value: str | None = None
     timer_frame_second: int | None = None
@@ -110,6 +115,7 @@ class FrameReading:
     bottom_points: int | None = None
     bottom_advantages: int | None = None
     bottom_penalties: int | None = None
+    scoreboard_state: str | None = None
     timer_state: str | None = None
     timer_value: str | None = None
     top_athlete_name: str | None = None
@@ -451,10 +457,18 @@ def expected_timer_value(state: TextState, frame_second: int) -> str | None:
 
 def apply_event_to_state(state: TextState, event) -> TextState:
     next_state = state.copy()
+    event_scoreboard_state = getattr(event, "scoreboard_state", None)
+    if event_scoreboard_state is not None:
+        next_state.scoreboard_state = event_scoreboard_state
+        if event_scoreboard_state == SCOREBOARD_STATE_BLANK:
+            for field in SCORE_FIELDS:
+                setattr(next_state, field, None)
     for field in SCORE_FIELDS:
         value = getattr(event, field, None)
         if value is not None:
             setattr(next_state, field, value)
+            if event_scoreboard_state is None:
+                next_state.scoreboard_state = SCOREBOARD_STATE_VISIBLE
     if getattr(event, "timer_state", None) is not None:
         next_state.timer_state = event.timer_state
         next_state.timer_value = event.timer_value
@@ -481,6 +495,11 @@ def reconstruct_text_state(
 
 def reading_changes(state: TextState, reading: FrameReading) -> dict:
     changes = {}
+    if (
+        reading.scoreboard_state is not None
+        and state.scoreboard_state != reading.scoreboard_state
+    ):
+        changes["scoreboard_state"] = reading.scoreboard_state
     for field in SCORE_FIELDS:
         value = getattr(reading, field)
         if value is not None and getattr(state, field) != value:
@@ -533,7 +552,8 @@ def _precise_scan_changes(changes: dict) -> dict:
     return {
         field: value
         for field, value in changes.items()
-        if field in SCORE_FIELDS or field in ("timer_state", "timer_value")
+        if field in SCORE_FIELDS
+        or field in ("scoreboard_state", "timer_state", "timer_value")
     }
 
 
@@ -708,6 +728,7 @@ def create_text_event(
         bottom_points=event_data.bottom_points,
         bottom_advantages=event_data.bottom_advantages,
         bottom_penalties=event_data.bottom_penalties,
+        scoreboard_state=event_data.scoreboard_state,
         timer_state=event_data.timer_state,
         timer_value=event_data.timer_value,
         top_athlete_name=event_data.top_athlete_name,
