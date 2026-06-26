@@ -89,6 +89,7 @@ validibjjfdblink = re.compile(
     r"^(https://www.ibjjfdb.com/ChampionshipResults/\d+/PublicRegistrations)(\?lang=[a-zA-Z-]*)?$"
 )
 weightre = re.compile(r"\s+\(.*\)$")
+swap_seed_re = re.compile(r"^\s*(\d+)\b")
 
 
 def format_division(divdata):
@@ -2157,13 +2158,33 @@ def parse_match(match, weight):
     }
 
 
+def parse_seed_swaps(soup):
+    seed_swaps = {}
+    for swap_list in soup.select("ul.tournament-category__swap"):
+        for item in swap_list.find_all("li", recursive=False):
+            seeds = []
+            for span in item.find_all("span"):
+                match = swap_seed_re.match(span.get_text(strip=True))
+                if match:
+                    seeds.append(int(match.group(1)))
+
+            if len(seeds) >= 2:
+                first, second = seeds[0], seeds[1]
+                seed_swaps[first] = second
+                seed_swaps[second] = first
+
+    return seed_swaps
+
+
 def _match_side_has_competitor(match, side):
     return match[f"{side}_id"] is not None and not match[f"{side}_bye"]
 
 
-def _match_side_seed(match, side):
+def _match_side_seed(match, side, seed_swaps=None):
     seed = match.get(f"{side}_seed")
-    return seed if seed not in (None, 0) else None
+    if seed in (None, 0):
+        return None
+    return seed_swaps.get(seed, seed) if seed_swaps else seed
 
 
 def _next_description_references_match(description, match):
@@ -2176,17 +2197,21 @@ def _next_description_references_match(description, match):
     )
 
 
-def _side_references_child(parent, side, child):
+def _side_references_child(parent, side, child, seed_swaps=None):
     description = parent.get(f"{side}_next_description")
     if _next_description_references_match(description, child):
         return True
 
-    seed = _match_side_seed(parent, side)
+    seed = _match_side_seed(parent, side, seed_swaps)
     if seed is None:
         return False
 
-    return (_match_side_has_competitor(child, "red") and child["red_seed"] == seed) or (
-        _match_side_has_competitor(child, "blue") and child["blue_seed"] == seed
+    return (
+        _match_side_has_competitor(child, "red")
+        and _match_side_seed(child, "red", seed_swaps) == seed
+    ) or (
+        _match_side_has_competitor(child, "blue")
+        and _match_side_seed(child, "blue", seed_swaps) == seed
     )
 
 
@@ -2201,7 +2226,7 @@ def _matches_latest_first(matches):
     )
 
 
-def _live_match_children(matches):
+def _live_match_children(matches, seed_swaps=None):
     """Infer each live match's child matches from IBJJF winner references.
 
     IBJJF's CSS match numbers are useful identifiers, but their visual order is
@@ -2230,7 +2255,7 @@ def _live_match_children(matches):
                     (
                         i
                         for i, child in enumerate(available)
-                        if _side_references_child(parent, side, child)
+                        if _side_references_child(parent, side, child, seed_swaps)
                     ),
                     -1,
                 )
@@ -2250,12 +2275,12 @@ def _live_match_children(matches):
     return children_by_id if found_child else None
 
 
-def _canonical_first_round_slot(match, slot_by_seed_set):
+def _canonical_first_round_slot(match, slot_by_seed_set, seed_swaps=None):
     seeds = frozenset(
         seed
         for seed in (
-            _match_side_seed(match, "red"),
-            _match_side_seed(match, "blue"),
+            _match_side_seed(match, "red", seed_swaps),
+            _match_side_seed(match, "blue", seed_swaps),
         )
         if seed is not None
     )
@@ -2264,12 +2289,12 @@ def _canonical_first_round_slot(match, slot_by_seed_set):
     return slot_by_seed_set.get(seeds)
 
 
-def _canonical_position_from_seeds(match, seed_to_slot):
+def _canonical_position_from_seeds(match, seed_to_slot, seed_swaps=None):
     slots = [
         seed_to_slot[seed]
         for seed in (
-            _match_side_seed(match, "red"),
-            _match_side_seed(match, "blue"),
+            _match_side_seed(match, "red", seed_swaps),
+            _match_side_seed(match, "blue", seed_swaps),
         )
         if seed in seed_to_slot
     ]
@@ -2288,13 +2313,14 @@ def _canonical_position_from_seeds(match, seed_to_slot):
     return level, slot_min
 
 
-def add_canonical_display_match_numbers(matches, competitor_count):
+def add_canonical_display_match_numbers(matches, competitor_count, seed_swaps=None):
     """Attach ``display_match_num`` without changing IBJJF ``match_num``."""
     slots, bracket_size = _bracket_slots(competitor_count)
     if not slots or not bracket_size:
         return
 
-    children_by_id = _live_match_children(matches)
+    seed_swaps = seed_swaps or {}
+    children_by_id = _live_match_children(matches, seed_swaps)
     root = next((m for m in matches if m["final"]), None)
     seed_to_slot = {
         seed: index
@@ -2326,7 +2352,7 @@ def add_canonical_display_match_numbers(matches, competitor_count):
                     (
                         child
                         for child in children_by_id.get(id(parent), [])
-                        if _side_references_child(parent, side, child)
+                        if _side_references_child(parent, side, child, seed_swaps)
                     ),
                     None,
                 )
@@ -2351,11 +2377,11 @@ def add_canonical_display_match_numbers(matches, competitor_count):
                     keys.append(match_sort_key(child))
                     continue
 
-                seed = _match_side_seed(match, side)
+                seed = _match_side_seed(match, side, seed_swaps)
                 if seed is not None:
                     keys.append(seed_sort_key(seed))
 
-            slot = _canonical_first_round_slot(match, slot_by_seed_set)
+            slot = _canonical_first_round_slot(match, slot_by_seed_set, seed_swaps)
             if slot is not None:
                 keys.append((0, slot, match["match_num"] or first_round_count))
 
@@ -2379,7 +2405,7 @@ def add_canonical_display_match_numbers(matches, competitor_count):
                     entries.append(("match", child, match_sort_key(child)))
                     continue
 
-                seed = _match_side_seed(match, side)
+                seed = _match_side_seed(match, side, seed_swaps)
                 if seed is not None:
                     entries.append(("seed", seed, seed_sort_key(seed)))
 
@@ -2415,7 +2441,7 @@ def add_canonical_display_match_numbers(matches, competitor_count):
     used_slots = set()
 
     for match in leaf_matches:
-        slot = _canonical_first_round_slot(match, slot_by_seed_set)
+        slot = _canonical_first_round_slot(match, slot_by_seed_set, seed_swaps)
         if slot is None or slot in used_slots:
             continue
         leaf_slots[id(match)] = slot
@@ -2433,7 +2459,7 @@ def add_canonical_display_match_numbers(matches, competitor_count):
         leaf_slots[id(match)] = slot
 
     def match_position(match):
-        seed_position = _canonical_position_from_seeds(match, seed_to_slot)
+        seed_position = _canonical_position_from_seeds(match, seed_to_slot, seed_swaps)
         if seed_position is not None:
             return seed_position
 
@@ -2697,6 +2723,7 @@ def competitors():
                 )
 
     medals = parse_medals(soup)
+    seed_swaps = parse_seed_swaps(soup)
 
     for match in matches:
         parsed_match = parse_match(match, weight)
@@ -2881,7 +2908,7 @@ def competitors():
         )
         thread.start()
 
-    add_canonical_display_match_numbers(parsed_matches, len(results))
+    add_canonical_display_match_numbers(parsed_matches, len(results), seed_swaps)
 
     return jsonify(
         {

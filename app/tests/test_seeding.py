@@ -4,6 +4,8 @@ import unittest
 from collections import namedtuple
 from datetime import datetime
 
+from bs4 import BeautifulSoup
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from constants import (
@@ -36,7 +38,7 @@ from seeding import (
     add_seeding_data,
     add_side_swaps,
 )
-from routes.brackets import add_canonical_display_match_numbers
+from routes.brackets import add_canonical_display_match_numbers, parse_seed_swaps
 from test_db import TestDbMixin
 
 
@@ -1945,6 +1947,23 @@ class BracketSlotsTestCase(unittest.TestCase):
         )
         self.assertEqual(size, 16)
 
+    def test_n10_slots_match_canonical_order(self):
+        slots, size = _bracket_slots(10)
+        self.assertEqual(
+            slots,
+            [
+                (1, None),
+                (8, 10),
+                (6, None),
+                (4, None),
+                (3, None),
+                (5, None),
+                (2, None),
+                (7, 9),
+            ],
+        )
+        self.assertEqual(size, 16)
+
     def test_n16_slots_match_canonical_order(self):
         slots, size = _bracket_slots(16)
         self.assertEqual(
@@ -2497,6 +2516,22 @@ class BracketSlotsTestCase(unittest.TestCase):
 
 
 class LiveBracketDisplayMatchNumberTestCase(unittest.TestCase):
+    def test_parse_seed_swaps_from_ibjjf_swap_list(self):
+        soup = BeautifulSoup(
+            """
+            <ul class="tournament-category__swap">
+                <li>
+                    <span>10 - Sione Paul Halo</span>
+                    <i class="fa fa-arrow-right"></i>
+                    <span>9 - Max Christopher Oglesby</span>
+                </li>
+            </ul>
+            """,
+            "html.parser",
+        )
+
+        self.assertEqual(parse_seed_swaps(soup), {10: 9, 9: 10})
+
     def test_completed_n8_bracket_gets_unique_canonical_display_numbers(self):
         matches = [
             _live_match(40, 1, 8),
@@ -2602,6 +2637,70 @@ class LiveBracketDisplayMatchNumberTestCase(unittest.TestCase):
                 5: 6,
                 2: 7,
                 7: 8,
+            },
+        )
+
+    def test_n10_live_matches_with_ibjjf_swap_get_canonical_display_numbers(self):
+        matches = [
+            _live_match(1, 8, 9),
+            _live_match(5, 7, 10),
+            _live_match(9, 9, 1),
+            _live_match(11, 10, 2),
+            _live_bye_match(2, 1),
+            _live_bye_match(6, 2),
+            _live_child_match(
+                13,
+                "Winner of Fight 4, Mat 1",
+                "Winner of Fight 6, Mat 1",
+            ),
+            _live_child_match(
+                14,
+                "Winner of Fight 5, Mat 1",
+                "Winner of Fight 7, Mat 1",
+            ),
+            _live_bye_match(3, 4),
+            _live_bye_match(7, 3),
+            _live_match(10, 4, 6),
+            _live_match(12, 3, 5),
+            _live_bye_match(4, 6),
+            _live_bye_match(8, 5),
+            _live_child_match(
+                15,
+                "Winner of Fight 10, Mat 1",
+                "Winner of Fight 9, Mat 1",
+                final=True,
+            ),
+        ]
+
+        for match, fight_num in zip(
+            matches,
+            [1, 2, 4, 7, None, None, 9, 10, None, None, 5, 6, None, None, 13],
+        ):
+            match["fight_num"] = fight_num
+
+        add_canonical_display_match_numbers(matches, 10, {9: 10, 10: 9})
+
+        display_by_match_num = {
+            match["match_num"]: match["display_match_num"] for match in matches
+        }
+        self.assertEqual(
+            display_by_match_num,
+            {
+                1: 2,
+                2: 1,
+                3: 6,
+                4: 5,
+                5: 8,
+                6: 7,
+                7: 3,
+                8: 4,
+                9: 9,
+                10: 11,
+                11: 12,
+                12: 10,
+                13: 13,
+                14: 14,
+                15: 15,
             },
         )
 
