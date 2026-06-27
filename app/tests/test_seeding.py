@@ -1947,6 +1947,40 @@ class BracketSlotsTestCase(unittest.TestCase):
         )
         self.assertEqual(size, 16)
 
+    def test_n13_slots_match_canonical_order(self):
+        slots, size = _bracket_slots(13)
+        self.assertEqual(
+            slots,
+            [
+                (1, None),
+                (8, 12),
+                (6, 10),
+                (4, 13),
+                (3, None),
+                (5, 9),
+                (2, None),
+                (7, 11),
+            ],
+        )
+        self.assertEqual(size, 16)
+
+    def test_n14_slots_match_canonical_order(self):
+        slots, size = _bracket_slots(14)
+        self.assertEqual(
+            slots,
+            [
+                (1, None),
+                (8, 12),
+                (6, 10),
+                (4, 14),
+                (3, 13),
+                (5, 9),
+                (2, None),
+                (7, 11),
+            ],
+        )
+        self.assertEqual(size, 16)
+
     def test_n10_slots_match_canonical_order(self):
         slots, size = _bracket_slots(10)
         self.assertEqual(
@@ -2688,21 +2722,211 @@ class LiveBracketDisplayMatchNumberTestCase(unittest.TestCase):
             {
                 1: 2,
                 2: 1,
-                3: 6,
-                4: 5,
+                3: 4,
+                4: 3,
                 5: 8,
                 6: 7,
-                7: 3,
-                8: 4,
+                7: 5,
+                8: 6,
                 9: 9,
-                10: 11,
+                10: 10,
                 11: 12,
-                12: 10,
+                12: 11,
                 13: 13,
                 14: 14,
                 15: 15,
             },
         )
+
+    def test_n14_live_matches_tolerate_stale_ibjjf_child_references(self):
+        def scheduled(match, fight_num, where):
+            match["fight_num"] = fight_num
+            match["where"] = where
+            return match
+
+        seed1_round_two = {
+            **_live_child_match(10, "Winner of Fight 35, Mat 2", ""),
+            "blue_id": "athlete-1",
+            "blue_seed": 1,
+            "blue_next_description": None,
+        }
+        seed2_round_two = {
+            **_live_child_match(12, "Winner of Fight 35, Mat 1", ""),
+            "blue_id": "athlete-2",
+            "blue_seed": 2,
+            "blue_next_description": None,
+        }
+        matches = [
+            scheduled(_live_match(1, 4, 14), 37, "Mat 3"),
+            scheduled(_live_match(5, 3, 13), 35, "Mat 4"),
+            scheduled(
+                _live_child_match(
+                    9,
+                    "Winner of Fight 37, Mat 3",
+                    "Winner of Fight 38, Mat 3",
+                ),
+                39,
+                "Mat 3",
+            ),
+            scheduled(
+                _live_child_match(
+                    15,
+                    "Winner of Fight 40, Mat 3",
+                    "Winner of Fight 37, Mat 1",
+                    final=True,
+                ),
+                40,
+                "Mat 1",
+            ),
+            scheduled(
+                _live_child_match(
+                    11,
+                    "Winner of Fight 35, Mat 4",
+                    "Winner of Fight 34, Mat 4",
+                ),
+                37,
+                "Mat 4",
+            ),
+            scheduled(_live_match(2, 6, 10), 38, "Mat 3"),
+            scheduled(_live_match(6, 5, 9), 34, "Mat 4"),
+            scheduled(
+                _live_child_match(
+                    13,
+                    "Winner of Fight 39, Mat 3",
+                    "Winner of Fight 37, Mat 2",
+                ),
+                40,
+                "Mat 3",
+            ),
+            scheduled(
+                _live_child_match(
+                    14,
+                    "Winner of Fight 37, Mat 4",
+                    "Winner of Fight 36, Mat 1",
+                ),
+                39,
+                "Mat 1",
+            ),
+            scheduled(_live_match(3, 8, 12), 33, "Mat 2"),
+            scheduled(_live_match(7, 7, 11), 35, "Mat 1"),
+            scheduled(seed1_round_two, 36, "Mat 2"),
+            scheduled(seed2_round_two, 37, "Mat 1"),
+            _live_bye_match(4, 1),
+            _live_bye_match(8, 2),
+        ]
+
+        add_canonical_display_match_numbers(matches, 14)
+
+        display_by_match_num = {
+            match["match_num"]: match["display_match_num"] for match in matches
+        }
+        self.assertEqual(
+            display_by_match_num,
+            {
+                1: 4,
+                2: 3,
+                3: 2,
+                4: 1,
+                5: 5,
+                6: 6,
+                7: 8,
+                8: 7,
+                9: 10,
+                10: 9,
+                11: 11,
+                12: 12,
+                13: 13,
+                14: 14,
+                15: 15,
+            },
+        )
+
+    def test_n14_live_matches_do_not_promote_noncanonical_leaves(self):
+        def scheduled(match, fight_num, where):
+            match["fight_num"] = fight_num
+            match["where"] = where
+            return match
+
+        seed1_round_two = {
+            **_live_child_match(10, "Winner of Fight 35, Mat 2", ""),
+            "blue_id": "athlete-1",
+            "blue_seed": 1,
+            "blue_next_description": None,
+        }
+        seed2_round_two = {
+            **_live_child_match(12, "Winner of Fight 35, Mat 1", ""),
+            "blue_id": "athlete-2",
+            "blue_seed": 2,
+            "blue_next_description": None,
+        }
+        matches = [
+            scheduled(_live_match(1, 4, 13), 37, "Mat 3"),
+            scheduled(_live_match(5, 3, 14), 35, "Mat 4"),
+            scheduled(
+                _live_child_match(
+                    9,
+                    "Winner of Fight 37, Mat 3",
+                    "Winner of Fight 38, Mat 3",
+                ),
+                39,
+                "Mat 3",
+            ),
+            scheduled(
+                _live_child_match(
+                    15,
+                    "Winner of Fight 40, Mat 3",
+                    "Winner of Fight 37, Mat 1",
+                    final=True,
+                ),
+                40,
+                "Mat 1",
+            ),
+            scheduled(
+                _live_child_match(
+                    11,
+                    "Winner of Fight 35, Mat 4",
+                    "Winner of Fight 34, Mat 4",
+                ),
+                37,
+                "Mat 4",
+            ),
+            scheduled(_live_match(2, 6, 10), 38, "Mat 3"),
+            scheduled(_live_match(6, 5, 9), 34, "Mat 4"),
+            scheduled(
+                _live_child_match(
+                    13,
+                    "Winner of Fight 39, Mat 3",
+                    "Winner of Fight 37, Mat 2",
+                ),
+                40,
+                "Mat 3",
+            ),
+            scheduled(
+                _live_child_match(
+                    14,
+                    "Winner of Fight 37, Mat 4",
+                    "Winner of Fight 36, Mat 1",
+                ),
+                39,
+                "Mat 1",
+            ),
+            scheduled(_live_match(3, 8, 12), 33, "Mat 2"),
+            scheduled(_live_match(7, 7, 11), 35, "Mat 1"),
+            scheduled(seed1_round_two, 36, "Mat 2"),
+            scheduled(seed2_round_two, 37, "Mat 1"),
+            _live_bye_match(4, 1),
+            _live_bye_match(8, 2),
+        ]
+
+        add_canonical_display_match_numbers(matches, 14)
+
+        display_by_match_num = {
+            match["match_num"]: match["display_match_num"] for match in matches
+        }
+        self.assertEqual(sorted(display_by_match_num.values()), list(range(1, 16)))
+        self.assertLessEqual(display_by_match_num[1], 8)
+        self.assertLessEqual(display_by_match_num[5], 8)
+        self.assertEqual(display_by_match_num[15], 15)
 
 
 class SideTestCase(unittest.TestCase):

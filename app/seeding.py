@@ -1770,13 +1770,6 @@ _IBJJF_SEED_LAYOUTS = {
     ],
 }
 
-_IBJJF_PARTIAL_BRACKET_LAYOUTS = {
-    6: (
-        8,
-        [(1, None), (4, 6), (2, None), (3, 5)],
-    ),
-}
-
 
 def _bracket_slots(n):
     """Return ``(first_round, bracket_size)`` for an n-person IBJJF bracket.
@@ -1795,11 +1788,6 @@ def _bracket_slots(n):
     """
     if n < 4:
         return None, None
-
-    partial_layout = _IBJJF_PARTIAL_BRACKET_LAYOUTS.get(n)
-    if partial_layout is not None:
-        bracket_size, first_round = partial_layout
-        return list(first_round), bracket_size
 
     effective_size = 1
     while effective_size * 2 <= n:
