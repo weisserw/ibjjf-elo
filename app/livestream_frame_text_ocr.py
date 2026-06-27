@@ -30,6 +30,7 @@ SUPPORTED_NAME_ENGINES = ("none", "tesseract")
 SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
 NAME_COLUMN_RIGHT_RATIO = 0.481
+NAME_RENDERED_COLUMN_RIGHT_RATIO = 0.52
 NAME_ROW_Y_EDGES = (0.0, 0.431, 0.861)
 NAME_LINE_TOP_RATIO = 0.02
 NAME_LINE_BOTTOM_RATIO = 0.42
@@ -54,6 +55,13 @@ class DigitPrediction:
     digit: int | None
     similarity: float
     source: str
+
+
+@dataclass(frozen=True)
+class ScoreLayout:
+    name: str
+    cell_boxes: tuple[tuple[int, int, int, int], ...]
+    background_roles: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -101,6 +109,39 @@ def _score_cell_boxes(
     )
 
 
+def _rendered_score_cell_boxes(
+    image_size: tuple[int, int]
+) -> tuple[tuple[int, int, int, int], ...]:
+    width, height = image_size
+    x_ranges = ((0.568, 0.671), (0.675, 0.777), (0.779, 0.883))
+    y_ranges = ((0.074, 0.403), (0.440, 0.773))
+    return tuple(
+        (
+            int(width * x_start),
+            int(height * y_start),
+            int(width * x_end),
+            int(height * y_end),
+        )
+        for y_start, y_end in y_ranges
+        for x_start, x_end in x_ranges
+    )
+
+
+def _score_layouts(image_size: tuple[int, int]) -> tuple[ScoreLayout, ...]:
+    return (
+        ScoreLayout(
+            "legacy",
+            _score_cell_boxes(image_size),
+            ("green", "green", "red", "green", "green", "red"),
+        ),
+        ScoreLayout(
+            "rendered",
+            _rendered_score_cell_boxes(image_size),
+            ("green", "yellow", "red", "green", "yellow", "red"),
+        ),
+    )
+
+
 def _name_line_boxes(
     image_size: tuple[int, int]
 ) -> tuple[tuple[int, int, int, int], ...]:
@@ -127,18 +168,38 @@ def _name_column_box(image_size: tuple[int, int]) -> tuple[int, int, int, int]:
     )
 
 
+def _name_column_boxes(
+    image_size: tuple[int, int]
+) -> tuple[tuple[int, int, int, int], ...]:
+    width, height = image_size
+    boxes = [_name_column_box(image_size)]
+    if width >= 400:
+        boxes.insert(
+            0,
+            (
+                0,
+                0,
+                int(width * NAME_RENDERED_COLUMN_RIGHT_RATIO),
+                int(height * NAME_ROW_Y_EDGES[-1]),
+            ),
+        )
+    return tuple(boxes)
+
+
 def _inner_cell(image):
     margin = max(2, min(image.size) // 12)
     return image.crop((margin, margin, image.width - margin, image.height - margin))
 
 
-def _score_cell_has_background(image, cell_index: int) -> bool:
+def _score_cell_has_background(image, role: str) -> bool:
     rgb = np.asarray(image.convert("RGB"))
     red = rgb[:, :, 0]
     green = rgb[:, :, 1]
     blue = rgb[:, :, 2]
-    if cell_index % 3 == 2:
+    if role == "red":
         mask = (red > 120) & (green < 110) & (blue < 130)
+    elif role == "yellow":
+        mask = (red > 150) & (green > 110) & (blue < 120)
     else:
         mask = (green > 100) & (blue < 150) & (red < 190)
     return bool(mask.mean() >= 0.12)
@@ -288,12 +349,28 @@ class ScoreboardDigitReader:
     def read(self, image) -> ScoreboardDigitReading:
         if image is None:
             return ScoreboardDigitReading(None, (), False)
-        boxes = _score_cell_boxes(image.size)
+
+        readings = [
+            self._read_layout(image, layout) for layout in _score_layouts(image.size)
+        ]
+        readings_with_digits = [
+            reading for reading in readings if reading.has_layout and reading.digits
+        ]
+        if readings_with_digits:
+            return max(readings_with_digits, key=self._reading_confidence)
+
+        readings_with_layout = [reading for reading in readings if reading.has_layout]
+        if readings_with_layout:
+            return max(readings_with_layout, key=self._reading_confidence)
+
+        return readings[0]
+
+    def _read_layout(self, image, layout: ScoreLayout) -> ScoreboardDigitReading:
         predictions = []
         has_layout = True
-        for index, box in enumerate(boxes):
+        for box, role in zip(layout.cell_boxes, layout.background_roles):
             cell = _inner_cell(image.crop(box))
-            if not _score_cell_has_background(cell, index):
+            if not _score_cell_has_background(cell, role):
                 has_layout = False
             mask = _score_digit_mask(cell)
             if mask is None:
@@ -308,6 +385,15 @@ class ScoreboardDigitReader:
             tuple(prediction.digit for prediction in predictions),
             tuple(predictions),
             True,
+        )
+
+    @staticmethod
+    def _reading_confidence(reading: ScoreboardDigitReading) -> float:
+        if not reading.predictions:
+            return 0.0
+        return float(
+            sum(prediction.similarity for prediction in reading.predictions)
+            / len(reading.predictions)
         )
 
 
@@ -328,10 +414,25 @@ class TimerDigitReader:
         green_foreground = (
             (green > 140) & (red < 120) & (blue < 140) & ((green - red) > 40)
         ).mean()
+        orange_foreground = (
+            (red > 150)
+            & (green > 90)
+            & (green < 190)
+            & (blue < 120)
+            & ((red - green) > 20)
+        ).mean()
+        white_foreground = ((red > 180) & (green > 180) & (blue > 180)).mean()
         dark_background = ((red < 60) & (green < 60) & (blue < 60)).mean()
+        dark_blue_background = ((blue > 60) & (red < 60) & (green < 80)).mean()
         if red_background > 0.25:
             return "stopped"
+        if white_foreground > 0.03 and dark_blue_background > 0.15:
+            return "stopped"
         if green_foreground > 0.03 and dark_background > 0.30:
+            return "running"
+        if (
+            green_foreground > 0.03 or orange_foreground > 0.03
+        ) and dark_blue_background > 0.15:
             return "running"
         return "blank"
 
@@ -341,8 +442,37 @@ class TimerDigitReader:
         green = rgb[:, :, 1]
         blue = rgb[:, :, 2]
         if state == "stopped":
-            return (red < 70) & (green < 70) & (blue < 70)
-        return (green > 110) & (red < 120) & (blue < 130) & ((green - red) > 40)
+            red_background = ((red > 130) & (green < 100) & (blue < 120)).mean()
+            if red_background > 0.25:
+                return (red < 70) & (green < 70) & (blue < 70)
+            return (red > 180) & (green > 180) & (blue > 180)
+        green_digits = (green > 110) & (red < 120) & (blue < 130) & ((green - red) > 40)
+        orange_digits = (
+            (red > 150)
+            & (green > 90)
+            & (green < 190)
+            & (blue < 120)
+            & ((red - green) > 20)
+        )
+        return green_digits | orange_digits
+
+    @staticmethod
+    def _looks_like_timer_six(mask) -> bool:
+        return bool(
+            mask[:14, 18:].mean() < 0.40
+            and mask[:10, :].mean() < 0.50
+            and mask[16:30, :].mean() > 0.60
+        )
+
+    def _predict_digit(self, mask) -> DigitPrediction:
+        prediction = self.classifier.predict(mask)
+        if prediction.digit == 0 and self._looks_like_timer_six(mask):
+            return DigitPrediction(
+                6,
+                prediction.similarity,
+                f"{prediction.source}:timer-six-shape",
+            )
+        return prediction
 
     def read(self, image) -> TimerDigitReading:
         state = self._state(image)
@@ -352,8 +482,8 @@ class TimerDigitReader:
         full_threshold = self._threshold(image, state)
         width, height = image.size
         display_left = int(width * 0.10)
-        display_right = int(width * 0.74)
-        display_bottom = int(height * 0.72)
+        display_right = int(width * 0.88)
+        display_bottom = int(height * 0.80)
         display_mask = full_threshold[:display_bottom, display_left:display_right]
         component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
             display_mask.astype("uint8"), 8
@@ -385,7 +515,7 @@ class TimerDigitReader:
                 == component_index
             )
             normalized = _normalize_mask(component_mask, TIMER_TEMPLATE_SIZE)
-            predictions.append(self.classifier.predict(normalized))
+            predictions.append(self._predict_digit(normalized))
 
         digits = [
             prediction.digit
@@ -395,7 +525,8 @@ class TimerDigitReader:
         if len(digits) == 3:
             value = f"{digits[0]}:{digits[1]}{digits[2]}"
         elif len(digits) == 4:
-            value = f"{digits[0]}{digits[1]}:{digits[2]}{digits[3]}"
+            minutes = digits[0] * 10 + digits[1]
+            value = f"{minutes}:{digits[2]}{digits[3]}"
         else:
             value = None
         return TimerDigitReading(state, value, tuple(predictions))
@@ -468,15 +599,28 @@ class FrameImageTextParser:
             text = self._ocr(score_image, "--psm 6")
             return text, self._complete_athlete_name_fields(self._parse_names(text))
 
-        column_image = self._prepare_name_ocr_image(
-            score_image.crop(_name_column_box(score_image.size))
-        )
-        column_text = self._ocr(column_image, "--psm 6")
-        victory_fields = self._complete_athlete_name_fields(
-            self._parse_victory_names(column_text)
-        )
-        if victory_fields:
-            return column_text, victory_fields
+        column_text = ""
+        column_fields = {}
+        column_boxes = _name_column_boxes(score_image.size)
+        for index, box in enumerate(column_boxes):
+            column_image = self._prepare_name_ocr_image(score_image.crop(box))
+            column_text = self._ocr(column_image, "--psm 6")
+            victory_fields = self._complete_athlete_name_fields(
+                self._parse_victory_names(column_text)
+            )
+            if victory_fields:
+                return column_text, victory_fields
+
+            parsed_column_fields = self._complete_athlete_name_fields(
+                self._parse_names(column_text, allow_two_line_fallback=False)
+            )
+            if parsed_column_fields and len(column_boxes) > 1 and index == 0:
+                return column_text, parsed_column_fields
+            if parsed_column_fields:
+                column_fields = parsed_column_fields
+
+        if column_fields and len(column_boxes) > 1:
+            return column_text, column_fields
 
         row_fields = {}
         row_texts = []
@@ -496,10 +640,7 @@ class FrameImageTextParser:
         if fields:
             return text, fields
 
-        fields = self._complete_athlete_name_fields(
-            self._parse_names(column_text, allow_two_line_fallback=False)
-        )
-        return text, fields
+        return text, column_fields
 
     def _clean_name_line(self, line: str) -> str | None:
         line = re.sub(r"[|_]+", " ", line)

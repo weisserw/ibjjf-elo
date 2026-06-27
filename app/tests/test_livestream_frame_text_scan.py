@@ -252,6 +252,34 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
         self.assertEqual(events[0].timer_state, "running")
         self.assertEqual(events[0].timer_value, "5:00")
 
+    def test_running_timer_tickdown_accepts_canonical_single_digit_minutes(self):
+        provider = DictFrameProvider()
+
+        class TimerParser:
+            def parse(self, frame_second, score_image, timer_image):
+                remaining = 97 - frame_second
+                return text_scan.FrameReading(
+                    frame_second=frame_second,
+                    timer_state="running",
+                    timer_value=f"{remaining // 60}:{remaining % 60:02d}",
+                )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            TimerParser(),
+            0,
+            61,
+            coarse_interval_seconds=20,
+        )
+
+        self.assertEqual(
+            [
+                (event.frame_second, event.timer_state, event.timer_value)
+                for event in events
+            ],
+            [(0, "running", "1:37")],
+        )
+
     def test_repeated_running_timer_value_does_not_emit_duplicate_events(self):
         provider = DictFrameProvider()
 
@@ -825,6 +853,40 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(reading.timer_value, "4:00")
         self.assertEqual(reading.evidence["score_digits"], "000/210")
 
+    def test_scoreboard_digit_reader_accepts_rendered_layout(self):
+        if (
+            text_ocr.cv2 is None
+            or text_ocr.np is None
+            or text_ocr.Image is None
+            or text_ocr.ImageDraw is None
+        ):
+            self.skipTest("fixed digit OCR dependencies are unavailable")
+
+        class ConstantClassifier:
+            def predict(self, mask):
+                return text_ocr.DigitPrediction(0, 0.99, "test")
+
+        image = text_ocr.Image.new("RGB", (1000, 200), (0, 0, 0))
+        draw = text_ocr.ImageDraw.Draw(image)
+        colors = {
+            "green": (40, 150, 60),
+            "yellow": (190, 160, 50),
+            "red": (180, 40, 50),
+        }
+        layout = text_ocr._score_layouts(image.size)[1]
+        for box, role in zip(layout.cell_boxes, layout.background_roles):
+            draw.rectangle(box, fill=colors[role])
+            x1, y1, _, y2 = box
+            draw.rectangle(
+                (x1 + 24, y1 + 16, x1 + 34, y2 - 16),
+                fill=(245, 245, 245),
+            )
+
+        reading = text_ocr.ScoreboardDigitReader(ConstantClassifier()).read(image)
+
+        self.assertTrue(reading.has_layout)
+        self.assertEqual(reading.digits, (0, 0, 0, 0, 0, 0))
+
     def test_score_fields_from_reading_marks_missing_layout_as_blank(self):
         reading = text_ocr.ScoreboardDigitReading(
             None,
@@ -914,6 +976,80 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                         expected_value,
                         field_name,
                     )
+
+    def test_new_score_fixture_names(self):
+        text_ocr.validate_ocr_engines("none", "tesseract")
+        parser = text_ocr.FrameImageTextParser("auto", "none", "tesseract")
+        cases = [
+            (
+                "new_score_200_010.jpg",
+                "Carlos Wagner Rosa Pereira",
+                "Ethan Roy Major",
+            ),
+            (
+                "new_score_930_000.jpg",
+                "Anabelle Pereira Dominico",
+                "Rebeca de Lavor Tisatto",
+            ),
+        ]
+
+        for score_image, top_name, bottom_name in cases:
+            with self.subTest(score_image=score_image):
+                score_path = os.path.join(self.fixture_dir, score_image)
+                self.assertTrue(
+                    os.path.exists(score_path),
+                    f"missing livestream OCR score fixture: {score_image}",
+                )
+                with open(score_path, "rb") as fileobj:
+                    reading = parser.parse(0, fileobj.read(), None)
+
+                self.assertEqual(reading.top_athlete_name, top_name)
+                self.assertEqual(reading.bottom_athlete_name, bottom_name)
+
+    def test_new_score_fixture_scores(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        parser = text_ocr.FrameImageTextParser("auto", "fixed_digit", "none")
+        cases = [
+            (
+                "new_score_200_010.jpg",
+                {
+                    "top_points": 2,
+                    "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 1,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
+                "new_score_930_000.jpg",
+                {
+                    "top_points": 9,
+                    "top_advantages": 3,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                },
+            ),
+        ]
+
+        for score_image, expected_fields in cases:
+            with self.subTest(score_image=score_image):
+                score_path = os.path.join(self.fixture_dir, score_image)
+                self.assertTrue(
+                    os.path.exists(score_path),
+                    f"missing livestream OCR score fixture: {score_image}",
+                )
+                with open(score_path, "rb") as fileobj:
+                    reading = parser.parse(0, fileobj.read(), None)
+
+                self.assertEqual(
+                    reading.scoreboard_state,
+                    text_scan.SCOREBOARD_STATE_VISIBLE,
+                )
+                for field_name, expected_value in expected_fields.items():
+                    self.assertEqual(getattr(reading, field_name), expected_value)
 
 
 class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
