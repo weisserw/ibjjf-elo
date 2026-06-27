@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import sys
 import tarfile
@@ -30,6 +31,7 @@ from models import (  # noqa: E402
 from test_db import TestDbMixin  # noqa: E402
 
 import livestream_frame_text_scan as text_scan  # noqa: E402
+import livestream_frame_text_ocr as text_ocr  # noqa: E402
 import scan_livestream_frame_text as runner  # noqa: E402
 
 
@@ -129,8 +131,8 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
         provider = DictFrameProvider()
         parser = TimelineParser(
             {
-                0: {"top_athlete_name": "ALICE"},
-                37: {"top_athlete_name": "BOB"},
+                0: {"top_athlete_name": "TEST ATHLETE ALPHA"},
+                37: {"top_athlete_name": "TEST ATHLETE BETA"},
             }
         )
         debug_messages = []
@@ -178,8 +180,8 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
                 return text_scan.FrameReading(
                     frame_second=frame_second,
                     top_points=2 if frame_second >= 37 else 0,
-                    top_athlete_name="ALICE SMITH",
-                    bottom_athlete_name="BOB JONES",
+                    top_athlete_name="TEST ATHLETE ALPHA",
+                    bottom_athlete_name="TEST ATHLETE BETA",
                 )
 
         events = text_scan.scan_frame_text_segment(
@@ -191,10 +193,10 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
         )
 
         self.assertEqual([event.frame_second for event in events], [0, 37])
-        self.assertEqual(events[0].top_athlete_name, "ALICE SMITH")
-        self.assertEqual(events[0].bottom_athlete_name, "BOB JONES")
-        self.assertEqual(events[1].top_athlete_name, "ALICE SMITH")
-        self.assertEqual(events[1].bottom_athlete_name, "BOB JONES")
+        self.assertEqual(events[0].top_athlete_name, "TEST ATHLETE ALPHA")
+        self.assertEqual(events[0].bottom_athlete_name, "TEST ATHLETE BETA")
+        self.assertEqual(events[1].top_athlete_name, "TEST ATHLETE ALPHA")
+        self.assertEqual(events[1].bottom_athlete_name, "TEST ATHLETE BETA")
 
     def test_score_events_include_victory_team_line(self):
         provider = DictFrameProvider()
@@ -205,8 +207,8 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
                     frame_second=frame_second,
                     top_points=2 if frame_second >= 37 else 0,
                     top_athlete_name="Victory",
-                    bottom_athlete_name="ALICE SMITH",
-                    bottom_team_name="CHECKMAT",
+                    bottom_athlete_name="TEST ATHLETE ALPHA",
+                    bottom_team_name="SAMPLE TEAM ONE",
                 )
 
         events = text_scan.scan_frame_text_segment(
@@ -219,11 +221,11 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
 
         self.assertEqual([event.frame_second for event in events], [0, 37])
         self.assertEqual(events[0].top_athlete_name, "Victory")
-        self.assertEqual(events[0].bottom_athlete_name, "ALICE SMITH")
-        self.assertEqual(events[0].bottom_team_name, "CHECKMAT")
+        self.assertEqual(events[0].bottom_athlete_name, "TEST ATHLETE ALPHA")
+        self.assertEqual(events[0].bottom_team_name, "SAMPLE TEAM ONE")
         self.assertEqual(events[1].top_athlete_name, "Victory")
-        self.assertEqual(events[1].bottom_athlete_name, "ALICE SMITH")
-        self.assertEqual(events[1].bottom_team_name, "CHECKMAT")
+        self.assertEqual(events[1].bottom_athlete_name, "TEST ATHLETE ALPHA")
+        self.assertEqual(events[1].bottom_team_name, "SAMPLE TEAM ONE")
 
     def test_running_timer_tickdown_does_not_emit_events(self):
         provider = DictFrameProvider()
@@ -509,7 +511,7 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
 
 class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
     def _name_parser(self, name_engine="tesseract"):
-        parser = runner.FrameImageTextParser.__new__(runner.FrameImageTextParser)
+        parser = text_ocr.FrameImageTextParser.__new__(text_ocr.FrameImageTextParser)
         parser.name_engine = name_engine
         return parser
 
@@ -525,11 +527,11 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         fields = parser._parse_names(
             "\n".join(
                 [
-                    "MARIA SILVA",
-                    "CHECKMAT",
+                    "TEST ATHLETE ALPHA",
+                    "SAMPLE TEAM ONE",
                     "0 0 0",
-                    "ANA SOUZA",
-                    "ALLIANCE",
+                    "TEST ATHLETE BETA",
+                    "SAMPLE TEAM TWO",
                     "2 1 0",
                 ]
             )
@@ -538,8 +540,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(
             fields,
             {
-                "top_athlete_name": "MARIA SILVA",
-                "bottom_athlete_name": "ANA SOUZA",
+                "top_athlete_name": "TEST ATHLETE ALPHA",
+                "bottom_athlete_name": "TEST ATHLETE BETA",
             },
         )
 
@@ -549,8 +551,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         fields = parser._parse_names(
             "\n".join(
                 [
-                    "KEANU ALIKA ORA-A 0 . ~",
-                    "JOSIAH KALANI YUEN, 8 =p ;",
+                    "TEST ATHLETE GAMMA-RAY 0 . ~",
+                    "TEST ATHLETE DELTA, 8 =p ;",
                 ]
             )
         )
@@ -558,21 +560,23 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(
             fields,
             {
-                "top_athlete_name": "KEANU ALIKA ORA-A",
-                "bottom_athlete_name": "JOSIAH KALANI YUEN",
+                "top_athlete_name": "TEST ATHLETE GAMMA-RAY",
+                "bottom_athlete_name": "TEST ATHLETE DELTA",
             },
         )
 
     def test_tesseract_parser_ignores_short_junk_name_lines(self):
         parser = self._name_parser()
 
-        fields = parser._parse_names("S\ney 1\nrs PT\nMARIA SILVA\nANA SOUZA")
+        fields = parser._parse_names(
+            "S\ney 1\nrs PT\nTEST ATHLETE ALPHA\nTEST ATHLETE BETA"
+        )
 
         self.assertEqual(
             fields,
             {
-                "top_athlete_name": "MARIA SILVA",
-                "bottom_athlete_name": "ANA SOUZA",
+                "top_athlete_name": "TEST ATHLETE ALPHA",
+                "bottom_athlete_name": "TEST ATHLETE BETA",
             },
         )
 
@@ -583,8 +587,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             "\n".join(
                 [
                     "Victory",
-                    "Josiah Kalani Yuen",
-                    "Rodrigo Pinheiro BJJ",
+                    "Test Athlete Winner",
+                    "Sample Team BJJ",
                 ]
             )
         )
@@ -593,8 +597,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             fields,
             {
                 "top_athlete_name": "Victory",
-                "bottom_athlete_name": "Josiah Kalani Yuen",
-                "bottom_team_name": "Rodrigo Pinheiro BJJ",
+                "bottom_athlete_name": "Test Athlete Winner",
+                "bottom_team_name": "Sample Team BJJ",
             },
         )
 
@@ -605,8 +609,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             "\n".join(
                 [
                     "ictory",
-                    "Josiah Kalani Yuen",
-                    "Rodrigo Pinheiro BJJ",
+                    "Test Athlete Winner",
+                    "Sample Team BJJ",
                 ]
             )
         )
@@ -615,8 +619,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             fields,
             {
                 "top_athlete_name": "Victory",
-                "bottom_athlete_name": "Josiah Kalani Yuen",
-                "bottom_team_name": "Rodrigo Pinheiro BJJ",
+                "bottom_athlete_name": "Test Athlete Winner",
+                "bottom_team_name": "Sample Team BJJ",
             },
         )
 
@@ -637,10 +641,10 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             side_effect=[
                 "\n".join(
                     [
-                        "KEANU ALIKA ORA-A",
-                        "ROMA JJ ACADEMY",
-                        "JOSIAH KALANI YUEN",
-                        "RODRIGO PINHEIRO BJJ",
+                        "TEST ATHLETE GAMMA-RAY",
+                        "SAMPLE TEAM ONE",
+                        "TEST ATHLETE DELTA",
+                        "SAMPLE TEAM TWO",
                     ]
                 ),
                 "",
@@ -654,11 +658,11 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(
             fields,
             {
-                "top_athlete_name": "KEANU ALIKA ORA-A",
-                "bottom_athlete_name": "JOSIAH KALANI YUEN",
+                "top_athlete_name": "TEST ATHLETE GAMMA-RAY",
+                "bottom_athlete_name": "TEST ATHLETE DELTA",
             },
         )
-        self.assertIn("KEANU ALIKA ORA-A", scoreboard_text)
+        self.assertIn("TEST ATHLETE GAMMA-RAY", scoreboard_text)
         self.assertEqual(score_image.boxes[0], (0, 0, 153, 120))
         self.assertEqual(len(score_image.boxes), 3)
         parser._ocr.assert_has_calls(
@@ -684,9 +688,9 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser._prepare_name_ocr_image = lambda image: f"prepared-{image}"
         parser._ocr = mock.Mock(
             side_effect=[
-                "\n".join(["KEANU ALIKA ORA-A", "ROMA JJ ACADEMY"]),
-                "KEANU ALIKA ORA-A",
-                "JOSIAH KALANI YUEN",
+                "\n".join(["TEST ATHLETE GAMMA-RAY", "SAMPLE TEAM ONE"]),
+                "TEST ATHLETE GAMMA-RAY",
+                "TEST ATHLETE DELTA",
             ]
         )
         score_image = FakeScoreImage()
@@ -696,11 +700,11 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(
             fields,
             {
-                "top_athlete_name": "KEANU ALIKA ORA-A",
-                "bottom_athlete_name": "JOSIAH KALANI YUEN",
+                "top_athlete_name": "TEST ATHLETE GAMMA-RAY",
+                "bottom_athlete_name": "TEST ATHLETE DELTA",
             },
         )
-        self.assertIn("ROMA JJ ACADEMY", scoreboard_text)
+        self.assertIn("SAMPLE TEAM ONE", scoreboard_text)
         self.assertEqual(len(score_image.boxes), 3)
 
     def test_tesseract_parser_falls_back_to_split_rows(self):
@@ -717,7 +721,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser = self._name_parser()
         parser._prepare_name_ocr_image = lambda image: f"prepared-{image}"
         parser._ocr = mock.Mock(
-            side_effect=["", "KEANU ALIKA ORA-A", "JOSIAH KALANI YUEN"]
+            side_effect=["", "TEST ATHLETE GAMMA-RAY", "TEST ATHLETE DELTA"]
         )
         score_image = FakeScoreImage()
 
@@ -726,8 +730,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(
             fields,
             {
-                "top_athlete_name": "KEANU ALIKA ORA-A",
-                "bottom_athlete_name": "JOSIAH KALANI YUEN",
+                "top_athlete_name": "TEST ATHLETE GAMMA-RAY",
+                "bottom_athlete_name": "TEST ATHLETE DELTA",
             },
         )
         self.assertEqual(len(score_image.boxes), 3)
@@ -750,7 +754,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         parser = self._name_parser()
         parser._prepare_name_ocr_image = lambda image: image
-        parser._ocr = mock.Mock(side_effect=["", "KEANU ALIKA ORA-A", ""])
+        parser._ocr = mock.Mock(side_effect=["", "TEST ATHLETE GAMMA-RAY", ""])
 
         _, fields = parser._ocr_name_fields(FakeScoreImage())
 
@@ -759,7 +763,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
     def test_tesseract_parser_skips_names_when_name_engine_disabled(self):
         parser = self._name_parser(name_engine=None)
 
-        self.assertEqual(parser._parse_names("MARIA SILVA\n0 0 0"), {})
+        self.assertEqual(parser._parse_names("TEST ATHLETE ALPHA\n0 0 0"), {})
 
     def test_frame_image_parser_name_only_mode_does_not_emit_score_or_timer(self):
         parser = self._name_parser()
@@ -769,13 +773,14 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser.timer_reader = None
         parser._image_from_bytes = lambda image_bytes: image_bytes
         parser._ocr = lambda image, config="": (
-            "MARIA SILVA\nCHECKMAT\n0 0 0\nANA SOUZA\nALLIANCE\n2 1 0"
+            "TEST ATHLETE ALPHA\nSAMPLE TEAM ONE\n0 0 0\n"
+            "TEST ATHLETE BETA\nSAMPLE TEAM TWO\n2 1 0"
         )
 
         reading = parser.parse(12, b"score", b"timer")
 
-        self.assertEqual(reading.top_athlete_name, "MARIA SILVA")
-        self.assertEqual(reading.bottom_athlete_name, "ANA SOUZA")
+        self.assertEqual(reading.top_athlete_name, "TEST ATHLETE ALPHA")
+        self.assertEqual(reading.bottom_athlete_name, "TEST ATHLETE BETA")
         self.assertIsNone(reading.top_points)
         self.assertIsNone(reading.timer_state)
 
@@ -787,26 +792,26 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser._image_from_bytes = lambda image_bytes: image_bytes
         parser._ocr = mock.Mock(side_effect=AssertionError("unexpected OCR call"))
         parser.score_reader = mock.Mock()
-        parser.score_reader.read.return_value = runner.ScoreboardDigitReading(
+        parser.score_reader.read.return_value = text_ocr.ScoreboardDigitReading(
             (0, 0, 0, 2, 1, 0),
             (
-                runner.DigitPrediction(0, 0.9, "test"),
-                runner.DigitPrediction(0, 0.9, "test"),
-                runner.DigitPrediction(0, 0.9, "test"),
-                runner.DigitPrediction(2, 0.9, "test"),
-                runner.DigitPrediction(1, 0.9, "test"),
-                runner.DigitPrediction(0, 0.9, "test"),
+                text_ocr.DigitPrediction(0, 0.9, "test"),
+                text_ocr.DigitPrediction(0, 0.9, "test"),
+                text_ocr.DigitPrediction(0, 0.9, "test"),
+                text_ocr.DigitPrediction(2, 0.9, "test"),
+                text_ocr.DigitPrediction(1, 0.9, "test"),
+                text_ocr.DigitPrediction(0, 0.9, "test"),
             ),
             True,
         )
         parser.timer_reader = mock.Mock()
-        parser.timer_reader.read.return_value = runner.TimerDigitReading(
+        parser.timer_reader.read.return_value = text_ocr.TimerDigitReading(
             "stopped",
             "4:00",
             (
-                runner.DigitPrediction(4, 0.9, "test"),
-                runner.DigitPrediction(0, 0.9, "test"),
-                runner.DigitPrediction(0, 0.9, "test"),
+                text_ocr.DigitPrediction(4, 0.9, "test"),
+                text_ocr.DigitPrediction(0, 0.9, "test"),
+                text_ocr.DigitPrediction(0, 0.9, "test"),
             ),
         )
 
@@ -821,36 +826,36 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(reading.evidence["score_digits"], "000/210")
 
     def test_score_fields_from_reading_marks_missing_layout_as_blank(self):
-        reading = runner.ScoreboardDigitReading(
+        reading = text_ocr.ScoreboardDigitReading(
             None,
-            tuple(runner.DigitPrediction(None, 0.0, "none") for _ in range(6)),
+            tuple(text_ocr.DigitPrediction(None, 0.0, "none") for _ in range(6)),
             False,
         )
 
         self.assertEqual(
-            runner.score_fields_from_reading(reading),
+            text_ocr.score_fields_from_reading(reading),
             {"scoreboard_state": text_scan.SCOREBOARD_STATE_BLANK},
         )
 
     def test_score_fields_from_reading_ignores_unreadable_visible_layout(self):
-        reading = runner.ScoreboardDigitReading(
+        reading = text_ocr.ScoreboardDigitReading(
             None,
-            tuple(runner.DigitPrediction(None, 0.0, "none") for _ in range(6)),
+            tuple(text_ocr.DigitPrediction(None, 0.0, "none") for _ in range(6)),
             True,
         )
 
-        self.assertEqual(runner.score_fields_from_reading(reading), {})
+        self.assertEqual(text_ocr.score_fields_from_reading(reading), {})
 
     def test_validate_ocr_engines_accepts_none_without_imports(self):
-        runner.validate_ocr_engines("none", None)
+        text_ocr.validate_ocr_engines("none", None)
 
     def test_validate_ocr_engines_rejects_unknown_engine(self):
         with self.assertRaisesRegex(RuntimeError, "unsupported score engine"):
-            runner.validate_ocr_engines("bogus", None)
+            text_ocr.validate_ocr_engines("bogus", None)
 
     def test_validate_ocr_engines_rejects_tesseract_score_engine(self):
         with self.assertRaisesRegex(RuntimeError, "unsupported score engine"):
-            runner.validate_ocr_engines("tesseract", None)
+            text_ocr.validate_ocr_engines("tesseract", None)
 
     def test_validate_ocr_engines_requires_tesseract_binary_for_names(self):
         with mock.patch.dict(
@@ -863,7 +868,52 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         ):
             with mock.patch("shutil.which", return_value=None):
                 with self.assertRaisesRegex(RuntimeError, "tesseract binary"):
-                    runner.validate_ocr_engines("none", "tesseract")
+                    text_ocr.validate_ocr_engines("none", "tesseract")
+
+
+class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
+    fixture_dir = os.path.join(os.path.dirname(__file__), "fixtures", "livestream_ocr")
+
+    def test_score_and_timer_fixture_cases(self):
+        cases_path = os.path.join(self.fixture_dir, "cases.json")
+        self.assertTrue(
+            os.path.exists(cases_path),
+            "livestream OCR fixture manifest is missing",
+        )
+
+        with open(cases_path) as fileobj:
+            cases = json.load(fileobj)
+        self.assertTrue(cases, "livestream OCR fixture manifest has no cases")
+
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        parser = text_ocr.FrameImageTextParser("auto", "fixed_digit", "none")
+
+        for case in cases:
+            with self.subTest(case=case["id"]):
+                score_path = os.path.join(self.fixture_dir, case["score_image"])
+                timer_path = os.path.join(self.fixture_dir, case["timer_image"])
+                self.assertTrue(
+                    os.path.exists(score_path),
+                    f"missing livestream OCR score fixture: {case['score_image']}",
+                )
+                self.assertTrue(
+                    os.path.exists(timer_path),
+                    f"missing livestream OCR timer fixture: {case['timer_image']}",
+                )
+
+                with open(score_path, "rb") as fileobj:
+                    score_image = fileobj.read()
+                with open(timer_path, "rb") as fileobj:
+                    timer_image = fileobj.read()
+
+                reading = parser.parse(0, score_image, timer_image)
+
+                for field_name, expected_value in case["expected"].items():
+                    self.assertEqual(
+                        getattr(reading, field_name),
+                        expected_value,
+                        field_name,
+                    )
 
 
 class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):

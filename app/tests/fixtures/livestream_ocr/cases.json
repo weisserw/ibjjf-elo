@@ -1,0 +1,18 @@
+[
+  {
+    "id": "score_010_220_timer_stopped_000",
+    "score_image": "score_010_220.jpg",
+    "timer_image": "timer_stopped_000.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 0,
+      "top_advantages": 1,
+      "top_penalties": 0,
+      "bottom_points": 2,
+      "bottom_advantages": 2,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    }
+  }
+]
