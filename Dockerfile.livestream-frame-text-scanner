@@ -21,4 +21,4 @@ RUN python -m pip install --upgrade pip \
 COPY app ./app
 COPY scripts ./scripts
 
-CMD ["python", "scripts/scan_livestream_frame_text.py", "--claim-next", "--max-segments", "1"]
+CMD ["python", "scripts/scan_livestream_frame_text.py", "--claim-next", "--max-segments", "3"]
