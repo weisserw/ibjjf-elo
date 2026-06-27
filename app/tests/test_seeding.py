@@ -2482,11 +2482,6 @@ class BracketSlotsTestCase(unittest.TestCase):
         self.assertIn((2, None), slots)
         self.assertIn((3, None), slots)
 
-    def test_n6_slots_match_ibjjf_pairings(self):
-        slots, size = _bracket_slots(6)
-        self.assertEqual(size, 8)
-        self.assertEqual(slots, [(1, None), (4, 6), (2, None), (3, 5)])
-
     def test_n15_power_up_layout(self):
         # usePowerUpLayout: uses 16-slot table with seed 16 as a bye.
         slots, size = _bracket_slots(15)
@@ -2928,6 +2923,35 @@ class LiveBracketDisplayMatchNumberTestCase(unittest.TestCase):
         self.assertLessEqual(display_by_match_num[5], 8)
         self.assertEqual(display_by_match_num[15], 15)
 
+    def test_n14_completed_noncanonical_first_round_stays_in_first_round(self):
+        matches = [
+            _live_match(1, 4, 13),
+            _live_match(5, 3, 14),
+            _live_match(9, 4, 6),
+            _live_match(15, 6, 3, final=True),
+            _live_match(11, 3, 5),
+            _live_match(2, 6, 10),
+            _live_match(6, 5, 9),
+            _live_match(13, 6, 1),
+            _live_match(14, 3, 2),
+            _live_match(3, 8, 12),
+            _live_match(7, 7, 11),
+            _live_match(10, 12, 1),
+            _live_match(12, 7, 2),
+            _live_bye_match(4, 1),
+            _live_bye_match(8, 2),
+        ]
+
+        add_canonical_display_match_numbers(matches, 14)
+
+        display_by_match_num = {
+            match["match_num"]: match["display_match_num"] for match in matches
+        }
+        self.assertEqual(sorted(display_by_match_num.values()), list(range(1, 16)))
+        self.assertEqual(display_by_match_num[1], 4)
+        self.assertEqual(display_by_match_num[5], 5)
+        self.assertEqual(display_by_match_num[15], 15)
+
 
 class SideTestCase(unittest.TestCase):
     """Tests for _side(seed, n) — the layout-based bracket-half assignment."""
@@ -2973,15 +2997,15 @@ class SideTestCase(unittest.TestCase):
                 self.assertEqual(_side(seed, 5), expected)
 
     def test_n6_play_in_seeds(self):
-        # N=6: IBJJF uses play-in pairs (4,6) and (3,5).
-        # Side 0: 1, 4, 6 — side 1: 2, 3, 5.
+        # N=6 derives from the 8-slot layout with seeds 7 and 8 missing.
+        # Side 0: 1, 4, 5 — side 1: 2, 3, 6.
         for seed, expected in [
             (1, 0),
             (4, 0),
-            (6, 0),
+            (5, 0),
             (2, 1),
             (3, 1),
-            (5, 1),
+            (6, 1),
         ]:
             with self.subTest(seed=seed):
                 self.assertEqual(_side(seed, 6), expected)

@@ -2365,6 +2365,31 @@ def _canonical_position_from_seeds(match, seed_to_slot, bracket_slots, seed_swap
     return level, slot_min
 
 
+def _position_from_display_match_num(match_num, bracket_size):
+    if match_num is None or match_num < 1 or match_num >= bracket_size:
+        return None
+
+    remaining = match_num - 1
+    level = 0
+    width = bracket_size // 2
+    while width > 0:
+        if remaining < width:
+            return level, remaining * (2**level)
+        remaining -= width
+        level += 1
+        width //= 2
+
+    return None
+
+
+def _first_round_position_from_anchor_seed(match, seed_to_slot, seed_swaps=None):
+    for side in ("red", "blue"):
+        seed = _match_side_seed(match, side, seed_swaps)
+        if seed in seed_to_slot:
+            return 0, seed_to_slot[seed]
+    return None
+
+
 def add_canonical_display_match_numbers(matches, competitor_count, seed_swaps=None):
     """Attach ``display_match_num`` without changing IBJJF ``match_num``."""
     slots, bracket_size = _bracket_slots(competitor_count)
@@ -2547,6 +2572,10 @@ def add_canonical_display_match_numbers(matches, competitor_count, seed_swaps=No
         leaf_slots[id(match)] = slot
 
     def match_position(match):
+        observed_position = _position_from_display_match_num(
+            match["match_num"], bracket_size
+        )
+
         if children_by_id is not None and not children_by_id.get(id(match), []):
             slot = _canonical_first_round_slot(match, slot_by_seed_set, seed_swaps)
             if slot is not None:
@@ -2564,10 +2593,22 @@ def add_canonical_display_match_numbers(matches, competitor_count, seed_swaps=No
                 seed_position = _canonical_position_from_seeds(
                     match, seed_to_slot, slots, seed_swaps
                 )
-                if seed_position is not None and (
-                    seed_position[0] <= 1 or match["final"]
+                if (
+                    seed_position is not None
+                    and (
+                        observed_position is None
+                        or seed_position[0] == observed_position[0]
+                    )
+                    and (seed_position[0] <= 1 or match["final"])
                 ):
                     return seed_position
+
+                if observed_position is not None and observed_position[0] == 0:
+                    anchor_position = _first_round_position_from_anchor_seed(
+                        match, seed_to_slot, seed_swaps
+                    )
+                    if anchor_position is not None:
+                        return anchor_position
 
                 slot = leaf_slots.get(id(match))
                 if slot is None:
@@ -2578,7 +2619,21 @@ def add_canonical_display_match_numbers(matches, competitor_count, seed_swaps=No
             match, seed_to_slot, slots, seed_swaps
         )
         if seed_position is not None:
+            if (
+                observed_position is not None
+                and seed_position[0] != observed_position[0]
+            ):
+                if observed_position[0] == 0:
+                    anchor_position = _first_round_position_from_anchor_seed(
+                        match, seed_to_slot, seed_swaps
+                    )
+                    if anchor_position is not None:
+                        return anchor_position
+                return observed_position
             return seed_position
+
+        if children_by_id is None and observed_position is not None:
+            return observed_position
 
         if children_by_id is None:
             return None
