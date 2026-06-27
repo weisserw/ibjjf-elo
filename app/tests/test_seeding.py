@@ -1930,6 +1930,11 @@ class BracketSlotsTestCase(unittest.TestCase):
         self.assertEqual(slots, [(1, None), (6, 4), (3, 5), (2, 7)])
         self.assertEqual(size, 8)
 
+    def test_n6_slots_match_n8_with_seeds_7_and_8_removed(self):
+        slots, size = _bracket_slots(6)
+        self.assertEqual(slots, [(1, None), (6, 4), (3, 5), (2, None)])
+        self.assertEqual(size, 8)
+
     def test_n11_slots_match_canonical_order(self):
         slots, size = _bracket_slots(11)
         self.assertEqual(
@@ -2998,14 +3003,14 @@ class SideTestCase(unittest.TestCase):
 
     def test_n6_play_in_seeds(self):
         # N=6 derives from the 8-slot layout with seeds 7 and 8 missing.
-        # Side 0: 1, 4, 5 — side 1: 2, 3, 6.
+        # Side 0: 1, 4, 6 — side 1: 2, 3, 5.
         for seed, expected in [
             (1, 0),
             (4, 0),
-            (5, 0),
+            (6, 0),
             (2, 1),
             (3, 1),
-            (6, 1),
+            (5, 1),
         ]:
             with self.subTest(seed=seed):
                 self.assertEqual(_side(seed, 6), expected)

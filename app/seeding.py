@@ -1795,7 +1795,9 @@ def _bracket_slots(n):
 
     play_in_count = n - effective_size
     bracket_size = effective_size * 2 if play_in_count > 0 else effective_size
-    use_power_up_layout = effective_size >= 4 and play_in_count == effective_size - 1
+    use_power_up_layout = effective_size >= 4 and (
+        play_in_count == effective_size - 1 or n == 6
+    )
 
     effective_layout = _IBJJF_SEED_LAYOUTS.get(effective_size)
     if effective_layout is None:
