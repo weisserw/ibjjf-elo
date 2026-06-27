@@ -3,6 +3,7 @@ import re
 from urllib.parse import quote
 
 from constants import ADULT, BLACK
+from normalize import normalize
 from sqlalchemy.sql import text
 
 
@@ -147,7 +148,7 @@ def load_livestream_links(session, event_ids, registrations=False):
 def name_components(name):
     return [
         n
-        for n in name.strip().split()
+        for n in normalize(name.strip()).split()
         if n.lower() not in ["jr.", "sr.", "jr", "sr", "2nd", "3rd", "ii", "iii"]
         and not n.startswith('"')
         and len(n.replace(".", "")) > 1
