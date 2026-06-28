@@ -1034,6 +1034,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                 ),
                 "",
                 "",
+                "",
+                "",
             ]
         )
         score_image = FakeScoreImage()
@@ -1054,7 +1056,9 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             [
                 mock.call("prepared-crop-1", "--psm 6"),
                 mock.call("prepared-crop-2", "--psm 7"),
+                mock.call("prepared-crop-2", "--psm 6"),
                 mock.call("prepared-crop-3", "--psm 7"),
+                mock.call("prepared-crop-3", "--psm 6"),
             ]
         )
 
@@ -1139,7 +1143,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         parser = self._name_parser()
         parser._prepare_name_ocr_image = lambda image: image
-        parser._ocr = mock.Mock(side_effect=["", "TEST ATHLETE GAMMA-RAY", ""])
+        parser._ocr = mock.Mock(side_effect=["", "TEST ATHLETE GAMMA-RAY", "", "", ""])
 
         _, fields = parser._ocr_name_fields(FakeScoreImage())
 
@@ -1361,6 +1365,23 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         self.assertEqual(reading.value, "10:00")
         self.assertEqual(reading.predictions[0].digit, 1)
 
+    def test_old_stopped_timer_600_ignores_scoreboard_frame(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        timer_path = os.path.join(self.fixture_dir, "timer_stopped_600.jpg")
+        reader = text_ocr.TimerDigitReader()
+
+        with open(timer_path, "rb") as fileobj:
+            image = text_ocr.Image.open(fileobj).convert("RGB")
+
+        reading = reader.read(image)
+
+        self.assertEqual(reading.state, "stopped")
+        self.assertEqual(reading.value, "6:00")
+        self.assertEqual(
+            [prediction.digit for prediction in reading.predictions],
+            [6, 0, 0],
+        )
+
     def test_four_digit_timer_limits_minute_tens_to_ibjjf_match_maximum(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         timer_path = os.path.join(self.fixture_dir, "new_timer_1000.jpg")
@@ -1460,6 +1481,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "new_score_multi.jpg",
                 "Carlos Renato de Lima Casseres",
                 "Thiago Brigola",
+            ),
+            (
+                "score_names.jpg",
+                "CHANGO EE",
+                "PAUL WILLI",
             ),
         ]
 

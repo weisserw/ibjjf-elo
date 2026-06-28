@@ -423,6 +423,7 @@ class ScoreboardDigitReader:
 class TimerDigitReader:
     MINUTE_TENS_DIGITS = frozenset((0, 1))
     SECOND_TENS_DIGITS = frozenset(range(6))
+    MIN_DIGIT_COMPONENT_DENSITY = 0.30
 
     def __init__(self, classifier: FixedDigitClassifier | None = None):
         self.classifier = classifier or FixedDigitClassifier(
@@ -540,6 +541,11 @@ class TimerDigitReader:
         for component_index in range(1, component_count):
             x, y, component_width, component_height, area = stats[component_index]
             if area < 40 or component_height < 20 or component_width < 8:
+                continue
+            if (
+                area / (component_width * component_height)
+                < self.MIN_DIGIT_COMPONENT_DENSITY
+            ):
                 continue
             components.append(
                 (
@@ -682,10 +688,30 @@ class FrameImageTextParser:
             _name_line_boxes(score_image.size),
         ):
             name_image = self._prepare_name_ocr_image(score_image.crop(box))
-            row_text = self._ocr(name_image, "--psm 7")
+            row_text_parts = []
+            name_candidates = []
+            for config in ("--psm 7", "--psm 6"):
+                text = self._ocr(name_image, config)
+                if text:
+                    row_text_parts.append(text)
+                name_candidate = self._name_from_row_text(text)
+                if name_candidate:
+                    name_candidates.append(name_candidate)
+                    if not self._needs_name_retry(name_candidate):
+                        break
+            if name_candidates and self._needs_name_retry(name_candidates[-1]):
+                text = self._ocr(name_image, "--psm 11")
+                if text:
+                    row_text_parts.append(text)
+                name_candidate = self._name_from_row_text(text)
+                if name_candidate:
+                    name_candidates.append(name_candidate)
+            row_text = "\n".join(row_text_parts)
+            name = None
+            if name_candidates:
+                name = max(name_candidates, key=self._name_candidate_score)
             if row_text:
                 row_texts.append(row_text)
-            name = self._name_from_row_text(row_text)
             if name:
                 row_fields[field_name] = name
         text = "\n".join([column_text, *row_texts]).strip()
@@ -699,6 +725,7 @@ class FrameImageTextParser:
         line = re.sub(r"[|_]+", " ", line)
         tokens = []
         for token in line.split():
+            token = token.strip("\"'‘’“”`´,:;()[]{}<>")
             if re.search(r"\d", token):
                 break
             if not re.match(r"^[^\W\d_](?:[^\W\d_]|['.,:-])*$", token):
@@ -736,7 +763,41 @@ class FrameImageTextParser:
         ]
         if len(substantial_tokens) < 2:
             return None
+        uppercase_prefix = self._uppercase_name_prefix(alpha_tokens)
+        if len(uppercase_prefix) >= 2:
+            line = " ".join(uppercase_prefix)
+            line = re.sub(r"\.+$", "", line).strip(" -:.,'")
         return line
+
+    @staticmethod
+    def _uppercase_name_prefix(tokens: list[str]) -> list[str]:
+        prefix = []
+        for token in tokens:
+            letters = re.sub(r"[^\w]|[\d_]", "", token)
+            if len(letters) < 2 or letters != letters.upper():
+                break
+            prefix.append(token)
+        return prefix
+
+    @classmethod
+    def _needs_name_retry(cls, name: str) -> bool:
+        tokens = name.split()
+        if not tokens:
+            return True
+        first_letters = re.sub(r"[^\w]|[\d_]", "", tokens[0])
+        if len(first_letters) < 2 or first_letters != first_letters.upper():
+            return False
+        return len(cls._uppercase_name_prefix(tokens)) < 2
+
+    @classmethod
+    def _name_candidate_score(cls, name: str) -> int:
+        tokens = name.split()
+        uppercase_prefix = cls._uppercase_name_prefix(tokens)
+        if len(uppercase_prefix) >= 2:
+            return 100 + sum(
+                len(re.sub(r"[^\w]|[\d_]", "", token)) for token in uppercase_prefix
+            )
+        return sum(len(re.sub(r"[^\w]|[\d_]", "", token)) for token in tokens)
 
     def _is_victory_line(self, line: str) -> bool:
         letters = re.sub(r"[^A-Za-z]", "", line).lower()
