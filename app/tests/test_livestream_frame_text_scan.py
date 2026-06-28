@@ -1111,6 +1111,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "Ana Julia Samara R. Lima",
                 "Roberta Graciani Medeiros",
             ),
+            (
+                "new_score_names2.jpg",
+                "Miranda Galban",
+                "Yamé Cherici",
+            ),
         ]
 
         for score_image, top_name, bottom_name in cases:

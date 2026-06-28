@@ -648,13 +648,13 @@ class FrameImageTextParser:
         for token in line.split():
             if re.search(r"\d", token):
                 break
-            if not re.match(r"^[A-Za-z][A-Za-z'.,:-]*$", token):
+            if not re.match(r"^[^\W\d_](?:[^\W\d_]|['.,:-])*$", token):
                 continue
             tokens.append(token)
         line = " ".join(tokens)
         line = re.sub(r"\s+", " ", line).strip(" -:")
-        line = re.sub(r"[^A-Za-z]+$", "", line).strip()
-        if not re.search(r"[A-Za-z]", line):
+        line = line.strip(" -:.,'")
+        if not re.search(r"[^\W\d_]", line):
             return None
         if re.fullmatch(
             r"(?:P|PTS|POINTS|A|ADV|ADVANTAGES|PEN|PENALTIES|SCORE|TIME|TIMER)"
@@ -663,12 +663,14 @@ class FrameImageTextParser:
             flags=re.IGNORECASE,
         ):
             return None
-        alpha_tokens = re.findall(r"[A-Za-z][A-Za-z'-]*", line)
+        alpha_tokens = line.split()
         substantial_tokens = [
-            token for token in alpha_tokens if len(re.sub(r"[^A-Za-z]", "", token)) >= 2
+            token
+            for token in alpha_tokens
+            if len(re.sub(r"[^\w]|[\d_]", "", token)) >= 2
         ]
         total_letters = sum(
-            len(re.sub(r"[^A-Za-z]", "", token)) for token in alpha_tokens
+            len(re.sub(r"[^\w]|[\d_]", "", token)) for token in alpha_tokens
         )
         if len(substantial_tokens) < 2 or total_letters < 6:
             return None
