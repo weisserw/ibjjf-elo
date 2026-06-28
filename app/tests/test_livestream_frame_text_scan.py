@@ -1293,6 +1293,19 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
     fixture_dir = os.path.join(os.path.dirname(__file__), "fixtures", "livestream_ocr")
 
+    def test_fixed_digit_templates_use_bundled_fonts(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.TimerDigitReader()
+        template_sources = {template.source for template in reader.classifier.templates}
+        template_source_text = "\n".join(sorted(template_sources))
+
+        self.assertNotIn("default", template_source_text)
+        self.assertFalse(
+            any(source.startswith("/System/") for source in template_sources)
+        )
+        self.assertIn("DejaVuSans-Bold.ttf", template_source_text)
+        self.assertIn("Roboto-wdth-wght.ttf", template_source_text)
+
     def test_score_and_timer_fixture_cases(self):
         cases_path = os.path.join(self.fixture_dir, "cases.json")
         self.assertTrue(
@@ -1333,6 +1346,61 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                         expected_value,
                         field_name,
                     )
+
+    def test_new_timer_1000_reads_as_ten_minutes(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        timer_path = os.path.join(self.fixture_dir, "new_timer_1000.jpg")
+        reader = text_ocr.TimerDigitReader()
+
+        with open(timer_path, "rb") as fileobj:
+            image = text_ocr.Image.open(fileobj).convert("RGB")
+
+        reading = reader.read(image)
+
+        self.assertEqual(reading.state, "stopped")
+        self.assertEqual(reading.value, "10:00")
+        self.assertEqual(reading.predictions[0].digit, 1)
+
+    def test_four_digit_timer_limits_minute_tens_to_ibjjf_match_maximum(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        timer_path = os.path.join(self.fixture_dir, "new_timer_1000.jpg")
+
+        class RecordingClassifier:
+            def __init__(self):
+                self.allowed_digits = []
+
+            def predict(self, mask, allowed_digits=None):
+                self.allowed_digits.append(allowed_digits)
+                if allowed_digits == text_ocr.TimerDigitReader.MINUTE_TENS_DIGITS:
+                    return text_ocr.DigitPrediction(1, 1.0, "test-minute-tens")
+                if allowed_digits == text_ocr.TimerDigitReader.SECOND_TENS_DIGITS:
+                    return text_ocr.DigitPrediction(0, 1.0, "test-second-tens")
+                return text_ocr.DigitPrediction(0, 1.0, "test-unrestricted")
+
+        classifier = RecordingClassifier()
+        reader = text_ocr.TimerDigitReader(classifier=classifier)
+
+        with open(timer_path, "rb") as fileobj:
+            image = text_ocr.Image.open(fileobj).convert("RGB")
+
+        reading = reader.read(image)
+
+        self.assertEqual(reading.value, "10:00")
+        self.assertEqual(
+            classifier.allowed_digits,
+            [
+                text_ocr.TimerDigitReader.MINUTE_TENS_DIGITS,
+                None,
+                text_ocr.TimerDigitReader.SECOND_TENS_DIGITS,
+                None,
+            ],
+        )
+
+    def test_three_digit_timer_does_not_limit_leading_minute_digit(self):
+        self.assertEqual(
+            text_ocr.TimerDigitReader._allowed_digits_for_timer_masks(3),
+            [None, text_ocr.TimerDigitReader.SECOND_TENS_DIGITS, None],
+        )
 
     def test_cutoff_timer_three_uses_top_cropped_digit_template(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")

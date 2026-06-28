@@ -96,6 +96,22 @@
     }
   },
   {
+    "id": "new_score_200_010_new_timer_1000",
+    "score_image": "new_score_200_010.jpg",
+    "timer_image": "new_timer_1000.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 2,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 1,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "10:00"
+    }
+  },
+  {
     "id": "new_score_930_000_new_timer_0137",
     "score_image": "new_score_930_000.jpg",
     "timer_image": "new_timer_0137.jpg",

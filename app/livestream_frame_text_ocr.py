@@ -29,6 +29,7 @@ SUPPORTED_SCORE_ENGINES = ("none", "fixed_digit")
 SUPPORTED_NAME_ENGINES = ("none", "tesseract")
 SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
+OCR_FONT_DIR = Path(__file__).resolve().parent / "ocr_fonts"
 NAME_COLUMN_RIGHT_RATIO = 0.481
 NAME_RENDERED_COLUMN_RIGHT_RATIO = 0.52
 NAME_ROW_Y_EDGES = (0.0, 0.431, 0.861)
@@ -244,11 +245,7 @@ def _score_digit_mask(image):
 
 
 def _font_paths() -> tuple[str, ...]:
-    return (
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-        "/System/Library/Fonts/Supplemental/Verdana Bold.ttf",
-        "DejaVuSans-Bold.ttf",
-    )
+    return tuple(str(path) for path in sorted(OCR_FONT_DIR.glob("*.ttf")))
 
 
 def _render_digit_template(digit: int, font, size: tuple[int, int]):
@@ -322,27 +319,7 @@ def _generated_templates(
     if templates:
         return templates
 
-    font = ImageFont.load_default()
-    for digit in range(10):
-        mask = _render_digit_template(digit, font, size)
-        if mask is None:
-            continue
-        packed, pixel_count = _pack_mask(mask)
-        templates.append(
-            DigitTemplate(digit, packed, pixel_count, f"{source_prefix}:default")
-        )
-        if include_top_crop_variants:
-            for ratio, cropped_mask in _top_cropped_template_masks(mask, size):
-                packed, pixel_count = _pack_mask(cropped_mask)
-                templates.append(
-                    DigitTemplate(
-                        digit,
-                        packed,
-                        pixel_count,
-                        f"{source_prefix}:default:top-crop-{ratio:.2f}",
-                    )
-                )
-    return templates
+    raise RuntimeError(f"no OCR digit fonts found in {OCR_FONT_DIR}")
 
 
 def _packed_jaccard(mask: int, pixel_count: int, template: DigitTemplate) -> float:
@@ -444,6 +421,7 @@ class ScoreboardDigitReader:
 
 
 class TimerDigitReader:
+    MINUTE_TENS_DIGITS = frozenset((0, 1))
     SECOND_TENS_DIGITS = frozenset(range(6))
 
     def __init__(self, classifier: FixedDigitClassifier | None = None):
@@ -531,6 +509,18 @@ class TimerDigitReader:
             )
         return prediction
 
+    @classmethod
+    def _allowed_digits_for_timer_masks(
+        cls, mask_count: int
+    ) -> list[frozenset[int] | None]:
+        allowed_digits = [None] * mask_count
+        if mask_count == 3:
+            allowed_digits[1] = cls.SECOND_TENS_DIGITS
+        elif mask_count == 4:
+            allowed_digits[0] = cls.MINUTE_TENS_DIGITS
+            allowed_digits[2] = cls.SECOND_TENS_DIGITS
+        return allowed_digits
+
     def read(self, image) -> TimerDigitReading:
         state = self._state(image)
         if image is None or state in (None, "blank"):
@@ -573,11 +563,7 @@ class TimerDigitReader:
             )
             masks.append(_normalize_mask(component_mask, TIMER_TEMPLATE_SIZE))
 
-        allowed_digits = [None] * len(masks)
-        if len(masks) == 3:
-            allowed_digits[1] = self.SECOND_TENS_DIGITS
-        elif len(masks) == 4:
-            allowed_digits[2] = self.SECOND_TENS_DIGITS
+        allowed_digits = self._allowed_digits_for_timer_masks(len(masks))
 
         predictions = [
             self._predict_digit(mask, allowed)
