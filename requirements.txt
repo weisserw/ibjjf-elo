@@ -7,6 +7,7 @@ botocore==1.36.4
 bs4==0.0.2
 cachetools==5.5.0
 certifi==2024.12.14
+chardet==5.2.0
 charset-normalizer==3.4.0
 click==8.1.7
 elote==0.1.0
