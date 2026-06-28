@@ -75,6 +75,7 @@ from livestream_frame_text_scan import (
     prepare_text_scan_segment_rescan,
     queue_text_scan,
     reconstruct_text_state,
+    reset_text_scan_for_rescan,
     retry_failed_text_scan_segments,
     TextEventData,
 )
@@ -1500,6 +1501,53 @@ def worker_rescan_livestream_frame_text_scan_segment(segment_id):
         return jsonify({"error": "segment not found"}), 404
 
     return jsonify({"segment": _text_scan_segment_payload(segment)})
+
+
+@app.route(
+    f"{WORKER_API_PREFIX}text_scans/<scan_id>/reset",
+    methods=["POST"],
+)
+def worker_reset_livestream_frame_text_scan(scan_id):
+    try:
+        scan_uuid = uuid.UUID(scan_id)
+    except ValueError:
+        return jsonify({"error": "scan_id must be a UUID"}), 400
+
+    data = request.get_json(silent=True) or {}
+    try:
+        background_task_id = _parse_uuid(
+            data.get("background_task_id"), "background_task_id"
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    try:
+        scan = reset_text_scan_for_rescan(
+            db.session,
+            scan_uuid,
+            background_task_id=background_task_id,
+        )
+    except ValueError as exc:
+        db.session.rollback()
+        return jsonify({"error": str(exc)}), 409
+    if not scan:
+        return jsonify({"error": "scan not found"}), 404
+
+    db.session.commit()
+    segments = (
+        LivestreamFrameTextScanSegment.query.filter_by(scan_id=scan.id)
+        .order_by(LivestreamFrameTextScanSegment.start_second)
+        .all()
+    )
+    return jsonify(
+        {
+            "scan": _text_scan_payload(scan),
+            "segments": [
+                _text_scan_segment_payload(segment, include_archive=False)
+                for segment in segments
+            ],
+        }
+    )
 
 
 @app.route(

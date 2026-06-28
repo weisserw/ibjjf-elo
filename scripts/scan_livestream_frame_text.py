@@ -30,6 +30,7 @@ from livestream_frame_text_scan import (  # noqa: E402
     mark_text_scan_segment_success,
     prepare_text_scan_segment_rescan,
     reconstruct_text_state,
+    reset_text_scan_for_rescan,
     scan_frame_text_segment,
     claim_next_text_scan_segment,
 )
@@ -93,6 +94,15 @@ class LocalTextScanState:
             segment_id,
             background_task_id=background_task_id,
         )
+
+    def reset_scan(self, scan_id, background_task_id=None):
+        scan = reset_text_scan_for_rescan(
+            db.session,
+            scan_id,
+            background_task_id=background_task_id,
+        )
+        db.session.commit()
+        return scan
 
     def capture_segments_for_archive(self, archive_id):
         return (
@@ -180,6 +190,19 @@ class AdminApiTextScanState:
         segment = payload.get("segment")
         return ApiObject(segment) if segment else None
 
+    def reset_scan(self, scan_id, background_task_id=None):
+        payload = self._request(
+            "POST",
+            f"/api/livestream_frame_archives/worker/text_scans/{scan_id}/reset",
+            json={
+                "background_task_id": (
+                    str(background_task_id) if background_task_id else None
+                ),
+            },
+        )
+        scan = payload.get("scan")
+        return ApiObject(scan) if scan else None
+
     def capture_segments_for_archive(self, archive_id):
         raise RuntimeError("admin API segments include archive_capture_segments")
 
@@ -262,6 +285,16 @@ def process_segment(segment, state, parser, s3_client, bucket: str):
 
 
 def run(args, state=None) -> int:
+    if args.rescan_from_start and not args.scan_id:
+        print("--scan-id is required when --rescan-from-start is set", file=sys.stderr)
+        return 2
+    if args.rescan_from_start and args.segment_id:
+        print(
+            "--rescan-from-start cannot be combined with --segment-id",
+            file=sys.stderr,
+        )
+        return 2
+
     validate_ocr_engines(args.score_engine, args.name_engine)
     parser = build_parser(args.parser_profile, args.score_engine, args.name_engine)
     if state is None:
@@ -273,6 +306,14 @@ def run(args, state=None) -> int:
     background_task_id = (
         uuid.UUID(args.background_task_id) if args.background_task_id else None
     )
+    if args.rescan_from_start:
+        scan_id = uuid.UUID(args.scan_id)
+        scan = state.reset_scan(scan_id, background_task_id=background_task_id)
+        if not scan:
+            print(f"Livestream frame text scan not found: {scan_id}")
+            return 0
+        log(f"Reset text scan id={scan_id} for rescan from start")
+
     if args.segment_id:
         segment_id = uuid.UUID(args.segment_id)
         segment = state.rescan_segment(
@@ -321,6 +362,7 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--segment-id")
     parser.add_argument("--scan-id")
+    parser.add_argument("--rescan-from-start", action="store_true")
     parser.add_argument("--archive-id")
     parser.add_argument("--youtube-id")
     parser.add_argument("--claim-next", action="store_true")

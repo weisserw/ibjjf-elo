@@ -591,6 +591,74 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
             0,
         )
 
+    def test_reset_text_scan_for_rescan_requeues_all_segments_and_deletes_events(self):
+        archive, _ = self._archive_with_segments()
+        text_scan.queue_text_scan(db.session, archive, score_engine="none")
+        scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
+        segments = LivestreamFrameTextScanSegment.query.order_by(
+            LivestreamFrameTextScanSegment.start_second
+        ).all()
+        text_scan.mark_text_scan_segment_success(
+            db.session,
+            segments[0],
+            [text_scan.TextEventData(frame_second=0, timer_state="running")],
+        )
+        segments[1].attempt_count = 3
+        segments[1].status = "error"
+        segments[1].event_count = 2
+        segments[1].last_processed_second = 180
+        segments[1].last_error = "ocr failed"
+        db.session.commit()
+
+        reset_scan = text_scan.reset_text_scan_for_rescan(db.session, scan.id)
+        db.session.commit()
+
+        self.assertEqual(reset_scan.id, scan.id)
+        self.assertEqual(reset_scan.status, "queued")
+        self.assertEqual(reset_scan.processed_segment_count, 0)
+        self.assertIsNone(reset_scan.last_processed_second)
+        self.assertIsNone(reset_scan.last_error)
+        self.assertIsNone(reset_scan.started_at)
+        self.assertIsNone(reset_scan.completed_at)
+        self.assertEqual(LivestreamFrameTextEvent.query.count(), 0)
+        reset_segments = LivestreamFrameTextScanSegment.query.order_by(
+            LivestreamFrameTextScanSegment.start_second
+        ).all()
+        self.assertEqual(
+            [segment.status for segment in reset_segments],
+            ["queued", "queued"],
+        )
+        self.assertEqual([segment.attempt_count for segment in reset_segments], [0, 0])
+        self.assertEqual([segment.event_count for segment in reset_segments], [0, 0])
+        self.assertEqual(
+            [segment.last_processed_second for segment in reset_segments],
+            [None, None],
+        )
+        self.assertEqual(
+            [segment.last_error for segment in reset_segments],
+            [None, None],
+        )
+
+    def test_reset_text_scan_for_rescan_rejects_running_segments(self):
+        archive, _ = self._archive_with_segments()
+        text_scan.queue_text_scan(db.session, archive, score_engine="none")
+        scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
+        segment = LivestreamFrameTextScanSegment.query.order_by(
+            LivestreamFrameTextScanSegment.start_second
+        ).first()
+        text_scan.mark_text_scan_segment_success(
+            db.session,
+            segment,
+            [text_scan.TextEventData(frame_second=0, timer_state="running")],
+        )
+        segment.status = "running"
+        db.session.commit()
+
+        with self.assertRaisesRegex(ValueError, "segments are running"):
+            text_scan.reset_text_scan_for_rescan(db.session, scan.id)
+
+        self.assertEqual(LivestreamFrameTextEvent.query.count(), 1)
+
     def test_s3_frame_batch_provider_reads_across_batches(self):
         archive, segments = self._archive_with_segments()
         fake_s3 = FakeS3(
@@ -670,6 +738,51 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertEqual(str(state.rescanned_segment_id), segment_id)
         self.assertFalse(state.claimed)
+        process_segment.assert_called_once_with(
+            segment, state, "parser", "s3", "bucket"
+        )
+
+    def test_run_with_rescan_from_start_resets_scan_before_claiming(self):
+        scan_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        segment = runner.ApiObject(
+            {
+                "id": "11111111-1111-1111-1111-111111111111",
+                "archive_id": "22222222-2222-2222-2222-222222222222",
+                "start_second": 0,
+                "end_second": 60,
+            }
+        )
+
+        class FakeState:
+            def __init__(self):
+                self.reset_scan_id = None
+                self.claim_kwargs = None
+
+            def reset_scan(self, reset_scan_id, background_task_id=None):
+                self.reset_scan_id = reset_scan_id
+                return runner.ApiObject({"id": str(reset_scan_id)})
+
+            def claim_next_segment(self, **kwargs):
+                self.claim_kwargs = kwargs
+                return segment
+
+        args = runner.parse_args(
+            ["--scan-id", scan_id, "--rescan-from-start", "--score-engine", "none"]
+        )
+        state = FakeState()
+
+        with mock.patch.object(runner, "validate_ocr_engines"), mock.patch.object(
+            runner, "build_parser", return_value="parser"
+        ), mock.patch.object(runner, "bucket_name", "bucket"), mock.patch.object(
+            runner, "get_s3_client", return_value="s3"
+        ), mock.patch.object(
+            runner, "process_segment"
+        ) as process_segment:
+            result = runner.run(args, state=state)
+
+        self.assertEqual(result, 0)
+        self.assertEqual(str(state.reset_scan_id), scan_id)
+        self.assertEqual(str(state.claim_kwargs["scan_id"]), scan_id)
         process_segment.assert_called_once_with(
             segment, state, "parser", "s3", "bucket"
         )
@@ -1461,6 +1574,38 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
             LivestreamFrameTextEvent.query.filter_by(
                 scan_segment_id=uuid.UUID(segment_payload["id"])
             ).count(),
+            0,
+        )
+
+    def test_worker_reset_text_scan_api_requeues_segments_and_deletes_events(self):
+        archive, _ = self._archive_with_segment()
+        text_scan.queue_text_scan(db.session, archive, score_engine="none")
+        scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
+        segment = LivestreamFrameTextScanSegment.query.filter_by(scan_id=scan.id).one()
+        text_scan.mark_text_scan_segment_success(
+            db.session,
+            segment,
+            [text_scan.TextEventData(frame_second=0, timer_state="running")],
+        )
+        db.session.commit()
+        client = self._admin_client()
+        headers = {"X-Admin-Password": "admin"}
+
+        reset = client.post(
+            "/api/livestream_frame_archives/worker/" f"text_scans/{scan.id}/reset",
+            json={},
+            headers=headers,
+        )
+
+        self.assertEqual(reset.status_code, 200)
+        body = reset.get_json()
+        self.assertEqual(body["scan"]["status"], "queued")
+        self.assertEqual(body["scan"]["processed_segment_count"], 0)
+        self.assertEqual(body["segments"][0]["status"], "queued")
+        self.assertEqual(body["segments"][0]["attempt_count"], 0)
+        self.assertEqual(body["segments"][0]["event_count"], 0)
+        self.assertEqual(
+            LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id).count(),
             0,
         )
 

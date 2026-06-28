@@ -334,6 +334,40 @@ def cancel_queued_text_scan_segments(session, scan_ids: list | None = None) -> i
     return len(segments)
 
 
+def reset_text_scan_for_rescan(session, scan_id, background_task_id=None):
+    scan = session.get(LivestreamFrameTextScan, scan_id)
+    if not scan:
+        return None
+
+    running_count = LivestreamFrameTextScanSegment.query.filter_by(
+        scan_id=scan.id, status="running"
+    ).count()
+    if running_count:
+        raise ValueError("cannot reset text scan while segments are running")
+
+    LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id).delete()
+    segments = LivestreamFrameTextScanSegment.query.filter_by(scan_id=scan.id).all()
+    for segment in segments:
+        segment.status = "queued"
+        segment.attempt_count = 0
+        segment.event_count = 0
+        segment.last_processed_second = None
+        segment.background_task_id = background_task_id
+        segment.last_error = None
+        segment.started_at = None
+        segment.finished_at = None
+
+    scan.status = "queued" if segments else "pending"
+    scan.processed_segment_count = 0
+    scan.last_processed_second = None
+    scan.background_task_id = background_task_id
+    scan.last_error = None
+    scan.started_at = None
+    scan.completed_at = None
+    scan.total_segment_count = len(segments)
+    return scan
+
+
 def claim_next_text_scan_segment(
     session,
     scan_id=None,
