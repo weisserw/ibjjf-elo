@@ -23,7 +23,7 @@ class LivestreamsTestCase(unittest.TestCase):
     def test_search_name_uses_personal_name_without_nickname_when_unmapped(self):
         self.assertEqual(
             get_search_name("Diego Batista Lima", {}, 'Diego Oliveira "Pato"', True),
-            "Diego Oliveira",
+            "diego oliveira",
         )
 
     def test_search_name_uses_full_name_when_special_names_are_disabled(self):
@@ -34,7 +34,7 @@ class LivestreamsTestCase(unittest.TestCase):
                 'Diego Oliveira "Pato"',
                 False,
             ),
-            "Diego Lima",
+            "diego lima",
         )
 
     def test_is_quarterfinal_or_above(self):
@@ -66,7 +66,7 @@ class LivestreamsTestCase(unittest.TestCase):
                 'Diego Oliveira "Pato"',
                 "Ana Rodriguez",
             ),
-            "https://www.flograppling.com/events/test-event/videos?openInBrowser=1&search=Diego%20Oliveira%20vs%20Ana%20Rodriguez",
+            "https://www.flograppling.com/events/test-event/videos?openInBrowser=1&search=diego%20oliveira%20vs%20ana%20rodriguez",
         )
 
     def test_livestream_link_uses_full_names_before_adult_black_quarterfinals(self):
@@ -92,7 +92,7 @@ class LivestreamsTestCase(unittest.TestCase):
                 'Diego Oliveira "Pato"',
                 "Ana Rodriguez",
             ),
-            "https://www.flograppling.com/events/test-event/videos?openInBrowser=1&search=Diego%20Lima%20vs%20Ana%20Pereira",
+            "https://www.flograppling.com/events/test-event/videos?openInBrowser=1&search=diego%20lima%20vs%20ana%20pereira",
         )
 
 
