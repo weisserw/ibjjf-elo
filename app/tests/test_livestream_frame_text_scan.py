@@ -1382,6 +1382,23 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
             [6, 0, 0],
         )
 
+    def test_old_stopped_timer_500_ignores_left_border(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        timer_path = os.path.join(self.fixture_dir, "timer_500.jpg")
+        reader = text_ocr.TimerDigitReader()
+
+        with open(timer_path, "rb") as fileobj:
+            image = text_ocr.Image.open(fileobj).convert("RGB")
+
+        reading = reader.read(image)
+
+        self.assertEqual(reading.state, "stopped")
+        self.assertEqual(reading.value, "5:00")
+        self.assertEqual(
+            [prediction.digit for prediction in reading.predictions],
+            [5, 0, 0],
+        )
+
     def test_four_digit_timer_limits_minute_tens_to_ibjjf_match_maximum(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         timer_path = os.path.join(self.fixture_dir, "new_timer_1000.jpg")
@@ -1486,6 +1503,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "score_names.jpg",
                 "CHANGO EE",
                 "PAUL WILLI",
+            ),
+            (
+                "score_names2.jpg",
+                "CHANGO EERSEL",
+                "PAUL WILLIAM LOUGH",
             ),
         ]
 

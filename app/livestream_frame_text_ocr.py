@@ -542,6 +542,8 @@ class TimerDigitReader:
             x, y, component_width, component_height, area = stats[component_index]
             if area < 40 or component_height < 20 or component_width < 8:
                 continue
+            if x == 0:
+                continue
             if (
                 area / (component_width * component_height)
                 < self.MIN_DIGIT_COMPONENT_DENSITY
@@ -783,6 +785,9 @@ class FrameImageTextParser:
     def _needs_name_retry(cls, name: str) -> bool:
         tokens = name.split()
         if not tokens:
+            return True
+        letter_count = sum(len(re.sub(r"[^\w]|[\d_]", "", token)) for token in tokens)
+        if letter_count < 10:
             return True
         first_letters = re.sub(r"[^\w]|[\d_]", "", tokens[0])
         if len(first_letters) < 2 or first_letters != first_letters.upper():
