@@ -770,10 +770,46 @@ class FrameImageTextParser:
     def _athlete_team_line_fields(lines: list[str]) -> dict:
         if len(lines) < 4:
             return {}
+        if len(lines) >= 5:
+            if FrameImageTextParser._looks_like_team_line(
+                lines[2]
+            ) and FrameImageTextParser._looks_like_team_line(lines[4]):
+                return {
+                    "top_athlete_name": f"{lines[0]} {lines[1]}",
+                    "bottom_athlete_name": lines[3],
+                }
+            if FrameImageTextParser._looks_like_team_line(
+                lines[1]
+            ) and FrameImageTextParser._looks_like_team_line(lines[4]):
+                return {
+                    "top_athlete_name": lines[0],
+                    "bottom_athlete_name": f"{lines[2]} {lines[3]}",
+                }
         return {
             "top_athlete_name": lines[0],
             "bottom_athlete_name": lines[2],
         }
+
+    @staticmethod
+    def _looks_like_team_line(line: str) -> bool:
+        normalized = re.sub(r"[^a-z0-9]+", " ", line.lower()).strip()
+        team_terms = (
+            "academy",
+            "alliance",
+            "barra",
+            "bjj",
+            "champ",
+            "checkmat",
+            "college",
+            "fight sports",
+            "gracie",
+            "jiu jitsu",
+            "nexo",
+            "nova uniao",
+            "pro training",
+            "team",
+        )
+        return any(term in normalized for term in team_terms)
 
     def _parse_names(self, text: str, *, allow_two_line_fallback: bool = True) -> dict:
         if self.name_engine in (None, "none"):

@@ -1456,6 +1456,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "Ana Paula Lopes de Moraes",
                 "Roberta Graciani Medeiros",
             ),
+            (
+                "new_score_multi.jpg",
+                "Carlos Renato de Lima Casseres",
+                "Thiago Brigola",
+            ),
         ]
 
         for score_image, top_name, bottom_name in cases:
