@@ -262,6 +262,16 @@ def _render_digit_template(digit: int, font, size: tuple[int, int]):
     return np.asarray(canvas.crop(glyph_box).resize(size, Image.Resampling.NEAREST)) > 0
 
 
+def _top_cropped_template_masks(mask, size: tuple[int, int]):
+    return tuple(
+        (
+            ratio,
+            _normalize_mask(mask[max(1, int(size[1] * ratio)) :, :], size),
+        )
+        for ratio in (0.08, 0.12, 0.16, 0.20)
+    )
+
+
 def _pack_mask(mask) -> tuple[int, int]:
     flat = np.ascontiguousarray(mask.reshape(-1), dtype=np.uint8)
     packed_bytes = np.packbits(flat, bitorder="little").tobytes()
@@ -269,7 +279,10 @@ def _pack_mask(mask) -> tuple[int, int]:
 
 
 def _generated_templates(
-    size: tuple[int, int], font_sizes: range, source_prefix: str
+    size: tuple[int, int],
+    font_sizes: range,
+    source_prefix: str,
+    include_top_crop_variants: bool = False,
 ) -> list[DigitTemplate]:
     _require_fixed_digit_dependencies()
     templates = []
@@ -292,6 +305,20 @@ def _generated_templates(
                         f"{source_prefix}:{Path(font_path).name}:{font_size}",
                     )
                 )
+                if include_top_crop_variants:
+                    for ratio, cropped_mask in _top_cropped_template_masks(mask, size):
+                        packed, pixel_count = _pack_mask(cropped_mask)
+                        templates.append(
+                            DigitTemplate(
+                                digit,
+                                packed,
+                                pixel_count,
+                                (
+                                    f"{source_prefix}:{Path(font_path).name}:"
+                                    f"{font_size}:top-crop-{ratio:.2f}"
+                                ),
+                            )
+                        )
     if templates:
         return templates
 
@@ -304,6 +331,17 @@ def _generated_templates(
         templates.append(
             DigitTemplate(digit, packed, pixel_count, f"{source_prefix}:default")
         )
+        if include_top_crop_variants:
+            for ratio, cropped_mask in _top_cropped_template_masks(mask, size):
+                packed, pixel_count = _pack_mask(cropped_mask)
+                templates.append(
+                    DigitTemplate(
+                        digit,
+                        packed,
+                        pixel_count,
+                        f"{source_prefix}:default:top-crop-{ratio:.2f}",
+                    )
+                )
     return templates
 
 
@@ -320,18 +358,26 @@ class FixedDigitClassifier:
         font_sizes: range,
         source_prefix: str,
         templates: list[DigitTemplate] | None = None,
+        include_top_crop_variants: bool = False,
     ):
         self.size = size
         self.templates = templates or _generated_templates(
-            size, font_sizes, source_prefix
+            size,
+            font_sizes,
+            source_prefix,
+            include_top_crop_variants=include_top_crop_variants,
         )
 
-    def predict(self, mask) -> DigitPrediction:
+    def predict(
+        self, mask, allowed_digits: frozenset[int] | None = None
+    ) -> DigitPrediction:
         packed, pixel_count = _pack_mask(mask)
         best_digit = None
         best_similarity = 0.0
         best_source = "none"
         for template in self.templates:
+            if allowed_digits is not None and template.digit not in allowed_digits:
+                continue
             similarity = _packed_jaccard(packed, pixel_count, template)
             if similarity > best_similarity:
                 best_digit = template.digit
@@ -398,9 +444,14 @@ class ScoreboardDigitReader:
 
 
 class TimerDigitReader:
+    SECOND_TENS_DIGITS = frozenset(range(6))
+
     def __init__(self, classifier: FixedDigitClassifier | None = None):
         self.classifier = classifier or FixedDigitClassifier(
-            TIMER_TEMPLATE_SIZE, range(44, 73, 4), "timer-font"
+            TIMER_TEMPLATE_SIZE,
+            range(44, 73, 4),
+            "timer-font",
+            include_top_crop_variants=True,
         )
 
     def _state(self, image) -> str | None:
@@ -464,9 +515,15 @@ class TimerDigitReader:
             and mask[16:30, :].mean() > 0.60
         )
 
-    def _predict_digit(self, mask) -> DigitPrediction:
-        prediction = self.classifier.predict(mask)
-        if prediction.digit == 0 and self._looks_like_timer_six(mask):
+    def _predict_digit(
+        self, mask, allowed_digits: frozenset[int] | None = None
+    ) -> DigitPrediction:
+        prediction = self.classifier.predict(mask, allowed_digits=allowed_digits)
+        if (
+            prediction.digit == 0
+            and (allowed_digits is None or 6 in allowed_digits)
+            and self._looks_like_timer_six(mask)
+        ):
             return DigitPrediction(
                 6,
                 prediction.similarity,
@@ -505,7 +562,7 @@ class TimerDigitReader:
             )
         components.sort(key=lambda item: item[0])
 
-        predictions = []
+        masks = []
         for x, y, component_width, component_height, component_index in components:
             component_mask = (
                 labels[
@@ -514,8 +571,18 @@ class TimerDigitReader:
                 ]
                 == component_index
             )
-            normalized = _normalize_mask(component_mask, TIMER_TEMPLATE_SIZE)
-            predictions.append(self._predict_digit(normalized))
+            masks.append(_normalize_mask(component_mask, TIMER_TEMPLATE_SIZE))
+
+        allowed_digits = [None] * len(masks)
+        if len(masks) == 3:
+            allowed_digits[1] = self.SECOND_TENS_DIGITS
+        elif len(masks) == 4:
+            allowed_digits[2] = self.SECOND_TENS_DIGITS
+
+        predictions = [
+            self._predict_digit(mask, allowed)
+            for mask, allowed in zip(masks, allowed_digits)
+        ]
 
         digits = [
             prediction.digit

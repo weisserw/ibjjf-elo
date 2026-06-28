@@ -465,32 +465,6 @@ def recompute_text_scan_status(session, scan: LivestreamFrameTextScan) -> None:
         scan.status = "partial"
 
 
-def _timer_to_seconds(value: str | None) -> int | None:
-    if not value or ":" not in value:
-        return None
-    minutes, _, seconds = value.partition(":")
-    try:
-        return int(minutes) * 60 + int(seconds)
-    except ValueError:
-        return None
-
-
-def _seconds_to_timer(value: int) -> str:
-    value = max(0, value)
-    minutes, seconds = divmod(value, 60)
-    return f"{minutes:d}:{seconds:02d}"
-
-
-def expected_timer_value(state: TextState, frame_second: int) -> str | None:
-    if state.timer_state != "running":
-        return state.timer_value
-    start_seconds = _timer_to_seconds(state.timer_value)
-    if start_seconds is None or state.timer_frame_second is None:
-        return state.timer_value
-    elapsed = max(0, frame_second - state.timer_frame_second)
-    return _seconds_to_timer(start_seconds - elapsed)
-
-
 def apply_event_to_state(state: TextState, event) -> TextState:
     next_state = state.copy()
     event_scoreboard_state = getattr(event, "scoreboard_state", None)
@@ -542,13 +516,13 @@ def reading_changes(state: TextState, reading: FrameReading) -> dict:
             changes[field] = value
 
     if reading.timer_state is not None:
-        expected_value = expected_timer_value(state, reading.frame_second)
         if state.timer_state != reading.timer_state:
             changes["timer_state"] = reading.timer_state
             changes["timer_value"] = reading.timer_value
-        elif reading.timer_state == "running" and (
-            state.timer_value != reading.timer_value
-            and expected_value != reading.timer_value
+        elif (
+            reading.timer_state == "running"
+            and state.timer_value is None
+            and reading.timer_value is not None
         ):
             changes["timer_state"] = reading.timer_state
             changes["timer_value"] = reading.timer_value

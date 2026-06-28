@@ -281,6 +281,42 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             [(0, "running", "1:37")],
         )
 
+    def test_running_timer_ocr_noise_does_not_emit_timer_only_events(self):
+        provider = DictFrameProvider()
+        noisy_values = {
+            0: "2:45",
+            1: "2:44",
+            2: "2:48",
+            3: "2:42",
+            4: "2:89",
+            5: "2:40",
+            6: "2:39",
+        }
+
+        class TimerParser:
+            def parse(self, frame_second, score_image, timer_image):
+                return text_scan.FrameReading(
+                    frame_second=frame_second,
+                    timer_state="running",
+                    timer_value=noisy_values[frame_second],
+                )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            TimerParser(),
+            0,
+            7,
+            coarse_interval_seconds=1,
+        )
+
+        self.assertEqual(
+            [
+                (event.frame_second, event.timer_state, event.timer_value)
+                for event in events
+            ],
+            [(0, "running", "2:45")],
+        )
+
     def test_repeated_running_timer_value_does_not_emit_duplicate_events(self):
         provider = DictFrameProvider()
 
@@ -1178,6 +1214,21 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                         expected_value,
                         field_name,
                     )
+
+    def test_cutoff_timer_three_uses_top_cropped_digit_template(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        timer_path = os.path.join(self.fixture_dir, "new_timer_0237.jpg")
+        reader = text_ocr.TimerDigitReader()
+
+        with open(timer_path, "rb") as fileobj:
+            image = text_ocr.Image.open(fileobj).convert("RGB")
+
+        reading = reader.read(image)
+
+        self.assertEqual(reading.value, "2:37")
+        self.assertEqual(reading.predictions[2].digit, 3)
+        self.assertGreater(reading.predictions[2].similarity, 0.7)
+        self.assertIn("top-crop", reading.predictions[2].source)
 
     def test_new_score_fixture_names(self):
         text_ocr.validate_ocr_engines("none", "tesseract")
