@@ -743,11 +743,11 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         )
 
     def test_run_with_rescan_from_start_resets_scan_before_claiming(self):
-        scan_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        archive_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
         segment = runner.ApiObject(
             {
                 "id": "11111111-1111-1111-1111-111111111111",
-                "archive_id": "22222222-2222-2222-2222-222222222222",
+                "archive_id": archive_id,
                 "start_second": 0,
                 "end_second": 60,
             }
@@ -755,19 +755,25 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         class FakeState:
             def __init__(self):
-                self.reset_scan_id = None
+                self.reset_archive_id = None
                 self.claim_kwargs = None
 
-            def reset_scan(self, reset_scan_id, background_task_id=None):
-                self.reset_scan_id = reset_scan_id
-                return runner.ApiObject({"id": str(reset_scan_id)})
+            def reset_archive(self, reset_archive_id, background_task_id=None):
+                self.reset_archive_id = reset_archive_id
+                return runner.ApiObject({"archive_id": str(reset_archive_id)})
 
             def claim_next_segment(self, **kwargs):
                 self.claim_kwargs = kwargs
                 return segment
 
         args = runner.parse_args(
-            ["--scan-id", scan_id, "--rescan-from-start", "--score-engine", "none"]
+            [
+                "--archive-id",
+                archive_id,
+                "--rescan-from-start",
+                "--score-engine",
+                "none",
+            ]
         )
         state = FakeState()
 
@@ -781,8 +787,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             result = runner.run(args, state=state)
 
         self.assertEqual(result, 0)
-        self.assertEqual(str(state.reset_scan_id), scan_id)
-        self.assertEqual(str(state.claim_kwargs["scan_id"]), scan_id)
+        self.assertEqual(str(state.reset_archive_id), archive_id)
+        self.assertEqual(str(state.claim_kwargs["archive_id"]), archive_id)
         process_segment.assert_called_once_with(
             segment, state, "parser", "s3", "bucket"
         )
@@ -1592,7 +1598,8 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
         headers = {"X-Admin-Password": "admin"}
 
         reset = client.post(
-            "/api/livestream_frame_archives/worker/" f"text_scans/{scan.id}/reset",
+            "/api/livestream_frame_archives/worker/"
+            f"archives/{archive.id}/text_scan/reset",
             json={},
             headers=headers,
         )

@@ -368,6 +368,17 @@ def reset_text_scan_for_rescan(session, scan_id, background_task_id=None):
     return scan
 
 
+def reset_text_scan_for_archive(session, archive_id, background_task_id=None):
+    scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive_id).one_or_none()
+    if not scan:
+        return None
+    return reset_text_scan_for_rescan(
+        session,
+        scan.id,
+        background_task_id=background_task_id,
+    )
+
+
 def claim_next_text_scan_segment(
     session,
     scan_id=None,

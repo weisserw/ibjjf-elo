@@ -75,7 +75,7 @@ from livestream_frame_text_scan import (
     prepare_text_scan_segment_rescan,
     queue_text_scan,
     reconstruct_text_state,
-    reset_text_scan_for_rescan,
+    reset_text_scan_for_archive,
     retry_failed_text_scan_segments,
     TextEventData,
 )
@@ -1504,14 +1504,14 @@ def worker_rescan_livestream_frame_text_scan_segment(segment_id):
 
 
 @app.route(
-    f"{WORKER_API_PREFIX}text_scans/<scan_id>/reset",
+    f"{WORKER_API_PREFIX}archives/<archive_id>/text_scan/reset",
     methods=["POST"],
 )
-def worker_reset_livestream_frame_text_scan(scan_id):
+def worker_reset_livestream_frame_text_scan(archive_id):
     try:
-        scan_uuid = uuid.UUID(scan_id)
+        archive_uuid = uuid.UUID(archive_id)
     except ValueError:
-        return jsonify({"error": "scan_id must be a UUID"}), 400
+        return jsonify({"error": "archive_id must be a UUID"}), 400
 
     data = request.get_json(silent=True) or {}
     try:
@@ -1522,16 +1522,16 @@ def worker_reset_livestream_frame_text_scan(scan_id):
         return jsonify({"error": str(exc)}), 400
 
     try:
-        scan = reset_text_scan_for_rescan(
+        scan = reset_text_scan_for_archive(
             db.session,
-            scan_uuid,
+            archive_uuid,
             background_task_id=background_task_id,
         )
     except ValueError as exc:
         db.session.rollback()
         return jsonify({"error": str(exc)}), 409
     if not scan:
-        return jsonify({"error": "scan not found"}), 404
+        return jsonify({"error": "text scan not found"}), 404
 
     db.session.commit()
     segments = (

@@ -30,7 +30,7 @@ from livestream_frame_text_scan import (  # noqa: E402
     mark_text_scan_segment_success,
     prepare_text_scan_segment_rescan,
     reconstruct_text_state,
-    reset_text_scan_for_rescan,
+    reset_text_scan_for_archive,
     scan_frame_text_segment,
     claim_next_text_scan_segment,
 )
@@ -95,10 +95,10 @@ class LocalTextScanState:
             background_task_id=background_task_id,
         )
 
-    def reset_scan(self, scan_id, background_task_id=None):
-        scan = reset_text_scan_for_rescan(
+    def reset_archive(self, archive_id, background_task_id=None):
+        scan = reset_text_scan_for_archive(
             db.session,
-            scan_id,
+            archive_id,
             background_task_id=background_task_id,
         )
         db.session.commit()
@@ -190,10 +190,13 @@ class AdminApiTextScanState:
         segment = payload.get("segment")
         return ApiObject(segment) if segment else None
 
-    def reset_scan(self, scan_id, background_task_id=None):
+    def reset_archive(self, archive_id, background_task_id=None):
         payload = self._request(
             "POST",
-            f"/api/livestream_frame_archives/worker/text_scans/{scan_id}/reset",
+            (
+                "/api/livestream_frame_archives/worker/"
+                f"archives/{archive_id}/text_scan/reset"
+            ),
             json={
                 "background_task_id": (
                     str(background_task_id) if background_task_id else None
@@ -285,8 +288,11 @@ def process_segment(segment, state, parser, s3_client, bucket: str):
 
 
 def run(args, state=None) -> int:
-    if args.rescan_from_start and not args.scan_id:
-        print("--scan-id is required when --rescan-from-start is set", file=sys.stderr)
+    if args.rescan_from_start and not args.archive_id:
+        print(
+            "--archive-id is required when --rescan-from-start is set",
+            file=sys.stderr,
+        )
         return 2
     if args.rescan_from_start and args.segment_id:
         print(
@@ -307,12 +313,12 @@ def run(args, state=None) -> int:
         uuid.UUID(args.background_task_id) if args.background_task_id else None
     )
     if args.rescan_from_start:
-        scan_id = uuid.UUID(args.scan_id)
-        scan = state.reset_scan(scan_id, background_task_id=background_task_id)
+        archive_id = uuid.UUID(args.archive_id)
+        scan = state.reset_archive(archive_id, background_task_id=background_task_id)
         if not scan:
-            print(f"Livestream frame text scan not found: {scan_id}")
+            print(f"Livestream frame text scan not found for archive: {archive_id}")
             return 0
-        log(f"Reset text scan id={scan_id} for rescan from start")
+        log(f"Reset text scan archive_id={archive_id} for rescan from start")
 
     if args.segment_id:
         segment_id = uuid.UUID(args.segment_id)
@@ -333,10 +339,8 @@ def run(args, state=None) -> int:
 
     processed = 0
     while processed < args.max_segments:
-        scan_id = uuid.UUID(args.scan_id) if args.scan_id else None
         archive_id = uuid.UUID(args.archive_id) if args.archive_id else None
         segment = state.claim_next_segment(
-            scan_id=scan_id,
             archive_id=archive_id,
             youtube_video_id=args.youtube_id,
             background_task_id=background_task_id,
@@ -361,7 +365,6 @@ def run(args, state=None) -> int:
 def parse_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--segment-id")
-    parser.add_argument("--scan-id")
     parser.add_argument("--rescan-from-start", action="store_true")
     parser.add_argument("--archive-id")
     parser.add_argument("--youtube-id")
