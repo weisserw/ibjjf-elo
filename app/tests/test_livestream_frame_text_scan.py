@@ -736,7 +736,20 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                         "BJJ College",
                     ]
                 ),
+                "Miranda Galban",
                 "Yamé Cherici",
+            ),
+            (
+                "\n".join(
+                    [
+                        "Ana Paula Lopes de Moraes",
+                        "Pro Training Brazilian Jiu Jitsu",
+                        "Roberta Graciani Medeiros",
+                        "Alliance",
+                    ]
+                ),
+                "Ana Paula Lopes de Moraes",
+                "Roberta Graciani Medeiros",
             ),
             (
                 "\n".join(
@@ -750,6 +763,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                         "BJJ College",
                     ]
                 ),
+                "Miranda Galban",
                 "Yamé Cherici",
             ),
             (
@@ -763,21 +777,38 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                         "Gracie Barra",
                     ]
                 ),
+                "Miranda Galban",
                 "Anabelle Pereira Dominico",
             ),
         ]
 
-        for text, bottom_name in cases:
+        for text, top_name, bottom_name in cases:
             with self.subTest(bottom_name=bottom_name):
                 fields = parser._parse_names(text, allow_two_line_fallback=False)
 
                 self.assertEqual(
                     fields,
                     {
-                        "top_athlete_name": "Miranda Galban",
+                        "top_athlete_name": top_name,
                         "bottom_athlete_name": bottom_name,
                     },
                 )
+
+    def test_tesseract_parser_does_not_infer_rendered_scoreboard_from_three_lines(self):
+        parser = self._name_parser()
+
+        fields = parser._parse_names(
+            "\n".join(
+                [
+                    "Ana Paula Lopes de Moraes",
+                    "Pro Training Brazilian Jiu Jitsu",
+                    "Roberta Graciani Medeiros",
+                ]
+            ),
+            allow_two_line_fallback=False,
+        )
+
+        self.assertEqual(fields, {})
 
     def test_tesseract_parser_reads_victory_screen(self):
         parser = self._name_parser()
@@ -1181,6 +1212,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "new_score_names4.jpg",
                 "Miranda Galban",
                 "Anabelle Pereira Dominico",
+            ),
+            (
+                "new_score_names5.jpg",
+                "Ana Paula Lopes de Moraes",
+                "Roberta Graciani Medeiros",
             ),
         ]
 

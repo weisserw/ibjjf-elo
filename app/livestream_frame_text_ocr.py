@@ -642,7 +642,7 @@ class FrameImageTextParser:
 
         return text, column_fields
 
-    def _clean_name_line(self, line: str) -> str | None:
+    def _clean_text_line(self, line: str) -> str | None:
         line = re.sub(r"[|_]+", " ", line)
         tokens = []
         for token in line.split():
@@ -664,15 +664,24 @@ class FrameImageTextParser:
         ):
             return None
         alpha_tokens = line.split()
+        total_letters = sum(
+            len(re.sub(r"[^\w]|[\d_]", "", token)) for token in alpha_tokens
+        )
+        if total_letters < 6:
+            return None
+        return line
+
+    def _clean_name_line(self, line: str) -> str | None:
+        line = self._clean_text_line(line)
+        if line is None:
+            return None
+        alpha_tokens = line.split()
         substantial_tokens = [
             token
             for token in alpha_tokens
             if len(re.sub(r"[^\w]|[\d_]", "", token)) >= 2
         ]
-        total_letters = sum(
-            len(re.sub(r"[^\w]|[\d_]", "", token)) for token in alpha_tokens
-        )
-        if len(substantial_tokens) < 2 or total_letters < 6:
+        if len(substantial_tokens) < 2:
             return None
         return line
 
@@ -736,7 +745,7 @@ class FrameImageTextParser:
 
             score_match = score_row_pattern.search(line)
             name_part = line[: score_match.start()] if score_match else line
-            cleaned_line = self._clean_name_line(name_part)
+            cleaned_line = self._clean_text_line(name_part)
             if cleaned_line:
                 current_block.append(cleaned_line)
                 fallback_lines.append(cleaned_line)
