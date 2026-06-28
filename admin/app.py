@@ -65,6 +65,7 @@ from livestream_frame_archive import (
     get_archive_dashboard_rows,
     get_or_create_archive,
     queue_archive_capture,
+    requeue_completed_segments,
     recompute_archive_status,
     retry_failed_segments,
     sync_archives_from_livestreams,
@@ -1092,11 +1093,31 @@ def livestream_frame_archives():
     )
 
 
-@app.route("/livestream_frame_archives/<archive_id>")
+@app.route("/livestream_frame_archives/<archive_id>", methods=["GET", "POST"])
 def livestream_frame_archive_detail(archive_id):
+    message = request.args.get("message")
+    error = request.args.get("error")
     archive = LivestreamFrameArchive.query.get(uuid.UUID(archive_id))
     if not archive:
         return redirect(url_for("livestream_frame_archives"))
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        try:
+            if action == "requeue_completed":
+                segment_count = requeue_completed_segments(db.session, archive)
+                db.session.commit()
+                message = f"Requeued {segment_count} completed segment(s)."
+                return redirect(
+                    url_for(
+                        "livestream_frame_archive_detail",
+                        archive_id=archive.id,
+                        message=message,
+                    )
+                )
+        except Exception as exc:
+            db.session.rollback()
+            error = str(exc)
 
     segments = (
         LivestreamFrameCaptureSegment.query.filter_by(archive_id=archive.id)
@@ -1109,6 +1130,8 @@ def livestream_frame_archive_detail(archive_id):
         archive=archive,
         segments=segments,
         usages=usages,
+        message=message,
+        error=error,
         canonical_url=canonical_youtube_url(archive.youtube_video_id),
         progress_label=archive_progress_label,
     )

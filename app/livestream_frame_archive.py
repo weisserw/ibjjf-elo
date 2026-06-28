@@ -248,6 +248,37 @@ def retry_failed_segments(session, archive_ids: list | None = None) -> int:
     return len(segments)
 
 
+def requeue_completed_segments(session, archive: LivestreamFrameArchive) -> int:
+    segments = (
+        LivestreamFrameCaptureSegment.query.filter_by(archive_id=archive.id)
+        .filter(LivestreamFrameCaptureSegment.status.in_(["success", "skipped"]))
+        .order_by(LivestreamFrameCaptureSegment.start_second)
+        .all()
+    )
+    for segment in segments:
+        segment.status = "queued"
+        segment.uploaded_frame_count = 0
+        segment.sampled_frame_count = 0
+        segment.last_uploaded_second = None
+        segment.batch_s3_key = None
+        segment.batch_uploaded_at = None
+        segment.started_at = None
+        segment.finished_at = None
+        segment.background_task_id = None
+        segment.last_error = None
+
+    if segments:
+        archive.status = "queued"
+        archive.uploaded_frame_count = 0
+        archive.last_uploaded_second = None
+        archive.last_error = None
+        archive.completed_at = None
+        archive.expected_frame_count = expected_frame_count(
+            archive.duration_seconds, archive.frame_rate
+        )
+    return len(segments)
+
+
 def cancel_queued_segments(session, archive_ids: list | None = None) -> int:
     query = LivestreamFrameCaptureSegment.query.filter(
         LivestreamFrameCaptureSegment.status.in_(["pending", "queued", "running"])

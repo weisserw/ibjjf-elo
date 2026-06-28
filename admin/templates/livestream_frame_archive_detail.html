@@ -7,6 +7,13 @@
         <a class="button is-light" href="{{ url_for('livestream_frame_archives') }}">Back to Archives</a>
     </div>
 
+    {% if message %}
+    <div class="notification is-success is-light">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="notification is-danger is-light">{{ error }}</div>
+    {% endif %}
+
     <div class="box">
         <h2 class="title is-5"><code>{{ archive.youtube_video_id }}</code></h2>
         <table class="table is-fullwidth is-size-7">
@@ -26,6 +33,10 @@
                 <tr><th>Last error</th><td class="has-text-danger">{{ archive.last_error or '' }}</td></tr>
             </tbody>
         </table>
+        <form method="POST">
+            <input type="hidden" name="action" value="requeue_completed">
+            <button class="button is-warning" type="submit">Requeue completed segments</button>
+        </form>
     </div>
 
     <div class="box">

@@ -546,6 +546,67 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(requeued, 0)
         self.assertIsNone(archive.last_error)
 
+    def test_requeue_completed_segments_clears_upload_metadata(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        archive.status = "success"
+        archive.duration_seconds = 1200
+        archive.uploaded_frame_count = 1200
+        archive.last_uploaded_second = 1199
+        archive.completed_at = datetime.utcnow()
+        db.session.flush()
+        db.session.add(
+            LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=0,
+                end_second=600,
+                status="success",
+                attempt_count=1,
+                uploaded_frame_count=600,
+                sampled_frame_count=0,
+                last_uploaded_second=599,
+                batch_s3_key="livestream-frame-batches/HxZSos1k_MA/000000000-000000600.tgz",
+                batch_uploaded_at=datetime.utcnow(),
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
+            )
+        )
+        db.session.add(
+            LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=600,
+                end_second=1200,
+                status="error",
+                uploaded_frame_count=10,
+                last_uploaded_second=609,
+                last_error="boom",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        db.session.commit()
+
+        requeued = archive_lib.requeue_completed_segments(db.session, archive)
+        db.session.commit()
+
+        segments = LivestreamFrameCaptureSegment.query.order_by(
+            LivestreamFrameCaptureSegment.start_second
+        ).all()
+        self.assertEqual(requeued, 1)
+        self.assertEqual(segments[0].status, "queued")
+        self.assertEqual(segments[0].uploaded_frame_count, 0)
+        self.assertIsNone(segments[0].last_uploaded_second)
+        self.assertIsNone(segments[0].batch_s3_key)
+        self.assertIsNone(segments[0].batch_uploaded_at)
+        self.assertIsNone(segments[0].started_at)
+        self.assertIsNone(segments[0].finished_at)
+        self.assertIsNone(segments[0].last_error)
+        self.assertEqual(segments[1].status, "error")
+        self.assertEqual(segments[1].last_error, "boom")
+        self.assertEqual(archive.status, "queued")
+        self.assertEqual(archive.uploaded_frame_count, 0)
+        self.assertIsNone(archive.last_uploaded_second)
+        self.assertIsNone(archive.completed_at)
+        self.assertEqual(archive.expected_frame_count, 1200)
+
     def test_claim_next_segment_marks_running(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
         archive_lib.queue_archive_capture(db.session, archive)
