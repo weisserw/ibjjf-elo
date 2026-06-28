@@ -1684,6 +1684,65 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
             0,
         )
 
+    def test_admin_text_event_capture_download_api_reads_batch_crop(self):
+        archive, _ = self._archive_with_segment()
+        text_scan.queue_text_scan(db.session, archive, score_engine="none")
+        scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
+        segment = LivestreamFrameTextScanSegment.query.filter_by(scan_id=scan.id).one()
+        text_scan.mark_text_scan_segment_success(
+            db.session,
+            segment,
+            [
+                text_scan.TextEventData(
+                    frame_second=12,
+                    top_points=2,
+                    timer_state="running",
+                    timer_value="4:48",
+                )
+            ],
+        )
+        db.session.commit()
+        event = LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id).one()
+        fake_s3 = FakeS3(
+            {
+                "batch-0.tgz": make_tgz(
+                    {
+                        "000000012_score.jpg": b"score-jpg",
+                        "000000012_timer.jpg": b"timer-jpg",
+                    }
+                )
+            }
+        )
+        client = self._admin_client()
+        with client.session_transaction() as session_data:
+            session_data["logged_in"] = True
+
+        with mock.patch.object(
+            self.admin_module, "get_s3_client", return_value=fake_s3
+        ), mock.patch.object(self.admin_module, "bucket_name", "bucket"):
+            scoreboard = client.get(
+                "/api/livestream_frame_text_scans/"
+                f"{archive.id}/events/{event.id}/captures/scoreboard"
+            )
+            timer = client.get(
+                "/api/livestream_frame_text_scans/"
+                f"{archive.id}/events/{event.id}/captures/timer"
+            )
+
+        self.assertEqual(scoreboard.status_code, 200)
+        self.assertEqual(scoreboard.data, b"score-jpg")
+        self.assertEqual(scoreboard.mimetype, "image/jpeg")
+        self.assertIn(
+            f"{archive.youtube_video_id}_000000012_scoreboard.jpg",
+            scoreboard.headers["Content-Disposition"],
+        )
+        self.assertEqual(timer.status_code, 200)
+        self.assertEqual(timer.data, b"timer-jpg")
+        self.assertEqual(
+            fake_s3.keys,
+            [("bucket", "batch-0.tgz"), ("bucket", "batch-0.tgz")],
+        )
+
     def test_admin_text_event_display_rows_show_full_score_state(self):
         self._admin_client()
         admin_module = self.admin_module

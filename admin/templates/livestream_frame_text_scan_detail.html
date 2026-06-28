@@ -121,6 +121,7 @@
                     <th>Timer</th>
                     <th>Athletes</th>
                     <th>Profile</th>
+                    <th>Captures</th>
                 </tr>
             </thead>
             <tbody>
@@ -157,9 +158,14 @@
                         {% if row.event.bottom_team_name %}<div>{{ row.event.bottom_team_name }}</div>{% endif %}
                     </td>
                     <td>{{ row.event.profile_id or '' }}</td>
+                    <td>
+                        <a href="{{ url_for('livestream_frame_text_event_capture', archive_id=archive.id, event_id=row.event.id, crop_variant='scoreboard') }}">Scoreboard</a>
+                        /
+                        <a href="{{ url_for('livestream_frame_text_event_capture', archive_id=archive.id, event_id=row.event.id, crop_variant='timer') }}">Timer</a>
+                    </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="5">No text events found yet.</td></tr>
+                <tr><td colspan="6">No text events found yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

@@ -2,6 +2,7 @@ import os
 import sys
 import uuid
 import json
+import io
 import subprocess
 import threading
 import time
@@ -10,7 +11,17 @@ import signal
 import requests
 from bs4 import BeautifulSoup
 from datetime import date, datetime, timedelta, timezone
-from flask import Flask, render_template, redirect, url_for, request, session, jsonify
+from flask import (
+    Flask,
+    abort,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    session,
+    url_for,
+)
 from types import SimpleNamespace
 from urllib.parse import urlparse, urlencode, urlunparse
 from sqlalchemy import or_, func, case
@@ -77,12 +88,14 @@ from livestream_frame_text_scan import (
     reconstruct_text_state,
     reset_text_scan_for_archive,
     retry_failed_text_scan_segments,
+    S3FrameBatchProvider,
     TextEventData,
 )
 from youtube_utils import canonical_youtube_url
 from normalize import normalize
 from elo import WINNER_NOT_RECORDED
 from photos import (
+    bucket_name,
     detect_image_content_type,
     get_public_photo_url,
     get_s3_client,
@@ -1237,6 +1250,46 @@ def livestream_frame_text_scan_detail(archive_id):
         canonical_url=canonical_youtube_url(archive.youtube_video_id),
         progress_label=_text_scan_progress_label,
         time_label=_hms,
+    )
+
+
+@app.route(
+    "/api/livestream_frame_text_scans/<archive_id>/events/<event_id>/captures/<crop_variant>"
+)
+def livestream_frame_text_event_capture(archive_id, event_id, crop_variant):
+    try:
+        archive_uuid = uuid.UUID(archive_id)
+        event_uuid = uuid.UUID(event_id)
+    except ValueError:
+        abort(404)
+
+    crop_variants = {"scoreboard": "score", "timer": "timer"}
+    crop_name = crop_variants.get(crop_variant)
+    if crop_name is None:
+        abort(404)
+
+    event = db.session.get(LivestreamFrameTextEvent, event_uuid)
+    if not event or event.archive_id != archive_uuid:
+        abort(404)
+
+    capture_segment = event.capture_segment
+    if not capture_segment:
+        abort(404)
+
+    frame = S3FrameBatchProvider(
+        [capture_segment], get_s3_client(), bucket_name
+    ).get_frame(event.frame_second, crop_name)
+    if frame is None:
+        abort(404)
+
+    download_name = (
+        f"{event.archive.youtube_video_id}_{event.frame_second:09d}_{crop_variant}.jpg"
+    )
+    return send_file(
+        io.BytesIO(frame),
+        mimetype="image/jpeg",
+        as_attachment=True,
+        download_name=download_name,
     )
 
 
