@@ -723,6 +723,62 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
 
+    def test_tesseract_parser_handles_split_team_lines_in_rendered_scoreboard(self):
+        parser = self._name_parser()
+
+        cases = [
+            (
+                "\n".join(
+                    [
+                        "Miranda Galban",
+                        "Nexo Jiu-Jitsu",
+                        "Yamé Cherici",
+                        "BJJ College",
+                    ]
+                ),
+                "Yamé Cherici",
+            ),
+            (
+                "\n".join(
+                    [
+                        "Miranda Galban",
+                        "",
+                        "Nexo Jiu-Jitsu",
+                        "",
+                        "Yamé Cherici",
+                        "",
+                        "BJJ College",
+                    ]
+                ),
+                "Yamé Cherici",
+            ),
+            (
+                "\n".join(
+                    [
+                        "Miranda Galban",
+                        "",
+                        "Nexo Jiu-Jitsu",
+                        "",
+                        "Anabelle Pereira Dominico",
+                        "Gracie Barra",
+                    ]
+                ),
+                "Anabelle Pereira Dominico",
+            ),
+        ]
+
+        for text, bottom_name in cases:
+            with self.subTest(bottom_name=bottom_name):
+                fields = parser._parse_names(text, allow_two_line_fallback=False)
+
+                self.assertEqual(
+                    fields,
+                    {
+                        "top_athlete_name": "Miranda Galban",
+                        "bottom_athlete_name": bottom_name,
+                    },
+                )
+
     def test_tesseract_parser_reads_victory_screen(self):
         parser = self._name_parser()
 
@@ -1115,6 +1171,16 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "new_score_names2.jpg",
                 "Miranda Galban",
                 "Yamé Cherici",
+            ),
+            (
+                "new_score_names3.jpg",
+                "Miranda Galban",
+                "Yamé Cherici",
+            ),
+            (
+                "new_score_names4.jpg",
+                "Miranda Galban",
+                "Anabelle Pereira Dominico",
             ),
         ]
 

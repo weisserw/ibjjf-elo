@@ -704,6 +704,15 @@ class FrameImageTextParser:
                 return fields
         return {}
 
+    @staticmethod
+    def _athlete_team_line_fields(lines: list[str]) -> dict:
+        if len(lines) < 4:
+            return {}
+        return {
+            "top_athlete_name": lines[0],
+            "bottom_athlete_name": lines[2],
+        }
+
     def _parse_names(self, text: str, *, allow_two_line_fallback: bool = True) -> dict:
         if self.name_engine in (None, "none"):
             return {}
@@ -738,6 +747,10 @@ class FrameImageTextParser:
 
         if current_block:
             blocks.append(current_block)
+
+        athlete_team_fields = self._athlete_team_line_fields(fallback_lines)
+        if athlete_team_fields:
+            return athlete_team_fields
 
         if len(blocks) < 2 and len(fallback_lines) >= 2:
             if not allow_two_line_fallback and len(fallback_lines) < 4:
