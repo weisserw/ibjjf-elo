@@ -393,6 +393,42 @@ def claim_next_text_scan_segment(
     return segment
 
 
+def prepare_text_scan_segment_rescan(
+    session,
+    segment_id,
+    background_task_id=None,
+) -> LivestreamFrameTextScanSegment | None:
+    segment = (
+        LivestreamFrameTextScanSegment.query.options(
+            selectinload(LivestreamFrameTextScanSegment.scan),
+            selectinload(LivestreamFrameTextScanSegment.archive),
+            selectinload(LivestreamFrameTextScanSegment.capture_segment),
+        )
+        .filter_by(id=segment_id)
+        .one_or_none()
+    )
+    if not segment:
+        return None
+
+    now = datetime.utcnow()
+    LivestreamFrameTextEvent.query.filter_by(scan_segment_id=segment.id).delete()
+    segment.status = "running"
+    segment.attempt_count = (segment.attempt_count or 0) + 1
+    segment.event_count = 0
+    segment.last_processed_second = None
+    segment.started_at = now
+    segment.finished_at = None
+    segment.last_error = None
+    segment.background_task_id = background_task_id
+    segment.scan.status = "running"
+    segment.scan.started_at = segment.scan.started_at or now
+    segment.scan.completed_at = None
+    segment.scan.background_task_id = background_task_id
+    segment.scan.last_error = None
+    session.commit()
+    return segment
+
+
 def recompute_text_scan_status(session, scan: LivestreamFrameTextScan) -> None:
     segments = LivestreamFrameTextScanSegment.query.filter_by(scan_id=scan.id).all()
     successful_segments = [

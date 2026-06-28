@@ -72,6 +72,7 @@ from livestream_frame_text_scan import (
     claim_next_text_scan_segment,
     mark_text_scan_segment_error,
     mark_text_scan_segment_success,
+    prepare_text_scan_segment_rescan,
     queue_text_scan,
     reconstruct_text_state,
     retry_failed_text_scan_segments,
@@ -1469,6 +1470,35 @@ def worker_claim_livestream_frame_text_scan_segment():
         youtube_video_id=data.get("youtube_video_id"),
         background_task_id=background_task_id,
     )
+    return jsonify({"segment": _text_scan_segment_payload(segment)})
+
+
+@app.route(
+    f"{WORKER_API_PREFIX}text_scan_segments/<segment_id>/rescan",
+    methods=["POST"],
+)
+def worker_rescan_livestream_frame_text_scan_segment(segment_id):
+    try:
+        segment_uuid = uuid.UUID(segment_id)
+    except ValueError:
+        return jsonify({"error": "segment_id must be a UUID"}), 400
+
+    data = request.get_json(silent=True) or {}
+    try:
+        background_task_id = _parse_uuid(
+            data.get("background_task_id"), "background_task_id"
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    segment = prepare_text_scan_segment_rescan(
+        db.session,
+        segment_uuid,
+        background_task_id=background_task_id,
+    )
+    if not segment:
+        return jsonify({"error": "segment not found"}), 404
+
     return jsonify({"segment": _text_scan_segment_payload(segment)})
 
 

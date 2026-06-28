@@ -28,6 +28,7 @@ from livestream_frame_text_scan import (  # noqa: E402
     TextState,
     mark_text_scan_segment_error,
     mark_text_scan_segment_success,
+    prepare_text_scan_segment_rescan,
     reconstruct_text_state,
     scan_frame_text_segment,
     claim_next_text_scan_segment,
@@ -83,6 +84,13 @@ class LocalTextScanState:
             scan_id=scan_id,
             archive_id=archive_id,
             youtube_video_id=youtube_video_id,
+            background_task_id=background_task_id,
+        )
+
+    def rescan_segment(self, segment_id, background_task_id=None):
+        return prepare_text_scan_segment_rescan(
+            db.session,
+            segment_id,
             background_task_id=background_task_id,
         )
 
@@ -151,6 +159,19 @@ class AdminApiTextScanState:
                 "scan_id": str(scan_id) if scan_id else None,
                 "archive_id": str(archive_id) if archive_id else None,
                 "youtube_video_id": youtube_video_id,
+                "background_task_id": (
+                    str(background_task_id) if background_task_id else None
+                ),
+            },
+        )
+        segment = payload.get("segment")
+        return ApiObject(segment) if segment else None
+
+    def rescan_segment(self, segment_id, background_task_id=None):
+        payload = self._request(
+            "POST",
+            f"/api/livestream_frame_archives/worker/text_scan_segments/{segment_id}/rescan",
+            json={
                 "background_task_id": (
                     str(background_task_id) if background_task_id else None
                 ),
@@ -249,13 +270,30 @@ def run(args, state=None) -> int:
         raise RuntimeError("S3_BUCKET is not configured")
     s3_client = get_s3_client()
 
+    background_task_id = (
+        uuid.UUID(args.background_task_id) if args.background_task_id else None
+    )
+    if args.segment_id:
+        segment_id = uuid.UUID(args.segment_id)
+        segment = state.rescan_segment(
+            segment_id,
+            background_task_id=background_task_id,
+        )
+        if not segment:
+            print(f"Livestream frame text scan segment not found: {segment_id}")
+            return 0
+        try:
+            process_segment(segment, state, parser, s3_client, bucket_name)
+        except Exception as exc:
+            state.mark_error(segment, str(exc))
+            print(f"Text scan segment {segment.id} failed: {exc}", file=sys.stderr)
+            return 1
+        return 0
+
     processed = 0
     while processed < args.max_segments:
         scan_id = uuid.UUID(args.scan_id) if args.scan_id else None
         archive_id = uuid.UUID(args.archive_id) if args.archive_id else None
-        background_task_id = (
-            uuid.UUID(args.background_task_id) if args.background_task_id else None
-        )
         segment = state.claim_next_segment(
             scan_id=scan_id,
             archive_id=archive_id,
@@ -281,6 +319,7 @@ def run(args, state=None) -> int:
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser()
+    parser.add_argument("--segment-id")
     parser.add_argument("--scan-id")
     parser.add_argument("--archive-id")
     parser.add_argument("--youtube-id")

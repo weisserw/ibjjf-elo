@@ -4,6 +4,7 @@ import os
 import sys
 import tarfile
 import unittest
+import uuid
 from unittest import mock
 
 from sqlalchemy import create_engine
@@ -509,6 +510,51 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(state.timer_state, "blank")
         self.assertIsNone(state.timer_value)
 
+    def test_prepare_text_scan_segment_rescan_deletes_events_and_marks_running(self):
+        archive, _ = self._archive_with_segments()
+        text_scan.queue_text_scan(db.session, archive, score_engine="none")
+        scan_segment = LivestreamFrameTextScanSegment.query.order_by(
+            LivestreamFrameTextScanSegment.start_second
+        ).first()
+        text_scan.mark_text_scan_segment_success(
+            db.session,
+            scan_segment,
+            [
+                text_scan.TextEventData(
+                    frame_second=0,
+                    timer_state="running",
+                    timer_value="5:00",
+                )
+            ],
+        )
+        db.session.commit()
+        self.assertEqual(
+            LivestreamFrameTextEvent.query.filter_by(
+                scan_segment_id=scan_segment.id
+            ).count(),
+            1,
+        )
+
+        prepared = text_scan.prepare_text_scan_segment_rescan(
+            db.session,
+            scan_segment.id,
+        )
+
+        self.assertEqual(prepared.id, scan_segment.id)
+        self.assertEqual(prepared.status, "running")
+        self.assertEqual(prepared.attempt_count, 1)
+        self.assertEqual(prepared.event_count, 0)
+        self.assertIsNone(prepared.last_processed_second)
+        self.assertIsNone(prepared.last_error)
+        self.assertEqual(prepared.scan.status, "running")
+        self.assertIsNone(prepared.scan.completed_at)
+        self.assertEqual(
+            LivestreamFrameTextEvent.query.filter_by(
+                scan_segment_id=scan_segment.id
+            ).count(),
+            0,
+        )
+
     def test_s3_frame_batch_provider_reads_across_batches(self):
         archive, segments = self._archive_with_segments()
         fake_s3 = FakeS3(
@@ -548,6 +594,49 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         self.assertEqual(args.name_engine, "tesseract")
         self.assertEqual(args.score_engine, "fixed_digit")
+
+    def test_run_with_segment_id_rescans_specific_segment(self):
+        segment_id = "11111111-1111-1111-1111-111111111111"
+        segment = runner.ApiObject(
+            {
+                "id": segment_id,
+                "archive_id": "22222222-2222-2222-2222-222222222222",
+                "start_second": 0,
+                "end_second": 60,
+            }
+        )
+
+        class FakeState:
+            def __init__(self):
+                self.rescanned_segment_id = None
+                self.claimed = False
+
+            def rescan_segment(self, rescan_segment_id, background_task_id=None):
+                self.rescanned_segment_id = rescan_segment_id
+                return segment
+
+            def claim_next_segment(self, **kwargs):
+                self.claimed = True
+                return None
+
+        args = runner.parse_args(["--segment-id", segment_id, "--score-engine", "none"])
+        state = FakeState()
+
+        with mock.patch.object(runner, "validate_ocr_engines"), mock.patch.object(
+            runner, "build_parser", return_value="parser"
+        ), mock.patch.object(runner, "bucket_name", "bucket"), mock.patch.object(
+            runner, "get_s3_client", return_value="s3"
+        ), mock.patch.object(
+            runner, "process_segment"
+        ) as process_segment:
+            result = runner.run(args, state=state)
+
+        self.assertEqual(result, 0)
+        self.assertEqual(str(state.rescanned_segment_id), segment_id)
+        self.assertFalse(state.claimed)
+        process_segment.assert_called_once_with(
+            segment, state, "parser", "s3", "bucket"
+        )
 
     def test_tesseract_parser_reads_names_from_scoreboard_text(self):
         parser = self._name_parser()
@@ -605,6 +694,32 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             {
                 "top_athlete_name": "TEST ATHLETE ALPHA",
                 "bottom_athlete_name": "TEST ATHLETE BETA",
+            },
+        )
+
+    def test_tesseract_parser_uses_blank_lines_as_name_boundaries(self):
+        parser = self._name_parser()
+
+        fields = parser._parse_names(
+            "\n".join(
+                [
+                    "Ana Julia Samara R. Lima",
+                    "CheckMat",
+                    "",
+                    "Roberta Graciani Medeiros",
+                    "Alliance",
+                    "",
+                    "> = - 6 - t~isSYT - =",
+                ]
+            ),
+            allow_two_line_fallback=False,
+        )
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "Ana Julia Samara R. Lima",
+                "bottom_athlete_name": "Roberta Graciani Medeiros",
             },
         )
 
@@ -991,6 +1106,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "Anabelle Pereira Dominico",
                 "Rebeca de Lavor Tisatto",
             ),
+            (
+                "new_score_names.jpg",
+                "Ana Julia Samara R. Lima",
+                "Roberta Graciani Medeiros",
+            ),
         ]
 
         for score_image, top_name, bottom_name in cases:
@@ -1166,6 +1286,25 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(body["events"][0]["top_points"], 2)
         self.assertEqual(body["events"][0]["evidence"], {"source": "test"})
+
+        rescan = client.post(
+            "/api/livestream_frame_archives/worker/"
+            f"text_scan_segments/{segment_payload['id']}/rescan",
+            json={},
+            headers=headers,
+        )
+        self.assertEqual(rescan.status_code, 200)
+        rescan_segment = rescan.get_json()["segment"]
+        self.assertEqual(rescan_segment["status"], "running")
+        self.assertEqual(rescan_segment["attempt_count"], 2)
+        self.assertEqual(rescan_segment["event_count"], 0)
+        self.assertEqual(len(rescan_segment["archive_capture_segments"]), 1)
+        self.assertEqual(
+            LivestreamFrameTextEvent.query.filter_by(
+                scan_segment_id=uuid.UUID(segment_payload["id"])
+            ).count(),
+            0,
+        )
 
     def test_admin_text_event_display_rows_show_full_score_state(self):
         self._admin_client()

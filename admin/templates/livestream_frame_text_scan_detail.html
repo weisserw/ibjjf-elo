@@ -82,6 +82,7 @@
         <table class="table is-fullwidth is-striped is-size-7">
             <thead>
                 <tr>
+                    <th>ID</th>
                     <th>Start</th>
                     <th>End</th>
                     <th>Status</th>
@@ -94,6 +95,7 @@
             <tbody>
                 {% for segment in segments %}
                 <tr>
+                    <td><code>{{ segment.id }}</code></td>
                     <td>{{ time_label(segment.start_second) }}</td>
                     <td>{{ time_label(segment.end_second) }}</td>
                     <td>{{ segment.status }}</td>
@@ -103,7 +105,7 @@
                     <td class="has-text-danger">{{ segment.last_error or '' }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="7">No text scan segments queued.</td></tr>
+                <tr><td colspan="8">No text scan segments queued.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

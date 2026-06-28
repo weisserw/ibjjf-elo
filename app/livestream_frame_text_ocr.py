@@ -718,6 +718,9 @@ class FrameImageTextParser:
         for raw_line in text.splitlines():
             line = raw_line.strip()
             if not line:
+                if current_block:
+                    blocks.append(current_block)
+                    current_block = []
                 continue
 
             score_match = score_row_pattern.search(line)
