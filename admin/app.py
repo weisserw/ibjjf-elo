@@ -25,6 +25,7 @@ from flask import (
 from types import SimpleNamespace
 from urllib.parse import urlparse, urlencode, urlunparse
 from sqlalchemy import or_, func, case
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 
 
@@ -50,6 +51,7 @@ from models import (
     LivestreamFrameTextEvent,
     LivestreamFrameTextScan,
     LivestreamFrameTextScanSegment,
+    MatchParticipantTextEvent,
     FloSearchName,
     TeamNameMapping,
     AthleteMediaCoverage,
@@ -93,6 +95,7 @@ from livestream_frame_text_scan import (
     TextEventData,
 )
 from youtube_utils import canonical_youtube_url
+from livestream_match_linking import link_completed_text_scan
 from normalize import normalize
 from elo import WINNER_NOT_RECORDED
 from photos import (
@@ -403,7 +406,64 @@ def _text_event_counts_for_scan_ids(scan_ids):
     return counts
 
 
-def _text_event_display_rows(events):
+def _linked_text_event_rows(events):
+    event_ids = [event.id for event in events]
+    if not event_ids:
+        return {}
+    associations = MatchParticipantTextEvent.query.filter(
+        MatchParticipantTextEvent.livestream_frame_text_event_id.in_(event_ids)
+    ).all()
+    participant_ids = {association.match_participant_id for association in associations}
+    participants = {
+        participant.id: participant
+        for participant in MatchParticipant.query.options(
+            selectinload(MatchParticipant.athlete),
+            selectinload(MatchParticipant.match),
+        )
+        .filter(MatchParticipant.id.in_(participant_ids))
+        .all()
+    }
+    grouped = {}
+    for association in associations:
+        participant = participants.get(association.match_participant_id)
+        if not participant:
+            continue
+        grouped.setdefault(association.livestream_frame_text_event_id, []).append(
+            participant
+        )
+
+    rows = {}
+    for event_id, linked_participants in grouped.items():
+        match_participants = [
+            participant
+            for participant in linked_participants
+            if participant.match is not None
+        ]
+        if not match_participants:
+            continue
+        match = match_participants[0].match
+        top = next(
+            (
+                participant
+                for participant in match_participants
+                if participant.scoreboard_position == "top"
+            ),
+            None,
+        )
+        bottom = next(
+            (
+                participant
+                for participant in match_participants
+                if participant.scoreboard_position == "bottom"
+            ),
+            None,
+        )
+        rows[event_id] = SimpleNamespace(match=match, top=top, bottom=bottom)
+    return rows
+
+
+def _text_event_display_rows(events, linked_rows=None):
+    linked_rows = linked_rows or {}
     rows = []
     state = TextState()
     for event in events:
@@ -418,6 +478,7 @@ def _text_event_display_rows(events):
                 score=state.copy(),
                 has_score_change=has_score_change,
                 is_scoreboard_blank=state.scoreboard_state == SCOREBOARD_STATE_BLANK,
+                linked_match=linked_rows.get(getattr(event, "id", None)),
             )
         )
     return rows
@@ -1229,13 +1290,43 @@ def livestream_frame_text_scans():
     )
 
 
-@app.route("/livestream_frame_text_scans/<archive_id>")
+@app.route("/livestream_frame_text_scans/<archive_id>", methods=["GET", "POST"])
 def livestream_frame_text_scan_detail(archive_id):
     archive = LivestreamFrameArchive.query.get(uuid.UUID(archive_id))
     if not archive:
         return redirect(url_for("livestream_frame_text_scans"))
 
     scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one_or_none()
+    if request.method == "POST":
+        if not scan:
+            return redirect(
+                url_for(
+                    "livestream_frame_text_scan_detail",
+                    archive_id=archive.id,
+                    error="No text scan found.",
+                )
+            )
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+        if summary.skipped:
+            return redirect(
+                url_for(
+                    "livestream_frame_text_scan_detail",
+                    archive_id=archive.id,
+                    error=f"Match relink skipped: {summary.skipped}.",
+                )
+            )
+        return redirect(
+            url_for(
+                "livestream_frame_text_scan_detail",
+                archive_id=archive.id,
+                message=(
+                    f"Recreated {summary.linked} match link(s) from "
+                    f"{summary.windows} OCR window(s)."
+                ),
+            )
+        )
+
     segments = []
     events = []
     event_counts = _empty_text_event_counts()
@@ -1259,7 +1350,7 @@ def livestream_frame_text_scan_detail(archive_id):
         )
 
     usages = archive_usage_rows(db.session, archive.youtube_video_id)
-    event_rows = _text_event_display_rows(events)
+    event_rows = _text_event_display_rows(events, _linked_text_event_rows(events))
     return render_template(
         "livestream_frame_text_scan_detail.html",
         archive=archive,
@@ -1273,6 +1364,8 @@ def livestream_frame_text_scan_detail(archive_id):
         canonical_url=canonical_youtube_url(archive.youtube_video_id),
         progress_label=_text_scan_progress_label,
         time_label=_hms,
+        message=request.args.get("message"),
+        error=request.args.get("error"),
     )
 
 

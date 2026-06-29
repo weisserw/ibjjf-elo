@@ -218,6 +218,7 @@ def get_livestream_link(
     match_number,
     winner_personal_name,
     loser_personal_name,
+    video_start_offset_seconds=None,
 ):
     tournament_days = livestream_links["tournament_days"]
     live_streams = livestream_links["live_streams"]
@@ -334,16 +335,22 @@ def get_livestream_link(
                             match_seconds >= stream_start_seconds
                             and match_seconds < end_seconds
                         ):
-                            time_offset_seconds = (
-                                match_seconds - start_seconds_for_offset - cut_seconds
-                            )
+                            if video_start_offset_seconds is not None:
+                                time_offset_seconds = video_start_offset_seconds
+                            else:
+                                time_offset_seconds = (
+                                    match_seconds
+                                    - start_seconds_for_offset
+                                    - cut_seconds
+                                )
 
                             if time_offset_seconds <= 0:
                                 time_offset_seconds = 1
 
-                            time_offset_seconds = round(
-                                time_offset_seconds * drift_factor
-                            )
+                            if video_start_offset_seconds is None:
+                                time_offset_seconds = round(
+                                    time_offset_seconds * drift_factor
+                                )
 
                             if not flo_event_tags.get(ibjjf_id):
                                 if "?" in link:

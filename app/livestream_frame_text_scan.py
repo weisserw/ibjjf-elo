@@ -246,6 +246,9 @@ def queue_text_scan(
     scan.status = "queued"
     scan.last_error = None
     scan.completed_at = None
+    from livestream_match_linking import clear_livestream_match_links
+
+    clear_livestream_match_links(session, scan.archive_id)
 
     existing_capture_ids = {
         segment.capture_segment_id
@@ -345,6 +348,9 @@ def reset_text_scan_for_rescan(session, scan_id, background_task_id=None):
     if running_count:
         raise ValueError("cannot reset text scan while segments are running")
 
+    from livestream_match_linking import clear_livestream_match_links
+
+    clear_livestream_match_links(session, scan.archive_id)
     LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id).delete()
     segments = LivestreamFrameTextScanSegment.query.filter_by(scan_id=scan.id).all()
     for segment in segments:
@@ -456,6 +462,9 @@ def prepare_text_scan_segment_rescan(
         return None
 
     now = datetime.utcnow()
+    from livestream_match_linking import clear_livestream_match_links
+
+    clear_livestream_match_links(session, segment.archive_id)
     LivestreamFrameTextEvent.query.filter_by(scan_segment_id=segment.id).delete()
     segment.status = "running"
     segment.attempt_count = (segment.attempt_count or 0) + 1
@@ -818,6 +827,9 @@ def create_text_event(
 def replace_segment_events(
     session, scan_segment: LivestreamFrameTextScanSegment, events: list[TextEventData]
 ) -> None:
+    from livestream_match_linking import clear_livestream_match_links
+
+    clear_livestream_match_links(session, scan_segment.archive_id)
     LivestreamFrameTextEvent.query.filter_by(scan_segment_id=scan_segment.id).delete()
     for event_data in events:
         session.add(create_text_event(scan_segment, event_data))
@@ -833,6 +845,10 @@ def mark_text_scan_segment_success(
     scan_segment.last_error = None
     scan_segment.finished_at = datetime.utcnow()
     recompute_text_scan_status(session, scan_segment.scan)
+    if scan_segment.scan.status == "success":
+        from livestream_match_linking import link_completed_text_scan
+
+        link_completed_text_scan(session, scan_segment.scan)
 
 
 def mark_text_scan_segment_error(

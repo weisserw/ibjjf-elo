@@ -700,10 +700,23 @@ def matches():
                     "winnerRatingNote": winner.rating_note,
                     "loserRatingNote": loser.rating_note,
                     "matchLocation": current_match.match_location,
+                    "finalTopPoints": current_match.final_top_points,
+                    "finalTopAdvantages": current_match.final_top_advantages,
+                    "finalTopPenalties": current_match.final_top_penalties,
+                    "finalBottomPoints": current_match.final_bottom_points,
+                    "finalBottomAdvantages": current_match.final_bottom_advantages,
+                    "finalBottomPenalties": current_match.final_bottom_penalties,
+                    "submission": (
+                        current_match.final_match_time_seconds is not None
+                        and current_match.final_match_time_seconds > 0
+                    ),
                     "event_ibjjf_id": current_match.event.ibjjf_id,
                     "date_happened_at": current_match.happened_at,
                     "match_number": current_match.match_number,
                     "division_size": current_match.division_size,
+                    "video_start_offset_seconds": (
+                        current_match.video_start_offset_seconds
+                    ),
                 }
             )
 
@@ -735,11 +748,13 @@ def matches():
                 match["match_number"],
                 match["winnerPersonalName"],
                 match["loserPersonalName"],
+                match["video_start_offset_seconds"],
             )
 
         del match["event_ibjjf_id"]
         del match["date_happened_at"]
         del match["match_number"]
         del match["division_size"]
+        del match["video_start_offset_seconds"]
 
     return jsonify({"rows": response, "totalPages": totalPages})

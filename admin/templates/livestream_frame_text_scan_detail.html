@@ -7,6 +7,13 @@
         <a class="button is-light" href="{{ url_for('livestream_frame_text_scans') }}">Back to Text Scans</a>
     </div>
 
+    {% if message %}
+    <div class="notification is-success is-light">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="notification is-danger is-light">{{ error }}</div>
+    {% endif %}
+
     <div class="box">
         <h2 class="title is-5"><code>{{ archive.youtube_video_id }}</code></h2>
         <table class="table is-fullwidth is-size-7">
@@ -26,6 +33,11 @@
                 {% endif %}
             </tbody>
         </table>
+        {% if scan %}
+        <form method="POST">
+            <button class="button is-info is-small" type="submit">Recreate match links</button>
+        </form>
+        {% endif %}
     </div>
 
     <div class="box">
@@ -120,6 +132,7 @@
                     <th>Score</th>
                     <th>Timer</th>
                     <th>Athletes</th>
+                    <th>Linked Match</th>
                     <th>Profile</th>
                     <th>Captures</th>
                 </tr>
@@ -157,6 +170,21 @@
                         {% if row.event.bottom_athlete_name %}<div>{{ row.event.bottom_athlete_name }}</div>{% endif %}
                         {% if row.event.bottom_team_name %}<div>{{ row.event.bottom_team_name }}</div>{% endif %}
                     </td>
+                    <td>
+                        {% if row.linked_match %}
+                        <div>
+                            <code>{{ row.linked_match.match.id }}</code>
+                            {% if row.linked_match.match.match_number %}#{{ row.linked_match.match.match_number }}{% endif %}
+                            {% if row.linked_match.match.fight_number %}fight {{ row.linked_match.match.fight_number }}{% endif %}
+                        </div>
+                        {% if row.linked_match.top %}
+                        <div>top: {{ row.linked_match.top.athlete.name }}</div>
+                        {% endif %}
+                        {% if row.linked_match.bottom %}
+                        <div>bottom: {{ row.linked_match.bottom.athlete.name }}</div>
+                        {% endif %}
+                        {% endif %}
+                    </td>
                     <td>{{ row.event.profile_id or '' }}</td>
                     <td>
                         <a href="{{ url_for('livestream_frame_text_event_capture', archive_id=archive.id, event_id=row.event.id, crop_variant='scoreboard') }}">Scoreboard</a>
@@ -165,7 +193,7 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="6">No text events found yet.</td></tr>
+                <tr><td colspan="7">No text events found yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

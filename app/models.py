@@ -284,6 +284,14 @@ class Match(db.Model):
     match_location = Column(String, nullable=True)
     fight_number = Column(Integer, nullable=True)
     video_link = Column(String, nullable=True)
+    video_start_offset_seconds = Column(Integer, nullable=True)
+    final_match_time_seconds = Column(Integer, nullable=True)
+    final_top_points = Column(Integer, nullable=True)
+    final_top_advantages = Column(Integer, nullable=True)
+    final_top_penalties = Column(Integer, nullable=True)
+    final_bottom_points = Column(Integer, nullable=True)
+    final_bottom_advantages = Column(Integer, nullable=True)
+    final_bottom_penalties = Column(Integer, nullable=True)
 
     participants = relationship("MatchParticipant", lazy="select", viewonly=True)
     division = relationship("Division", lazy="select", viewonly=True)
@@ -315,6 +323,7 @@ class MatchParticipant(db.Model):
     weight_for_open = Column(String, nullable=True)
     start_match_count = Column(Integer, nullable=False)
     end_match_count = Column(Integer, nullable=False)
+    scoreboard_position = Column(String, nullable=True)
 
     athlete = relationship("Athlete", lazy="select", viewonly=True)
     match = relationship("Match", lazy="select", viewonly=True)
@@ -766,6 +775,44 @@ class LivestreamFrameTextEvent(db.Model):
             "frame_second",
         ),
         Index("ix_livestream_frame_text_events_scan_segment_id", "scan_segment_id"),
+    )
+
+
+class MatchParticipantTextEvent(db.Model):
+    __tablename__ = "match_participant_text_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    match_participant_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("match_participants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    livestream_frame_text_event_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("livestream_frame_text_events.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    match_participant = relationship("MatchParticipant", lazy="select", viewonly=True)
+    livestream_frame_text_event = relationship(
+        "LivestreamFrameTextEvent", lazy="select", viewonly=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "match_participant_id",
+            "livestream_frame_text_event_id",
+            name="uq_match_participant_text_events_pair",
+        ),
+        Index(
+            "ix_match_participant_text_events_participant",
+            "match_participant_id",
+        ),
+        Index(
+            "ix_match_participant_text_events_event",
+            "livestream_frame_text_event_id",
+        ),
     )
 
 

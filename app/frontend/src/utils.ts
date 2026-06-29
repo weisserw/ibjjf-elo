@@ -97,6 +97,13 @@ export interface DBRow {
   notes: string
   matchLocation: string | null
   videoLink: string | null
+  finalTopPoints: number | null
+  finalTopAdvantages: number | null
+  finalTopPenalties: number | null
+  finalBottomPoints: number | null
+  finalBottomAdvantages: number | null
+  finalBottomPenalties: number | null
+  submission: boolean
 }
 
 export interface DBResults {

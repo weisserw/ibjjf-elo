@@ -76,6 +76,35 @@ function DBTableRows(props: DBTableRowsProps) {
     }
   }
 
+  const finalScoreText = (row: Row) => {
+    const values = [
+      row.finalTopPoints,
+      row.finalTopAdvantages,
+      row.finalTopPenalties,
+      row.finalBottomPoints,
+      row.finalBottomAdvantages,
+      row.finalBottomPenalties,
+    ];
+    if (values.every(value => value === null || value === undefined)) {
+      return undefined;
+    }
+    const show = (value: number | null) => value ?? '-';
+    return `${show(row.finalTopPoints)}/${show(row.finalTopAdvantages)}/${show(row.finalTopPenalties)} - ${show(row.finalBottomPoints)}/${show(row.finalBottomAdvantages)}/${show(row.finalBottomPenalties)}`;
+  }
+
+  const matchFacts = (row: Row) => {
+    const score = finalScoreText(row);
+    if (!score && !row.submission) {
+      return null;
+    }
+    return (
+      <div className="tags are-small mb-0">
+        {score && <span className="tag is-light">{score}</span>}
+        {row.submission && <span className="tag is-info is-light">{t("Submission")}</span>}
+      </div>
+    )
+  }
+
   const ratingAsterisk = (note: string | null, bottom: boolean) => {
     if (note) {
       return (
@@ -261,7 +290,10 @@ function DBTableRows(props: DBTableRowsProps) {
                     </div>
                   </td>
                   <td>{dayjs(row.date).locale(language).format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${translateMultiSpace(row.matchLocation)}`}</td>
-                  <td>{notesWithWeight(row)}</td>
+                  <td>
+                    {matchFacts(row)}
+                    {notesWithWeight(row)}
+                  </td>
                 </tr>
               ))
             }
@@ -380,6 +412,13 @@ function DBTableRows(props: DBTableRowsProps) {
                         {row.notes &&
                           <p>{row.notes}</p>
                         }
+                      </div>
+                    </div>
+                  }
+                  {matchFacts(row) &&
+                    <div className="columns">
+                      <div className="column">
+                        {matchFacts(row)}
                       </div>
                     </div>
                   }
