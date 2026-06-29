@@ -666,9 +666,14 @@ class FrameImageTextParser:
             Image.Resampling.LANCZOS,
         )
 
-    def _name_from_row_text(self, text: str) -> str | None:
+    def _name_from_row_text(
+        self, text: str, *, reject_lowercase_artifacts: bool = False
+    ) -> str | None:
         for raw_line in text.splitlines():
-            cleaned_line = self._clean_name_line(raw_line)
+            cleaned_line = self._clean_name_line(
+                raw_line,
+                reject_lowercase_artifacts=reject_lowercase_artifacts,
+            )
             if cleaned_line:
                 return cleaned_line
         return None
@@ -715,7 +720,15 @@ class FrameImageTextParser:
             parsed_names = self._parse_names(
                 column_text,
                 allow_two_line_fallback=compact_name_column,
+                reject_lowercase_artifacts=compact_name_column,
             )
+            if (
+                compact_name_column
+                and parsed_names.get("top_athlete_name")
+                and parsed_names.get("top_athlete_name")
+                == parsed_names.get("bottom_athlete_name")
+            ):
+                parsed_names.pop("bottom_athlete_name", None)
             if (
                 compact_name_column
                 and parsed_names.get("top_athlete_name")
@@ -841,9 +854,13 @@ class FrameImageTextParser:
             return None
         return line
 
-    def _clean_name_line(self, line: str) -> str | None:
+    def _clean_name_line(
+        self, line: str, *, reject_lowercase_artifacts: bool = False
+    ) -> str | None:
         line = self._clean_text_line(line)
         if line is None:
+            return None
+        if reject_lowercase_artifacts and self._looks_like_lowercase_ocr_artifact(line):
             return None
         alpha_tokens = line.split()
         substantial_tokens = [
@@ -904,18 +921,21 @@ class FrameImageTextParser:
         long_count = sum(length >= 5 for length in token_lengths)
         return short_count >= len(token_lengths) // 2 and long_count <= 1
 
+    @staticmethod
+    def _looks_like_lowercase_ocr_artifact(name: str) -> bool:
+        letters = re.sub(r"[^A-Za-z]", "", name)
+        if len(letters) < 6:
+            return False
+        lowercase_count = sum(letter.islower() for letter in letters)
+        uppercase_count = sum(letter.isupper() for letter in letters)
+        return lowercase_count >= 6 and lowercase_count >= max(1, uppercase_count * 3)
+
     def _compact_row_name_candidate(self, score_image, box) -> str | None:
         name_image = self._prepare_name_ocr_image(score_image.crop(box))
-        candidate = self._name_from_row_text(self._ocr(name_image, "--psm 7"))
-        if candidate and self._looks_like_compact_row_artifact(candidate):
-            return None
-        return candidate
-
-    @staticmethod
-    def _looks_like_compact_row_artifact(name: str) -> bool:
-        first_token = name.split()[0] if name.split() else ""
-        first_letters = re.sub(r"[^A-Za-z]", "", first_token).upper()
-        return bool(re.match(r"^[^AEIOU]{3,}", first_letters))
+        return self._name_from_row_text(
+            self._ocr(name_image, "--psm 7"),
+            reject_lowercase_artifacts=True,
+        )
 
     def _first_compact_row_name(self, score_image, boxes) -> str | None:
         for box in boxes:
@@ -1021,7 +1041,13 @@ class FrameImageTextParser:
         )
         return any(term in normalized for term in team_terms)
 
-    def _parse_names(self, text: str, *, allow_two_line_fallback: bool = True) -> dict:
+    def _parse_names(
+        self,
+        text: str,
+        *,
+        allow_two_line_fallback: bool = True,
+        reject_lowercase_artifacts: bool = False,
+    ) -> dict:
         if self.name_engine in (None, "none"):
             return {}
 
@@ -1045,6 +1071,12 @@ class FrameImageTextParser:
             score_match = score_row_pattern.search(line)
             name_part = line[: score_match.start()] if score_match else line
             cleaned_line = self._clean_text_line(name_part)
+            if (
+                cleaned_line
+                and reject_lowercase_artifacts
+                and self._looks_like_lowercase_ocr_artifact(cleaned_line)
+            ):
+                cleaned_line = None
             if cleaned_line:
                 current_block.append(cleaned_line)
                 fallback_lines.append(cleaned_line)

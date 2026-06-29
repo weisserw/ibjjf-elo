@@ -1510,6 +1510,16 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "PAUL WILLIAM LOUGH",
             ),
             (
+                "score_names4.jpg",
+                "PANKAJ BADGUJAR",
+                "KYLE JOSEPH AUMEN",
+            ),
+            (
+                "score_names5.jpg",
+                "RAYMOND LLOYD THO",
+                "DUGERSUREN AMARBA",
+            ),
+            (
                 "score_small_000_000.jpg",
                 "GUILHERME GUIMARAE",
                 "WILKLER SANTOS MAR",
