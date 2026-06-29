@@ -51,7 +51,7 @@ YOUTUBE_COOKIE_DOMAINS = ("youtube.com", "google.com", "googlevideo.com", "ytimg
 FORMAT_UNAVAILABLE_MARKER = "Requested format is not available"
 CROP_FILTER = (
     "[0:v]fps={fps:g},split=2[score_src][timer_src];"
-    "[score_src]crop=w=trunc(iw*0.25):h=trunc(ih*0.20):x=0:y=0[score];"
+    "[score_src]crop=w=trunc(iw*0.30):h=trunc(ih*0.25):x=0:y=0[score];"
     "[timer_src]crop=w=trunc(iw*0.22):h=trunc(ih*0.11):x=trunc(iw*0.30):y=0[timer]"
 )
 
