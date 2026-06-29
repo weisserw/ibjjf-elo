@@ -1519,6 +1519,16 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "BRENDAN JOSEPH PECK",
                 "LUCAS HENRIQUE TEX",
             ),
+            (
+                "score_small_names2.jpg",
+                "BRENDAN JOSEPH PECK",
+                "LUCAS HENRIQUE TEIX",
+            ),
+            (
+                "score_small_names3.jpg",
+                "WILKLER SANTOS MAR",
+                "ETHAN ROY MAJOR",
+            ),
         ]
 
         for score_image, top_name, bottom_name in cases:

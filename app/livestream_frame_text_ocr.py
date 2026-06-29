@@ -742,6 +742,13 @@ class FrameImageTextParser:
             if parsed_column_fields:
                 column_fields = parsed_column_fields
 
+        if compact_name_column:
+            if column_fields:
+                return column_text, column_fields
+            compact_row_fields = self._compact_row_name_fields(score_image)
+            if compact_row_fields:
+                return column_text, compact_row_fields
+
         if column_fields and len(column_boxes) > 1:
             return column_text, column_fields
 
@@ -798,6 +805,24 @@ class FrameImageTextParser:
         line = " ".join(tokens)
         line = re.sub(r"\s+", " ", line).strip(" -:")
         line = line.strip(" -:.,'")
+        alpha_tokens = line.split()
+        if len(alpha_tokens) >= 4:
+            first_two_letters = [
+                re.sub(r"[^A-Za-z]", "", token) for token in alpha_tokens[:2]
+            ]
+            rest_lengths = [
+                len(re.sub(r"[^A-Za-z]", "", token)) for token in alpha_tokens[2:]
+            ]
+            if (
+                all(
+                    len(letters) >= 2 and letters == letters.upper()
+                    for letters in first_two_letters
+                )
+                and rest_lengths
+                and all(length <= 2 for length in rest_lengths)
+            ):
+                line = " ".join(alpha_tokens[:2]).strip(" -:.,'")
+                alpha_tokens = line.split()
         if not re.search(r"[^\W\d_]", line):
             return None
         if re.fullmatch(
@@ -807,7 +832,8 @@ class FrameImageTextParser:
             flags=re.IGNORECASE,
         ):
             return None
-        alpha_tokens = line.split()
+        if self._looks_like_junk_name_line(line):
+            return None
         total_letters = sum(
             len(re.sub(r"[^\w]|[\d_]", "", token)) for token in alpha_tokens
         )
@@ -831,6 +857,8 @@ class FrameImageTextParser:
         if len(uppercase_prefix) >= 2:
             line = " ".join(uppercase_prefix)
             line = re.sub(r"\.+$", "", line).strip(" -:.,'")
+        if self._looks_like_junk_name_line(line):
+            return None
         return line
 
     @staticmethod
@@ -865,6 +893,60 @@ class FrameImageTextParser:
                 len(re.sub(r"[^\w]|[\d_]", "", token)) for token in uppercase_prefix
             )
         return sum(len(re.sub(r"[^\w]|[\d_]", "", token)) for token in tokens)
+
+    @classmethod
+    def _looks_like_junk_name_line(cls, name: str) -> bool:
+        token_lengths = [len(re.sub(r"[^A-Za-z]", "", token)) for token in name.split()]
+        token_lengths = [length for length in token_lengths if length]
+        if len(token_lengths) < 4:
+            return False
+        short_count = sum(length <= 3 for length in token_lengths)
+        long_count = sum(length >= 5 for length in token_lengths)
+        return short_count >= len(token_lengths) // 2 and long_count <= 1
+
+    def _compact_row_name_candidate(self, score_image, box) -> str | None:
+        name_image = self._prepare_name_ocr_image(score_image.crop(box))
+        candidate = self._name_from_row_text(self._ocr(name_image, "--psm 7"))
+        if candidate and self._looks_like_compact_row_artifact(candidate):
+            return None
+        return candidate
+
+    @staticmethod
+    def _looks_like_compact_row_artifact(name: str) -> bool:
+        first_token = name.split()[0] if name.split() else ""
+        first_letters = re.sub(r"[^A-Za-z]", "", first_token).upper()
+        return bool(re.match(r"^[^AEIOU]{3,}", first_letters))
+
+    def _first_compact_row_name(self, score_image, boxes) -> str | None:
+        for box in boxes:
+            candidate = self._compact_row_name_candidate(score_image, box)
+            if candidate:
+                return candidate
+        return None
+
+    def _compact_row_name_fields(self, score_image) -> dict:
+        if score_image is None or not hasattr(score_image, "crop"):
+            return {}
+
+        width, _ = score_image.size
+        top_right_edges = (0.52, 0.535, NAME_COLUMN_RIGHT_RATIO)
+        bottom_right_edges = (NAME_COLUMN_RIGHT_RATIO, 0.52, 0.535)
+        top_boxes = [
+            (0, 0, int(width * right_edge), 13) for right_edge in top_right_edges
+        ]
+        bottom_boxes = [
+            (0, top, int(width * right_edge), bottom)
+            for top, bottom in ((39, 55), (38, 54), (36, 52))
+            for right_edge in bottom_right_edges
+        ]
+        top_name = self._first_compact_row_name(score_image, top_boxes)
+        bottom_name = self._first_compact_row_name(score_image, bottom_boxes)
+        return self._complete_athlete_name_fields(
+            {
+                "top_athlete_name": top_name,
+                "bottom_athlete_name": bottom_name,
+            }
+        )
 
     def _is_victory_line(self, line: str) -> bool:
         letters = re.sub(r"[^A-Za-z]", "", line).lower()
