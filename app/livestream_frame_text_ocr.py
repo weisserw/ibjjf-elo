@@ -400,9 +400,20 @@ class ScoreboardDigitReader:
         if image is None:
             return ScoreboardDigitReading(None, (), False)
 
-        readings = [
-            self._read_layout(image, layout) for layout in _score_layouts(image.size)
+        layout_readings = [
+            (layout, self._read_layout(image, layout))
+            for layout in _score_layouts(image.size)
         ]
+        if image.size[0] < 240:
+            for layout, reading in layout_readings:
+                if (
+                    layout.name == "compact_rendered"
+                    and reading.has_layout
+                    and reading.digits
+                ):
+                    return reading
+
+        readings = [reading for _, reading in layout_readings]
         readings_with_digits = [
             reading for reading in readings if reading.has_layout and reading.digits
         ]
@@ -690,6 +701,8 @@ class FrameImageTextParser:
         column_text = ""
         column_fields = {}
         column_boxes = _name_column_boxes(score_image.size)
+        compact_name_column = score_image.size[0] < 240 and len(column_boxes) > 1
+        compact_top_name = None
         for index, box in enumerate(column_boxes):
             column_image = self._prepare_name_ocr_image(score_image.crop(box))
             column_text = self._ocr(column_image, "--psm 6")
@@ -699,14 +712,31 @@ class FrameImageTextParser:
             if victory_fields:
                 return column_text, victory_fields
 
-            parsed_column_fields = self._complete_athlete_name_fields(
-                self._parse_names(
-                    column_text,
-                    allow_two_line_fallback=score_image.size[0] < 240
-                    and len(column_boxes) > 1
-                    and index == 0,
-                )
+            parsed_names = self._parse_names(
+                column_text,
+                allow_two_line_fallback=compact_name_column,
             )
+            if (
+                compact_name_column
+                and parsed_names.get("top_athlete_name")
+                and not parsed_names.get("bottom_athlete_name")
+            ):
+                if compact_top_name is None or self._name_candidate_score(
+                    parsed_names["top_athlete_name"]
+                ) > self._name_candidate_score(compact_top_name):
+                    compact_top_name = parsed_names["top_athlete_name"]
+
+            parsed_column_fields = self._complete_athlete_name_fields(parsed_names)
+            if (
+                parsed_column_fields
+                and compact_top_name
+                and self._name_candidate_score(compact_top_name)
+                > self._name_candidate_score(parsed_column_fields["top_athlete_name"])
+            ):
+                parsed_column_fields = {
+                    **parsed_column_fields,
+                    "top_athlete_name": compact_top_name,
+                }
             if parsed_column_fields and len(column_boxes) > 1 and index == 0:
                 return column_text, parsed_column_fields
             if parsed_column_fields:

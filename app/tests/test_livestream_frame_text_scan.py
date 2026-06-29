@@ -1514,6 +1514,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "GUILHERME GUIMARAE",
                 "WILKLER SANTOS MAR",
             ),
+            (
+                "score_small_names.jpg",
+                "BRENDAN JOSEPH PECK",
+                "LUCAS HENRIQUE TEX",
+            ),
         ]
 
         for score_image, top_name, bottom_name in cases:
@@ -1562,6 +1567,17 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     "top_advantages": 0,
                     "top_penalties": 0,
                     "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
+                "score_small_000_900.jpg",
+                {
+                    "top_points": 0,
+                    "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 9,
                     "bottom_advantages": 0,
                     "bottom_penalties": 0,
                 },
