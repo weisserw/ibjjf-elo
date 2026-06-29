@@ -167,7 +167,7 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         self.assertIn("-filter_complex", command)
         filter_complex = command[command.index("-filter_complex") + 1]
         self.assertIn("fps=1", filter_complex)
-        self.assertIn("crop=w=trunc(iw*0.30):h=trunc(ih*0.25)", filter_complex)
+        self.assertIn("crop=w=trunc(iw*0.27):h=trunc(ih*0.22)", filter_complex)
         self.assertIn("crop=w=trunc(iw*0.22):h=trunc(ih*0.11)", filter_complex)
         self.assertIn("/tmp/frames/%06d_score.jpg", command)
         self.assertEqual(command[-1], "/tmp/frames/%06d_timer.jpg")
