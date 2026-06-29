@@ -128,8 +128,26 @@ def _rendered_score_cell_boxes(
     )
 
 
+def _compact_rendered_score_cell_boxes(
+    image_size: tuple[int, int]
+) -> tuple[tuple[int, int, int, int], ...]:
+    width, height = image_size
+    x_ranges = ((0.541, 0.709), (0.709, 0.884), (0.884, 1.0))
+    y_ranges = ((0.0, 0.436), (0.487, 0.923))
+    return tuple(
+        (
+            int(width * x_start),
+            int(height * y_start),
+            int(width * x_end),
+            int(height * y_end),
+        )
+        for y_start, y_end in y_ranges
+        for x_start, x_end in x_ranges
+    )
+
+
 def _score_layouts(image_size: tuple[int, int]) -> tuple[ScoreLayout, ...]:
-    return (
+    layouts = [
         ScoreLayout(
             "legacy",
             _score_cell_boxes(image_size),
@@ -140,7 +158,16 @@ def _score_layouts(image_size: tuple[int, int]) -> tuple[ScoreLayout, ...]:
             _rendered_score_cell_boxes(image_size),
             ("green", "yellow", "red", "green", "yellow", "red"),
         ),
-    )
+    ]
+    if image_size[0] < 240:
+        layouts.append(
+            ScoreLayout(
+                "compact_rendered",
+                _compact_rendered_score_cell_boxes(image_size),
+                ("green", "yellow", "red", "green", "yellow", "red"),
+            )
+        )
+    return tuple(layouts)
 
 
 def _name_line_boxes(
@@ -174,7 +201,7 @@ def _name_column_boxes(
 ) -> tuple[tuple[int, int, int, int], ...]:
     width, height = image_size
     boxes = [_name_column_box(image_size)]
-    if width >= 400:
+    if width >= 400 or width < 240:
         boxes.insert(
             0,
             (
@@ -673,7 +700,12 @@ class FrameImageTextParser:
                 return column_text, victory_fields
 
             parsed_column_fields = self._complete_athlete_name_fields(
-                self._parse_names(column_text, allow_two_line_fallback=False)
+                self._parse_names(
+                    column_text,
+                    allow_two_line_fallback=score_image.size[0] < 240
+                    and len(column_boxes) > 1
+                    and index == 0,
+                )
             )
             if parsed_column_fields and len(column_boxes) > 1 and index == 0:
                 return column_text, parsed_column_fields

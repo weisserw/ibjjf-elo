@@ -1509,6 +1509,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "CHANGO EERSEL",
                 "PAUL WILLIAM LOUGH",
             ),
+            (
+                "score_small_000_000.jpg",
+                "GUILHERME GUIMARAE",
+                "WILKLER SANTOS MAR",
+            ),
         ]
 
         for score_image, top_name, bottom_name in cases:
@@ -1544,6 +1549,17 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 {
                     "top_points": 9,
                     "top_advantages": 3,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
+                "score_small_000_000.jpg",
+                {
+                    "top_points": 0,
+                    "top_advantages": 0,
                     "top_penalties": 0,
                     "bottom_points": 0,
                     "bottom_advantages": 0,
