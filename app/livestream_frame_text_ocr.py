@@ -258,6 +258,20 @@ def _largest_component(mask, min_area: int):
     return labels[y : y + height, x : x + width] == component_index
 
 
+def _digit_components(mask, min_area: int):
+    component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
+        mask.astype("uint8"), 8
+    )
+    components = []
+    for component_index in range(1, component_count):
+        x, y, width, height, area = stats[component_index]
+        if int(area) < min_area:
+            continue
+        components.append((int(x), int(y), int(width), int(height), component_index))
+    components.sort(key=lambda item: item[0])
+    return tuple(components), labels
+
+
 def _normalize_mask(mask, size: tuple[int, int]):
     image = Image.fromarray(mask.astype("uint8") * 255, "L")
     return np.asarray(image.resize(size, Image.Resampling.NEAREST)) > 0
@@ -269,6 +283,20 @@ def _score_digit_mask(image):
     if component is None:
         return None
     return _normalize_mask(component, SCORE_TEMPLATE_SIZE)
+
+
+def _score_digit_masks(image):
+    threshold = _score_digit_threshold(image)
+    components, labels = _digit_components(threshold, min_area=20)
+    min_height = max(8, int(image.height * 0.35))
+    min_width = max(4, int(image.width * 0.12))
+    masks = []
+    for x, y, width, height, component_index in components:
+        if height < min_height or width < min_width:
+            continue
+        component_mask = labels[y : y + height, x : x + width] == component_index
+        masks.append(_normalize_mask(component_mask, SCORE_TEMPLATE_SIZE))
+    return tuple(masks)
 
 
 def _font_paths() -> tuple[str, ...]:
@@ -433,11 +461,11 @@ class ScoreboardDigitReader:
             cell = _inner_cell(image.crop(box))
             if not _score_cell_has_background(cell, role):
                 has_layout = False
-            mask = _score_digit_mask(cell)
-            if mask is None:
+            prediction = self._predict_score_cell(cell)
+            if prediction.digit is None:
                 predictions.append(DigitPrediction(None, 0.0, "none"))
             else:
-                predictions.append(self.classifier.predict(mask))
+                predictions.append(prediction)
         if not has_layout or any(
             prediction.digit is None for prediction in predictions
         ):
@@ -447,6 +475,20 @@ class ScoreboardDigitReader:
             tuple(predictions),
             True,
         )
+
+    def _predict_score_cell(self, cell) -> DigitPrediction:
+        masks = _score_digit_masks(cell)
+        if not masks:
+            return DigitPrediction(None, 0.0, "none")
+        digit_predictions = [self.classifier.predict(mask) for mask in masks[:2]]
+        if any(prediction.digit is None for prediction in digit_predictions):
+            return DigitPrediction(None, 0.0, "none")
+        value = int("".join(str(prediction.digit) for prediction in digit_predictions))
+        similarity = sum(
+            prediction.similarity for prediction in digit_predictions
+        ) / len(digit_predictions)
+        source = "+".join(prediction.source for prediction in digit_predictions)
+        return DigitPrediction(value, similarity, source)
 
     @staticmethod
     def _reading_confidence(reading: ScoreboardDigitReading) -> float:

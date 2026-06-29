@@ -1520,6 +1520,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "DUGERSUREN AMARBA",
             ),
             (
+                "score_names6.jpg",
+                "PANKAJ BADGUJAR",
+                "KYLE JOSEPH AUMEN",
+            ),
+            (
                 "score_small_000_000.jpg",
                 "GUILHERME GUIMARAE",
                 "WILKLER SANTOS MAR",
@@ -1598,6 +1603,17 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     "top_advantages": 0,
                     "top_penalties": 0,
                     "bottom_points": 9,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
+                "score_000_1100.jpg",
+                {
+                    "top_points": 0,
+                    "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 11,
                     "bottom_advantages": 0,
                     "bottom_penalties": 0,
                 },
