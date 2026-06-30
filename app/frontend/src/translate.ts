@@ -377,6 +377,9 @@ const translations = {
     "Add hypothetical athlete": "Adicionar atleta hipotético",
     "View Seeding Points": "Ver Pontos de Seed",
     "Submission": "Finalização",
+    "Yes": "Sim",
+    "No": "Não",
+    "Sub": "Fin",
 };
 
 export type translationKeys = keyof typeof translations;

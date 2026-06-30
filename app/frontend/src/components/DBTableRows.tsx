@@ -221,7 +221,7 @@ function DBTableRows(props: DBTableRowsProps) {
               <th>{t("Division")}</th>
               <th>{t("Date / Location")}</th>
               <th>{t("Score")}</th>
-              <th>Sub</th>
+              <th>{t("Sub")}</th>
               <th>{t("Notes")}</th>
             </tr>
           </thead>
@@ -445,8 +445,8 @@ function DBTableRows(props: DBTableRowsProps) {
                       }
                       {hasSubmissionValue &&
                         <div className="column has-text-right-tablet">
-                          <strong>Sub:</strong>{' '}
-                          {row.submission ? 'Yes' : 'No'}
+                          <strong>{t("Submission")}:</strong>{' '}
+                          {row.submission ? t("Yes") : t("No")}
                         </div>
                       }
                     </div>
