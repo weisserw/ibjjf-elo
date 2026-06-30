@@ -103,7 +103,9 @@ export interface DBRow {
   finalBottomPoints: number | null
   finalBottomAdvantages: number | null
   finalBottomPenalties: number | null
-  submission: boolean
+  submission: boolean | null
+  winnerScoreboardPosition: string | null
+  loserScoreboardPosition: string | null
 }
 
 export interface DBResults {

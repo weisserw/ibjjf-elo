@@ -88,21 +88,48 @@ function DBTableRows(props: DBTableRowsProps) {
     if (values.every(value => value === null || value === undefined)) {
       return undefined;
     }
+
+    const winnerSide =
+      row.winnerScoreboardPosition === 'bottom' || row.loserScoreboardPosition === 'top'
+        ? 'bottom'
+        : 'top';
+    const loserSide = winnerSide === 'top' ? 'bottom' : 'top';
+    const scoreForSide = (side: 'top' | 'bottom') => (
+      side === 'top'
+        ? {
+          points: row.finalTopPoints,
+          advantages: row.finalTopAdvantages,
+          penalties: row.finalTopPenalties,
+        }
+        : {
+          points: row.finalBottomPoints,
+          advantages: row.finalBottomAdvantages,
+          penalties: row.finalBottomPenalties,
+        }
+    );
+    const winnerScore = scoreForSide(winnerSide);
+    const loserScore = scoreForSide(loserSide);
     const show = (value: number | null) => value ?? '-';
-    return `${show(row.finalTopPoints)}/${show(row.finalTopAdvantages)}/${show(row.finalTopPenalties)} - ${show(row.finalBottomPoints)}/${show(row.finalBottomAdvantages)}/${show(row.finalBottomPenalties)}`;
+
+    return (
+      <span className="db-score">
+        <span className="db-score-points">{show(winnerScore.points)}-{show(loserScore.points)}</span>
+        <span className="db-score-advantages">{show(winnerScore.advantages)}-{show(loserScore.advantages)}</span>
+        <span className="db-score-penalties">{show(winnerScore.penalties)}-{show(loserScore.penalties)}</span>
+      </span>
+    );
   }
 
-  const matchFacts = (row: Row) => {
-    const score = finalScoreText(row);
-    if (!score && !row.submission) {
-      return null;
-    }
-    return (
-      <div className="tags are-small mb-0">
-        {score && <span className="tag is-light">{score}</span>}
-        {row.submission && <span className="tag is-info is-light">{t("Submission")}</span>}
-      </div>
-    )
+  const submissionCheckbox = (row: Row) => {
+    return row.submission ? (
+      <span
+        className="icon has-text-info"
+        role="img"
+        aria-label={t("Submission")}
+      >
+        <i className="fas fa-check-square" aria-hidden="true" />
+      </span>
+    ) : null;
   }
 
   const ratingAsterisk = (note: string | null, bottom: boolean) => {
@@ -193,6 +220,8 @@ function DBTableRows(props: DBTableRowsProps) {
               <th>{t("Tournament")}</th>
               <th>{t("Division")}</th>
               <th>{t("Date / Location")}</th>
+              <th>{t("Score")}</th>
+              <th>Sub</th>
               <th>{t("Notes")}</th>
             </tr>
           </thead>
@@ -200,7 +229,7 @@ function DBTableRows(props: DBTableRowsProps) {
             {
               data.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="empty-row">
+                  <td colSpan={11} className="empty-row">
                     <div className="columns is-centered">
                       {t("No matches found for the selected filters")}
                     </div>
@@ -290,8 +319,9 @@ function DBTableRows(props: DBTableRowsProps) {
                     </div>
                   </td>
                   <td>{dayjs(row.date).locale(language).format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${translateMultiSpace(row.matchLocation)}`}</td>
+                  <td>{finalScoreText(row)}</td>
+                  <td className="has-text-centered">{submissionCheckbox(row)}</td>
                   <td>
-                    {matchFacts(row)}
                     {notesWithWeight(row)}
                   </td>
                 </tr>
@@ -317,6 +347,8 @@ function DBTableRows(props: DBTableRowsProps) {
         {
           !!data.length && data.map((row: Row) => {
             const weightText = openWeightText(row);
+            const score = finalScoreText(row);
+            const hasSubmissionValue = row.submission !== null && row.submission !== undefined;
             return (
               <div key={row.id} data-id={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row.event)})}>
                 <div className="date-box">
@@ -403,6 +435,22 @@ function DBTableRows(props: DBTableRowsProps) {
                       </div>
                     </div>
                   </div>
+                  {(score || hasSubmissionValue) &&
+                    <div className="columns">
+                      {score &&
+                        <div className="column">
+                          <strong>{t("Score")}:</strong>{' '}
+                          {score}
+                        </div>
+                      }
+                      {hasSubmissionValue &&
+                        <div className="column has-text-right-tablet">
+                          <strong>Sub:</strong>{' '}
+                          {row.submission ? 'Yes' : 'No'}
+                        </div>
+                      }
+                    </div>
+                  }
                   {(weightText || row.notes) &&
                     <div className="columns">
                       <div className="column">
@@ -412,13 +460,6 @@ function DBTableRows(props: DBTableRowsProps) {
                         {row.notes &&
                           <p>{row.notes}</p>
                         }
-                      </div>
-                    </div>
-                  }
-                  {matchFacts(row) &&
-                    <div className="columns">
-                      <div className="column">
-                        {matchFacts(row)}
                       </div>
                     </div>
                   }

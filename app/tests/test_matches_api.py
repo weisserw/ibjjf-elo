@@ -421,6 +421,8 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         match.final_bottom_points = 5
         match.final_bottom_advantages = 0
         match.final_bottom_penalties = 0
+        for participant in MatchParticipant.query.filter_by(match_id=match.id):
+            participant.scoreboard_position = "bottom" if participant.winner else "top"
         db.session.commit()
 
         response = self.client.get("/api/matches?gi=true&athlete_name=Test%20Athlete")
@@ -434,6 +436,8 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(row["finalBottomPoints"], 5)
         self.assertEqual(row["finalBottomAdvantages"], 0)
         self.assertEqual(row["finalBottomPenalties"], 0)
+        self.assertEqual(row["winnerScoreboardPosition"], "bottom")
+        self.assertEqual(row["loserScoreboardPosition"], "top")
         self.assertFalse(row["submission"])
         self.assertEqual(
             row["videoLink"], "https://www.youtube.com/watch?v=video123&t=25221s"
@@ -450,6 +454,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(len(data["rows"]), 3)
         winners = {row["winner"] for row in data["rows"]}
         self.assertIn("Test Athlete", winners)
+        self.assertTrue(any(row["submission"] is None for row in data["rows"]))
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")

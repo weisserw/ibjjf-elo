@@ -67,3 +67,21 @@ td.video-link-cell {
   padding: 0 !important;
   padding-top: 6px !important;
 }
+
+.db-score {
+  display: inline-flex;
+  gap: 0.45rem;
+  font-weight: 600;
+}
+
+.db-score-points {
+  color: #257a3e;
+}
+
+.db-score-advantages {
+  color: #bd9014;
+}
+
+.db-score-penalties {
+  color: #b4232a;
+}

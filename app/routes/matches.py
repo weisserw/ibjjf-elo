@@ -544,6 +544,7 @@ def matches():
             mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating,
             a.id as athlete_id, a.name, a.slug, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.personal_name, a.profile_image_saved_at,
             mp.note, m.rated, mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location, m.video_link,
+            mp.scoreboard_position,
             m.match_number, m.division_size, m.video_start_offset_seconds,
             m.final_match_time_seconds, m.final_top_points, m.final_top_advantages,
             m.final_top_penalties, m.final_bottom_points, m.final_bottom_advantages,
@@ -642,6 +643,7 @@ def matches():
                 rating_note=row["rating_note"],
                 start_match_count=row["start_match_count"],
                 end_match_count=row["end_match_count"],
+                scoreboard_position=row["scoreboard_position"],
             )
         )
 
@@ -710,6 +712,8 @@ def matches():
                     "notes": loser.note or winner.note,
                     "winnerRatingNote": winner.rating_note,
                     "loserRatingNote": loser.rating_note,
+                    "winnerScoreboardPosition": winner.scoreboard_position,
+                    "loserScoreboardPosition": loser.scoreboard_position,
                     "matchLocation": current_match.match_location,
                     "finalTopPoints": current_match.final_top_points,
                     "finalTopAdvantages": current_match.final_top_advantages,
@@ -718,8 +722,9 @@ def matches():
                     "finalBottomAdvantages": current_match.final_bottom_advantages,
                     "finalBottomPenalties": current_match.final_bottom_penalties,
                     "submission": (
-                        current_match.final_match_time_seconds is not None
-                        and current_match.final_match_time_seconds > 0
+                        None
+                        if current_match.final_match_time_seconds is None
+                        else current_match.final_match_time_seconds > 0
                     ),
                     "event_ibjjf_id": current_match.event.ibjjf_id,
                     "date_happened_at": current_match.happened_at,
