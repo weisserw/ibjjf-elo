@@ -121,7 +121,7 @@ function DBTableRows(props: DBTableRowsProps) {
   }
 
   const submissionCheckbox = (row: Row) => {
-    return row.submission ? (
+    return row.submission && !hasDqNote(row) ? (
       <span
         className="icon has-text-info"
         role="img"
@@ -196,6 +196,11 @@ function DBTableRows(props: DBTableRowsProps) {
 
   const noMatch = (r: Row) => {
     return noMatchStrings.some(s => r.notes?.toLowerCase() === s)
+  }
+
+  const hasDqNote = (r: Row) => {
+    const notes = r.notes?.toLowerCase();
+    return notes?.includes('disqualified') || notes?.includes('desqualificado');
   }
 
   const logoForLink = (link: string) => {
@@ -348,7 +353,7 @@ function DBTableRows(props: DBTableRowsProps) {
           !!data.length && data.map((row: Row) => {
             const weightText = openWeightText(row);
             const score = finalScoreText(row);
-            const hasSubmissionValue = row.submission !== null && row.submission !== undefined;
+            const hasSubmissionValue = row.submission !== null && row.submission !== undefined && !hasDqNote(row);
             return (
               <div key={row.id} data-id={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row.event)})}>
                 <div className="date-box">
