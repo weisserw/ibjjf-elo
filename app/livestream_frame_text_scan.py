@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Callable, Protocol
 
+from flask import current_app
 from sqlalchemy import exists
 from sqlalchemy.orm import selectinload
 
@@ -848,7 +849,13 @@ def mark_text_scan_segment_success(
     if scan_segment.scan.status == "success":
         from livestream_match_linking import link_completed_text_scan
 
-        link_completed_text_scan(session, scan_segment.scan)
+        summary = link_completed_text_scan(session, scan_segment.scan)
+        current_app.logger.info(
+            "livestream text scan linking "
+            f"scan={scan_segment.scan.id} archive={scan_segment.archive_id} "
+            f"linked={summary.linked} windows={summary.windows} "
+            f"candidates={summary.candidates} skipped={summary.skipped}"
+        )
 
 
 def mark_text_scan_segment_error(

@@ -376,7 +376,13 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         db.session.commit()
 
     def setUp(self):
+        self.app_context = self.app_module.app.app_context()
+        self.app_context.push()
         self.client = self.app_module.app.test_client()
+
+    def tearDown(self):
+        db.session.remove()
+        self.app_context.pop()
 
     def _patch_livestreams(self):
         return {
@@ -384,6 +390,54 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
             "live_streams": {},
             "flo_event_tags": {},
         }
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_returns_ocr_linked_match_fields(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = {
+            "tournament_days": {"E1": datetime(2024, 1, 1).date()},
+            "live_streams": {
+                ("E1", 1, 1): [
+                    (
+                        "https://www.youtube.com/watch?v=video123",
+                        9,
+                        0,
+                        0,
+                        17,
+                        0,
+                        1.0,
+                        False,
+                    )
+                ]
+            },
+            "flo_event_tags": {},
+        }
+        match = Match.query.filter_by(match_location="Mat 1").one()
+        match.video_start_offset_seconds = 25221
+        match.final_match_time_seconds = 0
+        match.final_top_points = 0
+        match.final_top_advantages = 0
+        match.final_top_penalties = 0
+        match.final_bottom_points = 5
+        match.final_bottom_advantages = 0
+        match.final_bottom_penalties = 0
+        db.session.commit()
+
+        response = self.client.get("/api/matches?gi=true&athlete_name=Test%20Athlete")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        row = next(item for item in data["rows"] if item["id"] == match.id.hex)
+        self.assertEqual(row["finalTopPoints"], 0)
+        self.assertEqual(row["finalTopAdvantages"], 0)
+        self.assertEqual(row["finalTopPenalties"], 0)
+        self.assertEqual(row["finalBottomPoints"], 5)
+        self.assertEqual(row["finalBottomAdvantages"], 0)
+        self.assertEqual(row["finalBottomPenalties"], 0)
+        self.assertFalse(row["submission"])
+        self.assertEqual(
+            row["videoLink"], "https://www.youtube.com/watch?v=video123&t=25221s"
+        )
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")

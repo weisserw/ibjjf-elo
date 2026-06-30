@@ -544,7 +544,10 @@ def matches():
             mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating,
             a.id as athlete_id, a.name, a.slug, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.personal_name, a.profile_image_saved_at,
             mp.note, m.rated, mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location, m.video_link,
-            m.match_number, m.division_size
+            m.match_number, m.division_size, m.video_start_offset_seconds,
+            m.final_match_time_seconds, m.final_top_points, m.final_top_advantages,
+            m.final_top_penalties, m.final_bottom_points, m.final_bottom_advantages,
+            m.final_bottom_penalties
         FROM matches m
         JOIN divisions d ON m.division_id = d.id
         JOIN events e ON m.event_id = e.id
@@ -607,6 +610,14 @@ def matches():
                 video_link=row["video_link"],
                 match_number=row["match_number"],
                 division_size=row["division_size"],
+                video_start_offset_seconds=row["video_start_offset_seconds"],
+                final_match_time_seconds=row["final_match_time_seconds"],
+                final_top_points=row["final_top_points"],
+                final_top_advantages=row["final_top_advantages"],
+                final_top_penalties=row["final_top_penalties"],
+                final_bottom_points=row["final_bottom_points"],
+                final_bottom_advantages=row["final_bottom_advantages"],
+                final_bottom_penalties=row["final_bottom_penalties"],
             )
 
         current_match.participants.append(
