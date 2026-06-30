@@ -356,6 +356,72 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             ["bottom", "top"],
         )
 
+    def test_zero_score_reset_after_blank_does_not_overwrite_nonzero_final_score(self):
+        matches = self._match_setup()
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHNATHAN AL",
+                    bottom_athlete_name="MICHAEL BETA",
+                ),
+                self._event_data(20, timer_state="running", timer_value="4:50"),
+                self._event_data(70, top_points=2),
+                self._event_data(100, timer_state="stopped", timer_value="1:26"),
+                self._event_data(
+                    110, scoreboard_state=text_scan.SCOREBOARD_STATE_BLANK
+                ),
+                self._event_data(
+                    120,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="",
+                    bottom_athlete_name="",
+                ),
+                self._event_data(
+                    150,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHNATHAN AL",
+                    bottom_athlete_name="CARLOS GAMMA",
+                ),
+                self._event_data(160, timer_state="running", timer_value="4:50"),
+            ]
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        self.assertEqual(summary.linked, 2)
+        first_match = db.session.get(Match, matches[0].id)
+        self.assertEqual(first_match.final_top_points, 2)
+        self.assertEqual(first_match.final_top_advantages, 0)
+        self.assertEqual(first_match.final_top_penalties, 0)
+        self.assertEqual(first_match.final_bottom_points, 0)
+        self.assertEqual(first_match.final_bottom_advantages, 0)
+        self.assertEqual(first_match.final_bottom_penalties, 0)
+
     def test_loaded_names_without_running_clock_are_not_linked(self):
         matches = self._match_setup()
         _, scan = self._stored_events(

@@ -40,6 +40,10 @@ def _format_second(value: int | None) -> str:
     return f"{minutes}:{seconds:02d}"
 
 
+def _show_value(value: int | None) -> str:
+    return "-" if value is None else str(value)
+
+
 def _format_score(score: dict[str, int | None]) -> str:
     top = (
         score.get("top_points"),
@@ -53,9 +57,8 @@ def _format_score(score: dict[str, int | None]) -> str:
     )
     if all(value is None for value in (*top, *bottom)):
         return "-"
-    show = lambda value: "-" if value is None else str(value)
-    top_text = "/".join(show(value) for value in top)
-    bottom_text = "/".join(show(value) for value in bottom)
+    top_text = "/".join(_show_value(value) for value in top)
+    bottom_text = "/".join(_show_value(value) for value in bottom)
     return f"{top_text} - {bottom_text}"
 
 

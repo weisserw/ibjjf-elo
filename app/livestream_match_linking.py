@@ -101,8 +101,16 @@ def _has_full_zero_score(state: TextState) -> bool:
     return all(getattr(state, field) == 0 for field in SCORE_FIELDS)
 
 
+def _has_non_zero_score(state: TextState) -> bool:
+    return any((getattr(state, field) or 0) != 0 for field in SCORE_FIELDS)
+
+
 def _has_any_name(state: TextState) -> bool:
     return bool(state.top_athlete_name or state.bottom_athlete_name)
+
+
+def _event_has_any_name(event: LivestreamFrameTextEvent) -> bool:
+    return bool(event.top_athlete_name or event.bottom_athlete_name)
 
 
 def _is_start_point(point: TimelinePoint) -> bool:
@@ -150,13 +158,22 @@ def _same_start_names(first: TextState, second: TextState) -> bool:
 
 def _score_state_from_window(points: list[TimelinePoint]) -> TextState:
     score_state = TextState()
+    ignore_zero_reset = False
     for point in points:
         if point.state.scoreboard_state == SCOREBOARD_STATE_BLANK:
+            ignore_zero_reset = _has_non_zero_score(score_state)
             continue
         if any(getattr(point.state, field) is not None for field in SCORE_FIELDS):
+            if (
+                ignore_zero_reset
+                and _has_full_zero_score(point.state)
+                and not _event_has_any_name(point.event)
+            ):
+                continue
             for field in SCORE_FIELDS:
                 setattr(score_state, field, getattr(point.state, field))
             score_state.scoreboard_state = point.state.scoreboard_state
+            ignore_zero_reset = False
     return score_state
 
 
