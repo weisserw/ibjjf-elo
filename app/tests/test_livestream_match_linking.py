@@ -106,7 +106,17 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         db.session.commit()
         return archive, scan
 
-    def _match_setup(self, extra_pairs=None):
+    def _match_setup(
+        self,
+        extra_pairs=None,
+        registration_start=None,
+        match_start=None,
+        livestream_day_number=1,
+    ):
+        if registration_start is None:
+            registration_start = datetime(2026, 1, 1)
+        if match_start is None:
+            match_start = datetime(2026, 1, 1, 9, 0)
         event = Event(
             ibjjf_id="evt-1",
             name="Test Open",
@@ -142,9 +152,9 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
                 name="Test Open",
                 event_id="evt-1",
                 normalized_name="test open",
-                updated_at=datetime(2026, 1, 1),
+                updated_at=registration_start,
                 link="https://example.com",
-                event_start_date=datetime(2026, 1, 1),
+                event_start_date=registration_start,
             )
         )
         db.session.add(
@@ -152,7 +162,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
                 event_id="evt-1",
                 platform="youtube",
                 mat_number=1,
-                day_number=1,
+                day_number=livestream_day_number,
                 start_hour=9,
                 start_minute=0,
                 start_seconds=0,
@@ -167,7 +177,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         for index in range(len(pairs)):
             pair = (athletes[index * 2], athletes[index * 2 + 1])
             match = Match(
-                happened_at=datetime(2026, 1, 1, 9, 0) + timedelta(minutes=index),
+                happened_at=match_start + timedelta(minutes=index),
                 event_id=event.id,
                 division_id=division.id,
                 rated=True,
@@ -195,6 +205,39 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             matches.append(match)
         db.session.commit()
         return matches
+
+    def test_day_number_uses_first_match_date_instead_of_registration_start(self):
+        matches = self._match_setup(
+            registration_start=datetime(2026, 1, 1),
+            match_start=datetime(2026, 1, 2, 9, 0),
+            livestream_day_number=1,
+        )
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHNATHAN AL",
+                    bottom_athlete_name="MICHAEL BETA",
+                ),
+                self._event_data(20, timer_state="running", timer_value="4:50"),
+            ]
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        self.assertEqual(summary.linked, 1)
+        linked_match = db.session.get(Match, matches[0].id)
+        self.assertEqual(linked_match.video_start_offset_seconds, 20)
 
     def test_extract_match_windows_tracks_final_score_and_submission_timer(self):
         _, scan = self._stored_events(
@@ -227,6 +270,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(len(windows), 1)
         self.assertEqual(windows[0].start_second, 10)
+        self.assertEqual(windows[0].video_start_offset_seconds, 20)
         self.assertEqual(windows[0].final_state.top_points, 2)
         self.assertEqual(windows[0].final_state.bottom_points, 0)
         self.assertEqual(windows[0].final_timer_seconds, 86)
@@ -290,7 +334,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(summary.linked, 1)
         linked_match = db.session.get(Match, matches[0].id)
-        self.assertEqual(linked_match.video_start_offset_seconds, 10)
+        self.assertEqual(linked_match.video_start_offset_seconds, 20)
         self.assertEqual(linked_match.final_match_time_seconds, 86)
         self.assertEqual(linked_match.final_top_points, 2)
         self.assertEqual(linked_match.final_bottom_points, 0)
@@ -523,7 +567,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(summary.linked, 1)
         linked_match = db.session.get(Match, target_match.id)
-        self.assertEqual(linked_match.video_start_offset_seconds, 600)
+        self.assertEqual(linked_match.video_start_offset_seconds, 620)
         self.assertEqual(linked_match.final_top_points, 2)
         self.assertEqual(linked_match.final_match_time_seconds, 0)
 
@@ -573,7 +617,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(summary.linked, 2)
         linked_match = db.session.get(Match, target_match.id)
-        self.assertEqual(linked_match.video_start_offset_seconds, 60)
+        self.assertEqual(linked_match.video_start_offset_seconds, 70)
         self.assertEqual(linked_match.final_top_points, 2)
 
 

@@ -8,6 +8,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from rapidfuzz import fuzz
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 
 from livestream_frame_archive import archive_usage_rows
@@ -53,6 +54,7 @@ class TimelinePoint:
 class MatchWindow:
     start_second: int
     end_second: int
+    video_start_offset_seconds: int | None
     events: list[LivestreamFrameTextEvent]
     top_names: list[str]
     bottom_names: list[str]
@@ -122,12 +124,14 @@ def _is_start_point(point: TimelinePoint) -> bool:
     )
 
 
-def _has_running_timer(points: list[TimelinePoint]) -> bool:
-    return any(
-        point.state.timer_state == "running"
-        and parse_timer_seconds(point.state.timer_value) is not None
-        for point in points
-    )
+def _running_timer_start_second(points: list[TimelinePoint]) -> int | None:
+    for point in points:
+        if (
+            point.event.timer_state == "running"
+            and parse_timer_seconds(point.event.timer_value) is not None
+        ):
+            return point.event.frame_second
+    return None
 
 
 def _names_are_similar(first: str | None, second: str | None) -> bool:
@@ -198,16 +202,18 @@ def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchW
                     final_timer_seconds = parsed
 
         final_state = _score_state_from_window(points)
+        running_timer_start_second = _running_timer_start_second(points)
         windows.append(
             MatchWindow(
                 start_second=points[0].event.frame_second,
                 end_second=points[-1].event.frame_second,
+                video_start_offset_seconds=running_timer_start_second,
                 events=[point.event for point in points],
                 top_names=_dedupe(names_top),
                 bottom_names=_dedupe(names_bottom),
                 final_state=final_state,
                 final_timer_seconds=final_timer_seconds,
-                has_running_timer=_has_running_timer(points),
+                has_running_timer=running_timer_start_second is not None,
             )
         )
     return windows
@@ -265,9 +271,12 @@ def _choice_for_candidate(window: MatchWindow, candidate: Candidate) -> MatchCho
 
 
 def _candidate_time_delta(window: MatchWindow, candidate: Candidate) -> int | None:
-    if candidate.expected_start_second is None:
+    if (
+        candidate.expected_start_second is None
+        or window.video_start_offset_seconds is None
+    ):
         return None
-    return window.start_second - candidate.expected_start_second
+    return window.video_start_offset_seconds - candidate.expected_start_second
 
 
 def _candidate_choices(
@@ -369,12 +378,31 @@ def _match_mat_number(match_location: str | None) -> int | None:
 def _event_start_dates(event_ids: set[str]) -> dict[str, datetime]:
     if not event_ids:
         return {}
-    rows = RegistrationLink.query.filter(RegistrationLink.event_id.in_(event_ids)).all()
-    return {
-        row.event_id: row.event_start_date
-        for row in rows
-        if row.event_id and row.event_start_date
+    rows = (
+        Event.query.with_entities(Event.ibjjf_id, func.min(Match.happened_at))
+        .join(Match, Match.event_id == Event.id)
+        .filter(Event.ibjjf_id.in_(event_ids))
+        .group_by(Event.ibjjf_id)
+        .all()
+    )
+    event_start_dates = {
+        ibjjf_id: min_happened_at
+        for ibjjf_id, min_happened_at in rows
+        if ibjjf_id and min_happened_at
     }
+    missing_event_ids = event_ids - set(event_start_dates)
+    if not missing_event_ids:
+        return event_start_dates
+
+    rows = RegistrationLink.query.filter(RegistrationLink.event_id.in_(event_ids)).all()
+    event_start_dates.update(
+        {
+            row.event_id: row.event_start_date
+            for row in rows
+            if row.event_id in missing_event_ids and row.event_start_date
+        }
+    )
+    return event_start_dates
 
 
 def _match_day_number(
@@ -852,7 +880,7 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
                 "cursor_before": cursor_before,
                 "start_second": window.start_second,
                 "end_second": window.end_second,
-                "video_start_offset_seconds": window.start_second,
+                "video_start_offset_seconds": window.video_start_offset_seconds,
                 "top_names": window.top_names,
                 "bottom_names": window.bottom_names,
                 "final_timer_seconds": window.final_timer_seconds,
@@ -874,7 +902,7 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
 
 def _store_choice(session, window: MatchWindow, choice: MatchChoice) -> None:
     match = choice.candidate.match
-    match.video_start_offset_seconds = window.start_second
+    match.video_start_offset_seconds = window.video_start_offset_seconds
     match.final_match_time_seconds = window.final_timer_seconds
     match.final_top_points = window.final_state.top_points
     match.final_top_advantages = window.final_state.top_advantages
