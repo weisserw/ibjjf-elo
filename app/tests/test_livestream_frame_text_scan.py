@@ -1525,6 +1525,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "KYLE JOSEPH AUMEN",
             ),
             (
+                "score_names7.jpg",
+                "SHEHENE M BEDRAN",
+                "DAMIAN L BLAZY",
+            ),
+            (
                 "score_small_000_000.jpg",
                 "GUILHERME GUIMARAE",
                 "WILKLER SANTOS MAR",

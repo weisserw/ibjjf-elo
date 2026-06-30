@@ -800,7 +800,9 @@ class FrameImageTextParser:
         if compact_name_column:
             if column_fields:
                 return column_text, column_fields
-            compact_row_fields = self._compact_row_name_fields(score_image)
+            compact_row_fields = self._compact_row_name_fields(
+                score_image, top_name_fallback=compact_top_name
+            )
             if compact_row_fields:
                 return column_text, compact_row_fields
 
@@ -974,10 +976,14 @@ class FrameImageTextParser:
 
     def _compact_row_name_candidate(self, score_image, box) -> str | None:
         name_image = self._prepare_name_ocr_image(score_image.crop(box))
-        return self._name_from_row_text(
-            self._ocr(name_image, "--psm 7"),
-            reject_lowercase_artifacts=True,
-        )
+        for config in ("--psm 7", "--psm 6"):
+            candidate = self._name_from_row_text(
+                self._ocr(name_image, config),
+                reject_lowercase_artifacts=True,
+            )
+            if candidate:
+                return candidate
+        return None
 
     def _first_compact_row_name(self, score_image, boxes) -> str | None:
         for box in boxes:
@@ -986,7 +992,9 @@ class FrameImageTextParser:
                 return candidate
         return None
 
-    def _compact_row_name_fields(self, score_image) -> dict:
+    def _compact_row_name_fields(
+        self, score_image, *, top_name_fallback: str | None = None
+    ) -> dict:
         if score_image is None or not hasattr(score_image, "crop"):
             return {}
 
@@ -1002,6 +1010,8 @@ class FrameImageTextParser:
             for right_edge in bottom_right_edges
         ]
         top_name = self._first_compact_row_name(score_image, top_boxes)
+        if not top_name:
+            top_name = top_name_fallback
         bottom_name = self._first_compact_row_name(score_image, bottom_boxes)
         return self._complete_athlete_name_fields(
             {
