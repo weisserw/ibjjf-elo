@@ -5,6 +5,7 @@ from urllib.parse import quote
 from constants import ADULT, BLACK
 from normalize import normalize
 from sqlalchemy.sql import text
+from youtube_utils import extract_youtube_video_id
 
 
 def _load_special_search_names(session):
@@ -218,12 +219,17 @@ def get_livestream_link(
     match_number,
     winner_personal_name,
     loser_personal_name,
-    video_start_offset_seconds=None,
+    video_link,
+    video_start_offset_seconds,
 ):
+    if isinstance(video_link, str) and video_link.lower() == "none":
+        return video_link
+
     tournament_days = livestream_links["tournament_days"]
     live_streams = livestream_links["live_streams"]
     flo_event_tags = livestream_links["flo_event_tags"]
     special_search_names = livestream_links.get("special_search_names", {})
+    livestream_link = None
 
     if ibjjf_id in flo_event_tags and winner_name and loser_name:
         tag = flo_event_tags[ibjjf_id]
@@ -246,7 +252,11 @@ def get_livestream_link(
                 loser_personal_name,
                 use_special_search_name,
             )
-            return f"https://www.flograppling.com/events/{tag}/videos?openInBrowser=1&search={quote(winner_search_name)}%20vs%20{quote(loser_search_name)}"
+            livestream_link = (
+                f"https://www.flograppling.com/events/{tag}/videos?"
+                f"openInBrowser=1&search={quote(winner_search_name)}%20vs%20"
+                f"{quote(loser_search_name)}"
+            )
     elif len(live_streams):
         event_start_day = tournament_days.get(ibjjf_id)
         if event_start_day:
@@ -359,8 +369,21 @@ def get_livestream_link(
                                     link += "#t=" + str(time_offset_seconds) + "s"
 
                             if hide_all:
-                                return None
+                                livestream_link = None
+                                break
 
-                            return link
+                            livestream_link = link
+                            break
 
-    return None
+    if (
+        livestream_link
+        and video_start_offset_seconds is not None
+        and extract_youtube_video_id(livestream_link) is not None
+        and "flograppling.com" not in livestream_link.lower()
+    ):
+        return livestream_link
+
+    if video_link:
+        return video_link
+
+    return livestream_link

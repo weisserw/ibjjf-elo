@@ -65,6 +65,8 @@ class LivestreamsTestCase(unittest.TestCase):
                 2,
                 'Diego Oliveira "Pato"',
                 "Ana Rodriguez",
+                None,
+                None,
             ),
             "https://www.flograppling.com/events/test-event/videos?openInBrowser=1&search=diego%20oliveira%20vs%20ana%20rodriguez",
         )
@@ -91,8 +93,130 @@ class LivestreamsTestCase(unittest.TestCase):
                 1,
                 'Diego Oliveira "Pato"',
                 "Ana Rodriguez",
+                None,
+                None,
             ),
             "https://www.flograppling.com/events/test-event/videos?openInBrowser=1&search=diego%20lima%20vs%20ana%20pereira",
+        )
+
+    def test_livestream_link_returns_none_sentinel_before_computing(self):
+        livestream_links = {
+            "tournament_days": {"E1": datetime(2026, 1, 1).date()},
+            "live_streams": {
+                ("E1", 1, 1): [
+                    (
+                        "https://www.youtube.com/watch?v=video123",
+                        9,
+                        0,
+                        0,
+                        17,
+                        0,
+                        1.0,
+                        False,
+                    )
+                ]
+            },
+            "flo_event_tags": {},
+        }
+
+        self.assertEqual(
+            get_livestream_link(
+                livestream_links,
+                "E1",
+                "Winner",
+                "Loser",
+                datetime(2026, 1, 1, 10, 0),
+                "Mat 1",
+                "BLACK",
+                "Adult",
+                8,
+                1,
+                "Winner",
+                "Loser",
+                "None",
+                3600,
+            ),
+            "None",
+        )
+
+    def test_livestream_link_prefers_youtube_livestream_with_stored_offset(self):
+        livestream_links = {
+            "tournament_days": {"E1": datetime(2026, 1, 1).date()},
+            "live_streams": {
+                ("E1", 1, 1): [
+                    (
+                        "https://www.youtube.com/watch?v=video123",
+                        9,
+                        0,
+                        0,
+                        17,
+                        0,
+                        1.0,
+                        False,
+                    )
+                ]
+            },
+            "flo_event_tags": {},
+        }
+
+        self.assertEqual(
+            get_livestream_link(
+                livestream_links,
+                "E1",
+                "Winner",
+                "Loser",
+                datetime(2026, 1, 1, 10, 0),
+                "Mat 1",
+                "BLACK",
+                "Adult",
+                8,
+                1,
+                "Winner",
+                "Loser",
+                "https://www.youtube.com/watch?v=per-match",
+                3600,
+            ),
+            "https://www.youtube.com/watch?v=video123&t=3600s",
+        )
+
+    def test_livestream_link_prefers_per_match_without_stored_offset(self):
+        livestream_links = {
+            "tournament_days": {"E1": datetime(2026, 1, 1).date()},
+            "live_streams": {
+                ("E1", 1, 1): [
+                    (
+                        "https://www.youtube.com/watch?v=video123",
+                        9,
+                        0,
+                        0,
+                        17,
+                        0,
+                        1.0,
+                        False,
+                    )
+                ]
+            },
+            "flo_event_tags": {},
+        }
+
+        self.assertEqual(
+            get_livestream_link(
+                livestream_links,
+                "E1",
+                "Winner",
+                "Loser",
+                datetime(2026, 1, 1, 10, 0),
+                "Mat 1",
+                "BLACK",
+                "Adult",
+                8,
+                1,
+                "Winner",
+                "Loser",
+                "https://www.youtube.com/watch?v=per-match",
+                None,
+            ),
+            "https://www.youtube.com/watch?v=per-match",
         )
 
 

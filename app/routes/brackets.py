@@ -3041,7 +3041,7 @@ def competitors():
                 m["when"] and m["when"] > last_match_whens[m["blue_id"]]
             ):
                 last_match_whens[m["blue_id"]] = m["when"]
-        if (not m["video_link"]) and m["when"] and m["where"]:
+        if m["when"] and m["where"]:
             m["video_link"] = get_livestream_link(
                 livestream_data,
                 event_id,
@@ -3055,6 +3055,8 @@ def competitors():
                 m["match_num"],
                 m["blue_personal_name"],
                 m["red_personal_name"],
+                m["video_link"],
+                None,
             )
 
     mat_links = {}
@@ -3391,6 +3393,7 @@ def archive_competitors():
                 "when": match.happened_at.isoformat(),
                 "where": match.match_location,
                 "video_link": match.video_link,
+                "video_start_offset_seconds": match.video_start_offset_seconds,
                 "fight_num": match.fight_number,
                 "red_percentile": None,
                 "red_percentile_age": None,
@@ -3564,12 +3567,7 @@ def archive_competitors():
         if match["blue_id"] in ordinals_by_id:
             match["blue_ordinal"] = ordinals_by_id[match["blue_id"]]
 
-        if (
-            event.ibjjf_id
-            and (not match["video_link"])
-            and match["when"]
-            and match["where"]
-        ):
+        if event.ibjjf_id and match["when"] and match["where"]:
             match["video_link"] = get_livestream_link(
                 livestream_data,
                 event.ibjjf_id,
@@ -3583,6 +3581,8 @@ def archive_competitors():
                 match["match_num"],
                 match["blue_personal_name"],
                 match["red_personal_name"],
+                match["video_link"],
+                match["video_start_offset_seconds"],
             )
 
     return jsonify(

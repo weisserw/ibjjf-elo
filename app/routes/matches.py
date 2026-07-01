@@ -750,22 +750,22 @@ def matches():
         livestream_data = load_livestream_links(db.session, event_ids)
 
     for match in response:
-        if match["videoLink"] is None:
-            match["videoLink"] = get_livestream_link(
-                livestream_data,
-                match["event_ibjjf_id"],
-                match["winner"],
-                match["loser"],
-                match["date_happened_at"],
-                match["matchLocation"],
-                match["belt"],
-                match["age"],
-                match["division_size"],
-                match["match_number"],
-                match["winnerPersonalName"],
-                match["loserPersonalName"],
-                match["video_start_offset_seconds"],
-            )
+        match["videoLink"] = get_livestream_link(
+            livestream_data,
+            match["event_ibjjf_id"],
+            match["winner"],
+            match["loser"],
+            match["date_happened_at"],
+            match["matchLocation"],
+            match["belt"],
+            match["age"],
+            match["division_size"],
+            match["match_number"],
+            match["winnerPersonalName"],
+            match["loserPersonalName"],
+            match["videoLink"],
+            match["video_start_offset_seconds"],
+        )
 
         del match["event_ibjjf_id"]
         del match["date_happened_at"]
