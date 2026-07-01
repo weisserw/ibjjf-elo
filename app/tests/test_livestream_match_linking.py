@@ -383,6 +383,8 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
                 self._event_data(
                     120,
                     scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
                     top_points=0,
                     top_advantages=0,
                     top_penalties=0,
@@ -421,6 +423,29 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(first_match.final_bottom_points, 0)
         self.assertEqual(first_match.final_bottom_advantages, 0)
         self.assertEqual(first_match.final_bottom_penalties, 0)
+        self.assertEqual(first_match.final_match_time_seconds, 86)
+        first_participant_ids = [
+            participant.id
+            for participant in MatchParticipant.query.filter_by(match_id=first_match.id)
+        ]
+        first_linked_seconds = [
+            second
+            for (second,) in db.session.query(LivestreamFrameTextEvent.frame_second)
+            .join(
+                MatchParticipantTextEvent,
+                MatchParticipantTextEvent.livestream_frame_text_event_id
+                == LivestreamFrameTextEvent.id,
+            )
+            .filter(
+                MatchParticipantTextEvent.match_participant_id.in_(
+                    first_participant_ids
+                )
+            )
+            .distinct()
+            .order_by(LivestreamFrameTextEvent.frame_second)
+            .all()
+        ]
+        self.assertEqual(first_linked_seconds, [10, 20, 70, 100, 110])
 
     def test_loaded_names_without_running_clock_are_not_linked(self):
         matches = self._match_setup()

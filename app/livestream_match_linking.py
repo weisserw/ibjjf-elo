@@ -177,6 +177,20 @@ def _score_state_from_window(points: list[TimelinePoint]) -> TextState:
     return score_state
 
 
+def _is_stopped_zero_score(point: TimelinePoint) -> bool:
+    return point.state.timer_state == "stopped" and _has_full_zero_score(point.state)
+
+
+def _trim_scoreboard_reset(points: list[TimelinePoint]) -> list[TimelinePoint]:
+    saw_non_zero_score = False
+    for index, point in enumerate(points):
+        if saw_non_zero_score and _is_stopped_zero_score(point):
+            return points[:index]
+        if _has_non_zero_score(point.state):
+            saw_non_zero_score = True
+    return points
+
+
 def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchWindow]:
     state = TextState()
     timeline = []
@@ -198,7 +212,7 @@ def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchW
             if start_position + 1 < len(starts)
             else len(timeline)
         )
-        points = timeline[start_index:next_start_index]
+        points = _trim_scoreboard_reset(timeline[start_index:next_start_index])
         if not points:
             continue
 
