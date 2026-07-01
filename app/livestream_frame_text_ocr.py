@@ -296,10 +296,21 @@ def _score_digit_masks(image):
     components, labels = _digit_components(threshold, min_area=20)
     min_height = max(8, int(image.height * 0.35))
     min_width = max(4, int(image.width * 0.12))
-    masks = []
+    candidates = []
     for x, y, width, height, component_index in components:
         if height < min_height or width < min_width:
             continue
+        touches_edge = x == 0 or x + width >= image.width
+        candidates.append((x, y, width, height, component_index, touches_edge))
+
+    has_interior_candidate = any(not candidate[-1] for candidate in candidates)
+    masks = []
+    for x, y, width, height, component_index, touches_edge in candidates:
+        if touches_edge:
+            if not has_interior_candidate:
+                continue
+            if height >= int(image.height * 0.85) or width >= int(image.width * 0.55):
+                continue
         component_mask = labels[y : y + height, x : x + width] == component_index
         masks.append(_normalize_mask(component_mask, SCORE_TEMPLATE_SIZE))
     return tuple(masks)
