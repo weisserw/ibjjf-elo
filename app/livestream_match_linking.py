@@ -40,6 +40,7 @@ NO_FIGHT_NOTE_PARTS = (
 )
 MIN_NAME_SCORE = 78.0
 MIN_SCORE_MARGIN = 8.0
+MIN_RESET_NAME_CONFIDENCE = 0.9
 LOOKAHEAD_MATCHES = 8
 TIME_MATCH_WINDOW_SECONDS = 20 * 60
 
@@ -101,6 +102,10 @@ def _has_full_zero_score(state: TextState) -> bool:
     return all(getattr(state, field) == 0 for field in SCORE_FIELDS)
 
 
+def _event_has_full_zero_score(event: LivestreamFrameTextEvent) -> bool:
+    return all(getattr(event, field) == 0 for field in SCORE_FIELDS)
+
+
 def _has_non_zero_score(state: TextState) -> bool:
     return any((getattr(state, field) or 0) != 0 for field in SCORE_FIELDS)
 
@@ -156,6 +161,20 @@ def _same_start_names(first: TextState, second: TextState) -> bool:
     ) and _names_are_similar(first.bottom_athlete_name, second.bottom_athlete_name)
 
 
+def _event_confidently_matches_names(
+    event: LivestreamFrameTextEvent, state: TextState
+) -> bool:
+    if event.needs_review:
+        return False
+    if event.confidence is None or event.confidence < MIN_RESET_NAME_CONFIDENCE:
+        return False
+    if not event.top_athlete_name or not event.bottom_athlete_name:
+        return False
+    return _names_are_similar(
+        event.top_athlete_name, state.top_athlete_name
+    ) and _names_are_similar(event.bottom_athlete_name, state.bottom_athlete_name)
+
+
 def _score_state_from_window(points: list[TimelinePoint]) -> TextState:
     score_state = TextState()
     ignore_zero_reset = False
@@ -178,13 +197,22 @@ def _score_state_from_window(points: list[TimelinePoint]) -> TextState:
 
 
 def _is_stopped_zero_score(point: TimelinePoint) -> bool:
-    return point.state.timer_state == "stopped" and _has_full_zero_score(point.state)
+    return (
+        point.event.timer_state == "stopped"
+        and _event_has_full_zero_score(point.event)
+        and _has_full_zero_score(point.state)
+    )
 
 
 def _trim_scoreboard_reset(points: list[TimelinePoint]) -> list[TimelinePoint]:
+    if not points:
+        return points
+    start_state = points[0].state
     saw_non_zero_score = False
     for index, point in enumerate(points):
         if saw_non_zero_score and _is_stopped_zero_score(point):
+            if _event_confidently_matches_names(point.event, start_state):
+                continue
             return points[:index]
         if _has_non_zero_score(point.state):
             saw_non_zero_score = True

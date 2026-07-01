@@ -447,6 +447,95 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         ]
         self.assertEqual(first_linked_seconds, [10, 20, 70, 100, 110])
 
+    def test_zero_score_correction_without_stopped_timer_does_not_end_window(self):
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHNATHAN AL",
+                    bottom_athlete_name="MICHAEL BETA",
+                ),
+                self._event_data(70, top_points=2),
+                self._event_data(
+                    90,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHNATHAN AL",
+                    bottom_athlete_name="MICHAEL BETA",
+                    confidence=0.99,
+                ),
+                self._event_data(100, top_points=4),
+                self._event_data(140, timer_state="stopped", timer_value="0:20"),
+            ]
+        )
+        events = LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id).all()
+
+        windows = extract_match_windows(events)
+
+        self.assertEqual(len(windows), 1)
+        self.assertEqual(windows[0].end_second, 140)
+        self.assertEqual(windows[0].final_state.top_points, 4)
+        self.assertEqual(windows[0].final_timer_seconds, 20)
+
+    def test_confident_matching_names_prevent_stopped_zero_score_reset_split(self):
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHNATHAN AL",
+                    bottom_athlete_name="MICHAEL BETA",
+                ),
+                self._event_data(70, top_points=2),
+                self._event_data(
+                    90,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="2:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHNATHAN ALPHA",
+                    bottom_athlete_name="MICHAEL BETA",
+                    confidence=0.99,
+                ),
+                self._event_data(140, timer_state="stopped", timer_value="0:20"),
+            ]
+        )
+        events = LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id).all()
+
+        windows = extract_match_windows(events)
+
+        self.assertEqual(len(windows), 1)
+        self.assertEqual(windows[0].end_second, 140)
+        self.assertEqual(windows[0].final_state.top_points, 0)
+        self.assertEqual(windows[0].final_timer_seconds, 20)
+
     def test_loaded_names_without_running_clock_are_not_linked(self):
         matches = self._match_setup()
         _, scan = self._stored_events(
