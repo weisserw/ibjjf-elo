@@ -89,7 +89,7 @@ def make_tgz(files):
 
 
 class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
-    def test_scanner_binary_searches_to_first_score_change(self):
+    def test_scanner_reads_every_frame_to_find_score_change(self):
         provider = DictFrameProvider()
         parser = TimelineParser(
             {
@@ -117,13 +117,9 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
 
         self.assertEqual([event.frame_second for event in events], [0, 37])
         self.assertEqual(events[1].top_points, 2)
-        self.assertIn(37, parser.calls)
-        self.assertTrue(
-            any("binary search start range=1-120" in item for item in debug_messages)
-        )
-        self.assertTrue(
-            any("binary search result second=37" in item for item in debug_messages)
-        )
+        self.assertEqual(set(range(121)) - set(parser.calls), set())
+        self.assertFalse(any("binary search" in item for item in debug_messages))
+        self.assertFalse(any("coarse probe" in item for item in debug_messages))
         self.assertTrue(
             any("event second=37 fields=top_points" in item for item in debug_messages)
         )
@@ -148,9 +144,10 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
         )
 
         self.assertEqual(events, [])
-        self.assertFalse(any("binary search start" in item for item in debug_messages))
+        self.assertFalse(any("binary search" in item for item in debug_messages))
+        self.assertFalse(any("coarse probe" in item for item in debug_messages))
 
-    def test_name_noise_does_not_pull_score_binary_search_earlier(self):
+    def test_name_noise_does_not_emit_score_event_earlier(self):
         provider = DictFrameProvider()
 
         class NoisyNameParser:
@@ -199,7 +196,7 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
         self.assertEqual(events[1].top_athlete_name, "TEST ATHLETE ALPHA")
         self.assertEqual(events[1].bottom_athlete_name, "TEST ATHLETE BETA")
 
-    def test_scanner_only_reads_names_for_refined_score_events(self):
+    def test_scanner_only_reads_names_for_score_timer_events(self):
         provider = DictFrameProvider()
 
         class SplitParser:
@@ -245,10 +242,48 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
 
         self.assertEqual([event.frame_second for event in events], [0, 37])
         self.assertEqual(parser.full_calls, [0, 37])
-        self.assertIn(120, parser.score_timer_calls)
-        self.assertEqual(parser.score_timer_calls.count(120), 1)
+        self.assertEqual(parser.score_timer_calls, list(range(121)))
         self.assertEqual(events[1].top_athlete_name, "TEST ATHLETE ALPHA")
         self.assertEqual(events[1].bottom_athlete_name, "TEST ATHLETE BETA")
+
+    def test_initial_state_from_prior_segment_prevents_duplicate_first_frame_event(
+        self,
+    ):
+        provider = DictFrameProvider()
+        parser = TimelineParser(
+            {
+                120: {
+                    "top_points": 2,
+                    "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                },
+                125: {"top_points": 4},
+            }
+        )
+        initial_state = text_scan.TextState(
+            top_points=2,
+            top_advantages=0,
+            top_penalties=0,
+            bottom_points=0,
+            bottom_advantages=0,
+            bottom_penalties=0,
+            scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+        )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            parser,
+            120,
+            130,
+            initial_state=initial_state,
+            coarse_interval_seconds=120,
+        )
+
+        self.assertEqual([event.frame_second for event in events], [125])
+        self.assertEqual(events[0].top_points, 4)
 
     def test_score_events_include_victory_team_line(self):
         provider = DictFrameProvider()

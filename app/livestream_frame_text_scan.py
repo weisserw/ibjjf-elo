@@ -643,19 +643,6 @@ def _name_changes(state: TextState, reading: FrameReading) -> dict:
     return changes
 
 
-def coarse_probe_seconds(
-    start_second: int, end_second: int, interval: int
-) -> list[int]:
-    if end_second <= start_second:
-        return []
-    interval = max(1, interval)
-    seconds = list(range(start_second, end_second, interval))
-    last_second = end_second - 1
-    if last_second not in seconds:
-        seconds.append(last_second)
-    return seconds
-
-
 def _read_frame(
     provider: FrameBatchProvider,
     parser: FrameTextParser,
@@ -684,53 +671,31 @@ def _read_frame(
     return reading
 
 
-def _find_first_changed_second(
-    provider: FrameBatchProvider,
-    parser: FrameTextParser,
-    base_state: TextState,
-    low_second: int,
-    high_second: int,
-    debug_callback: DebugCallback | None = None,
-    change_filter=None,
-    read_cache: dict[tuple[int, bool], FrameReading] | None = None,
-) -> int:
-    change_filter = change_filter or (lambda changes: changes)
-    left = low_second + 1
-    right = high_second
-    if debug_callback:
-        debug_callback(
-            f"binary search start range={left}-{right} "
-            f"base_second={low_second} probe_second={high_second}"
-        )
-    while left < right:
-        mid = (left + right) // 2
-        reading = _read_frame(
-            provider,
-            parser,
-            mid,
-            include_names=False,
-            read_cache=read_cache,
-        )
-        changes = change_filter(reading_changes(base_state, reading))
-        if changes:
-            next_left = left
-            next_right = mid
-        else:
-            next_left = mid + 1
-            next_right = right
-        if debug_callback:
-            debug_callback(
-                f"binary search step mid={mid} changed={bool(changes)} "
-                f"fields={_format_change_fields(changes)} "
-                f"next_range={next_left}-{next_right}"
-            )
-        if changes:
-            right = mid
-        else:
-            left = mid + 1
-    if debug_callback:
-        debug_callback(f"binary search result second={left}")
-    return left
+def apply_reading_to_state(
+    state: TextState, reading: FrameReading, *, include_names: bool = False
+) -> TextState:
+    next_state = state.copy()
+    if reading.scoreboard_state is not None:
+        next_state.scoreboard_state = reading.scoreboard_state
+        if reading.scoreboard_state == SCOREBOARD_STATE_BLANK:
+            for field in SCORE_FIELDS:
+                setattr(next_state, field, None)
+    for field in SCORE_FIELDS:
+        value = getattr(reading, field)
+        if value is not None:
+            setattr(next_state, field, value)
+            if reading.scoreboard_state is None:
+                next_state.scoreboard_state = SCOREBOARD_STATE_VISIBLE
+    if reading.timer_state is not None:
+        next_state.timer_state = reading.timer_state
+        next_state.timer_value = reading.timer_value
+        next_state.timer_frame_second = reading.frame_second
+    if include_names:
+        for field in NAME_FIELDS:
+            value = getattr(reading, field)
+            if value is not None:
+                setattr(next_state, field, value)
+    return next_state
 
 
 def scan_frame_text_segment(
@@ -745,89 +710,49 @@ def scan_frame_text_segment(
     state = initial_state.copy() if initial_state else TextState()
     events: list[TextEventData] = []
     read_cache: dict[tuple[int, bool], FrameReading] = {}
-    previous_probe_second = start_second - 1
-    probe_seconds = coarse_probe_seconds(
-        start_second, end_second, coarse_interval_seconds
-    )
     if debug_callback:
-        first_probe = probe_seconds[0] if probe_seconds else None
-        last_probe = probe_seconds[-1] if probe_seconds else None
         debug_callback(
-            f"coarse probes count={len(probe_seconds)} "
-            f"first={first_probe} last={last_probe} interval={coarse_interval_seconds}"
+            f"frame scan start={start_second} end={end_second} "
+            f"count={max(0, end_second - start_second)}"
         )
-    for probe_second in probe_seconds:
-        while True:
-            reading = _read_frame(
-                provider,
-                parser,
-                probe_second,
-                include_names=False,
-                read_cache=read_cache,
+    for second in range(start_second, end_second):
+        reading = _read_frame(
+            provider,
+            parser,
+            second,
+            include_names=False,
+            read_cache=read_cache,
+        )
+        changes = reading_changes(state, reading)
+        scan_changes = _precise_scan_changes(changes)
+        if debug_callback:
+            debug_callback(
+                f"frame second={second} changed={bool(scan_changes)} "
+                f"fields={_format_change_fields(scan_changes)}"
             )
-            changes = reading_changes(state, reading)
-            scan_changes = _precise_scan_changes(changes)
-            if debug_callback:
-                debug_callback(
-                    f"coarse probe second={probe_second} "
-                    f"previous={previous_probe_second} changed={bool(scan_changes)} "
-                    f"fields={_format_change_fields(scan_changes)}"
-                )
-            if not scan_changes:
-                previous_probe_second = probe_second
-                break
+        if not scan_changes:
+            state = apply_reading_to_state(state, reading)
+            continue
 
-            refined_second = (
-                probe_second
-                if previous_probe_second >= probe_second
-                else _find_first_changed_second(
-                    provider,
-                    parser,
-                    state,
-                    previous_probe_second,
-                    probe_second,
-                    debug_callback=debug_callback,
-                    change_filter=_precise_scan_changes,
-                    read_cache=read_cache,
-                )
+        event_reading = _read_frame(
+            provider,
+            parser,
+            second,
+            include_names=True,
+            read_cache=read_cache,
+        )
+        event_changes = {
+            **scan_changes,
+            **_name_changes(state, event_reading),
+        }
+        event = event_from_reading(event_reading, event_changes)
+        events.append(event)
+        if debug_callback:
+            debug_callback(
+                f"event second={event.frame_second} "
+                f"fields={_format_change_fields(event_changes)}"
             )
-            if refined_second == probe_second and debug_callback:
-                debug_callback(
-                    f"using coarse probe second={probe_second} "
-                    f"fields={_format_change_fields(scan_changes)}"
-                )
-            refined_reading = _read_frame(
-                provider,
-                parser,
-                refined_second,
-                include_names=True,
-                read_cache=read_cache,
-            )
-            refined_changes = reading_changes(state, refined_reading)
-            refined_scan_changes = _precise_scan_changes(refined_changes)
-            if not refined_scan_changes:
-                if debug_callback:
-                    debug_callback(
-                        f"refined probe second={refined_second} changed=False"
-                    )
-                previous_probe_second = refined_second
-                continue
-            event_changes = {
-                **refined_scan_changes,
-                **_name_changes(state, refined_reading),
-            }
-            event = event_from_reading(refined_reading, event_changes)
-            events.append(event)
-            if debug_callback:
-                debug_callback(
-                    f"event second={event.frame_second} "
-                    f"fields={_format_change_fields(event_changes)}"
-                )
-            state = apply_event_to_state(state, event)
-            if refined_second >= probe_second:
-                previous_probe_second = refined_second
-                break
-            previous_probe_second = refined_second
+        state = apply_reading_to_state(state, event_reading, include_names=True)
     return events
 
 

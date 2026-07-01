@@ -282,8 +282,7 @@ def process_segment(
     log(
         f"Scanning text segment id={segment.id} "
         f"archive_id={segment.archive_id} "
-        f"range={segment.start_second}-{segment.end_second} "
-        f"interval={interval}"
+        f"range={segment.start_second}-{segment.end_second}"
     )
 
     def debug_scan(message: str):
@@ -405,10 +404,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--coarse-interval-seconds",
         type=positive_int,
-        help=(
-            "Override the scan coarse probe interval for this worker run "
-            "without changing the stored text scan configuration"
-        ),
+        help=("Deprecated compatibility option; frame text scans now read every frame"),
     )
     parser.add_argument("--background-task-id")
     parser.add_argument(
