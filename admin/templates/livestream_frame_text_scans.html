@@ -119,8 +119,8 @@
                             <div>total {{ counts.total }}</div>
                             <div>score {{ counts.score }} / timer {{ counts.timer }}</div>
                             <div>athletes {{ counts.athlete_names }} / teams {{ counts.team_names }}</div>
-                            {% if counts.profiles or counts.needs_review %}
-                            <div>profiles {{ counts.profiles }} / review {{ counts.needs_review }}</div>
+                            {% if counts.profiles %}
+                            <div>profiles {{ counts.profiles }}</div>
                             {% endif %}
                             {% endif %}
                         </td>
