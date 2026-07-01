@@ -675,18 +675,14 @@ class TimerDigitReader:
             for mask, allowed in zip(masks, allowed_digits)
         ]
 
-        digits = [
-            prediction.digit
-            for prediction in predictions
-            if prediction.digit is not None
-        ]
-        if len(digits) == 3:
+        digits = [prediction.digit for prediction in predictions]
+        if len(digits) == 3 and all(digit is not None for digit in digits):
             value = f"{digits[0]}:{digits[1]}{digits[2]}"
-        elif len(digits) == 4:
+        elif len(digits) == 4 and all(digit is not None for digit in digits):
             minutes = digits[0] * 10 + digits[1]
             value = f"{minutes}:{digits[2]}{digits[3]}"
         else:
-            value = None
+            return TimerDigitReading("blank", None, tuple(predictions))
         return TimerDigitReading(state, value, tuple(predictions))
 
 
