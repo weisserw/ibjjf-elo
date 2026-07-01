@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import io
 import re
 import shutil
@@ -41,6 +42,11 @@ NAME_OCR_SCALE = 3
 class EmptyTextParser:
     def parse(self, frame_second: int, score_image, timer_image) -> FrameReading:
         return FrameReading(frame_second=frame_second, score_engine="none")
+
+    def parse_score_timer(
+        self, frame_second: int, score_image, timer_image
+    ) -> FrameReading:
+        return self.parse(frame_second, score_image, timer_image)
 
 
 @dataclass(frozen=True)
@@ -678,11 +684,28 @@ class FrameImageTextParser:
         self.parser_profile = parser_profile
         self.score_engine = score_engine
         self.name_engine = name_engine
+        self._score_timer_cache = {}
+        self._name_cache = {}
         score_enabled = score_engine not in (None, "none")
         self.score_reader = ScoreboardDigitReader() if score_enabled else None
         self.timer_reader = TimerDigitReader() if score_enabled else None
         if name_engine not in (None, "none"):
             import pytesseract  # noqa: F401
+
+    @staticmethod
+    def _image_cache_key(image_bytes):
+        if image_bytes is None:
+            return None
+        if isinstance(image_bytes, bytes):
+            return hashlib.blake2b(image_bytes, digest_size=16).digest()
+        return repr(image_bytes)
+
+    def _cache_attr(self, name: str):
+        cache = getattr(self, name, None)
+        if cache is None:
+            cache = {}
+            setattr(self, name, cache)
+        return cache
 
     def _image_from_bytes(self, image_bytes):
         if not image_bytes:
@@ -1157,20 +1180,72 @@ class FrameImageTextParser:
             fields["bottom_athlete_name"] = blocks[1][0]
         return fields
 
-    def parse(self, frame_second: int, score_image, timer_image) -> FrameReading:
-        score = self._image_from_bytes(score_image)
-        timer = self._image_from_bytes(timer_image)
+    def _score_timer_readings(self, score_image, timer_image, score, timer):
         score_enabled = self.score_engine not in (None, "none")
-        name_enabled = self.name_engine not in (None, "none")
-        if name_enabled:
-            scoreboard_text, name_fields = self._ocr_name_fields(score)
-        else:
-            scoreboard_text, name_fields = "", {}
+        cache = self._cache_attr("_score_timer_cache")
+        cache_key = (
+            self.score_engine,
+            self._image_cache_key(score_image),
+            self._image_cache_key(timer_image),
+        )
+        if cache_key in cache:
+            return cache[cache_key]
+
         score_reading = self.score_reader.read(score) if self.score_reader else None
         timer_reading = self.timer_reader.read(timer) if self.timer_reader else None
         score_fields = score_fields_from_reading(score_reading) if score_enabled else {}
         timer_state = timer_reading.state if timer_reading else None
         timer_value = timer_reading.value if timer_reading else None
+        result = (
+            score_reading,
+            timer_reading,
+            score_fields,
+            timer_state,
+            timer_value,
+        )
+        cache[cache_key] = result
+        return result
+
+    def _cached_name_fields(self, score_image, score):
+        name_enabled = self.name_engine not in (None, "none")
+        if not name_enabled:
+            return "", {}
+
+        cache = self._cache_attr("_name_cache")
+        cache_key = (self.name_engine, self._image_cache_key(score_image))
+        if cache_key not in cache:
+            cache[cache_key] = self._ocr_name_fields(score)
+        return cache[cache_key]
+
+    def parse_score_timer(
+        self, frame_second: int, score_image, timer_image
+    ) -> FrameReading:
+        return self._parse(frame_second, score_image, timer_image, include_names=False)
+
+    def parse(self, frame_second: int, score_image, timer_image) -> FrameReading:
+        return self._parse(frame_second, score_image, timer_image, include_names=True)
+
+    def _parse(
+        self,
+        frame_second: int,
+        score_image,
+        timer_image,
+        *,
+        include_names: bool,
+    ) -> FrameReading:
+        score = self._image_from_bytes(score_image)
+        timer = self._image_from_bytes(timer_image)
+        if include_names:
+            scoreboard_text, name_fields = self._cached_name_fields(score_image, score)
+        else:
+            scoreboard_text, name_fields = "", {}
+        (
+            score_reading,
+            timer_reading,
+            score_fields,
+            timer_state,
+            timer_value,
+        ) = self._score_timer_readings(score_image, timer_image, score, timer)
         return FrameReading(
             frame_second=frame_second,
             **score_fields,

@@ -656,12 +656,32 @@ def coarse_probe_seconds(
     return seconds
 
 
-def _read_frame(provider: FrameBatchProvider, parser: FrameTextParser, second: int):
-    return parser.parse(
-        second,
-        provider.get_frame(second, "score"),
-        provider.get_frame(second, "timer"),
-    )
+def _read_frame(
+    provider: FrameBatchProvider,
+    parser: FrameTextParser,
+    second: int,
+    *,
+    include_names: bool = True,
+    read_cache: dict[tuple[int, bool], FrameReading] | None = None,
+):
+    cache_key = (second, include_names)
+    if read_cache is not None and cache_key in read_cache:
+        return read_cache[cache_key]
+
+    score_image = provider.get_frame(second, "score")
+    timer_image = provider.get_frame(second, "timer")
+    if include_names:
+        reading = parser.parse(second, score_image, timer_image)
+    else:
+        parse_score_timer = getattr(parser, "parse_score_timer", None)
+        if parse_score_timer is not None:
+            reading = parse_score_timer(second, score_image, timer_image)
+        else:
+            reading = parser.parse(second, score_image, timer_image)
+
+    if read_cache is not None:
+        read_cache[cache_key] = reading
+    return reading
 
 
 def _find_first_changed_second(
@@ -672,6 +692,7 @@ def _find_first_changed_second(
     high_second: int,
     debug_callback: DebugCallback | None = None,
     change_filter=None,
+    read_cache: dict[tuple[int, bool], FrameReading] | None = None,
 ) -> int:
     change_filter = change_filter or (lambda changes: changes)
     left = low_second + 1
@@ -683,7 +704,13 @@ def _find_first_changed_second(
         )
     while left < right:
         mid = (left + right) // 2
-        reading = _read_frame(provider, parser, mid)
+        reading = _read_frame(
+            provider,
+            parser,
+            mid,
+            include_names=False,
+            read_cache=read_cache,
+        )
         changes = change_filter(reading_changes(base_state, reading))
         if changes:
             next_left = left
@@ -717,6 +744,7 @@ def scan_frame_text_segment(
 ) -> list[TextEventData]:
     state = initial_state.copy() if initial_state else TextState()
     events: list[TextEventData] = []
+    read_cache: dict[tuple[int, bool], FrameReading] = {}
     previous_probe_second = start_second - 1
     probe_seconds = coarse_probe_seconds(
         start_second, end_second, coarse_interval_seconds
@@ -730,7 +758,13 @@ def scan_frame_text_segment(
         )
     for probe_second in probe_seconds:
         while True:
-            reading = _read_frame(provider, parser, probe_second)
+            reading = _read_frame(
+                provider,
+                parser,
+                probe_second,
+                include_names=False,
+                read_cache=read_cache,
+            )
             changes = reading_changes(state, reading)
             scan_changes = _precise_scan_changes(changes)
             if debug_callback:
@@ -754,6 +788,7 @@ def scan_frame_text_segment(
                     probe_second,
                     debug_callback=debug_callback,
                     change_filter=_precise_scan_changes,
+                    read_cache=read_cache,
                 )
             )
             if refined_second == probe_second and debug_callback:
@@ -761,7 +796,13 @@ def scan_frame_text_segment(
                     f"using coarse probe second={probe_second} "
                     f"fields={_format_change_fields(scan_changes)}"
                 )
-            refined_reading = _read_frame(provider, parser, refined_second)
+            refined_reading = _read_frame(
+                provider,
+                parser,
+                refined_second,
+                include_names=True,
+                read_cache=read_cache,
+            )
             refined_changes = reading_changes(state, refined_reading)
             refined_scan_changes = _precise_scan_changes(refined_changes)
             if not refined_scan_changes:

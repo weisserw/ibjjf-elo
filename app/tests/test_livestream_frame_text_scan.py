@@ -199,6 +199,57 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
         self.assertEqual(events[1].top_athlete_name, "TEST ATHLETE ALPHA")
         self.assertEqual(events[1].bottom_athlete_name, "TEST ATHLETE BETA")
 
+    def test_scanner_only_reads_names_for_refined_score_events(self):
+        provider = DictFrameProvider()
+
+        class SplitParser:
+            def __init__(self):
+                self.score_timer_calls = []
+                self.full_calls = []
+
+            def _reading(self, frame_second, include_names=False):
+                fields = {
+                    "top_points": 2 if frame_second >= 37 else 0,
+                    "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                }
+                if include_names:
+                    fields.update(
+                        {
+                            "top_athlete_name": "TEST ATHLETE ALPHA",
+                            "bottom_athlete_name": "TEST ATHLETE BETA",
+                        }
+                    )
+                return text_scan.FrameReading(frame_second=frame_second, **fields)
+
+            def parse_score_timer(self, frame_second, score_image, timer_image):
+                self.score_timer_calls.append(frame_second)
+                return self._reading(frame_second)
+
+            def parse(self, frame_second, score_image, timer_image):
+                self.full_calls.append(frame_second)
+                return self._reading(frame_second, include_names=True)
+
+        parser = SplitParser()
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            parser,
+            0,
+            121,
+            coarse_interval_seconds=120,
+        )
+
+        self.assertEqual([event.frame_second for event in events], [0, 37])
+        self.assertEqual(parser.full_calls, [0, 37])
+        self.assertIn(120, parser.score_timer_calls)
+        self.assertEqual(parser.score_timer_calls.count(120), 1)
+        self.assertEqual(events[1].top_athlete_name, "TEST ATHLETE ALPHA")
+        self.assertEqual(events[1].bottom_athlete_name, "TEST ATHLETE BETA")
+
     def test_score_events_include_victory_team_line(self):
         provider = DictFrameProvider()
 
@@ -1213,6 +1264,49 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(reading.timer_state, "stopped")
         self.assertEqual(reading.timer_value, "4:00")
         self.assertEqual(reading.evidence["score_digits"], "000/210")
+
+    def test_frame_image_parser_caches_score_timer_and_name_reads(self):
+        parser = self._name_parser()
+        parser.parser_profile = "auto"
+        parser.score_engine = "fixed_digit"
+        parser.name_engine = "tesseract"
+        parser._image_from_bytes = lambda image_bytes: image_bytes
+        parser.score_reader = mock.Mock()
+        parser.score_reader.read.return_value = text_ocr.ScoreboardDigitReading(
+            (0, 0, 0, 2, 1, 0),
+            (
+                text_ocr.DigitPrediction(0, 0.9, "test"),
+                text_ocr.DigitPrediction(0, 0.9, "test"),
+                text_ocr.DigitPrediction(0, 0.9, "test"),
+                text_ocr.DigitPrediction(2, 0.9, "test"),
+                text_ocr.DigitPrediction(1, 0.9, "test"),
+                text_ocr.DigitPrediction(0, 0.9, "test"),
+            ),
+            True,
+        )
+        parser.timer_reader = mock.Mock()
+        parser.timer_reader.read.return_value = text_ocr.TimerDigitReading(
+            "stopped",
+            "4:00",
+            (
+                text_ocr.DigitPrediction(4, 0.9, "test"),
+                text_ocr.DigitPrediction(0, 0.9, "test"),
+                text_ocr.DigitPrediction(0, 0.9, "test"),
+            ),
+        )
+        parser._ocr = mock.Mock(
+            return_value="\n".join(["TEST ATHLETE ALPHA", "TEST ATHLETE BETA"])
+        )
+
+        parser.parse_score_timer(12, b"score", b"timer")
+        first_full = parser.parse(12, b"score", b"timer")
+        second_full = parser.parse(13, b"score", b"timer")
+
+        self.assertEqual(first_full.top_athlete_name, "TEST ATHLETE ALPHA")
+        self.assertEqual(second_full.bottom_athlete_name, "TEST ATHLETE BETA")
+        parser.score_reader.read.assert_called_once_with(b"score")
+        parser.timer_reader.read.assert_called_once_with(b"timer")
+        parser._ocr.assert_called_once_with(b"score", "--psm 6")
 
     def test_scoreboard_digit_reader_accepts_rendered_layout(self):
         if (
