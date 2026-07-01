@@ -553,10 +553,10 @@ class TimerDigitReader:
         dark_blue_background = ((blue > 60) & (red < 60) & (green < 80)).mean()
         if red_background > 0.25:
             return "stopped"
-        if white_foreground > 0.03 and dark_blue_background > 0.15:
-            return "stopped"
         if green_foreground > 0.03 and dark_background > 0.30:
             return "running"
+        if white_foreground > 0.03 and dark_blue_background > 0.15:
+            return "stopped"
         if (
             green_foreground > 0.03 or orange_foreground > 0.03
         ) and dark_blue_background > 0.15:

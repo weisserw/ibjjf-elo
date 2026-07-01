@@ -142,5 +142,21 @@
       "timer_state": "running",
       "timer_value": "1:37"
     }
+  },
+  {
+    "id": "new_score_200_010_timer_running_500",
+    "score_image": "new_score_200_010.jpg",
+    "timer_image": "timer_running.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 2,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 1,
+      "bottom_penalties": 0,
+      "timer_state": "running",
+      "timer_value": "5:00"
+    }
   }
 ]
