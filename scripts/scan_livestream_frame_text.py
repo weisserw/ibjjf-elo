@@ -244,6 +244,13 @@ def log(message: str):
     print(f"{timestamp}Z {message}", file=sys.stderr, flush=True)
 
 
+def positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be greater than 0")
+    return parsed
+
+
 def event_payload(event):
     payload = asdict(event)
     payload["evidence"] = payload.pop("evidence")
@@ -257,11 +264,19 @@ def provider_for_segment(segment, state, s3_client, bucket: str):
     return S3FrameBatchProvider(capture_segments, s3_client, bucket)
 
 
-def process_segment(segment, state, parser, s3_client, bucket: str):
+def process_segment(
+    segment,
+    state,
+    parser,
+    s3_client,
+    bucket: str,
+    coarse_interval_seconds: int | None = None,
+):
     initial_state = state.initial_state_for_segment(segment)
     provider = provider_for_segment(segment, state, s3_client, bucket)
     interval = (
-        getattr(getattr(segment, "scan", None), "coarse_interval_seconds", None)
+        coarse_interval_seconds
+        or getattr(getattr(segment, "scan", None), "coarse_interval_seconds", None)
         or DEFAULT_COARSE_INTERVAL_SECONDS
     )
     log(
@@ -330,7 +345,14 @@ def run(args, state=None) -> int:
             print(f"Livestream frame text scan segment not found: {segment_id}")
             return 0
         try:
-            process_segment(segment, state, parser, s3_client, bucket_name)
+            process_segment(
+                segment,
+                state,
+                parser,
+                s3_client,
+                bucket_name,
+                coarse_interval_seconds=args.coarse_interval_seconds,
+            )
         except Exception as exc:
             state.mark_error(segment, str(exc))
             print(f"Text scan segment {segment.id} failed: {exc}", file=sys.stderr)
@@ -350,7 +372,14 @@ def run(args, state=None) -> int:
             return 0
 
         try:
-            process_segment(segment, state, parser, s3_client, bucket_name)
+            process_segment(
+                segment,
+                state,
+                parser,
+                s3_client,
+                bucket_name,
+                coarse_interval_seconds=args.coarse_interval_seconds,
+            )
             processed += 1
         except Exception as exc:
             state.mark_error(segment, str(exc))
@@ -373,6 +402,14 @@ def parse_args(argv=None):
     parser.add_argument("--parser-profile", default=DEFAULT_PARSER_PROFILE)
     parser.add_argument("--score-engine", default=DEFAULT_SCORE_ENGINE)
     parser.add_argument("--name-engine", default=DEFAULT_NAME_ENGINE)
+    parser.add_argument(
+        "--coarse-interval-seconds",
+        type=positive_int,
+        help=(
+            "Override the scan coarse probe interval for this worker run "
+            "without changing the stored text scan configuration"
+        ),
+    )
     parser.add_argument("--background-task-id")
     parser.add_argument(
         "--admin-url",

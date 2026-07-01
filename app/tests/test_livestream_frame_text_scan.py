@@ -790,7 +790,12 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(str(state.rescanned_segment_id), segment_id)
         self.assertFalse(state.claimed)
         process_segment.assert_called_once_with(
-            segment, state, "parser", "s3", "bucket"
+            segment,
+            state,
+            "parser",
+            "s3",
+            "bucket",
+            coarse_interval_seconds=None,
         )
 
     def test_run_with_rescan_from_start_resets_scan_before_claiming(self):
@@ -841,7 +846,58 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(str(state.reset_archive_id), archive_id)
         self.assertEqual(str(state.claim_kwargs["archive_id"]), archive_id)
         process_segment.assert_called_once_with(
-            segment, state, "parser", "s3", "bucket"
+            segment,
+            state,
+            "parser",
+            "s3",
+            "bucket",
+            coarse_interval_seconds=None,
+        )
+
+    def test_run_passes_cli_coarse_interval_override_to_segment_processor(self):
+        archive_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        segment = runner.ApiObject(
+            {
+                "id": "11111111-1111-1111-1111-111111111111",
+                "archive_id": archive_id,
+                "start_second": 0,
+                "end_second": 60,
+            }
+        )
+
+        class FakeState:
+            def claim_next_segment(self, **kwargs):
+                return segment
+
+        args = runner.parse_args(
+            [
+                "--archive-id",
+                archive_id,
+                "--score-engine",
+                "none",
+                "--coarse-interval-seconds",
+                "20",
+            ]
+        )
+        state = FakeState()
+
+        with mock.patch.object(runner, "validate_ocr_engines"), mock.patch.object(
+            runner, "build_parser", return_value="parser"
+        ), mock.patch.object(runner, "bucket_name", "bucket"), mock.patch.object(
+            runner, "get_s3_client", return_value="s3"
+        ), mock.patch.object(
+            runner, "process_segment"
+        ) as process_segment:
+            result = runner.run(args, state=state)
+
+        self.assertEqual(result, 0)
+        process_segment.assert_called_once_with(
+            segment,
+            state,
+            "parser",
+            "s3",
+            "bucket",
+            coarse_interval_seconds=20,
         )
 
     def test_tesseract_parser_reads_names_from_scoreboard_text(self):
