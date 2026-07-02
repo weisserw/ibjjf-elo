@@ -969,20 +969,17 @@ class FrameImageTextParser:
 
     def _best_paddle_row_name(self, items: list[PaddleTextItem]) -> str | None:
         candidates = []
-        for item in items:
+        for item in sorted(items, key=lambda item: (item.box[1], item.box[0])):
             name = self._name_from_paddle_item_text(item.text)
             if not name:
                 continue
             candidates.append((name, self._looks_like_team_line(name)))
         if not candidates:
             return None
-        return max(
-            candidates,
-            key=lambda candidate: (
-                not candidate[1],
-                self._name_candidate_score(candidate[0]),
-            ),
-        )[0]
+        for name, is_team_line in candidates:
+            if not is_team_line:
+                return name
+        return candidates[0][0]
 
     def _name_from_paddle_item_text(self, text: str) -> str | None:
         line = self._clean_text_line(text)
