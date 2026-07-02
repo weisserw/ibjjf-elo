@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 import re
 import shutil
 from dataclasses import dataclass
@@ -40,6 +41,13 @@ NAME_ROW_Y_EDGES = (0.0, 0.431, 0.861)
 NAME_LINE_TOP_RATIO = 0.02
 NAME_LINE_BOTTOM_RATIO = 0.42
 NAME_OCR_SCALE = 3
+
+
+def _configure_paddle_runtime():
+    os.environ.setdefault("FLAGS_use_mkldnn", "0")
+    os.environ.setdefault("FLAGS_use_onednn", "0")
+    os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 
 class EmptyTextParser:
@@ -704,6 +712,7 @@ class FrameImageTextParser:
         if name_engine == "tesseract":
             import pytesseract  # noqa: F401
         elif name_engine == "paddle":
+            _configure_paddle_runtime()
             import paddleocr  # noqa: F401
 
     @staticmethod
@@ -740,16 +749,35 @@ class FrameImageTextParser:
         if reader is not None:
             return reader
 
+        _configure_paddle_runtime()
         from paddleocr import PaddleOCR
 
         init_kwargs_options = (
             {
                 "lang": "en",
+                "ocr_version": "PP-OCRv5",
                 "use_doc_orientation_classify": False,
                 "use_doc_unwarping": False,
-                "use_textline_orientation": True,
+                "use_textline_orientation": False,
+                "enable_mkldnn": False,
+                "cpu_threads": 1,
+                "device": "cpu",
             },
-            {"use_angle_cls": True, "lang": "en"},
+            {
+                "lang": "en",
+                "use_doc_orientation_classify": False,
+                "use_doc_unwarping": False,
+                "use_textline_orientation": False,
+                "enable_mkldnn": False,
+                "cpu_threads": 1,
+                "device": "cpu",
+            },
+            {
+                "use_angle_cls": True,
+                "lang": "en",
+                "enable_mkldnn": False,
+                "cpu_threads": 1,
+            },
             {"lang": "en"},
         )
         for kwargs in init_kwargs_options:
@@ -1432,6 +1460,7 @@ def validate_ocr_engines(score_engine: str, name_engine: str | None):
             raise RuntimeError("tesseract name engine requires the tesseract binary")
     elif name_engine == "paddle":
         try:
+            _configure_paddle_runtime()
             import paddleocr  # noqa: F401
         except ImportError as exc:
             raise RuntimeError(

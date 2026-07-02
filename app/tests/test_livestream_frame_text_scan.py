@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import tarfile
+import types
 import unittest
 import uuid
 from unittest import mock
@@ -1333,6 +1334,27 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         self.assertEqual(text, "TEST ATHLETE ALPHA")
         self.assertEqual(parser._paddle_ocr.calls, [("image", True)])
+
+    def test_paddle_parser_disables_mkldnn_and_uses_v5_models(self):
+        created_kwargs = []
+
+        class FakePaddleOCR:
+            def __init__(self, **kwargs):
+                created_kwargs.append(kwargs)
+
+        parser = self._name_parser(name_engine="paddle")
+        with mock.patch.dict(
+            sys.modules,
+            {"paddleocr": types.SimpleNamespace(PaddleOCR=FakePaddleOCR)},
+        ):
+            reader = parser._paddle_reader()
+
+        self.assertIsInstance(reader, FakePaddleOCR)
+        self.assertEqual(created_kwargs[0]["ocr_version"], "PP-OCRv5")
+        self.assertFalse(created_kwargs[0]["enable_mkldnn"])
+        self.assertFalse(created_kwargs[0]["use_textline_orientation"])
+        self.assertEqual(os.environ["FLAGS_use_mkldnn"], "0")
+        self.assertEqual(os.environ["FLAGS_use_onednn"], "0")
 
     def test_frame_image_parser_name_only_mode_does_not_emit_score_or_timer(self):
         parser = self._name_parser()
