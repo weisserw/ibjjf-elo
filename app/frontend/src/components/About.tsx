@@ -28,7 +28,7 @@ function About() {
         </p>
         <p className="content">{t("If you would like a copy of our source data for research purposes, ")}{' '}
           <a href="https://www.instagram.com/jiujitsunet/" target="_blank" rel="noopener noreferrer">{t("contact us")}</a>{' '}
-          {t("and we'll be happy to help. You have permission to use data or screenshots from this site in articles, blog posts, and other media, but we ask that you credit JiuJitsu.net. Because of our free and open nature and the work put into this app, we ask that you refrain from using our data for other purposes without asking, especially the custom jiu-jitsu Elo ratings we calculate.")}
+          {t("and we'll be happy to help. You have permission to use data or screenshots from this site in articles, blog posts, and other media, but we ask that you credit JiuJitsu.net. All other uses of our data, including commercial use, is prohibited without an explicit license.")}
         </p>
         <h1 id="disclaimer" className="title">{t("Full Disclaimer")}</h1>
         <p className="content">
