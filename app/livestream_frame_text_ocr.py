@@ -35,6 +35,7 @@ SUPPORTED_SCORE_ENGINES = ("none", "fixed_digit")
 SUPPORTED_NAME_ENGINES = ("none", "tesseract", "paddle")
 SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
+SCORE_ONE_THREE_SIMILARITY_MARGIN = 0.03
 OCR_FONT_DIR = Path(__file__).resolve().parent / "ocr_fonts"
 NAME_COLUMN_RIGHT_RATIO = 0.481
 NAME_RENDERED_COLUMN_RIGHT_RATIO = 0.52
@@ -413,6 +414,14 @@ def _packed_jaccard(mask: int, pixel_count: int, template: DigitTemplate) -> flo
     return float(intersection / union) if union else 0.0
 
 
+def _score_mask_looks_like_one(mask) -> bool:
+    height, width = mask.shape
+    left_third = mask[:, : max(1, width // 3)]
+    lower_left = left_third[height // 2 :, :]
+    right_third = mask[:, width - max(1, width // 3) :]
+    return bool(lower_left.mean() < 0.05 and right_third.mean() > 0.55)
+
+
 class FixedDigitClassifier:
     def __init__(
         self,
@@ -510,7 +519,7 @@ class ScoreboardDigitReader:
         masks = _score_digit_masks(cell)
         if not masks:
             return DigitPrediction(None, 0.0, "none")
-        digit_predictions = [self.classifier.predict(mask) for mask in masks[:2]]
+        digit_predictions = [self._predict_score_digit(mask) for mask in masks[:2]]
         if any(prediction.digit is None for prediction in digit_predictions):
             return DigitPrediction(None, 0.0, "none")
         value = int("".join(str(prediction.digit) for prediction in digit_predictions))
@@ -519,6 +528,24 @@ class ScoreboardDigitReader:
         ) / len(digit_predictions)
         source = "+".join(prediction.source for prediction in digit_predictions)
         return DigitPrediction(value, similarity, source)
+
+    def _predict_score_digit(self, mask) -> DigitPrediction:
+        prediction = self.classifier.predict(mask)
+        if prediction.digit != 3 or not _score_mask_looks_like_one(mask):
+            return prediction
+
+        one_prediction = self.classifier.predict(mask, allowed_digits=frozenset((1,)))
+        if (
+            one_prediction.digit == 1
+            and one_prediction.similarity
+            >= prediction.similarity - SCORE_ONE_THREE_SIMILARITY_MARGIN
+        ):
+            return DigitPrediction(
+                1,
+                one_prediction.similarity,
+                f"{one_prediction.source}:score-one-shape",
+            )
+        return prediction
 
     @staticmethod
     def _reading_confidence(reading: ScoreboardDigitReading) -> float:
@@ -811,6 +838,51 @@ class FrameImageTextParser:
             if text.strip()
         ).strip()
 
+    def _paddle_name_texts(self, score_image, column_boxes):
+        if score_image is None or not hasattr(score_image, "crop"):
+            yield self._ocr(score_image)
+            return
+
+        boxes = [column_boxes[0]]
+        for box in column_boxes[1:]:
+            if box not in boxes:
+                boxes.append(box)
+
+        crops = [score_image.crop(box) for box in boxes]
+        for crop in crops:
+            yield self._ocr(crop)
+
+        for crop in crops:
+            prepared = self._prepare_paddle_retry_image(crop)
+            if prepared is not None:
+                yield self._ocr(prepared)
+
+    def _paddle_name_fields(self, score_image, column_boxes, *, compact_name_column):
+        first_text = ""
+        for text in self._paddle_name_texts(score_image, column_boxes):
+            if not first_text:
+                first_text = text
+            victory_fields = self._complete_athlete_name_fields(
+                self._parse_victory_names(text)
+            )
+            if victory_fields:
+                return text, victory_fields
+            fields = self._complete_athlete_name_fields(
+                self._parse_names(
+                    text,
+                    allow_two_line_fallback=compact_name_column,
+                    reject_lowercase_artifacts=compact_name_column,
+                )
+            )
+            if fields:
+                return text, fields
+        return first_text, {}
+
+    def _prepare_paddle_retry_image(self, image):
+        if image is None or ImageOps is None:
+            return None
+        return ImageOps.autocontrast(ImageOps.grayscale(image)).convert("RGB")
+
     @classmethod
     def _paddle_text_items(cls, result):
         if result is None:
@@ -909,19 +981,10 @@ class FrameImageTextParser:
         column_boxes = _name_column_boxes(score_image.size)
         compact_name_column = score_image.size[0] < 240 and len(column_boxes) > 1
         if self.name_engine == "paddle":
-            column_image = score_image.crop(column_boxes[0])
-            column_text = self._ocr(column_image)
-            victory_fields = self._complete_athlete_name_fields(
-                self._parse_victory_names(column_text)
-            )
-            if victory_fields:
-                return column_text, victory_fields
-            return column_text, self._complete_athlete_name_fields(
-                self._parse_names(
-                    column_text,
-                    allow_two_line_fallback=compact_name_column,
-                    reject_lowercase_artifacts=compact_name_column,
-                )
+            return self._paddle_name_fields(
+                score_image,
+                column_boxes,
+                compact_name_column=compact_name_column,
             )
 
         compact_top_name = None

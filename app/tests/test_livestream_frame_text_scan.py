@@ -1348,7 +1348,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(text, "TEST ATHLETE ALPHA")
         self.assertEqual(parser._paddle_ocr.calls, [("image", True)])
 
-    def test_paddle_parser_reads_name_column_once(self):
+    def test_paddle_parser_reads_name_column_once_when_text_detected(self):
         class FakeScoreImage:
             size = (500, 140)
 
@@ -1373,6 +1373,32 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
         parser._ocr.assert_called_once()
+
+    def test_paddle_parser_retries_incomplete_name_column_with_alternate_crop(self):
+        class FakeScoreImage:
+            size = (500, 140)
+
+            def crop(self, box):
+                return box
+
+        parser = self._name_parser(name_engine="paddle")
+        parser._ocr = mock.Mock(
+            side_effect=[
+                "TEST ATHLETE ALPHA",
+                "TEST ATHLETE ALPHA\n0 0 0\nTEST ATHLETE BETA\n2 0 0",
+            ]
+        )
+
+        _, fields = parser._ocr_name_fields(FakeScoreImage())
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "TEST ATHLETE ALPHA",
+                "bottom_athlete_name": "TEST ATHLETE BETA",
+            },
+        )
+        self.assertEqual(parser._ocr.call_count, 2)
 
     def test_paddle_parser_disables_mkldnn_and_uses_v5_models(self):
         created_kwargs = []
@@ -1890,6 +1916,17 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 {
                     "top_points": 0,
                     "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
+                "score_010_000.jpg",
+                {
+                    "top_points": 0,
+                    "top_advantages": 1,
                     "top_penalties": 0,
                     "bottom_points": 0,
                     "bottom_advantages": 0,
