@@ -1296,6 +1296,44 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         self.assertEqual(parser._parse_names("TEST ATHLETE ALPHA\n0 0 0"), {})
 
+    def test_paddle_parser_extracts_text_from_legacy_result_shape(self):
+        result = [
+            [
+                [[[0, 0], [100, 0], [100, 20], [0, 20]], ("TEST ATHLETE ALPHA", 0.91)],
+                [[[0, 30], [100, 30], [100, 50], [0, 50]], ("TEST ATHLETE BETA", 0.87)],
+            ]
+        ]
+
+        self.assertEqual(
+            text_ocr.FrameImageTextParser._paddle_text_items(result),
+            [("TEST ATHLETE ALPHA", 0.91), ("TEST ATHLETE BETA", 0.87)],
+        )
+
+    def test_paddle_parser_extracts_text_from_dict_result_shape(self):
+        result = {"rec_texts": ["TEST ATHLETE ALPHA", "TEST ATHLETE BETA"]}
+
+        self.assertEqual(
+            text_ocr.FrameImageTextParser._paddle_text_items(result),
+            [("TEST ATHLETE ALPHA", None), ("TEST ATHLETE BETA", None)],
+        )
+
+    def test_paddle_parser_uses_paddle_reader_for_name_ocr(self):
+        class FakePaddleReader:
+            def __init__(self):
+                self.calls = []
+
+            def ocr(self, image, cls=True):
+                self.calls.append((image, cls))
+                return [[[[0, 0], [1, 0], [1, 1], [0, 1]], ("TEST ATHLETE ALPHA", 0.9)]]
+
+        parser = self._name_parser(name_engine="paddle")
+        parser._paddle_ocr = FakePaddleReader()
+
+        text = parser._ocr("image")
+
+        self.assertEqual(text, "TEST ATHLETE ALPHA")
+        self.assertEqual(parser._paddle_ocr.calls, [("image", True)])
+
     def test_frame_image_parser_name_only_mode_does_not_emit_score_or_timer(self):
         parser = self._name_parser()
         parser.parser_profile = "auto"

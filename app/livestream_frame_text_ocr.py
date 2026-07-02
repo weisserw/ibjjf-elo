@@ -27,7 +27,7 @@ except ImportError:  # pragma: no cover - validated before worker scans run.
 
 
 SUPPORTED_SCORE_ENGINES = ("none", "fixed_digit")
-SUPPORTED_NAME_ENGINES = ("none", "tesseract")
+SUPPORTED_NAME_ENGINES = ("none", "tesseract", "paddle")
 SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
 OCR_FONT_DIR = Path(__file__).resolve().parent / "ocr_fonts"
@@ -693,11 +693,14 @@ class FrameImageTextParser:
         self.name_engine = name_engine
         self._score_timer_cache = {}
         self._name_cache = {}
+        self._paddle_ocr = None
         score_enabled = score_engine not in (None, "none")
         self.score_reader = ScoreboardDigitReader() if score_enabled else None
         self.timer_reader = TimerDigitReader() if score_enabled else None
-        if name_engine not in (None, "none"):
+        if name_engine == "tesseract":
             import pytesseract  # noqa: F401
+        elif name_engine == "paddle":
+            import paddleocr  # noqa: F401
 
     @staticmethod
     def _image_cache_key(image_bytes):
@@ -722,9 +725,102 @@ class FrameImageTextParser:
     def _ocr(self, image, config: str = "") -> str:
         if image is None:
             return ""
+        if self.name_engine == "paddle":
+            return self._paddle_image_to_string(image)
         import pytesseract
 
         return pytesseract.image_to_string(image, config=config).strip()
+
+    def _paddle_reader(self):
+        reader = getattr(self, "_paddle_ocr", None)
+        if reader is not None:
+            return reader
+
+        from paddleocr import PaddleOCR
+
+        init_kwargs_options = (
+            {
+                "lang": "en",
+                "use_doc_orientation_classify": False,
+                "use_doc_unwarping": False,
+                "use_textline_orientation": True,
+            },
+            {"use_angle_cls": True, "lang": "en"},
+            {"lang": "en"},
+        )
+        for kwargs in init_kwargs_options:
+            try:
+                reader = PaddleOCR(**kwargs)
+                break
+            except (TypeError, ValueError):
+                reader = None
+        if reader is None:
+            reader = PaddleOCR()
+        self._paddle_ocr = reader
+        return reader
+
+    def _paddle_image_to_string(self, image) -> str:
+        if image is None:
+            return ""
+        if Image is not None and hasattr(image, "convert"):
+            image = image.convert("RGB")
+        ocr_input = (
+            np.asarray(image) if np is not None and hasattr(image, "size") else image
+        )
+        reader = self._paddle_reader()
+        try:
+            result = reader.ocr(ocr_input, cls=True)
+        except (TypeError, ValueError):
+            result = reader.ocr(ocr_input)
+        return "\n".join(
+            text
+            for text, _confidence in self._paddle_text_items(result)
+            if text.strip()
+        ).strip()
+
+    @classmethod
+    def _paddle_text_items(cls, result):
+        if result is None:
+            return []
+        if isinstance(result, dict):
+            if "rec_texts" in result:
+                texts = result.get("rec_texts") or []
+                scores = result.get("rec_scores") or []
+                return [
+                    (str(text), scores[index] if index < len(scores) else None)
+                    for index, text in enumerate(texts)
+                    if text
+                ]
+            if isinstance(result.get("text"), str):
+                return [
+                    (
+                        result["text"],
+                        result.get("score", result.get("confidence")),
+                    )
+                ]
+            items = []
+            for value in result.values():
+                items.extend(cls._paddle_text_items(value))
+            return items
+        if isinstance(result, (list, tuple)):
+            if (
+                len(result) >= 2
+                and isinstance(result[0], str)
+                and isinstance(result[1], (int, float))
+            ):
+                return [(result[0], result[1])]
+            if (
+                len(result) >= 2
+                and isinstance(result[1], (list, tuple))
+                and len(result[1]) >= 2
+                and isinstance(result[1][0], str)
+            ):
+                return [(result[1][0], result[1][1])]
+            items = []
+            for value in result:
+                items.extend(cls._paddle_text_items(value))
+            return items
+        return []
 
     def _prepare_name_ocr_image(self, image):
         if image is None:
@@ -1330,6 +1426,17 @@ def validate_ocr_engines(score_engine: str, name_engine: str | None):
             raise RuntimeError("tesseract name engine requires pytesseract and pillow")
         if not shutil.which("tesseract"):
             raise RuntimeError("tesseract name engine requires the tesseract binary")
+    elif name_engine == "paddle":
+        try:
+            import paddleocr  # noqa: F401
+        except ImportError as exc:
+            raise RuntimeError(
+                "paddle name engine requires paddleocr and paddlepaddle"
+            ) from exc
+        if Image is None or np is None:
+            raise RuntimeError(
+                "paddle name engine requires paddleocr, numpy, and pillow"
+            )
 
 
 def build_parser(parser_profile: str, score_engine: str, name_engine: str | None):
