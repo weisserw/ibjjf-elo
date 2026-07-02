@@ -43,6 +43,7 @@ MIN_SCORE_MARGIN = 8.0
 MIN_RESET_NAME_CONFIDENCE = 0.9
 LOOKAHEAD_MATCHES = 8
 TIME_MATCH_WINDOW_SECONDS = 20 * 60
+CONTINUATION_TIME_WINDOW_SECONDS = 3 * 60
 
 
 @dataclass
@@ -397,6 +398,69 @@ def choose_match_for_window(
     if second_score and best.score - second_score < MIN_SCORE_MARGIN:
         return _sequential_choice_for_ambiguous_window(window, choices, cursor)
     return best
+
+
+def _continuation_time_delta(window: MatchWindow, candidate: Candidate) -> int | None:
+    if (
+        window.video_start_offset_seconds is None
+        or candidate.match.video_start_offset_seconds is None
+    ):
+        return None
+    return (
+        window.video_start_offset_seconds - candidate.match.video_start_offset_seconds
+    )
+
+
+def _continuation_is_time_aligned(window: MatchWindow, candidate: Candidate) -> bool:
+    expected_delta = _candidate_time_delta(window, candidate)
+    if expected_delta is not None and abs(expected_delta) <= TIME_MATCH_WINDOW_SECONDS:
+        return True
+    stored_delta = _continuation_time_delta(window, candidate)
+    return (
+        stored_delta is not None
+        and 0 <= stored_delta <= CONTINUATION_TIME_WINDOW_SECONDS
+    )
+
+
+def choose_continuation_for_window(
+    window: MatchWindow,
+    candidates: list[Candidate],
+    cursor: int,
+    used_match_ids: set | None = None,
+) -> MatchChoice | None:
+    if not window.has_running_timer:
+        return None
+    used_match_ids = used_match_ids or set()
+    raw_choices = []
+    for candidate in candidates:
+        choice = _choice_for_candidate(window, candidate)
+        raw_choices.append(choice)
+    raw_choices.sort(key=lambda item: item.raw_score, reverse=True)
+    if not raw_choices:
+        return None
+
+    best = raw_choices[0]
+    second_score = raw_choices[1].raw_score if len(raw_choices) > 1 else 0.0
+    if best.candidate.match.id not in used_match_ids:
+        return None
+    if best.raw_score < MIN_NAME_SCORE:
+        return None
+    if second_score and best.raw_score - second_score < MIN_SCORE_MARGIN:
+        return None
+    if best.candidate.order_index != cursor - 1 and not _continuation_is_time_aligned(
+        window, best.candidate
+    ):
+        return None
+
+    time_delta = _candidate_time_delta(window, best.candidate)
+    return MatchChoice(
+        candidate=best.candidate,
+        score=best.raw_score,
+        top_participant=best.top_participant,
+        bottom_participant=best.bottom_participant,
+        raw_score=best.raw_score,
+        time_delta_seconds=time_delta,
+    )
 
 
 def _sequential_choice_for_ambiguous_window(
@@ -929,9 +993,16 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
         cursor_before = cursor
         choices = _candidate_choices(window, candidates, cursor, used_match_ids)
         choice = choose_match_for_window(window, candidates, cursor, used_match_ids)
+        continuation = False
+        if not choice:
+            choice = choose_continuation_for_window(
+                window, candidates, cursor, used_match_ids
+            )
+            continuation = choice is not None
         if choice:
-            cursor = max(cursor, choice.candidate.order_index + 1)
-            used_match_ids.add(choice.candidate.match.id)
+            if not continuation:
+                cursor = max(cursor, choice.candidate.order_index + 1)
+                used_match_ids.add(choice.candidate.match.id)
             linked += 1
         decisions.append(
             {
@@ -946,6 +1017,7 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
                 "has_running_timer": window.has_running_timer,
                 "final_score": _final_score_dict(window.final_state),
                 "matched": _choice_debug(choice) if choice else None,
+                "continuation": continuation,
                 "rejection_reason": _rejection_reason(window, choices, choice),
                 "top_candidates": [_choice_debug(item) for item in choices[:5]],
             }
@@ -959,16 +1031,23 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
     )
 
 
-def _store_choice(session, window: MatchWindow, choice: MatchChoice) -> None:
+def _store_choice(
+    session,
+    window: MatchWindow,
+    choice: MatchChoice,
+    update_start_offset: bool = True,
+) -> None:
     match = choice.candidate.match
-    match.video_start_offset_seconds = window.video_start_offset_seconds
-    match.final_match_time_seconds = window.final_timer_seconds
-    match.final_top_points = window.final_state.top_points
-    match.final_top_advantages = window.final_state.top_advantages
-    match.final_top_penalties = window.final_state.top_penalties
-    match.final_bottom_points = window.final_state.bottom_points
-    match.final_bottom_advantages = window.final_state.bottom_advantages
-    match.final_bottom_penalties = window.final_state.bottom_penalties
+    if update_start_offset:
+        match.video_start_offset_seconds = window.video_start_offset_seconds
+    if update_start_offset or window.final_timer_seconds is not None:
+        match.final_match_time_seconds = window.final_timer_seconds
+        match.final_top_points = window.final_state.top_points
+        match.final_top_advantages = window.final_state.top_advantages
+        match.final_top_penalties = window.final_state.top_penalties
+        match.final_bottom_points = window.final_state.bottom_points
+        match.final_bottom_advantages = window.final_state.bottom_advantages
+        match.final_bottom_penalties = window.final_state.bottom_penalties
 
     choice.top_participant.scoreboard_position = "top"
     choice.bottom_participant.scoreboard_position = "bottom"
@@ -1009,12 +1088,24 @@ def link_completed_text_scan(
     used_match_ids = set()
     for window in windows:
         choice = choose_match_for_window(window, candidates, cursor, used_match_ids)
+        continuation = False
+        if not choice:
+            choice = choose_continuation_for_window(
+                window, candidates, cursor, used_match_ids
+            )
+            continuation = choice is not None
         if not choice:
             continue
         if not dry_run:
-            _store_choice(session, window, choice)
-        cursor = max(cursor, choice.candidate.order_index + 1)
-        used_match_ids.add(choice.candidate.match.id)
+            _store_choice(
+                session,
+                window,
+                choice,
+                update_start_offset=not continuation,
+            )
+        if not continuation:
+            cursor = max(cursor, choice.candidate.order_index + 1)
+            used_match_ids.add(choice.candidate.match.id)
         linked += 1
     return SimpleNamespace(
         linked=linked,
