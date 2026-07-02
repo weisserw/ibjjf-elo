@@ -1028,6 +1028,19 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             (
                 "\n".join(
                     [
+                        "Carlos",
+                        "Wagner Rosa Pereira",
+                        "Nova União",
+                        "Ethan Roy Major",
+                        "Jiu-Jitsu For Life Team",
+                    ]
+                ),
+                "Carlos Wagner Rosa Pereira",
+                "Ethan Roy Major",
+            ),
+            (
+                "\n".join(
+                    [
                         "Miranda Galban",
                         "Nexo Jiu-Jitsu",
                         "Yamé Cherici",
@@ -1334,6 +1347,32 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         self.assertEqual(text, "TEST ATHLETE ALPHA")
         self.assertEqual(parser._paddle_ocr.calls, [("image", True)])
+
+    def test_paddle_parser_reads_name_column_once(self):
+        class FakeScoreImage:
+            size = (500, 140)
+
+            def crop(self, box):
+                return box
+
+        parser = self._name_parser(name_engine="paddle")
+        parser._prepare_name_ocr_image = mock.Mock(
+            side_effect=AssertionError("unexpected name OCR preprocessing")
+        )
+        parser._ocr = mock.Mock(
+            return_value="TEST ATHLETE ALPHA\n0 0 0\nTEST ATHLETE BETA\n2 0 0"
+        )
+
+        _, fields = parser._ocr_name_fields(FakeScoreImage())
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "TEST ATHLETE ALPHA",
+                "bottom_athlete_name": "TEST ATHLETE BETA",
+            },
+        )
+        parser._ocr.assert_called_once()
 
     def test_paddle_parser_disables_mkldnn_and_uses_v5_models(self):
         created_kwargs = []

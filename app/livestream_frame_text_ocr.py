@@ -5,6 +5,7 @@ import io
 import os
 import re
 import shutil
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -907,6 +908,22 @@ class FrameImageTextParser:
         column_fields = {}
         column_boxes = _name_column_boxes(score_image.size)
         compact_name_column = score_image.size[0] < 240 and len(column_boxes) > 1
+        if self.name_engine == "paddle":
+            column_image = score_image.crop(column_boxes[0])
+            column_text = self._ocr(column_image)
+            victory_fields = self._complete_athlete_name_fields(
+                self._parse_victory_names(column_text)
+            )
+            if victory_fields:
+                return column_text, victory_fields
+            return column_text, self._complete_athlete_name_fields(
+                self._parse_names(
+                    column_text,
+                    allow_two_line_fallback=compact_name_column,
+                    reject_lowercase_artifacts=compact_name_column,
+                )
+            )
+
         compact_top_name = None
         for index, box in enumerate(column_boxes):
             column_image = self._prepare_name_ocr_image(score_image.crop(box))
@@ -1232,7 +1249,11 @@ class FrameImageTextParser:
 
     @staticmethod
     def _looks_like_team_line(line: str) -> bool:
-        normalized = re.sub(r"[^a-z0-9]+", " ", line.lower()).strip()
+        normalized = unicodedata.normalize("NFKD", line)
+        normalized = "".join(
+            char for char in normalized if not unicodedata.combining(char)
+        )
+        normalized = re.sub(r"[^a-z0-9]+", " ", normalized.lower()).strip()
         team_terms = (
             "academy",
             "alliance",
