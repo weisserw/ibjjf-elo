@@ -576,14 +576,14 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "successful frame archives"):
             text_scan.queue_text_scan(db.session, archive)
 
-    def test_queue_text_scan_defaults_name_engine_to_tesseract(self):
+    def test_queue_text_scan_defaults_name_engine_to_paddle(self):
         archive, _ = self._archive_with_segments()
 
         text_scan.queue_text_scan(db.session, archive)
         db.session.commit()
 
         scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
-        self.assertEqual(scan.name_engine, "tesseract")
+        self.assertEqual(scan.name_engine, "paddle")
 
     def test_queue_and_claim_segments_sequentially(self):
         archive, _ = self._archive_with_segments()
@@ -780,10 +780,10 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser.name_engine = name_engine
         return parser
 
-    def test_parse_args_defaults_name_engine_to_tesseract(self):
+    def test_parse_args_defaults_name_engine_to_paddle(self):
         args = runner.parse_args([])
 
-        self.assertEqual(args.name_engine, "tesseract")
+        self.assertEqual(args.name_engine, "paddle")
         self.assertEqual(args.score_engine, "fixed_digit")
 
     def test_run_with_segment_id_rescans_specific_segment(self):

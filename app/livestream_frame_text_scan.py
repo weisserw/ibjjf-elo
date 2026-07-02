@@ -41,7 +41,7 @@ TEXT_SCAN_SEGMENT_STATUSES = (
 DEFAULT_COARSE_INTERVAL_SECONDS = 60
 DEFAULT_PARSER_PROFILE = "auto"
 DEFAULT_SCORE_ENGINE = "fixed_digit"
-DEFAULT_NAME_ENGINE = "tesseract"
+DEFAULT_NAME_ENGINE = "paddle"
 SCORE_FIELDS = (
     "top_points",
     "top_advantages",
