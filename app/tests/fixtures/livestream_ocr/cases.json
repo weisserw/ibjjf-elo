@@ -91,7 +91,7 @@
       "bottom_points": 0,
       "bottom_advantages": 1,
       "bottom_penalties": 0,
-      "timer_state": "running",
+      "timer_state": "stopped",
       "timer_value": "0:00"
     }
   },

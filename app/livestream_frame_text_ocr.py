@@ -36,6 +36,7 @@ SUPPORTED_NAME_ENGINES = ("none", "tesseract", "paddle")
 SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
 SCORE_ONE_THREE_SIMILARITY_MARGIN = 0.03
+SCORE_THREE_EIGHT_SIMILARITY_MARGIN = 0.015
 OCR_FONT_DIR = Path(__file__).resolve().parent / "ocr_fonts"
 NAME_COLUMN_RIGHT_RATIO = 0.481
 NAME_RENDERED_COLUMN_RIGHT_RATIO = 0.52
@@ -89,6 +90,14 @@ class ScoreboardDigitReading:
     digits: tuple[int, int, int, int, int, int] | None
     predictions: tuple[DigitPrediction, ...]
     has_layout: bool
+
+
+@dataclass(frozen=True)
+class ScoreDigitMask:
+    mask: object
+    x: int
+    width: int
+    image_width: int
 
 
 @dataclass(frozen=True)
@@ -313,6 +322,10 @@ def _score_digit_mask(image):
 
 
 def _score_digit_masks(image):
+    return tuple(entry.mask for entry in _score_digit_mask_entries(image))
+
+
+def _score_digit_mask_entries(image):
     threshold = _score_digit_threshold(image)
     components, labels = _digit_components(threshold, min_area=20)
     min_height = max(8, int(image.height * 0.35))
@@ -333,7 +346,14 @@ def _score_digit_masks(image):
             if height >= int(image.height * 0.85) or width >= int(image.width * 0.55):
                 continue
         component_mask = labels[y : y + height, x : x + width] == component_index
-        masks.append(_normalize_mask(component_mask, SCORE_TEMPLATE_SIZE))
+        masks.append(
+            ScoreDigitMask(
+                _normalize_mask(component_mask, SCORE_TEMPLATE_SIZE),
+                x,
+                width,
+                image.width,
+            )
+        )
     return tuple(masks)
 
 
@@ -427,6 +447,19 @@ def _score_mask_looks_like_one(mask) -> bool:
     lower_left = left_third[height // 2 :, :]
     right_third = mask[:, width - max(1, width // 3) :]
     return bool(lower_left.mean() < 0.05 and right_third.mean() > 0.55)
+
+
+def _score_mask_looks_like_three(mask) -> bool:
+    height, width = mask.shape
+    left_third = mask[:, : max(1, width // 3)]
+    middle_left = left_third[height // 3 : (height * 2) // 3, :]
+    lower_left = left_third[height // 2 :, :]
+    right_third = mask[:, width - max(1, width // 3) :]
+    return bool(
+        middle_left.mean() < 0.08
+        and lower_left.mean() > 0.30
+        and right_third.mean() > 0.65
+    )
 
 
 class FixedDigitClassifier:
@@ -523,10 +556,13 @@ class ScoreboardDigitReader:
         )
 
     def _predict_score_cell(self, cell) -> DigitPrediction:
-        masks = _score_digit_masks(cell)
-        if not masks:
+        mask_entries = _score_digit_mask_entries(cell)
+        if not mask_entries:
             return DigitPrediction(None, 0.0, "none")
-        digit_predictions = [self._predict_score_digit(mask) for mask in masks[:2]]
+        digit_predictions = [
+            self._predict_score_digit_entry(entry, len(mask_entries))
+            for entry in mask_entries[:2]
+        ]
         if any(prediction.digit is None for prediction in digit_predictions):
             return DigitPrediction(None, 0.0, "none")
         value = int("".join(str(prediction.digit) for prediction in digit_predictions))
@@ -536,8 +572,38 @@ class ScoreboardDigitReader:
         source = "+".join(prediction.source for prediction in digit_predictions)
         return DigitPrediction(value, similarity, source)
 
+    def _predict_score_digit_entry(
+        self, entry: ScoreDigitMask, mask_count: int
+    ) -> DigitPrediction:
+        prediction = self._predict_score_digit(entry.mask)
+        if (
+            mask_count > 1
+            and entry.x == 0
+            and entry.width <= int(entry.image_width * 0.18)
+        ):
+            return DigitPrediction(
+                1,
+                prediction.similarity,
+                f"{prediction.source}:score-leading-one-edge",
+            )
+        return prediction
+
     def _predict_score_digit(self, mask) -> DigitPrediction:
         prediction = self.classifier.predict(mask)
+        if prediction.digit == 8 and _score_mask_looks_like_three(mask):
+            three_prediction = self.classifier.predict(
+                mask, allowed_digits=frozenset((3,))
+            )
+            if (
+                three_prediction.digit == 3
+                and three_prediction.similarity
+                >= prediction.similarity - SCORE_THREE_EIGHT_SIMILARITY_MARGIN
+            ):
+                return DigitPrediction(
+                    3,
+                    three_prediction.similarity,
+                    f"{three_prediction.source}:score-three-shape",
+                )
         if prediction.digit != 3 or not _score_mask_looks_like_one(mask):
             return prediction
 
@@ -730,6 +796,8 @@ class TimerDigitReader:
             value = f"{minutes}:{digits[2]}{digits[3]}"
         else:
             return TimerDigitReading("blank", None, tuple(predictions))
+        if value == "0:00":
+            state = "stopped"
         return TimerDigitReading(state, value, tuple(predictions))
 
 

@@ -1788,6 +1788,19 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         self.assertEqual(reading.value, "10:00")
         self.assertEqual(reading.predictions[0].digit, 1)
 
+    def test_new_timer_0000_reads_as_stopped(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        timer_path = os.path.join(self.fixture_dir, "new_timer_0000.jpg")
+        reader = text_ocr.TimerDigitReader()
+
+        with open(timer_path, "rb") as fileobj:
+            image = text_ocr.Image.open(fileobj).convert("RGB")
+
+        reading = reader.read(image)
+
+        self.assertEqual(reading.state, "stopped")
+        self.assertEqual(reading.value, "0:00")
+
     def test_old_stopped_timer_600_ignores_scoreboard_frame(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         timer_path = os.path.join(self.fixture_dir, "timer_stopped_600.jpg")
@@ -1997,6 +2010,50 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     "bottom_points": 0,
                     "bottom_advantages": 0,
                     "bottom_penalties": 0,
+                },
+            ),
+            (
+                "new_score_010_1020.jpg",
+                {
+                    "top_points": 0,
+                    "top_advantages": 1,
+                    "top_penalties": 0,
+                    "bottom_points": 10,
+                    "bottom_advantages": 2,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
+                "new_score_010_1820.jpg",
+                {
+                    "top_points": 0,
+                    "top_advantages": 1,
+                    "top_penalties": 0,
+                    "bottom_points": 18,
+                    "bottom_advantages": 2,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
+                "new_score_230_230.jpg",
+                {
+                    "top_points": 2,
+                    "top_advantages": 3,
+                    "top_penalties": 0,
+                    "bottom_points": 2,
+                    "bottom_advantages": 3,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
+                "new_score_230_431.jpg",
+                {
+                    "top_points": 2,
+                    "top_advantages": 3,
+                    "top_penalties": 0,
+                    "bottom_points": 4,
+                    "bottom_advantages": 3,
+                    "bottom_penalties": 1,
                 },
             ),
             (
