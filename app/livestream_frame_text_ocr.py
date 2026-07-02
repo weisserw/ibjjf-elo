@@ -13,17 +13,20 @@ from livestream_frame_text_scan import (
     SCOREBOARD_STATE_VISIBLE,
 )
 
+_VISION_IMPORT_ERROR = None
+
 try:
     import cv2
     import numpy as np
     from PIL import Image, ImageDraw, ImageFont, ImageOps
-except ImportError:  # pragma: no cover - validated before worker scans run.
+except ImportError as exc:  # pragma: no cover - validated before worker scans run.
     cv2 = None
     np = None
     Image = None
     ImageDraw = None
     ImageFont = None
     ImageOps = None
+    _VISION_IMPORT_ERROR = exc
 
 
 SUPPORTED_SCORE_ENGINES = ("none", "fixed_digit")
@@ -93,9 +96,10 @@ def _require_fixed_digit_dependencies():
         or ImageDraw is None
         or ImageFont is None
     ):
-        raise RuntimeError(
-            "fixed_digit score engine requires opencv-python, numpy, and pillow"
-        )
+        message = "fixed_digit score engine requires opencv-python, numpy, and pillow"
+        if _VISION_IMPORT_ERROR is not None:
+            message = f"{message}; import error: {_VISION_IMPORT_ERROR}"
+        raise RuntimeError(message)
 
 
 def _score_cell_boxes(

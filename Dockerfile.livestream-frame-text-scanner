@@ -8,7 +8,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         ca-certificates \
+        libgl1 \
+        libglib2.0-0 \
         libpq-dev \
+        libsm6 \
+        libxext6 \
         tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
