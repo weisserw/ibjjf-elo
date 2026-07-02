@@ -995,6 +995,14 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
 
+    def test_name_parser_keeps_accented_four_token_names(self):
+        parser = self._name_parser()
+
+        self.assertEqual(
+            parser._clean_name_line("JOÄO MANOEL DOS SA..."),
+            "JOÄO MANOEL DOS SA",
+        )
+
     def test_tesseract_parser_uses_blank_lines_as_name_boundaries(self):
         parser = self._name_parser()
 
@@ -1331,6 +1339,55 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             [("TEST ATHLETE ALPHA", None), ("TEST ATHLETE BETA", None)],
         )
 
+    def test_paddle_parser_groups_boxed_text_by_scoreboard_rows(self):
+        class FakeScoreImage:
+            size = (480, 216)
+
+            def crop(self, box):
+                return box
+
+        parser = self._name_parser(name_engine="paddle")
+        parser._paddle_ocr_result = mock.Mock(
+            return_value={
+                "rec_texts": [
+                    "CHRISTIAN MACEDO V. ...",
+                    "G13 BJJ",
+                    "MATEUS VICTOR OLIVE..",
+                    "RYAN GRACIE TEAM",
+                ],
+                "rec_scores": [0.95, 0.98, 0.94, 0.97],
+                "rec_boxes": [
+                    [14, 14, 218, 31],
+                    [12, 36, 66, 49],
+                    [15, 107, 219, 125],
+                    [15, 128, 174, 140],
+                ],
+            }
+        )
+
+        _, fields = parser._ocr_name_fields(FakeScoreImage())
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "CHRISTIAN MACEDO",
+                "bottom_athlete_name": "MATEUS VICTOR OLIVE",
+            },
+        )
+        parser._paddle_ocr_result.assert_called_once()
+
+    def test_paddle_item_name_cleanup_only_drops_clipped_trailing_initials(self):
+        parser = self._name_parser(name_engine="paddle")
+
+        self.assertEqual(
+            parser._name_from_paddle_item_text("CHRISTIAN MACEDO V. ..."),
+            "CHRISTIAN MACEDO",
+        )
+        self.assertEqual(
+            parser._name_from_paddle_item_text("GUSTAVO HENRIQUE B."),
+            "GUSTAVO HENRIQUE B",
+        )
+
     def test_paddle_parser_uses_paddle_reader_for_name_ocr(self):
         class FakePaddleReader:
             def __init__(self):
@@ -1356,6 +1413,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                 return box
 
         parser = self._name_parser(name_engine="paddle")
+        parser._paddle_box_name_fields = mock.Mock(return_value=("", {}))
         parser._prepare_name_ocr_image = mock.Mock(
             side_effect=AssertionError("unexpected name OCR preprocessing")
         )
@@ -1382,6 +1440,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                 return box
 
         parser = self._name_parser(name_engine="paddle")
+        parser._paddle_box_name_fields = mock.Mock(return_value=("", {}))
         parser._ocr = mock.Mock(
             side_effect=[
                 "TEST ATHLETE ALPHA",
@@ -1399,6 +1458,40 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
         self.assertEqual(parser._ocr.call_count, 2)
+
+    def test_paddle_parser_falls_back_to_row_crops_when_column_text_has_teams(self):
+        class FakeScoreImage:
+            size = (480, 216)
+
+            def crop(self, box):
+                return box
+
+        parser = self._name_parser(name_engine="paddle")
+        parser._paddle_box_name_fields = mock.Mock(return_value=("", {}))
+        parser._prepare_paddle_retry_image = lambda image: ("retry", image)
+        parser._ocr = mock.Mock(
+            side_effect=[
+                "CHRISTIAN MACEDO V. ...\n"
+                "G13 BJJ\n"
+                "MATEUS VICTOR OLIVE..\n"
+                "RYAN GRACIE TEAM",
+                "",
+                "",
+                "",
+                "CHRISTIAN MACEDO V. ..",
+                "MATEUS VICTOR OLIVE..",
+            ]
+        )
+
+        _, fields = parser._ocr_name_fields(FakeScoreImage())
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "CHRISTIAN MACEDO",
+                "bottom_athlete_name": "MATEUS VICTOR OLIVE",
+            },
+        )
 
     def test_paddle_parser_disables_mkldnn_and_uses_v5_models(self):
         created_kwargs = []
@@ -1858,6 +1951,49 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "score_small_names3.jpg",
                 "WILKLER SANTOS MAR",
                 "ETHAN ROY MAJOR",
+            ),
+        ]
+
+        for score_image, top_name, bottom_name in cases:
+            with self.subTest(score_image=score_image):
+                score_path = os.path.join(self.fixture_dir, score_image)
+                self.assertTrue(
+                    os.path.exists(score_path),
+                    f"missing livestream OCR score fixture: {score_image}",
+                )
+                with open(score_path, "rb") as fileobj:
+                    reading = parser.parse(0, fileobj.read(), None)
+
+                self.assertEqual(reading.top_athlete_name, top_name)
+                self.assertEqual(reading.bottom_athlete_name, bottom_name)
+
+    def test_paddle_name_fixture_names(self):
+        try:
+            text_ocr.validate_ocr_engines("none", "paddle")
+        except RuntimeError as exc:
+            self.skipTest(str(exc))
+
+        parser = text_ocr.FrameImageTextParser("auto", "none", "paddle")
+        cases = [
+            (
+                "paddle_names.jpg",
+                "VITOR CABRIEL NASCL",
+                "GUSTAVO HENRIQUE B",
+            ),
+            (
+                "paddle_names2.jpg",
+                "VITOR GABRIEL NASCL",
+                "GUISTAVO HENRIQUE B",
+            ),
+            (
+                "paddle_names3.jpg",
+                "PEDRO HENRIQUE BRIT",
+                "JOÄO MANOEL DOS SA",
+            ),
+            (
+                "paddle_names4.jpg",
+                "CHRISTIAN MACEDO",
+                "MATEUS VICTOR OLIVE",
             ),
         ]
 

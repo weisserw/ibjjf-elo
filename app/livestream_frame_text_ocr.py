@@ -98,6 +98,13 @@ class TimerDigitReading:
     predictions: tuple[DigitPrediction, ...]
 
 
+@dataclass(frozen=True)
+class PaddleTextItem:
+    text: str
+    confidence: float | None
+    box: tuple[float, float, float, float] | None = None
+
+
 def _require_fixed_digit_dependencies():
     if (
         cv2 is None
@@ -819,9 +826,9 @@ class FrameImageTextParser:
         self._paddle_ocr = reader
         return reader
 
-    def _paddle_image_to_string(self, image) -> str:
+    def _paddle_ocr_result(self, image):
         if image is None:
-            return ""
+            return None
         if Image is not None and hasattr(image, "convert"):
             image = image.convert("RGB")
         ocr_input = (
@@ -832,6 +839,10 @@ class FrameImageTextParser:
             result = reader.ocr(ocr_input, cls=True)
         except (TypeError, ValueError):
             result = reader.ocr(ocr_input)
+        return result
+
+    def _paddle_image_to_string(self, image) -> str:
+        result = self._paddle_ocr_result(image)
         return "\n".join(
             text
             for text, _confidence in self._paddle_text_items(result)
@@ -858,6 +869,12 @@ class FrameImageTextParser:
                 yield self._ocr(prepared)
 
     def _paddle_name_fields(self, score_image, column_boxes, *, compact_name_column):
+        box_text, box_fields = self._paddle_box_name_fields(
+            score_image, column_boxes[0]
+        )
+        if box_fields:
+            return box_text, box_fields
+
         first_text = ""
         for text in self._paddle_name_texts(score_image, column_boxes):
             if not first_text:
@@ -876,7 +893,115 @@ class FrameImageTextParser:
             )
             if fields:
                 return text, fields
+        row_text, row_fields = self._paddle_row_name_fields(score_image)
+        if row_fields:
+            return (
+                "\n".join(part for part in (first_text, row_text) if part),
+                row_fields,
+            )
         return first_text, {}
+
+    def _paddle_row_name_fields(self, score_image) -> tuple[str, dict]:
+        if score_image is None or not hasattr(score_image, "crop"):
+            return "", {}
+
+        row_fields = {}
+        row_texts = []
+        for field_name, box in zip(
+            ("top_athlete_name", "bottom_athlete_name"),
+            _name_line_boxes(score_image.size),
+        ):
+            crop = score_image.crop(box)
+            name_candidates = []
+            for image in (crop, self._prepare_paddle_retry_image(crop)):
+                if image is None:
+                    continue
+                text = self._ocr(image)
+                if text:
+                    row_texts.append(text)
+                name_candidate = self._name_from_row_text(text)
+                if name_candidate:
+                    name_candidates.append(name_candidate)
+                    if not self._needs_name_retry(name_candidate):
+                        break
+            if name_candidates:
+                row_fields[field_name] = max(
+                    name_candidates, key=self._name_candidate_score
+                )
+
+        return "\n".join(row_texts), self._complete_athlete_name_fields(row_fields)
+
+    def _paddle_box_name_fields(self, score_image, column_box) -> tuple[str, dict]:
+        if score_image is None or not hasattr(score_image, "crop"):
+            return "", {}
+
+        crop = score_image.crop(column_box)
+        result = self._paddle_ocr_result(crop)
+        items = [
+            item
+            for item in self._paddle_text_items_with_boxes(result)
+            if item.text.strip() and item.box is not None
+        ]
+        if not items:
+            return "", {}
+
+        items.sort(key=lambda item: (item.box[1], item.box[0]))
+        text = "\n".join(item.text for item in items)
+        row_items = {
+            "top_athlete_name": [],
+            "bottom_athlete_name": [],
+        }
+        row_boundary = score_image.size[1] * NAME_ROW_Y_EDGES[1]
+        column_top = column_box[1]
+        for item in items:
+            y_center = column_top + (item.box[1] + item.box[3]) / 2
+            if y_center < row_boundary:
+                row_items["top_athlete_name"].append(item)
+            else:
+                row_items["bottom_athlete_name"].append(item)
+
+        fields = {}
+        for field_name, candidates in row_items.items():
+            name = self._best_paddle_row_name(candidates)
+            if name:
+                fields[field_name] = name
+        return text, self._complete_athlete_name_fields(fields)
+
+    def _best_paddle_row_name(self, items: list[PaddleTextItem]) -> str | None:
+        candidates = []
+        for item in items:
+            name = self._name_from_paddle_item_text(item.text)
+            if not name:
+                continue
+            candidates.append((name, self._looks_like_team_line(name)))
+        if not candidates:
+            return None
+        return max(
+            candidates,
+            key=lambda candidate: (
+                not candidate[1],
+                self._name_candidate_score(candidate[0]),
+            ),
+        )[0]
+
+    def _name_from_paddle_item_text(self, text: str) -> str | None:
+        line = self._clean_text_line(text)
+        if line is None:
+            return None
+        tokens = line.split()
+        if len(tokens) >= 3:
+            last_letters = re.sub(r"[^\w]|[\d_]", "", tokens[-1])
+            if len(last_letters) == 1 and re.search(r"\.{2,}\s*$", text):
+                line = " ".join(tokens[:-1])
+                tokens = line.split()
+        substantial_tokens = [
+            token for token in tokens if len(re.sub(r"[^\w]|[\d_]", "", token)) >= 2
+        ]
+        if len(substantial_tokens) < 2:
+            return None
+        if self._looks_like_junk_name_line(line):
+            return None
+        return line
 
     def _prepare_paddle_retry_image(self, image):
         if image is None or ImageOps is None:
@@ -885,27 +1010,44 @@ class FrameImageTextParser:
 
     @classmethod
     def _paddle_text_items(cls, result):
+        return [
+            (item.text, item.confidence)
+            for item in cls._paddle_text_items_with_boxes(result)
+        ]
+
+    @classmethod
+    def _paddle_text_items_with_boxes(cls, result):
         if result is None:
             return []
         if isinstance(result, dict):
             if "rec_texts" in result:
                 texts = result.get("rec_texts") or []
                 scores = result.get("rec_scores") or []
+                boxes = cls._paddle_result_boxes(result)
                 return [
-                    (str(text), scores[index] if index < len(scores) else None)
+                    PaddleTextItem(
+                        str(text),
+                        scores[index] if index < len(scores) else None,
+                        (
+                            cls._paddle_box_bounds(boxes[index])
+                            if index < len(boxes)
+                            else None
+                        ),
+                    )
                     for index, text in enumerate(texts)
                     if text
                 ]
             if isinstance(result.get("text"), str):
                 return [
-                    (
+                    PaddleTextItem(
                         result["text"],
                         result.get("score", result.get("confidence")),
+                        cls._paddle_box_bounds(cls._paddle_result_box(result)),
                     )
                 ]
             items = []
             for value in result.values():
-                items.extend(cls._paddle_text_items(value))
+                items.extend(cls._paddle_text_items_with_boxes(value))
             return items
         if isinstance(result, (list, tuple)):
             if (
@@ -913,19 +1055,71 @@ class FrameImageTextParser:
                 and isinstance(result[0], str)
                 and isinstance(result[1], (int, float))
             ):
-                return [(result[0], result[1])]
+                return [PaddleTextItem(result[0], result[1])]
             if (
                 len(result) >= 2
                 and isinstance(result[1], (list, tuple))
                 and len(result[1]) >= 2
                 and isinstance(result[1][0], str)
             ):
-                return [(result[1][0], result[1][1])]
+                return [
+                    PaddleTextItem(
+                        result[1][0],
+                        result[1][1],
+                        cls._paddle_box_bounds(result[0]),
+                    )
+                ]
             items = []
             for value in result:
-                items.extend(cls._paddle_text_items(value))
+                items.extend(cls._paddle_text_items_with_boxes(value))
             return items
         return []
+
+    @staticmethod
+    def _paddle_result_boxes(result: dict):
+        for key in ("rec_boxes", "rec_polys", "dt_polys"):
+            if key in result and result[key] is not None:
+                return result[key]
+        return []
+
+    @staticmethod
+    def _paddle_result_box(result: dict):
+        for key in ("box", "bbox", "points"):
+            if key in result and result[key] is not None:
+                return result[key]
+        return None
+
+    @classmethod
+    def _paddle_box_bounds(cls, box):
+        if box is None:
+            return None
+        if np is not None and isinstance(box, np.ndarray):
+            box = box.tolist()
+        if isinstance(box, (list, tuple)):
+            if len(box) == 4 and all(isinstance(value, (int, float)) for value in box):
+                x1, y1, x2, y2 = box
+                return (float(x1), float(y1), float(x2), float(y2))
+            points = cls._paddle_box_points(box)
+            if points:
+                xs = [point[0] for point in points]
+                ys = [point[1] for point in points]
+                return (min(xs), min(ys), max(xs), max(ys))
+        return None
+
+    @classmethod
+    def _paddle_box_points(cls, value):
+        if np is not None and isinstance(value, np.ndarray):
+            value = value.tolist()
+        if not isinstance(value, (list, tuple)):
+            return []
+        if len(value) >= 2 and all(
+            isinstance(component, (int, float)) for component in value[:2]
+        ):
+            return [(float(value[0]), float(value[1]))]
+        points = []
+        for item in value:
+            points.extend(cls._paddle_box_points(item))
+        return points
 
     def _prepare_name_ocr_image(self, image):
         if image is None:
@@ -1195,13 +1389,15 @@ class FrameImageTextParser:
 
     @classmethod
     def _looks_like_junk_name_line(cls, name: str) -> bool:
-        token_lengths = [len(re.sub(r"[^A-Za-z]", "", token)) for token in name.split()]
+        token_lengths = [
+            sum(1 for char in token if char.isalpha()) for token in name.split()
+        ]
         token_lengths = [length for length in token_lengths if length]
         if len(token_lengths) < 4:
             return False
         short_count = sum(length <= 3 for length in token_lengths)
         long_count = sum(length >= 5 for length in token_lengths)
-        return short_count >= len(token_lengths) // 2 and long_count <= 1
+        return short_count > len(token_lengths) // 2 and long_count <= 1
 
     @staticmethod
     def _looks_like_lowercase_ocr_artifact(name: str) -> bool:
