@@ -32,6 +32,70 @@
     }
   },
   {
+    "id": "score_2430_000_timer_stopped_000",
+    "score_image": "score_2430_000.jpg",
+    "timer_image": "timer_stopped_000.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 24,
+      "top_advantages": 3,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    }
+  },
+  {
+    "id": "score_2630_000_timer_stopped_000",
+    "score_image": "score_2630_000.jpg",
+    "timer_image": "timer_stopped_000.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 26,
+      "top_advantages": 3,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    }
+  },
+  {
+    "id": "score_2640_000_timer_stopped_000",
+    "score_image": "score_2640_000.jpg",
+    "timer_image": "timer_stopped_000.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 26,
+      "top_advantages": 4,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    }
+  },
+  {
+    "id": "score_2650_000_timer_stopped_000",
+    "score_image": "score_2650_000.jpg",
+    "timer_image": "timer_stopped_000.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 26,
+      "top_advantages": 5,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    }
+  },
+  {
     "id": "new_score_200_010_new_timer_0137",
     "score_image": "new_score_200_010.jpg",
     "timer_image": "new_timer_0137.jpg",

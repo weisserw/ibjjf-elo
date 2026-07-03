@@ -537,10 +537,13 @@ class ScoreboardDigitReader:
         predictions = []
         has_layout = True
         for box, role in zip(layout.cell_boxes, layout.background_roles):
-            cell = _inner_cell(image.crop(box))
+            raw_cell = image.crop(box)
+            cell = _inner_cell(raw_cell)
             if not _score_cell_has_background(cell, role):
                 has_layout = False
             prediction = self._predict_score_cell(cell)
+            if prediction.digit is None:
+                prediction = self._predict_score_cell(raw_cell)
             if prediction.digit is None:
                 predictions.append(DigitPrediction(None, 0.0, "none"))
             else:
