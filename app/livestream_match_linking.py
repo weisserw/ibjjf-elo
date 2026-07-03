@@ -428,7 +428,8 @@ def choose_continuation_for_window(
     cursor: int,
     used_match_ids: set | None = None,
 ) -> MatchChoice | None:
-    if not window.has_running_timer:
+    terminal_zero_timer = window.final_timer_seconds == 0
+    if not window.has_running_timer and not terminal_zero_timer:
         return None
     used_match_ids = used_match_ids or set()
     raw_choices = []
@@ -1031,6 +1032,19 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
     )
 
 
+def _match_has_non_zero_final_score(match: Match) -> bool:
+    return any((getattr(match, f"final_{field}") or 0) != 0 for field in SCORE_FIELDS)
+
+
+def _should_preserve_existing_final_score(match: Match, window: MatchWindow) -> bool:
+    return (
+        not window.has_running_timer
+        and window.final_timer_seconds == 0
+        and _has_full_zero_score(window.final_state)
+        and _match_has_non_zero_final_score(match)
+    )
+
+
 def _store_choice(
     session,
     window: MatchWindow,
@@ -1042,12 +1056,13 @@ def _store_choice(
         match.video_start_offset_seconds = window.video_start_offset_seconds
     if update_start_offset or window.final_timer_seconds is not None:
         match.final_match_time_seconds = window.final_timer_seconds
-        match.final_top_points = window.final_state.top_points
-        match.final_top_advantages = window.final_state.top_advantages
-        match.final_top_penalties = window.final_state.top_penalties
-        match.final_bottom_points = window.final_state.bottom_points
-        match.final_bottom_advantages = window.final_state.bottom_advantages
-        match.final_bottom_penalties = window.final_state.bottom_penalties
+        if not _should_preserve_existing_final_score(match, window):
+            match.final_top_points = window.final_state.top_points
+            match.final_top_advantages = window.final_state.top_advantages
+            match.final_top_penalties = window.final_state.top_penalties
+            match.final_bottom_points = window.final_state.bottom_points
+            match.final_bottom_advantages = window.final_state.bottom_advantages
+            match.final_bottom_penalties = window.final_state.bottom_penalties
 
     choice.top_participant.scoreboard_position = "top"
     choice.bottom_participant.scoreboard_position = "bottom"
