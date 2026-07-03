@@ -76,7 +76,7 @@ function DBTableRows(props: DBTableRowsProps) {
     }
   }
 
-  const finalScoreText = (row: Row) => {
+  const rowHasFinalScoreValues = (row: Row) => {
     const values = [
       row.finalTopPoints,
       row.finalTopAdvantages,
@@ -85,7 +85,12 @@ function DBTableRows(props: DBTableRowsProps) {
       row.finalBottomAdvantages,
       row.finalBottomPenalties,
     ];
-    if (values.every(value => value === null || value === undefined)) {
+
+    return values.some(value => value !== null && value !== undefined);
+  }
+
+  const finalScoreText = (row: Row) => {
+    if (!rowHasFinalScoreValues(row)) {
       return undefined;
     }
 
@@ -211,6 +216,9 @@ function DBTableRows(props: DBTableRowsProps) {
     }
   }
 
+  const showScoreColumns = data.some(rowHasFinalScoreValues);
+  const desktopColumnCount = showScoreColumns ? 11 : 9;
+
   return (
     <>
       <div className="table-container is-hidden-touch">
@@ -222,11 +230,15 @@ function DBTableRows(props: DBTableRowsProps) {
               <th>{t("Rating")}</th>
               <th>{t("Loser")}</th>
               <th>{t("Rating")}</th>
+              {showScoreColumns &&
+                <>
+                  <th>{t("Score")}</th>
+                  <th>{t("Sub")}</th>
+                </>
+              }
               <th>{t("Tournament")}</th>
               <th>{t("Division")}</th>
               <th>{t("Date / Location")}</th>
-              <th>{t("Score")}</th>
-              <th>{t("Sub")}</th>
               <th>{t("Notes")}</th>
             </tr>
           </thead>
@@ -234,7 +246,7 @@ function DBTableRows(props: DBTableRowsProps) {
             {
               data.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="empty-row">
+                  <td colSpan={desktopColumnCount} className="empty-row">
                     <div className="columns is-centered">
                       {t("No matches found for the selected filters")}
                     </div>
@@ -301,6 +313,12 @@ function DBTableRows(props: DBTableRowsProps) {
                       </span>
                     }
                   </td>
+                  {showScoreColumns &&
+                    <>
+                      <td>{finalScoreText(row)}</td>
+                      <td className="has-text-centered">{submissionCheckbox(row)}</td>
+                    </>
+                  }
                   <td className="has-cursor-pointer" data-tooltip-id={index === 0 ? "db-bottom-tooltip" : "db-top-tooltip"} data-tooltip-content={shortEvent(row) !== row.event ? row.event : undefined}>
                     {
                       noLinks ? shortEvent(row) :
@@ -324,8 +342,6 @@ function DBTableRows(props: DBTableRowsProps) {
                     </div>
                   </td>
                   <td>{dayjs(row.date).locale(language).format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${translateMultiSpace(row.matchLocation)}`}</td>
-                  <td>{finalScoreText(row)}</td>
-                  <td className="has-text-centered">{submissionCheckbox(row)}</td>
                   <td>
                     {notesWithWeight(row)}
                   </td>
@@ -444,7 +460,7 @@ function DBTableRows(props: DBTableRowsProps) {
                     <div className="columns">
                       {score &&
                         <div className="column">
-                          <strong>{t("Score")}:</strong>{' '}
+                          <strong>{t("Final Score")}:</strong>{' '}
                           {score}
                         </div>
                       }

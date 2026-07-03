@@ -376,6 +376,7 @@ const translations = {
     "Show": "Mostrar",
     "Add hypothetical athlete": "Adicionar atleta hipotético",
     "View Seeding Points": "Ver Pontos de Seed",
+    "Final Score": "Placar Final",
     "Submission": "Finalização",
     "Yes": "Sim",
     "No": "Não",
