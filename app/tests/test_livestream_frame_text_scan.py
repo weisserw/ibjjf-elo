@@ -1396,6 +1396,28 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         self.assertEqual(name, "VICTOR MANOEL")
 
+    def test_paddle_parser_groups_split_words_before_selecting_name_line(self):
+        parser = self._name_parser(name_engine="paddle")
+
+        name = parser._best_paddle_row_name(
+            [
+                text_ocr.PaddleTextItem("Stephany", 0.98, (14.0, 31.0, 91.0, 51.0)),
+                text_ocr.PaddleTextItem(
+                    "Oliveira",
+                    0.98,
+                    (149.0, 31.0, 213.0, 48.0),
+                ),
+                text_ocr.PaddleTextItem("Correa", 0.98, (91.0, 32.0, 148.0, 49.0)),
+                text_ocr.PaddleTextItem(
+                    "DKM Jiu-Jitsu",
+                    0.99,
+                    (13.0, 53.0, 99.0, 69.0),
+                ),
+            ]
+        )
+
+        self.assertEqual(name, "Stephany Correa Oliveira")
+
     def test_paddle_item_name_cleanup_only_drops_clipped_trailing_initials(self):
         parser = self._name_parser(name_engine="paddle")
 
@@ -1918,6 +1940,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
             "score_small_names.jpg",
             "score_small_names2.jpg",
             "score_small_names3.jpg",
+            "new_score_names6.jpg",
         ]
 
         for score_image in cases:
@@ -1970,6 +1993,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "paddle_names6.jpg",
                 "EDISON MARTIN VINUE",
                 "KAUÉ HENRIQUE RAGA",
+            ),
+            (
+                "new_score_names6.jpg",
+                "Stephany Correa Oliveira",
+                "Zaian Langella",
             ),
         ]
 

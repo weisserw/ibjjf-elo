@@ -1037,7 +1037,7 @@ class FrameImageTextParser:
 
     def _best_paddle_row_name(self, items: list[PaddleTextItem]) -> str | None:
         candidates = []
-        for item in sorted(items, key=lambda item: (item.box[1], item.box[0])):
+        for item in self._paddle_row_line_items(items):
             name = self._name_from_paddle_item_text(item.text)
             if not name:
                 continue
@@ -1048,6 +1048,65 @@ class FrameImageTextParser:
             if not is_team_line:
                 return name
         return candidates[0][0]
+
+    def _paddle_row_line_items(
+        self, items: list[PaddleTextItem]
+    ) -> list[PaddleTextItem]:
+        line_groups = []
+        for item in sorted(items, key=lambda item: (item.box[1], item.box[0])):
+            y_center = (item.box[1] + item.box[3]) / 2
+            height = max(1.0, item.box[3] - item.box[1])
+            for group in line_groups:
+                threshold = max(6.0, group["height"], height) * 0.75
+                if abs(y_center - group["y_center"]) <= threshold:
+                    group["items"].append(item)
+                    group["y_center"] = sum(
+                        (group_item.box[1] + group_item.box[3]) / 2
+                        for group_item in group["items"]
+                    ) / len(group["items"])
+                    group["height"] = max(group["height"], height)
+                    break
+            else:
+                line_groups.append(
+                    {
+                        "items": [item],
+                        "y_center": y_center,
+                        "height": height,
+                    }
+                )
+
+        line_items = []
+        for group in line_groups:
+            group_items = sorted(group["items"], key=lambda item: item.box[0])
+            text = " ".join(
+                item.text.strip() for item in group_items if item.text.strip()
+            )
+            if not text:
+                continue
+            xs = [
+                coordinate
+                for item in group_items
+                for coordinate in (item.box[0], item.box[2])
+            ]
+            ys = [
+                coordinate
+                for item in group_items
+                for coordinate in (item.box[1], item.box[3])
+            ]
+            scores = [
+                item.confidence
+                for item in group_items
+                if isinstance(item.confidence, (int, float))
+            ]
+            confidence = sum(scores) / len(scores) if scores else None
+            line_items.append(
+                PaddleTextItem(
+                    text,
+                    confidence,
+                    (min(xs), min(ys), max(xs), max(ys)),
+                )
+            )
+        return sorted(line_items, key=lambda item: (item.box[1], item.box[0]))
 
     def _name_from_paddle_item_text(self, text: str) -> str | None:
         line = self._clean_text_line(text)
