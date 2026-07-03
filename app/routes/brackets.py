@@ -891,10 +891,11 @@ def registration_links():
     bring_to_front(
         links,
         "ibjjf crown ",
-        "european ibjjf ",
-        "pan ibjjf ",
-        "world ibjjf ",
         "campeonato brasileiro ",
+        "pan ibjjf ",
+        "european ibjjf ",
+        "world ibjjf ",
+        "world master ",
     )
 
     rows = []
@@ -3199,6 +3200,7 @@ def events():
             return (2, name)
         elif (
             "world ibjjf" in name
+            or "world master" in name
             or "european ibjjf" in name
             or "pan ibjjf" in name
             or "campeonato brasileiro" in name
