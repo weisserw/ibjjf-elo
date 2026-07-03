@@ -112,7 +112,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             parser,
             0,
             121,
-            coarse_interval_seconds=120,
             debug_callback=debug_messages.append,
         )
 
@@ -140,7 +139,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             parser,
             0,
             121,
-            coarse_interval_seconds=120,
             debug_callback=debug_messages.append,
         )
 
@@ -164,7 +162,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             NoisyNameParser(),
             0,
             121,
-            coarse_interval_seconds=120,
         )
 
         self.assertEqual([event.frame_second for event in events], [0, 37])
@@ -188,7 +185,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             NamePairParser(),
             0,
             121,
-            coarse_interval_seconds=120,
         )
 
         self.assertEqual([event.frame_second for event in events], [0, 37])
@@ -238,7 +234,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             parser,
             0,
             121,
-            coarse_interval_seconds=120,
         )
 
         self.assertEqual([event.frame_second for event in events], [0, 37])
@@ -280,7 +275,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             120,
             130,
             initial_state=initial_state,
-            coarse_interval_seconds=120,
         )
 
         self.assertEqual([event.frame_second for event in events], [125])
@@ -304,7 +298,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             VictoryParser(),
             0,
             121,
-            coarse_interval_seconds=120,
         )
 
         self.assertEqual([event.frame_second for event in events], [0, 37])
@@ -332,7 +325,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             TimerParser(),
             0,
             241,
-            coarse_interval_seconds=120,
         )
 
         self.assertEqual(len(events), 1)
@@ -357,7 +349,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             TimerParser(),
             0,
             61,
-            coarse_interval_seconds=20,
         )
 
         self.assertEqual(
@@ -393,7 +384,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             TimerParser(),
             0,
             7,
-            coarse_interval_seconds=1,
         )
 
         self.assertEqual(
@@ -420,7 +410,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             TimerParser(),
             0,
             241,
-            coarse_interval_seconds=120,
         )
 
         self.assertEqual(
@@ -460,7 +449,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             TimerParser(),
             0,
             121,
-            coarse_interval_seconds=120,
         )
 
         self.assertEqual(
@@ -504,7 +492,6 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             parser,
             0,
             81,
-            coarse_interval_seconds=20,
         )
 
         self.assertEqual([event.frame_second for event in events], [0, 20, 40, 60])
@@ -831,7 +818,6 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             "parser",
             "s3",
             "bucket",
-            coarse_interval_seconds=None,
         )
 
     def test_run_with_rescan_from_start_resets_scan_before_claiming(self):
@@ -887,53 +873,6 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             "parser",
             "s3",
             "bucket",
-            coarse_interval_seconds=None,
-        )
-
-    def test_run_passes_cli_coarse_interval_override_to_segment_processor(self):
-        archive_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-        segment = runner.ApiObject(
-            {
-                "id": "11111111-1111-1111-1111-111111111111",
-                "archive_id": archive_id,
-                "start_second": 0,
-                "end_second": 60,
-            }
-        )
-
-        class FakeState:
-            def claim_next_segment(self, **kwargs):
-                return segment
-
-        args = runner.parse_args(
-            [
-                "--archive-id",
-                archive_id,
-                "--score-engine",
-                "none",
-                "--coarse-interval-seconds",
-                "20",
-            ]
-        )
-        state = FakeState()
-
-        with mock.patch.object(runner, "validate_ocr_engines"), mock.patch.object(
-            runner, "build_parser", return_value="parser"
-        ), mock.patch.object(runner, "bucket_name", "bucket"), mock.patch.object(
-            runner, "get_s3_client", return_value="s3"
-        ), mock.patch.object(
-            runner, "process_segment"
-        ) as process_segment:
-            result = runner.run(args, state=state)
-
-        self.assertEqual(result, 0)
-        process_segment.assert_called_once_with(
-            segment,
-            state,
-            "parser",
-            "s3",
-            "bucket",
-            coarse_interval_seconds=20,
         )
 
     def test_tesseract_parser_reads_names_from_scoreboard_text(self):

@@ -20,7 +20,6 @@ sys.path.insert(0, str(APP_DIR))
 
 from extensions import db  # noqa: E402
 from livestream_frame_text_scan import (  # noqa: E402
-    DEFAULT_COARSE_INTERVAL_SECONDS,
     DEFAULT_NAME_ENGINE,
     DEFAULT_PARSER_PROFILE,
     DEFAULT_SCORE_ENGINE,
@@ -244,13 +243,6 @@ def log(message: str):
     print(f"{timestamp}Z {message}", file=sys.stderr, flush=True)
 
 
-def positive_int(value: str) -> int:
-    parsed = int(value)
-    if parsed <= 0:
-        raise argparse.ArgumentTypeError("must be greater than 0")
-    return parsed
-
-
 def event_payload(event):
     payload = asdict(event)
     payload["evidence"] = payload.pop("evidence")
@@ -270,15 +262,9 @@ def process_segment(
     parser,
     s3_client,
     bucket: str,
-    coarse_interval_seconds: int | None = None,
 ):
     initial_state = state.initial_state_for_segment(segment)
     provider = provider_for_segment(segment, state, s3_client, bucket)
-    interval = (
-        coarse_interval_seconds
-        or getattr(getattr(segment, "scan", None), "coarse_interval_seconds", None)
-        or DEFAULT_COARSE_INTERVAL_SECONDS
-    )
     log(
         f"Scanning text segment id={segment.id} "
         f"archive_id={segment.archive_id} "
@@ -294,7 +280,6 @@ def process_segment(
         segment.start_second,
         segment.end_second,
         initial_state=initial_state,
-        coarse_interval_seconds=interval,
         debug_callback=debug_scan,
     )
     state.mark_success(segment, events)
@@ -350,7 +335,6 @@ def run(args, state=None) -> int:
                 parser,
                 s3_client,
                 bucket_name,
-                coarse_interval_seconds=args.coarse_interval_seconds,
             )
         except Exception as exc:
             state.mark_error(segment, str(exc))
@@ -377,7 +361,6 @@ def run(args, state=None) -> int:
                 parser,
                 s3_client,
                 bucket_name,
-                coarse_interval_seconds=args.coarse_interval_seconds,
             )
             processed += 1
         except Exception as exc:
@@ -401,11 +384,6 @@ def parse_args(argv=None):
     parser.add_argument("--parser-profile", default=DEFAULT_PARSER_PROFILE)
     parser.add_argument("--score-engine", default=DEFAULT_SCORE_ENGINE)
     parser.add_argument("--name-engine", default=DEFAULT_NAME_ENGINE)
-    parser.add_argument(
-        "--coarse-interval-seconds",
-        type=positive_int,
-        help=("Deprecated compatibility option; frame text scans now read every frame"),
-    )
     parser.add_argument("--background-task-id")
     parser.add_argument(
         "--admin-url",

@@ -38,7 +38,6 @@ TEXT_SCAN_SEGMENT_STATUSES = (
     "cancelled",
     "skipped",
 )
-DEFAULT_COARSE_INTERVAL_SECONDS = 60
 DEFAULT_PARSER_PROFILE = "auto"
 DEFAULT_SCORE_ENGINE = "fixed_digit"
 DEFAULT_NAME_ENGINE = "paddle"
@@ -82,7 +81,6 @@ class TextEventData:
     score_engine: str | None = None
     name_engine: str | None = None
     confidence: float | None = None
-    needs_review: bool = False
     evidence: dict | None = None
 
 
@@ -127,7 +125,6 @@ class FrameReading:
     score_engine: str | None = None
     name_engine: str | None = None
     confidence: float | None = None
-    needs_review: bool = False
     evidence: dict | None = None
 
 
@@ -204,7 +201,6 @@ def get_or_create_text_scan(
     parser_profile: str = DEFAULT_PARSER_PROFILE,
     score_engine: str = DEFAULT_SCORE_ENGINE,
     name_engine: str | None = DEFAULT_NAME_ENGINE,
-    coarse_interval_seconds: int = DEFAULT_COARSE_INTERVAL_SECONDS,
 ) -> tuple[LivestreamFrameTextScan, bool]:
     scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one_or_none()
     if scan:
@@ -215,7 +211,6 @@ def get_or_create_text_scan(
         parser_profile=parser_profile,
         score_engine=score_engine,
         name_engine=name_engine,
-        coarse_interval_seconds=coarse_interval_seconds,
     )
     session.add(scan)
     return scan, True
@@ -227,7 +222,6 @@ def queue_text_scan(
     parser_profile: str = DEFAULT_PARSER_PROFILE,
     score_engine: str = DEFAULT_SCORE_ENGINE,
     name_engine: str | None = DEFAULT_NAME_ENGINE,
-    coarse_interval_seconds: int = DEFAULT_COARSE_INTERVAL_SECONDS,
 ) -> int:
     if archive.status != "success":
         raise ValueError("text scans can only be queued for successful frame archives")
@@ -238,12 +232,10 @@ def queue_text_scan(
         parser_profile=parser_profile,
         score_engine=score_engine,
         name_engine=name_engine,
-        coarse_interval_seconds=coarse_interval_seconds,
     )
     scan.parser_profile = parser_profile
     scan.score_engine = score_engine
     scan.name_engine = name_engine
-    scan.coarse_interval_seconds = coarse_interval_seconds
     scan.status = "queued"
     scan.last_error = None
     scan.completed_at = None
@@ -602,7 +594,6 @@ def event_from_reading(reading: FrameReading, changes: dict) -> TextEventData:
         "score_engine": reading.score_engine,
         "name_engine": reading.name_engine,
         "confidence": reading.confidence,
-        "needs_review": reading.needs_review,
         "evidence": reading.evidence,
     }
     event_kwargs.update(changes)
@@ -704,7 +695,6 @@ def scan_frame_text_segment(
     start_second: int,
     end_second: int,
     initial_state: TextState | None = None,
-    coarse_interval_seconds: int = DEFAULT_COARSE_INTERVAL_SECONDS,
     debug_callback: DebugCallback | None = None,
 ) -> list[TextEventData]:
     state = initial_state.copy() if initial_state else TextState()
@@ -782,7 +772,6 @@ def create_text_event(
         score_engine=event_data.score_engine,
         name_engine=event_data.name_engine,
         confidence=event_data.confidence,
-        needs_review=event_data.needs_review,
         evidence_json=(
             json.dumps(event_data.evidence, sort_keys=True)
             if event_data.evidence is not None

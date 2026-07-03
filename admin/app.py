@@ -51,7 +51,6 @@ from models import (
     LivestreamFrameTextEvent,
     LivestreamFrameTextScan,
     LivestreamFrameTextScanSegment,
-    MatchParticipantTextEvent,
     FloSearchName,
     TeamNameMapping,
     AthleteMediaCoverage,
@@ -73,7 +72,6 @@ from livestream_frame_archive import (
     sync_archives_from_livestreams,
 )
 from livestream_frame_text_scan import (
-    DEFAULT_COARSE_INTERVAL_SECONDS,
     DEFAULT_NAME_ENGINE,
     DEFAULT_PARSER_PROFILE,
     DEFAULT_SCORE_ENGINE,
@@ -219,7 +217,6 @@ def _text_scan_payload(scan):
         "parser_profile": scan.parser_profile,
         "score_engine": scan.score_engine,
         "name_engine": scan.name_engine,
-        "coarse_interval_seconds": scan.coarse_interval_seconds,
         "total_segment_count": scan.total_segment_count,
         "processed_segment_count": scan.processed_segment_count,
         "last_processed_second": scan.last_processed_second,
@@ -324,7 +321,6 @@ def _text_event_payload(event):
         "score_engine": event.score_engine,
         "name_engine": event.name_engine,
         "confidence": event.confidence,
-        "needs_review": event.needs_review,
         "evidence": evidence,
         "created_at": _utc_iso(event.created_at),
         "updated_at": _utc_iso(event.updated_at),
@@ -369,9 +365,6 @@ def _text_event_type_counts_query():
         func.sum(
             case((LivestreamFrameTextEvent.profile_id.isnot(None), 1), else_=0)
         ).label("profiles"),
-        func.sum(
-            case((LivestreamFrameTextEvent.needs_review.is_(True), 1), else_=0)
-        ).label("needs_review"),
     ).group_by(LivestreamFrameTextEvent.scan_id)
 
 
@@ -383,7 +376,6 @@ def _empty_text_event_counts():
         "athlete_names": 0,
         "team_names": 0,
         "profiles": 0,
-        "needs_review": 0,
     }
 
 
@@ -401,39 +393,31 @@ def _text_event_counts_for_scan_ids(scan_ids):
             "athlete_names": row.athlete_names or 0,
             "team_names": row.team_names or 0,
             "profiles": row.profiles or 0,
-            "needs_review": row.needs_review or 0,
         }
     return counts
 
 
 def _linked_text_event_rows(events):
-    event_ids = [event.id for event in events]
-    if not event_ids:
+    match_ids = {event.match_id for event in events if event.match_id is not None}
+    if not match_ids:
         return {}
-    associations = MatchParticipantTextEvent.query.filter(
-        MatchParticipantTextEvent.livestream_frame_text_event_id.in_(event_ids)
-    ).all()
-    participant_ids = {association.match_participant_id for association in associations}
-    participants = {
-        participant.id: participant
-        for participant in MatchParticipant.query.options(
+    participants_by_match_id = {}
+    for participant in (
+        MatchParticipant.query.options(
             selectinload(MatchParticipant.athlete),
             selectinload(MatchParticipant.match),
         )
-        .filter(MatchParticipant.id.in_(participant_ids))
+        .filter(MatchParticipant.match_id.in_(match_ids))
         .all()
-    }
-    grouped = {}
-    for association in associations:
-        participant = participants.get(association.match_participant_id)
-        if not participant:
-            continue
-        grouped.setdefault(association.livestream_frame_text_event_id, []).append(
+    ):
+        participants_by_match_id.setdefault(participant.match_id, []).append(
             participant
         )
-
     rows = {}
-    for event_id, linked_participants in grouped.items():
+    for event in events:
+        if event.match_id is None:
+            continue
+        linked_participants = participants_by_match_id.get(event.match_id, [])
         match_participants = [
             participant
             for participant in linked_participants
@@ -458,7 +442,7 @@ def _linked_text_event_rows(events):
             ),
             None,
         )
-        rows[event_id] = SimpleNamespace(match=match, top=top, bottom=bottom)
+        rows[event.id] = SimpleNamespace(match=match, top=top, bottom=bottom)
     return rows
 
 
@@ -595,7 +579,6 @@ def _text_event_data_from_payload(payload):
         score_engine=payload.get("score_engine"),
         name_engine=payload.get("name_engine"),
         confidence=payload.get("confidence"),
-        needs_review=bool(payload.get("needs_review")),
         evidence=payload.get("evidence"),
     )
 
@@ -1550,9 +1533,6 @@ def queue_livestream_frame_text_scans():
     parser_profile = data.get("parser_profile") or DEFAULT_PARSER_PROFILE
     score_engine = data.get("score_engine") or DEFAULT_SCORE_ENGINE
     name_engine = data.get("name_engine") or DEFAULT_NAME_ENGINE
-    coarse_interval_seconds = (
-        data.get("coarse_interval_seconds") or DEFAULT_COARSE_INTERVAL_SECONDS
-    )
 
     archives_query = LivestreamFrameArchive.query.filter(
         LivestreamFrameArchive.status == "success"
@@ -1581,7 +1561,6 @@ def queue_livestream_frame_text_scans():
             parser_profile=parser_profile,
             score_engine=score_engine,
             name_engine=name_engine,
-            coarse_interval_seconds=coarse_interval_seconds,
         )
         scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
         scans.append(scan)

@@ -597,7 +597,6 @@ class LivestreamFrameTextScan(db.Model):
     parser_profile = Column(String, nullable=False, default="auto")
     score_engine = Column(String, nullable=False, default="fixed_digit")
     name_engine = Column(String, nullable=True, default="paddle")
-    coarse_interval_seconds = Column(Integer, nullable=False, default=120)
     total_segment_count = Column(Integer, nullable=False, default=0)
     processed_segment_count = Column(Integer, nullable=False, default=0)
     last_processed_second = Column(Integer, nullable=True)
@@ -719,6 +718,9 @@ class LivestreamFrameTextEvent(db.Model):
         ForeignKey("livestream_frame_archives.id", ondelete="CASCADE"),
         nullable=False,
     )
+    match_id = Column(
+        UUID(as_uuid=True), ForeignKey("matches.id", ondelete="SET NULL"), nullable=True
+    )
     scan_segment_id = Column(
         UUID(as_uuid=True),
         ForeignKey("livestream_frame_text_scan_segments.id", ondelete="CASCADE"),
@@ -747,7 +749,6 @@ class LivestreamFrameTextEvent(db.Model):
     score_engine = Column(String, nullable=True)
     name_engine = Column(String, nullable=True)
     confidence = Column(Float, nullable=True)
-    needs_review = Column(Boolean, nullable=False, default=False)
     evidence_json = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
@@ -756,6 +757,7 @@ class LivestreamFrameTextEvent(db.Model):
 
     scan = relationship("LivestreamFrameTextScan", back_populates="events")
     archive = relationship("LivestreamFrameArchive")
+    match = relationship("Match", lazy="select", viewonly=True)
     scan_segment = relationship(
         "LivestreamFrameTextScanSegment", back_populates="events"
     )
@@ -770,49 +772,16 @@ class LivestreamFrameTextEvent(db.Model):
         Index("ix_livestream_frame_text_events_scan_id", "scan_id"),
         Index("ix_livestream_frame_text_events_archive_id", "archive_id"),
         Index(
+            "ix_livestream_frame_text_events_match_second",
+            "match_id",
+            "frame_second",
+        ),
+        Index(
             "ix_livestream_frame_text_events_archive_second",
             "archive_id",
             "frame_second",
         ),
         Index("ix_livestream_frame_text_events_scan_segment_id", "scan_segment_id"),
-    )
-
-
-class MatchParticipantTextEvent(db.Model):
-    __tablename__ = "match_participant_text_events"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    match_participant_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("match_participants.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    livestream_frame_text_event_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("livestream_frame_text_events.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-
-    match_participant = relationship("MatchParticipant", lazy="select", viewonly=True)
-    livestream_frame_text_event = relationship(
-        "LivestreamFrameTextEvent", lazy="select", viewonly=True
-    )
-
-    __table_args__ = (
-        UniqueConstraint(
-            "match_participant_id",
-            "livestream_frame_text_event_id",
-            name="uq_match_participant_text_events_pair",
-        ),
-        Index(
-            "ix_match_participant_text_events_participant",
-            "match_participant_id",
-        ),
-        Index(
-            "ix_match_participant_text_events_event",
-            "livestream_frame_text_event_id",
-        ),
     )
 
 

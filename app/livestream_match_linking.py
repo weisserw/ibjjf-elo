@@ -28,7 +28,6 @@ from models import (
     LivestreamFrameTextScan,
     Match,
     MatchParticipant,
-    MatchParticipantTextEvent,
     RegistrationLink,
 )
 
@@ -165,8 +164,6 @@ def _same_start_names(first: TextState, second: TextState) -> bool:
 def _event_confidently_matches_names(
     event: LivestreamFrameTextEvent, state: TextState
 ) -> bool:
-    if event.needs_review:
-        return False
     if event.confidence is None or event.confidence < MIN_RESET_NAME_CONFIDENCE:
         return False
     if not event.top_athlete_name or not event.bottom_athlete_name:
@@ -852,20 +849,17 @@ def clear_livestream_match_links(session, archive_id) -> dict[str, int]:
     if isinstance(archive_id, str):
         archive_id = uuid.UUID(archive_id)
     events = LivestreamFrameTextEvent.query.filter_by(archive_id=archive_id).all()
-    event_ids = [event.id for event in events]
-    if not event_ids:
+    if not events:
         return {"matches": 0, "participants": 0, "associations": 0}
 
-    associations = MatchParticipantTextEvent.query.filter(
-        MatchParticipantTextEvent.livestream_frame_text_event_id.in_(event_ids)
-    ).all()
-    participant_ids = {association.match_participant_id for association in associations}
-    match_ids = {
-        participant.match_id
-        for participant in MatchParticipant.query.filter(
-            MatchParticipant.id.in_(participant_ids)
-        ).all()
-    }
+    linked_events = [event for event in events if event.match_id is not None]
+    match_ids = {event.match_id for event in linked_events}
+    participants = (
+        MatchParticipant.query.filter(MatchParticipant.match_id.in_(match_ids)).all()
+        if match_ids
+        else []
+    )
+    participant_ids = {participant.id for participant in participants}
     if match_ids:
         Match.query.filter(Match.id.in_(match_ids)).update(
             {
@@ -885,15 +879,12 @@ def clear_livestream_match_links(session, archive_id) -> dict[str, int]:
             {"scoreboard_position": None},
             synchronize_session="fetch",
         )
-    association_count = len(associations)
-    if event_ids:
-        MatchParticipantTextEvent.query.filter(
-            MatchParticipantTextEvent.livestream_frame_text_event_id.in_(event_ids)
-        ).delete(synchronize_session=False)
+    for event in linked_events:
+        event.match_id = None
     return {
         "matches": len(match_ids),
         "participants": len(participant_ids),
-        "associations": association_count,
+        "associations": len(linked_events),
     }
 
 
@@ -1067,13 +1058,7 @@ def _store_choice(
     choice.top_participant.scoreboard_position = "top"
     choice.bottom_participant.scoreboard_position = "bottom"
     for event in window.events:
-        for participant in (choice.top_participant, choice.bottom_participant):
-            session.add(
-                MatchParticipantTextEvent(
-                    match_participant_id=participant.id,
-                    livestream_frame_text_event_id=event.id,
-                )
-            )
+        event.match_id = match.id
 
 
 def link_completed_text_scan(

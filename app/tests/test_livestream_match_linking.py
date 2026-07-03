@@ -18,7 +18,6 @@ from models import (
     LivestreamFrameTextScanSegment,
     Match,
     MatchParticipant,
-    MatchParticipantTextEvent,
     RegistrationLink,
     Team,
 )
@@ -39,7 +38,6 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
     def setUp(self):
         self.app_context = self.app_module.app.app_context()
         self.app_context.push()
-        MatchParticipantTextEvent.query.delete()
         LivestreamFrameTextEvent.query.delete()
         LivestreamFrameTextScanSegment.query.delete()
         LivestreamFrameTextScan.query.delete()
@@ -303,7 +301,12 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertIsNone(
             db.session.get(Match, matches[0].id).video_start_offset_seconds
         )
-        self.assertEqual(MatchParticipantTextEvent.query.count(), 0)
+        self.assertEqual(
+            LivestreamFrameTextEvent.query.filter(
+                LivestreamFrameTextEvent.match_id.isnot(None)
+            ).count(),
+            0,
+        )
 
     def test_completed_scan_links_match_score_timer_positions_and_events(self):
         matches = self._match_setup()
@@ -343,7 +346,10 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             sorted(participant.scoreboard_position for participant in participants),
             ["bottom", "top"],
         )
-        self.assertEqual(MatchParticipantTextEvent.query.count(), 8)
+        self.assertEqual(
+            LivestreamFrameTextEvent.query.filter_by(match_id=linked_match.id).count(),
+            4,
+        )
 
         summary = link_completed_text_scan(db.session, scan)
         db.session.commit()
@@ -410,22 +416,10 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             db.session.get(Match, matches[1].id).video_start_offset_seconds
         )
 
-        participant_ids = [
-            participant.id
-            for participant in MatchParticipant.query.filter_by(
-                match_id=linked_match.id
-            )
-        ]
         linked_seconds = [
             second
             for (second,) in db.session.query(LivestreamFrameTextEvent.frame_second)
-            .join(
-                MatchParticipantTextEvent,
-                MatchParticipantTextEvent.livestream_frame_text_event_id
-                == LivestreamFrameTextEvent.id,
-            )
-            .filter(MatchParticipantTextEvent.match_participant_id.in_(participant_ids))
-            .distinct()
+            .filter(LivestreamFrameTextEvent.match_id == linked_match.id)
             .order_by(LivestreamFrameTextEvent.frame_second)
             .all()
         ]
@@ -608,24 +602,10 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(first_match.final_bottom_advantages, 0)
         self.assertEqual(first_match.final_bottom_penalties, 0)
         self.assertEqual(first_match.final_match_time_seconds, 86)
-        first_participant_ids = [
-            participant.id
-            for participant in MatchParticipant.query.filter_by(match_id=first_match.id)
-        ]
         first_linked_seconds = [
             second
             for (second,) in db.session.query(LivestreamFrameTextEvent.frame_second)
-            .join(
-                MatchParticipantTextEvent,
-                MatchParticipantTextEvent.livestream_frame_text_event_id
-                == LivestreamFrameTextEvent.id,
-            )
-            .filter(
-                MatchParticipantTextEvent.match_participant_id.in_(
-                    first_participant_ids
-                )
-            )
-            .distinct()
+            .filter(LivestreamFrameTextEvent.match_id == first_match.id)
             .order_by(LivestreamFrameTextEvent.frame_second)
             .all()
         ]

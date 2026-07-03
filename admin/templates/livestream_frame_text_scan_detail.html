@@ -25,7 +25,6 @@
                 <tr><th>Text scan status</th><td>{{ scan.status }}</td></tr>
                 <tr><th>Text scan progress</th><td>{{ progress_label(scan) }}</td></tr>
                 <tr><th>Parser / score / name engines</th><td>{{ scan.parser_profile }} / {{ scan.score_engine }} / {{ scan.name_engine or '' }}</td></tr>
-                <tr><th>Coarse interval</th><td>{{ scan.coarse_interval_seconds }} seconds</td></tr>
                 <tr><th>Last processed second</th><td>{{ time_label(scan.last_processed_second) }}</td></tr>
                 <tr><th>Last error</th><td class="has-text-danger">{{ scan.last_error or '' }}</td></tr>
                 {% else %}
