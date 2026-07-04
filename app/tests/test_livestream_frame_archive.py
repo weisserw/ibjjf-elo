@@ -248,7 +248,7 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
                 "yt_dlp.utils": utils_module,
             },
         ):
-            stream_url = runner.probe_youtube_archive(
+            stream_source = runner.probe_youtube_archive(
                 archive,
                 FakeState(),
                 "primary-selector",
@@ -262,11 +262,87 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
                 1.0,
             )
 
-        self.assertEqual(stream_url, "https://video.example.com/480.mp4")
+        self.assertEqual(stream_source.url, "https://video.example.com/480.mp4")
+        self.assertEqual(stream_source.selected["format_id"], "135")
         self.assertEqual(
             [call["format"] for call in calls],
             ["primary-selector", "fallback-selector"],
         )
+
+    def test_dash_fragments_for_range_includes_init_and_overlapping_media(self):
+        format_info = {
+            "fragments": [
+                {"url": "https://video.example.com/init"},
+                {"url": "https://video.example.com/0", "duration": 5.0},
+                {"url": "https://video.example.com/1", "duration": 5.0},
+                {"url": "https://video.example.com/2", "duration": 5.0},
+                {"url": "https://video.example.com/3", "duration": 5.0},
+            ]
+        }
+
+        fragments, local_start = runner._dash_fragments_for_range(
+            format_info,
+            start_second=7,
+            duration_seconds=8,
+        )
+
+        self.assertEqual(
+            [fragment["url"] for fragment in fragments],
+            [
+                "https://video.example.com/init",
+                "https://video.example.com/1",
+                "https://video.example.com/2",
+            ],
+        )
+        self.assertEqual(local_start, 2.0)
+
+    def test_download_dash_fragment_section_writes_selected_fragment_bytes(self):
+        class FakeResponse:
+            def __init__(self, body):
+                self.body = body
+
+            def raise_for_status(self):
+                pass
+
+            def iter_content(self, chunk_size):
+                yield self.body
+
+        requested_urls = []
+
+        def fake_get(url, stream=True, headers=None):
+            requested_urls.append(url)
+            return FakeResponse(url.rsplit("/", 1)[-1].encode())
+
+        format_info = {
+            "format_id": "135",
+            "protocol": "http_dash_segments",
+            "fragments": [
+                {"url": "https://video.example.com/init"},
+                {"url": "https://video.example.com/0", "duration": 10},
+                {"url": "https://video.example.com/1", "duration": 10},
+                {"url": "https://video.example.com/2", "duration": 10},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "section.mp4"
+            local_start = runner.download_dash_fragment_section(
+                format_info,
+                start_second=12,
+                duration_seconds=6,
+                output_path=output_path,
+                http_get=fake_get,
+            )
+            output = output_path.read_bytes()
+
+        self.assertEqual(
+            requested_urls,
+            [
+                "https://video.example.com/init",
+                "https://video.example.com/1",
+            ],
+        )
+        self.assertEqual(local_start, 2.0)
+        self.assertEqual(output, b"init1")
 
     def test_ffmpeg_extract_command_can_include_progress_output(self):
         command = runner._ffmpeg_extract_command(

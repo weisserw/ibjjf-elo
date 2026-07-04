@@ -15,6 +15,7 @@ import tempfile
 import time
 import uuid
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urljoin
@@ -60,6 +61,13 @@ CROP_FILTER = (
     "[score_src]crop=w=trunc(iw*0.27):h=trunc(ih*0.22):x=0:y=0[score];"
     "[timer_src]crop=w=trunc(iw*0.22):h=trunc(ih*0.11):x=trunc(iw*0.30):y=0[timer]"
 )
+DASH_FRAGMENT_PROTOCOLS = {"http_dash_segments", "http_dash_segments_generator"}
+
+
+@dataclass
+class StreamSource:
+    url: str
+    selected: dict
 
 
 class ApiObject:
@@ -546,6 +554,103 @@ def _format_label(format_info: dict) -> str:
     )
 
 
+def _is_dash_fragment_format(format_info: dict) -> bool:
+    return format_info.get("protocol") in DASH_FRAGMENT_PROTOCOLS and bool(
+        format_info.get("fragments")
+    )
+
+
+def _fragment_url(format_info: dict, fragment: dict) -> str:
+    fragment_url = fragment.get("url")
+    if fragment_url:
+        return fragment_url
+
+    fragment_base_url = format_info.get("fragment_base_url")
+    fragment_path = fragment.get("path")
+    if not fragment_base_url or not fragment_path:
+        raise RuntimeError("DASH fragment is missing url/path metadata")
+    return urljoin(fragment_base_url, fragment_path)
+
+
+def _dash_fragments_for_range(
+    format_info: dict,
+    start_second: int,
+    duration_seconds: int,
+) -> tuple[list[dict], float]:
+    end_second = start_second + duration_seconds
+    selected_fragments = []
+    init_fragments = []
+    cursor = 0.0
+    first_media_start = None
+
+    for fragment in format_info.get("fragments") or []:
+        fragment_duration = fragment.get("duration")
+        if fragment_duration is None:
+            init_fragments.append(fragment)
+            continue
+
+        try:
+            fragment_duration = float(fragment_duration)
+        except (TypeError, ValueError):
+            raise RuntimeError("DASH fragment has invalid duration metadata")
+
+        fragment_start = cursor
+        fragment_end = cursor + fragment_duration
+        cursor = fragment_end
+
+        if fragment_end <= start_second:
+            continue
+        if fragment_start >= end_second:
+            break
+        if first_media_start is None:
+            first_media_start = fragment_start
+            selected_fragments.extend(init_fragments)
+        selected_fragments.append(fragment)
+
+    if first_media_start is None:
+        raise RuntimeError("No DASH fragments overlap requested segment range")
+
+    return selected_fragments, max(0.0, start_second - first_media_start)
+
+
+def download_dash_fragment_section(
+    format_info: dict,
+    start_second: int,
+    duration_seconds: int,
+    output_path: Path,
+    http_get=requests.get,
+) -> float:
+    fragments, local_start_second = _dash_fragments_for_range(
+        format_info,
+        start_second,
+        duration_seconds,
+    )
+    log(
+        "Downloading DASH fragment section: "
+        f"format_id={format_info.get('format_id') or 'unknown'} "
+        f"fragments={len(fragments)} "
+        f"output={output_path}"
+    )
+    headers = format_info.get("http_headers") or None
+    with output_path.open("wb") as output_file:
+        for index, fragment in enumerate(fragments, start=1):
+            response = http_get(
+                _fragment_url(format_info, fragment),
+                stream=True,
+                headers=headers,
+            )
+            response.raise_for_status()
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    output_file.write(chunk)
+            if index % 100 == 0:
+                log(
+                    "DASH fragment download progress: "
+                    f"downloaded={index} of={len(fragments)}"
+                )
+    return local_start_second
+
+
 def _log_format_inventory(info: dict):
     formats = info.get("formats") or []
     video_formats = [
@@ -681,7 +786,7 @@ def probe_youtube_archive(
         f"tbr={archive.tbr or 'unknown'} "
         f"created_segments={created_segments}"
     )
-    return stream_url
+    return StreamSource(stream_url, selected)
 
 
 def _ffmpeg_extract_command(
@@ -913,7 +1018,7 @@ def process_segment(
         f"range={segment.start_second}-{segment.end_second} "
         f"fps={fps:g}"
     )
-    stream_url = probe_youtube_archive(
+    stream_source = probe_youtube_archive(
         archive,
         state,
         format_selector,
@@ -947,6 +1052,22 @@ def process_segment(
 
     with tempfile.TemporaryDirectory(prefix="livestream-frame-crops-") as temp_dir:
         frames_dir = Path(temp_dir)
+        input_url = stream_source.url
+        input_start_second = segment.start_second
+        if _is_dash_fragment_format(stream_source.selected):
+            extension = stream_source.selected.get("ext") or "mp4"
+            media_path = frames_dir / f"dash-section.{extension}"
+            input_start_second = download_dash_fragment_section(
+                stream_source.selected,
+                segment.start_second,
+                duration,
+                media_path,
+            )
+            input_url = str(media_path)
+            log(
+                "Using local DASH fragment section for ffmpeg extraction: "
+                f"path={media_path} seek={input_start_second:.3f}s"
+            )
         log(
             f"Starting ffmpeg extraction segment_id={segment.id} "
             f"start={_format_duration(segment.start_second)} "
@@ -955,8 +1076,8 @@ def process_segment(
             f"output_dir={frames_dir}"
         )
         extract_segment_frames(
-            stream_url,
-            segment.start_second,
+            input_url,
+            input_start_second,
             duration,
             archive.frame_rate or 1.0,
             jpeg_quality,
