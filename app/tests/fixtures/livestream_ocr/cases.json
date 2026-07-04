@@ -238,5 +238,21 @@
       "timer_state": "blank",
       "timer_value": null
     }
+  },
+  {
+    "id": "score_smaller_000_011_timer_stopped_000",
+    "score_image": "score_smaller_000_011.jpg",
+    "timer_image": "timer_stopped_000.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 1,
+      "bottom_penalties": 1,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    }
   }
 ]

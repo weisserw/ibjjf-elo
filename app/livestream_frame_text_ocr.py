@@ -181,6 +181,92 @@ def _compact_rendered_score_cell_boxes(
     )
 
 
+def _score_role_component_boxes(image, role: str):
+    rgb = np.asarray(image.convert("RGB"))
+    red = rgb[:, :, 0]
+    green = rgb[:, :, 1]
+    blue = rgb[:, :, 2]
+    if role == "red":
+        mask = (red > 120) & (green < 110) & (blue < 130)
+    elif role == "yellow":
+        mask = (red > 150) & (green > 110) & (blue < 120)
+    else:
+        mask = (green > 100) & (blue < 150) & (red < 190)
+
+    component_count, _, stats, _ = cv2.connectedComponentsWithStats(
+        mask.astype("uint8"), 8
+    )
+    min_area = max(80, int(image.width * image.height * 0.008))
+    boxes = []
+    for component_index in range(1, component_count):
+        x, y, width, height, area = stats[component_index]
+        if int(area) < min_area:
+            continue
+        boxes.append((int(x), int(y), int(x + width), int(y + height), int(area)))
+    return tuple(boxes)
+
+
+def _component_vertical_overlap(first, second) -> float:
+    overlap = max(0, min(first[3], second[3]) - max(first[1], second[1]))
+    min_height = max(1, min(first[3] - first[1], second[3] - second[1]))
+    return overlap / min_height
+
+
+def _row_vertical_overlap(first, second) -> float:
+    overlap = max(0, min(first[1], second[1]) - max(first[0], second[0]))
+    min_height = max(1, min(first[1] - first[0], second[1] - second[0]))
+    return overlap / min_height
+
+
+def _detected_rendered_score_cell_boxes(image):
+    yellow_boxes = _score_role_component_boxes(image, "yellow")
+    red_boxes = _score_role_component_boxes(image, "red")
+    row_pairs = []
+    for yellow_box in yellow_boxes:
+        candidates = []
+        for red_box in red_boxes:
+            overlap = _component_vertical_overlap(yellow_box, red_box)
+            column_width = red_box[0] - yellow_box[0]
+            edge_gap = red_box[0] - yellow_box[2]
+            if overlap < 0.45 or column_width <= 0 or not -6 <= edge_gap <= 10:
+                continue
+            candidates.append((overlap, -abs(edge_gap), red_box))
+        if not candidates:
+            continue
+        _, _, red_box = max(candidates)
+        column_width = red_box[0] - yellow_box[0]
+        x_edges = (
+            max(0, yellow_box[0] - column_width),
+            yellow_box[0],
+            red_box[0],
+            red_box[2],
+        )
+        y_start = min(yellow_box[1], red_box[1])
+        y_end = max(yellow_box[3], red_box[3])
+        area = yellow_box[4] + red_box[4]
+        row_pairs.append((y_start, y_end, x_edges, area))
+
+    rows = []
+    for row in sorted(row_pairs, key=lambda item: item[3], reverse=True):
+        if any(_row_vertical_overlap(row, existing) > 0.45 for existing in rows):
+            continue
+        rows.append(row)
+        if len(rows) == 2:
+            break
+    if len(rows) != 2:
+        return ()
+
+    boxes = []
+    for y_start, y_end, x_edges, _ in sorted(rows, key=lambda item: item[0]):
+        if y_end <= y_start:
+            return ()
+        for col in range(3):
+            if x_edges[col + 1] <= x_edges[col]:
+                return ()
+            boxes.append((x_edges[col], y_start, x_edges[col + 1], y_end))
+    return tuple(boxes)
+
+
 def _score_layouts(image_size: tuple[int, int]) -> tuple[ScoreLayout, ...]:
     layouts = [
         ScoreLayout(
@@ -532,6 +618,19 @@ class ScoreboardDigitReader:
         ]
         if readings_with_digits:
             return max(readings_with_digits, key=self._reading_confidence)
+
+        detected_boxes = _detected_rendered_score_cell_boxes(image)
+        if detected_boxes:
+            detected_reading = self._read_layout(
+                image,
+                ScoreLayout(
+                    "detected_rendered",
+                    detected_boxes,
+                    ("green", "yellow", "red", "green", "yellow", "red"),
+                ),
+            )
+            if detected_reading.has_layout and detected_reading.digits:
+                return detected_reading
 
         readings_with_layout = [reading for reading in readings if reading.has_layout]
         if readings_with_layout:

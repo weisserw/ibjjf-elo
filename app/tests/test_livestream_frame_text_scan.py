@@ -1640,6 +1640,46 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertTrue(reading.has_layout)
         self.assertEqual(reading.digits, (0, 0, 0, 0, 0, 0))
 
+    def test_scoreboard_digit_reader_detects_offset_rendered_layout(self):
+        if (
+            text_ocr.cv2 is None
+            or text_ocr.np is None
+            or text_ocr.Image is None
+            or text_ocr.ImageDraw is None
+        ):
+            self.skipTest("fixed digit OCR dependencies are unavailable")
+
+        class ConstantClassifier:
+            def predict(self, mask):
+                return text_ocr.DigitPrediction(0, 0.99, "test")
+
+        image = text_ocr.Image.new("RGB", (360, 180), (0, 0, 0))
+        draw = text_ocr.ImageDraw.Draw(image)
+        colors = {
+            "green": (40, 150, 60),
+            "yellow": (190, 160, 50),
+            "red": (180, 40, 50),
+        }
+        cell_width = 34
+        cell_height = 38
+        left = 72
+        row_tops = (28, 84)
+        roles = ("green", "yellow", "red")
+        for row_top in row_tops:
+            for column, role in enumerate(roles):
+                x1 = left + column * cell_width
+                box = (x1, row_top, x1 + cell_width, row_top + cell_height)
+                draw.rectangle(box, fill=colors[role])
+                draw.rectangle(
+                    (x1 + 12, row_top + 8, x1 + 21, row_top + cell_height - 8),
+                    fill=(245, 245, 245),
+                )
+
+        reading = text_ocr.ScoreboardDigitReader(ConstantClassifier()).read(image)
+
+        self.assertTrue(reading.has_layout)
+        self.assertEqual(reading.digits, (0, 0, 0, 0, 0, 0))
+
     def test_score_fields_from_reading_marks_missing_layout_as_blank(self):
         reading = text_ocr.ScoreboardDigitReading(
             None,
@@ -2106,6 +2146,17 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     "bottom_points": 9,
                     "bottom_advantages": 0,
                     "bottom_penalties": 0,
+                },
+            ),
+            (
+                "score_smaller_000_011.jpg",
+                {
+                    "top_points": 0,
+                    "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 1,
+                    "bottom_penalties": 1,
                 },
             ),
             (
