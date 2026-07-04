@@ -1,7 +1,9 @@
+import json
 import os
 import sys
 import unittest
 from datetime import datetime, timedelta
+from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -28,6 +30,8 @@ from livestream_match_linking import (
     extract_match_windows,
     link_completed_text_scan,
 )
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "livestream_match_linking"
 
 
 class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
@@ -60,7 +64,27 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
     def _event_data(self, second, **kwargs):
         return text_scan.TextEventData(frame_second=second, **kwargs)
 
+    def _fixture_events(self, fixture_name):
+        fixture_path = FIXTURE_DIR / fixture_name
+        payload = json.loads(fixture_path.read_text())
+        ignored_fields = {"id", "match_id"}
+        return [
+            self._event_data(
+                event["frame_second"],
+                **{
+                    key: value
+                    for key, value in event.items()
+                    if key not in ignored_fields and key != "frame_second"
+                },
+            )
+            for event in payload["events"]
+        ]
+
     def _stored_events(self, events):
+        end_second = max(
+            300,
+            max((event.frame_second for event in events), default=0) + 1,
+        )
         archive = LivestreamFrameArchive(
             youtube_video_id="video123",
             canonical_url="https://www.youtube.com/watch?v=video123",
@@ -74,10 +98,10 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         capture_segment = LivestreamFrameCaptureSegment(
             archive_id=archive.id,
             start_second=0,
-            end_second=300,
+            end_second=end_second,
             status="success",
-            uploaded_frame_count=300,
-            sampled_frame_count=300,
+            uploaded_frame_count=end_second,
+            sampled_frame_count=end_second,
         )
         db.session.add(capture_segment)
         db.session.flush()
@@ -94,7 +118,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             archive_id=archive.id,
             capture_segment_id=capture_segment.id,
             start_second=0,
-            end_second=300,
+            end_second=end_second,
             status="success",
         )
         db.session.add(scan_segment)
@@ -104,9 +128,20 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         db.session.commit()
         return archive, scan
 
+    def _linked_seconds(self, match):
+        return [
+            second
+            for (second,) in db.session.query(LivestreamFrameTextEvent.frame_second)
+            .filter(LivestreamFrameTextEvent.match_id == match.id)
+            .order_by(LivestreamFrameTextEvent.frame_second)
+            .all()
+        ]
+
     def _match_setup(
         self,
         extra_pairs=None,
+        pairs=None,
+        match_offsets=None,
         registration_start=None,
         match_start=None,
         livestream_day_number=1,
@@ -129,10 +164,13 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             weight="Middle",
         )
         team = Team(name="Team", normalized_name="team")
-        pairs = [
-            ("JOHNATHAN ALPHA", "MICHAEL BETA"),
-            ("JOHNATHAN ALPHA", "CARLOS GAMMA"),
-        ] + list(extra_pairs or [])
+        if pairs is None:
+            pairs = [
+                ("JOHNATHAN ALPHA", "MICHAEL BETA"),
+                ("JOHNATHAN ALPHA", "CARLOS GAMMA"),
+            ] + list(extra_pairs or [])
+        else:
+            pairs = list(pairs)
         athletes = []
         for index, pair in enumerate(pairs):
             for side, name in enumerate(pair):
@@ -174,8 +212,12 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         matches = []
         for index in range(len(pairs)):
             pair = (athletes[index * 2], athletes[index * 2 + 1])
+            if match_offsets:
+                happened_at = match_start + timedelta(seconds=match_offsets[index])
+            else:
+                happened_at = match_start + timedelta(minutes=index)
             match = Match(
-                happened_at=match_start + timedelta(minutes=index),
+                happened_at=happened_at,
                 event_id=event.id,
                 division_id=division.id,
                 rated=True,
@@ -203,6 +245,124 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             matches.append(match)
         db.session.commit()
         return matches
+
+    def test_real_joao_maycon_fixture_links_stopped_score_update(self):
+        matches = self._match_setup(
+            pairs=[
+                (
+                    "Arthur Ronny Vital Rodrigues",
+                    "Gabriel Soares Luso",
+                ),
+                (
+                    "Maycon Eduardo Veras Santana",
+                    "João Pedro da Silva Teixeira",
+                ),
+                (
+                    "Pedro Victor Pereira Fontes",
+                    "Maycon Eduardo Veras Santana",
+                ),
+                (
+                    "Francisco de Assis da Silva Júnior",
+                    "Icaro Maranhão de Queiroz",
+                ),
+            ],
+            match_start=datetime(2026, 1, 1, 9, 0),
+            match_offsets=[10620, 11160, 11520, 11880],
+        )
+        _, scan = self._stored_events(
+            self._fixture_events("joao_maycon_stopped_score_update.json")
+        )
+
+        link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        joao_maycon = db.session.get(Match, matches[1].id)
+        self.assertEqual(joao_maycon.video_start_offset_seconds, 10981)
+        self.assertEqual(
+            self._linked_seconds(joao_maycon),
+            [10904, 10981, 10993, 11001, 11002, 11014],
+        )
+        self.assertEqual(joao_maycon.final_bottom_advantages, 1)
+
+        pedro_maycon = db.session.get(Match, matches[2].id)
+        self.assertEqual(
+            self._linked_seconds(pedro_maycon),
+            [11288, 11321, 11411, 11471, 11499, 11556, 11613],
+        )
+
+    def test_real_atlanta_jasmine_kendra_fixture_links_until_blank(self):
+        matches = self._match_setup(
+            pairs=[
+                ("Damel T Wigfall", "James Donald Kas"),
+                ("Pedro Paulo", "Enzo Yamasaki"),
+                ("Jasmine Gray Sopera", "Kendra Elizabeth"),
+                ("Pedro Paulo", "Enzo Yamasaki"),
+            ],
+            match_start=datetime(2026, 1, 1, 9, 0),
+            match_offsets=[18000, 18123, 18174, 18415],
+        )
+        _, scan = self._stored_events(
+            self._fixture_events("atlanta_jasmine_kendra.json")
+        )
+
+        link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        jasmine_kendra = db.session.get(Match, matches[2].id)
+        self.assertEqual(jasmine_kendra.video_start_offset_seconds, 18227)
+        self.assertEqual(
+            self._linked_seconds(jasmine_kendra),
+            [
+                18174,
+                18227,
+                18264,
+                18265,
+                18267,
+                18288,
+                18289,
+                18306,
+                18341,
+                18385,
+                18405,
+            ],
+        )
+        self.assertEqual(jasmine_kendra.final_top_points, 2)
+        self.assertEqual(jasmine_kendra.final_bottom_points, 4)
+        self.assertEqual(jasmine_kendra.final_match_time_seconds, 143)
+
+        second_pedro_enzo = db.session.get(Match, matches[3].id)
+        self.assertEqual(
+            self._linked_seconds(second_pedro_enzo),
+            [18415, 18433, 18446],
+        )
+
+    def test_real_nashville_repeated_athletes_split_after_blank_reset(self):
+        _, scan = self._stored_events(
+            self._fixture_events("nashville_kayla_lauren_twice.json")
+        )
+        events = (
+            LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id)
+            .order_by(LivestreamFrameTextEvent.frame_second)
+            .all()
+        )
+
+        windows = extract_match_windows(events)
+
+        kayla_lauren_windows = [
+            window
+            for window in windows
+            if any("KAYLA" in name for name in window.top_names)
+            and any("LAUREN" in name for name in window.bottom_names)
+        ]
+        self.assertEqual(
+            [
+                (window.start_second, window.end_second)
+                for window in kayla_lauren_windows
+            ],
+            [(8273, 8996), (9070, 9112)],
+        )
+        self.assertEqual(kayla_lauren_windows[0].video_start_offset_seconds, 8303)
+        self.assertIsNone(kayla_lauren_windows[1].video_start_offset_seconds)
 
     def test_day_number_uses_first_match_date_instead_of_registration_start(self):
         matches = self._match_setup(
@@ -480,7 +640,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         summary = link_completed_text_scan(db.session, scan)
         db.session.commit()
 
-        self.assertEqual(summary.linked, 3)
+        self.assertEqual(summary.linked, 2)
         linked_match = db.session.get(Match, matches[0].id)
         self.assertEqual(linked_match.video_start_offset_seconds, 20)
         self.assertEqual(linked_match.final_match_time_seconds, 0)

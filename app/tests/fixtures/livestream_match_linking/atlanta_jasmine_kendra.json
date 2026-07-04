@@ -1,0 +1,788 @@
+{
+  "source": {
+    "scan_id": "8823004d-c09f-42c5-9dc7-55b8eb6d1dba",
+    "archive_id": "96988d61-3e00-4b0b-b0fd-5507d6f125ec",
+    "status": "success",
+    "parser_profile": "auto",
+    "score_engine": "fixed_digit",
+    "name_engine": "paddle"
+  },
+  "range": {
+    "start_second": 18000,
+    "end_second": 18450
+  },
+  "events": [
+    {
+      "frame_second": 18027,
+      "top_points": 4,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "DAMEL T WIGFALL",
+      "top_team_name": null,
+      "bottom_athlete_name": "JAMES DONALD KAS",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "0bed6197-f5e7-49dd-9ed0-18daa2099171",
+      "match_id": "fdd7af73-f476-4777-8816-1a0a5fbb49e9",
+      "evidence": {
+        "score_digit_similarities": [
+          0.7796,
+          0.8313,
+          0.8034,
+          0.8164,
+          0.8478,
+          0.8024
+        ],
+        "score_digits": "420/900",
+        "scoreboard_text": "DAMEL T WIGFALL\nJAMES DONALD KAS",
+        "timer_digit_similarities": [
+          0.7946,
+          0.8546,
+          0.8204
+        ]
+      }
+    },
+    {
+      "frame_second": 18035,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 11,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "DAMEL T WIGFALL",
+      "top_team_name": null,
+      "bottom_athlete_name": "JAMES DONALD KAS",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "ca800e4b-a08b-41dc-a8ab-2438370cdaeb",
+      "match_id": "fdd7af73-f476-4777-8816-1a0a5fbb49e9",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8061,
+          0.8367,
+          0.8034,
+          0.7451,
+          0.8448,
+          0.8024
+        ],
+        "score_digits": "420/1100",
+        "scoreboard_text": "DAMEL T WIGFALL\nJAMES DONALD KAS",
+        "timer_digit_similarities": [
+          0.7938,
+          0.8267,
+          0.8104
+        ]
+      }
+    },
+    {
+      "frame_second": 18040,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 14,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "DAMEL T WIGFALL",
+      "top_team_name": null,
+      "bottom_athlete_name": "JAMES DONALD KAS",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "629f6879-9169-4317-9019-379282fd1193",
+      "match_id": "fdd7af73-f476-4777-8816-1a0a5fbb49e9",
+      "evidence": {
+        "score_digit_similarities": [
+          0.7537,
+          0.769,
+          0.8035,
+          0.7596,
+          0.846,
+          0.8047
+        ],
+        "score_digits": "420/1400",
+        "scoreboard_text": "DAMEL T WIGFALL\nJAMES DONALD KAS.",
+        "timer_digit_similarities": [
+          0.8141,
+          0.7033,
+          0.7855
+        ]
+      }
+    },
+    {
+      "frame_second": 18075,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "stopped",
+      "timer_value": "0:00",
+      "top_athlete_name": "DAMEL T WIGFALL",
+      "top_team_name": null,
+      "bottom_athlete_name": "JAMES DONALD KAS",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "0d3d9dc7-e5de-4cce-afe0-9a2a8160f238",
+      "match_id": "fdd7af73-f476-4777-8816-1a0a5fbb49e9",
+      "evidence": {
+        "score_digit_similarities": [
+          0.7686,
+          0.7622,
+          0.8121,
+          0.769,
+          0.8487,
+          0.8094
+        ],
+        "score_digits": "420/1400",
+        "scoreboard_text": "DAMEL T WIGFALL\nJAMES DONALD KAS",
+        "timer_digit_similarities": [
+          0.7896,
+          0.8068,
+          0.7542
+        ]
+      }
+    },
+    {
+      "frame_second": 18113,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": "blank",
+      "timer_state": "blank",
+      "timer_value": null,
+      "top_athlete_name": null,
+      "top_team_name": null,
+      "bottom_athlete_name": null,
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "3af5ba34-ba89-42f6-9094-2bca90749d63",
+      "match_id": "fdd7af73-f476-4777-8816-1a0a5fbb49e9",
+      "evidence": {
+        "score_digit_similarities": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "score_digits": "",
+        "scoreboard_text": "Victory",
+        "timer_digit_similarities": []
+      }
+    },
+    {
+      "frame_second": 18123,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "8:00",
+      "top_athlete_name": "PEDRO PAULO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ENZO YAMASAKI",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "ea612182-df26-48ae-9278-edef03d04357",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.8235,
+          0.8652,
+          0.8246,
+          0.8613,
+          0.837,
+          0.7639
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "PEDRO PAULO G. B.\nENZO YAMASAKI",
+        "timer_digit_similarities": [
+          0.8179,
+          0.8525,
+          0.8429
+        ]
+      }
+    },
+    {
+      "frame_second": 18174,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "stopped",
+      "timer_value": "5:00",
+      "top_athlete_name": "JASMINE GRAY SOPERA",
+      "top_team_name": null,
+      "bottom_athlete_name": "KENDRAELIZABETH",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "1bf1dc06-6c4f-4d9b-bf40-f599e764fb7f",
+      "match_id": "f52dc1a9-777c-448c-996d-d9aaed520a58",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8346,
+          0.8312,
+          0.8083,
+          0.8642,
+          0.8556,
+          0.7651
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "JASMINE GRAY SOPERA\nKENDRAELIZABETH.",
+        "timer_digit_similarities": [
+          0.8257,
+          0.8119,
+          0.8499
+        ]
+      }
+    },
+    {
+      "frame_second": 18227,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "5:00",
+      "top_athlete_name": "JASMINE GRAY SOPERA",
+      "top_team_name": null,
+      "bottom_athlete_name": "KENDRA ELIZABETH",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "901ebde9-0475-415b-9a82-c2624ad0b21e",
+      "match_id": "f52dc1a9-777c-448c-996d-d9aaed520a58",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8374,
+          0.8806,
+          0.7949,
+          0.8524,
+          0.8565,
+          0.7993
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "JASMINE GRAY SOPERA\nKENDRA ELIZABETH",
+        "timer_digit_similarities": [
+          0.7711,
+          0.8179,
+          0.8462
+        ]
+      }
+    },
+    {
+      "frame_second": 18264,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 2,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "JASMINE GRAY SOPERA",
+      "top_team_name": null,
+      "bottom_athlete_name": "KENDRA ELIZABETH",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "053a8503-c276-4a87-8eda-545040424dce",
+      "match_id": "f52dc1a9-777c-448c-996d-d9aaed520a58",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8299,
+          0.8552,
+          0.7853,
+          0.7647,
+          0.8556,
+          0.8256
+        ],
+        "score_digits": "000/200",
+        "scoreboard_text": "JASMINE GRAY SOPERA\nKENDRA ELIZABETH",
+        "timer_digit_similarities": [
+          0.7991,
+          0.7391,
+          0.7426
+        ]
+      }
+    },
+    {
+      "frame_second": 18265,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 0,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "GRAY SOPENA",
+      "top_team_name": null,
+      "bottom_athlete_name": "KENDRA ELIZAMETH",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "dab1180c-f0c2-4ce3-ba80-9bb9180be7fb",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.8299,
+          0.8552,
+          0.7853,
+          0.868,
+          0.8556,
+          0.8256
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "JASMINE GRAY SOPERA\nJASMINE\nGRAY SOPENA\nKENDRA ELIZAMETH",
+        "timer_digit_similarities": [
+          0.7792,
+          0.7391,
+          0.7235
+        ]
+      }
+    },
+    {
+      "frame_second": 18267,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 3,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": null,
+      "top_team_name": null,
+      "bottom_athlete_name": null,
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "0f31af30-8311-4454-a0e8-a4c197b01fae",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.8162,
+          0.8552,
+          0.7853,
+          0.6399,
+          0.8533,
+          0.8236
+        ],
+        "score_digits": "000/300",
+        "scoreboard_text": "JASMINE GRAY SOPERA",
+        "timer_digit_similarities": [
+          0.7829,
+          0.7437,
+          0.8139
+        ]
+      }
+    },
+    {
+      "frame_second": 18288,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 0,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "JASMINE GRAY SOPERA",
+      "top_team_name": null,
+      "bottom_athlete_name": "KENDRA ELIZAMETH",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "e7f56530-0081-43e4-b73b-6a2f40250533",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.8237,
+          0.8674,
+          0.8035,
+          0.8376,
+          0.8382,
+          0.7975
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "JASMINE GRAY SOPERA\nKENDRA ELIZAMETH",
+        "timer_digit_similarities": [
+          0.6378,
+          0.8079,
+          0.7822
+        ]
+      }
+    },
+    {
+      "frame_second": 18289,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 2,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "JASMINE GRAY SOPERA",
+      "top_team_name": null,
+      "bottom_athlete_name": "KENDRA ELIZABETH",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "f8ff9504-d961-4b4b-95ea-99fc457cc08c",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.8237,
+          0.8674,
+          0.8131,
+          0.7485,
+          0.8382,
+          0.7975
+        ],
+        "score_digits": "000/200",
+        "scoreboard_text": "JASMINE GRAY SOPERA\nKENDRA ELIZABETH",
+        "timer_digit_similarities": [
+          0.6378,
+          0.8132,
+          0.8112
+        ]
+      }
+    },
+    {
+      "frame_second": 18306,
+      "top_points": 2,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "JASMINE GRAY SOPERA",
+      "top_team_name": null,
+      "bottom_athlete_name": "KENDRA ELIZABETH",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "f69ede01-5ad9-497d-a7fb-fee296125cb7",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.7099,
+          0.8742,
+          0.7867,
+          0.7756,
+          0.8444,
+          0.8107
+        ],
+        "score_digits": "200/200",
+        "scoreboard_text": "JASMINE GRAY SOPERA\nKENDRA ELIZABETH.",
+        "timer_digit_similarities": [
+          0.6343,
+          0.8328,
+          0.75
+        ]
+      }
+    },
+    {
+      "frame_second": 18341,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 4,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "JASMINE GRAY SOPERA",
+      "top_team_name": null,
+      "bottom_athlete_name": "KENDRA ELIZABETI",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "f259dee1-8557-481b-b47b-22135ca28485",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.7243,
+          0.8307,
+          0.7756,
+          0.8228,
+          0.8537,
+          0.754
+        ],
+        "score_digits": "200/400",
+        "scoreboard_text": "JASMINE GRAY SOPERA\nKENDRA ELIZABETI",
+        "timer_digit_similarities": [
+          0.6414,
+          0.8319,
+          0.7604
+        ]
+      }
+    },
+    {
+      "frame_second": 18385,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "stopped",
+      "timer_value": "2:23",
+      "top_athlete_name": "JASMINE GRAY SOPERA",
+      "top_team_name": null,
+      "bottom_athlete_name": "KENDRA ELIZADETH",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "a8743af1-7226-48cc-9d63-ab10acb16db5",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.7444,
+          0.8709,
+          0.8199,
+          0.819,
+          0.8553,
+          0.7993
+        ],
+        "score_digits": "200/400",
+        "scoreboard_text": "JASMINE GRAY SOPERA\nKENDRA ELIZADETH",
+        "timer_digit_similarities": [
+          0.7746,
+          0.7503,
+          0.7378
+        ]
+      }
+    },
+    {
+      "frame_second": 18405,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": "blank",
+      "timer_state": "blank",
+      "timer_value": null,
+      "top_athlete_name": null,
+      "top_team_name": null,
+      "bottom_athlete_name": null,
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "4b623d50-5a75-4ac1-8b56-cef7649ca23f",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "score_digits": "",
+        "scoreboard_text": "Victory",
+        "timer_digit_similarities": []
+      }
+    },
+    {
+      "frame_second": 18415,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "8:00",
+      "top_athlete_name": "PEDRO PAULO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ENZO YAMASAKI",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "abbc6f75-4307-4f60-903f-a0de97681a44",
+      "match_id": "9de7dcc6-147b-4a0e-b826-94a09027ebf8",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8293,
+          0.8746,
+          0.8034,
+          0.8674,
+          0.8509,
+          0.8024
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "PEDRO PAULO G. B.L\nENZO YAMASAKI",
+        "timer_digit_similarities": [
+          0.7364,
+          0.8537,
+          0.8532
+        ]
+      }
+    },
+    {
+      "frame_second": 18433,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "8:00",
+      "top_athlete_name": "PEDRO PAULO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ENZO YAMASAKI",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "bc8b948f-f4cb-4132-9df9-12b1b290565c",
+      "match_id": "9de7dcc6-147b-4a0e-b826-94a09027ebf8",
+      "evidence": {
+        "score_digit_similarities": [
+          0.7933,
+          0.8307,
+          0.8275,
+          0.7896,
+          0.8465,
+          0.7624
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "PEDRO PAULO G. B.L\nENZO YAMASAKI",
+        "timer_digit_similarities": [
+          0.7562,
+          0.8246,
+          0.843
+        ]
+      }
+    },
+    {
+      "frame_second": 18446,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 2,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "PEDRO PAULO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ENZO YAMASAKI",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "17343b4a-cfdb-4f37-b991-c31463fe02cc",
+      "match_id": "9de7dcc6-147b-4a0e-b826-94a09027ebf8",
+      "evidence": {
+        "score_digit_similarities": [
+          0.818,
+          0.8165,
+          0.8374,
+          0.7577,
+          0.8538,
+          0.8024
+        ],
+        "score_digits": "000/200",
+        "scoreboard_text": "PEDRO PAULO G. B.\nENZO YAMASAKI",
+        "timer_digit_similarities": [
+          0.762,
+          0.8861,
+          0.796
+        ]
+      }
+    }
+  ]
+}

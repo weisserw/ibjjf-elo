@@ -1,0 +1,1213 @@
+{
+  "source": {
+    "scan_id": "70ac3657-fa15-4607-bdae-50778f60cd6d",
+    "archive_id": "5959bb96-5e1e-4072-83a4-1af09273cafd",
+    "status": "success",
+    "parser_profile": "auto",
+    "score_engine": "fixed_digit",
+    "name_engine": "paddle"
+  },
+  "range": {
+    "start_second": 8010,
+    "end_second": 9360
+  },
+  "events": [
+    {
+      "frame_second": 8012,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "3:08",
+      "top_athlete_name": "PADEN TANNER HIGG",
+      "top_team_name": null,
+      "bottom_athlete_name": "CODY JAMES FLINT",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "49e4d22f-cac7-4693-87bc-b305513b3768",
+      "match_id": "9146f4dd-9748-414d-a811-9069646691ea",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8125,
+          0.8367,
+          0.8408,
+          0.7335,
+          0.764,
+          0.8072
+        ],
+        "score_digits": "000/220",
+        "scoreboard_text": "PADEN TANNER HIGG...\nCODY JAMES FLINT",
+        "timer_digit_similarities": [
+          0.6959,
+          0.8201,
+          0.8034
+        ]
+      }
+    },
+    {
+      "frame_second": 8027,
+      "top_points": 2,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "PADEN TANNER HIGG",
+      "top_team_name": null,
+      "bottom_athlete_name": "COOY JAMES FLINT",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "7a010d31-dd0e-4001-bdf6-0c1cfa1261e1",
+      "match_id": "9146f4dd-9748-414d-a811-9069646691ea",
+      "evidence": {
+        "score_digit_similarities": [
+          0.6864,
+          0.8701,
+          0.7987,
+          0.7556,
+          0.7711,
+          0.8103
+        ],
+        "score_digits": "200/220",
+        "scoreboard_text": "PADEN TANNER HIGG...\nCOOY JAMES FLINT",
+        "timer_digit_similarities": [
+          0.7791,
+          0.7974,
+          0.7432
+        ]
+      }
+    },
+    {
+      "frame_second": 8158,
+      "top_points": null,
+      "top_advantages": 1,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "PADEN TANNER HIGG",
+      "top_team_name": null,
+      "bottom_athlete_name": "CODY JAMES FLINT",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "50369c92-260f-4546-a3d9-75a50a500ba5",
+      "match_id": "9146f4dd-9748-414d-a811-9069646691ea",
+      "evidence": {
+        "score_digit_similarities": [
+          0.7166,
+          0.6979,
+          0.8056,
+          0.7518,
+          0.7742,
+          0.8094
+        ],
+        "score_digits": "210/220",
+        "scoreboard_text": "PADEN TANNER HIGG.\nCODY JAMES FLINT",
+        "timer_digit_similarities": [
+          0.7998,
+          0.8117,
+          0.7902
+        ]
+      }
+    },
+    {
+      "frame_second": 8200,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "stopped",
+      "timer_value": "0:00",
+      "top_athlete_name": "PADEN TANNER HIGG",
+      "top_team_name": null,
+      "bottom_athlete_name": "COOY JAMES FLINT",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "d467d6a3-6676-4314-8713-e8f2d589df8d",
+      "match_id": "9146f4dd-9748-414d-a811-9069646691ea",
+      "evidence": {
+        "score_digit_similarities": [
+          0.7587,
+          0.6822,
+          0.8371,
+          0.7602,
+          0.7679,
+          0.8086
+        ],
+        "score_digits": "210/220",
+        "scoreboard_text": "PADEN TANNER HIGG..\nCOOY JAMES FLINT",
+        "timer_digit_similarities": [
+          0.7922,
+          0.8289,
+          0.8104
+        ]
+      }
+    },
+    {
+      "frame_second": 8229,
+      "top_points": null,
+      "top_advantages": 2,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "PADEN TANNER HIGG",
+      "top_team_name": null,
+      "bottom_athlete_name": "CODY JAMES FLINT",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "b3cc1815-4823-4b59-9435-4e47f7270151",
+      "match_id": "9146f4dd-9748-414d-a811-9069646691ea",
+      "evidence": {
+        "score_digit_similarities": [
+          0.7413,
+          0.7632,
+          0.8275,
+          0.7469,
+          0.7686,
+          0.8155
+        ],
+        "score_digits": "220/220",
+        "scoreboard_text": "PADEN TANNER HIGG...\nCODY JAMES FLINT",
+        "timer_digit_similarities": [
+          0.802,
+          0.813,
+          0.8448
+        ]
+      }
+    },
+    {
+      "frame_second": 8263,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": "blank",
+      "timer_state": "blank",
+      "timer_value": null,
+      "top_athlete_name": "Victory",
+      "top_team_name": null,
+      "bottom_athlete_name": "Cody James Flint",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "758dd868-9c6c-4c7d-b2ba-1a4c4319c81d",
+      "match_id": "9146f4dd-9748-414d-a811-9069646691ea",
+      "evidence": {
+        "score_digit_similarities": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "score_digits": "",
+        "scoreboard_text": "Victory\nCody James Flint",
+        "timer_digit_similarities": []
+      }
+    },
+    {
+      "frame_second": 8273,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "6:00",
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "52c9ebee-8a7f-46c9-82e8-c3158741dfc0",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8262,
+          0.8234,
+          0.8349,
+          0.8897,
+          0.851,
+          0.8134
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7386,
+          0.8529,
+          0.857
+        ]
+      }
+    },
+    {
+      "frame_second": 8303,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "6:00",
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "53d85b78-7cf7-4fba-8f75-eb5b1de1ddfd",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8411,
+          0.8396,
+          0.8158,
+          0.786,
+          0.8551,
+          0.8094
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7542,
+          0.8179,
+          0.8158
+        ]
+      }
+    },
+    {
+      "frame_second": 8548,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "stopped",
+      "timer_value": "1:56",
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "a6d6c6a7-6b38-4c15-b67f-df3e286cb626",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8163,
+          0.8396,
+          0.8349,
+          0.8637,
+          0.8365,
+          0.8094
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7932,
+          0.8344,
+          0.7331
+        ]
+      }
+    },
+    {
+      "frame_second": 8594,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": 1,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "bce095c6-b9e9-4144-836e-b6b5aecf2b63",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8162,
+          0.8375,
+          0.7295,
+          0.8748,
+          0.8306,
+          0.8024
+        ],
+        "score_digits": "001/000",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7916,
+          0.8104,
+          0.7484
+        ]
+      }
+    },
+    {
+      "frame_second": 8596,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": 1,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "07139d0b-d66b-49a1-b489-ec4f07b3c4b3",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8162,
+          0.8375,
+          0.7295,
+          0.8748,
+          0.8375,
+          0.7006
+        ],
+        "score_digits": "001/001",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7916,
+          0.8104,
+          0.7484
+        ]
+      }
+    },
+    {
+      "frame_second": 8597,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "1:56",
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "b82ea755-6424-43d2-8575-0a6aa001c1ce",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8162,
+          0.8375,
+          0.7295,
+          0.8748,
+          0.8375,
+          0.7006
+        ],
+        "score_digits": "001/001",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7453,
+          0.7948,
+          0.7949
+        ]
+      }
+    },
+    {
+      "frame_second": 8651,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "stopped",
+      "timer_value": "1:03",
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "f9e150f9-fab9-432f-a65a-36621a45f0e5",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8352,
+          0.8323,
+          0.7079,
+          0.886,
+          0.845,
+          0.7601
+        ],
+        "score_digits": "001/001",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7789,
+          0.854,
+          0.75
+        ]
+      }
+    },
+    {
+      "frame_second": 8661,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": 2,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "99ecf45c-74d0-4796-a8ea-f67461c8fb52",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8162,
+          0.8354,
+          0.7614,
+          0.8785,
+          0.861,
+          0.8053
+        ],
+        "score_digits": "002/001",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7916,
+          0.8176,
+          0.6789
+        ]
+      }
+    },
+    {
+      "frame_second": 8665,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": 1,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "000a0a07-1f33-472f-8e47-a40007ab108f",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8162,
+          0.8354,
+          0.7614,
+          0.8674,
+          0.6626,
+          0.8053
+        ],
+        "score_digits": "002/011",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7916,
+          0.8176,
+          0.6789
+        ]
+      }
+    },
+    {
+      "frame_second": 8667,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": 2,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "e7823ae8-cf45-463c-860a-46a6ce995655",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8346,
+          0.8649,
+          0.7942,
+          0.8711,
+          0.6667,
+          0.7565
+        ],
+        "score_digits": "002/012",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7847,
+          0.8163,
+          0.7546
+        ]
+      }
+    },
+    {
+      "frame_second": 8669,
+      "top_points": null,
+      "top_advantages": 1,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "5ac24279-9ab9-4f4d-996a-8cbb71f14903",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8486,
+          0.7072,
+          0.7942,
+          0.8711,
+          0.6667,
+          0.7686
+        ],
+        "score_digits": "012/012",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7847,
+          0.8163,
+          0.7546
+        ]
+      }
+    },
+    {
+      "frame_second": 8672,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "1:03",
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "90833751-c1a6-44c3-a318-0ac6d7ac821c",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8045,
+          0.6642,
+          0.7983,
+          0.8785,
+          0.6581,
+          0.7783
+        ],
+        "score_digits": "012/012",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7424,
+          0.8157,
+          0.7641
+        ]
+      }
+    },
+    {
+      "frame_second": 8687,
+      "top_points": 2,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "a962416c-b2e6-457d-9eea-3fa2048312e8",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.7284,
+          0.6546,
+          0.7815,
+          0.875,
+          0.6905,
+          0.7849
+        ],
+        "score_digits": "212/012",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7959,
+          0.868,
+          0.8276
+        ]
+      }
+    },
+    {
+      "frame_second": 8735,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "stopped",
+      "timer_value": "0:00",
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "f316357d-065e-498a-bcbc-8848f6fa9f78",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.733,
+          0.6906,
+          0.771,
+          0.875,
+          0.7397,
+          0.7618
+        ],
+        "score_digits": "212/012",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.8025,
+          0.8333,
+          0.8103
+        ]
+      }
+    },
+    {
+      "frame_second": 8745,
+      "top_points": null,
+      "top_advantages": 2,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "0344b2e2-5c39-444a-ae76-13d3a90b840c",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.7536,
+          0.8102,
+          0.7791,
+          0.8447,
+          0.773,
+          0.7642
+        ],
+        "score_digits": "222/012",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.8378,
+          0.8227,
+          0.8514
+        ]
+      }
+    },
+    {
+      "frame_second": 8996,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": "blank",
+      "timer_state": "blank",
+      "timer_value": null,
+      "top_athlete_name": null,
+      "top_team_name": null,
+      "bottom_athlete_name": null,
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "c284b33c-cd0c-42ed-b0e3-511ab733fa21",
+      "match_id": "23f05314-e05b-490d-b061-5143d9d9aadb",
+      "evidence": {
+        "score_digit_similarities": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "score_digits": "",
+        "scoreboard_text": "",
+        "timer_digit_similarities": []
+      }
+    },
+    {
+      "frame_second": 9070,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "6:00",
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "6907553d-839d-4dd2-8736-62c87e3913d5",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.8336,
+          0.8668,
+          0.816,
+          0.8826,
+          0.8465,
+          0.8048
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7388,
+          0.8129,
+          0.8545
+        ]
+      }
+    },
+    {
+      "frame_second": 9084,
+      "top_points": 2,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "b961f926-c6a8-4b6c-bfad-895bf18027fe",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.6945,
+          0.8333,
+          0.8118,
+          0.8752,
+          0.8532,
+          0.7975
+        ],
+        "score_digits": "200/000",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7864,
+          0.8104,
+          0.8459
+        ]
+      }
+    },
+    {
+      "frame_second": 9092,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": 2,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "68c7afd1-8886-4a15-ab60-6d89477f89b7",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.7363,
+          0.8302,
+          0.7811,
+          0.875,
+          0.8349,
+          0.8048
+        ],
+        "score_digits": "202/000",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7438,
+          0.7996,
+          0.8082
+        ]
+      }
+    },
+    {
+      "frame_second": 9093,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": 2,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "464ebbc8-86f6-4518-8d08-457e45b3cf5f",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.7363,
+          0.8302,
+          0.7811,
+          0.875,
+          0.8399,
+          0.7475
+        ],
+        "score_digits": "202/002",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7438,
+          0.7996,
+          0.8082
+        ]
+      }
+    },
+    {
+      "frame_second": 9102,
+      "top_points": null,
+      "top_advantages": 1,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "5f61ecce-0fc8-4ade-8779-ad6f539d4b28",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.7079,
+          0.6648,
+          0.7997,
+          0.8718,
+          0.8408,
+          0.7956
+        ],
+        "score_digits": "212/002",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7532,
+          0.8544,
+          0.8158
+        ]
+      }
+    },
+    {
+      "frame_second": 9103,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": 1,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "KAYLA M DELK",
+      "top_team_name": null,
+      "bottom_athlete_name": "LAUREN NICOLE EYLER",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "e5112c0f-0ca3-4131-8e63-606d7e3e635d",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.7079,
+          0.6648,
+          0.7997,
+          0.8718,
+          0.6943,
+          0.7956
+        ],
+        "score_digits": "212/012",
+        "scoreboard_text": "KAYLA M DELK\nLAUREN NICOLE EYLER",
+        "timer_digit_similarities": [
+          0.7532,
+          0.8544,
+          0.8158
+        ]
+      }
+    },
+    {
+      "frame_second": 9112,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": "blank",
+      "timer_state": "blank",
+      "timer_value": null,
+      "top_athlete_name": "Victory",
+      "top_team_name": null,
+      "bottom_athlete_name": "Kanla M Delk",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "5c44cd37-3771-4109-b8d6-23bbdc4cd38b",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "score_digits": "",
+        "scoreboard_text": "Victory\nKanla M Delk",
+        "timer_digit_similarities": []
+      }
+    },
+    {
+      "frame_second": 9122,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "5:00",
+      "top_athlete_name": "AMY MARIE MITCHELL",
+      "top_team_name": null,
+      "bottom_athlete_name": "MISTY DESHAE WILSON",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "6dc137b7-72bd-4882-9761-92db44e432e5",
+      "match_id": "6de32bec-29eb-406e-afe7-6b4d8903ab3e",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8374,
+          0.8307,
+          0.8083,
+          0.7942,
+          0.8459,
+          0.7794
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "AMY MARIE MITCHELL\nMISTY DESHAE WILSON",
+        "timer_digit_similarities": [
+          0.819,
+          0.8063,
+          0.8117
+        ]
+      }
+    },
+    {
+      "frame_second": 9273,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "5:00",
+      "top_athlete_name": "AMY MARIE MITCHELL",
+      "top_team_name": null,
+      "bottom_athlete_name": "MISTY DESHAE WILSON",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "d20019f2-a8fd-444a-9acb-3d2deb72f77c",
+      "match_id": "6de32bec-29eb-406e-afe7-6b4d8903ab3e",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8302,
+          0.837,
+          0.8254,
+          0.8527,
+          0.8229,
+          0.8155
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "AMY MARIE MITCHELL\nMISTY DESHAE WILSON",
+        "timer_digit_similarities": [
+          0.7877,
+          0.8201,
+          0.8282
+        ]
+      }
+    }
+  ]
+}

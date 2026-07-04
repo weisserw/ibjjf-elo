@@ -1,0 +1,1014 @@
+{
+  "source": {
+    "scan_id": "deb8b80d-70e9-4c7e-b864-24cd1320f1c0",
+    "archive_id": "2939fc39-0197-47fa-85bb-8a059626e01a",
+    "status": "success",
+    "parser_profile": "auto",
+    "score_engine": "fixed_digit",
+    "name_engine": "paddle"
+  },
+  "range": {
+    "start_second": 10380,
+    "end_second": 11700
+  },
+  "events": [
+    {
+      "frame_second": 10397,
+      "top_points": null,
+      "top_advantages": 3,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "FILIPE RAIMUNDO V.D",
+      "top_team_name": null,
+      "bottom_athlete_name": "ARTHUR VINICUS",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "7a2d6a91-e057-4a65-b2e3-c73e0c57f42e",
+      "match_id": "32e343b9-e32f-400c-abec-f8e80d8ff4c4",
+      "evidence": {
+        "score_digit_similarities": [
+          0.7864,
+          0.6321,
+          0.8553,
+          0.8791,
+          0.8459,
+          0.8206
+        ],
+        "score_digits": "930/000",
+        "scoreboard_text": "FILIPE RAIMUNDO V.D..\nARTHUR VINICUS DE S.",
+        "timer_digit_similarities": [
+          0.8286,
+          0.8349,
+          0.8485
+        ]
+      }
+    },
+    {
+      "frame_second": 10398,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": "blank",
+      "timer_state": "blank",
+      "timer_value": null,
+      "top_athlete_name": "Victory",
+      "top_team_name": null,
+      "bottom_athlete_name": "Filipe Raimundo V",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "8fc20a60-17f0-4f22-b416-d90d70ec5520",
+      "match_id": "32e343b9-e32f-400c-abec-f8e80d8ff4c4",
+      "evidence": {
+        "score_digit_similarities": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "score_digits": "",
+        "scoreboard_text": "Victory\nFilipe Raimundo V.\nROXBJJ",
+        "timer_digit_similarities": []
+      }
+    },
+    {
+      "frame_second": 10408,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "7:00",
+      "top_athlete_name": "PABRIEL SOARES LUSO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ARTHUR RONNY VITAL",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "2e9b3904-0093-4016-bc19-de67b25f48b4",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.8553,
+          0.8722,
+          0.8553,
+          0.9011,
+          0.8323,
+          0.8384
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "PABRIEL SOARES LUSO\nARTHUR RONNY VITAL",
+        "timer_digit_similarities": [
+          0.8569,
+          0.8623,
+          0.8657
+        ]
+      }
+    },
+    {
+      "frame_second": 10420,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "7:00",
+      "top_athlete_name": "IL SOABESLUISO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ARTHUR RONNY VITAL",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "c3d96040-53fd-498c-bd5a-154af4343020",
+      "match_id": "ffdfbc34-1b2a-4b83-a293-797d70929023",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8537,
+          0.8183,
+          0.837,
+          0.8828,
+          0.8149,
+          0.8901
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "IL SOABESLUISO\nARTHUR RONNY VITAL ",
+        "timer_digit_similarities": [
+          0.868,
+          0.8565,
+          0.8706
+        ]
+      }
+    },
+    {
+      "frame_second": 10481,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": 1,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "RIEL SOABES LUSO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ARTHUR RONNY VITAL",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "9f6212d8-1624-42c7-b6d0-f7216f5f86a2",
+      "match_id": "ffdfbc34-1b2a-4b83-a293-797d70929023",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8648,
+          0.8638,
+          0.8553,
+          0.8835,
+          0.6439,
+          0.84
+        ],
+        "score_digits": "000/010",
+        "scoreboard_text": "RIEL SOABES LUSO\nARTHUR RONNY VITAL",
+        "timer_digit_similarities": [
+          0.7918,
+          0.8708,
+          0.811
+        ]
+      }
+    },
+    {
+      "frame_second": 10742,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 3,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "CABRITLSOARES LUISO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ARTHUR RONNY VITAL",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "8cc998fc-07e9-426e-bda4-d66aa30d0955",
+      "match_id": "ffdfbc34-1b2a-4b83-a293-797d70929023",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8648,
+          0.8362,
+          0.8401,
+          0.8049,
+          0.6567,
+          0.8872
+        ],
+        "score_digits": "000/310",
+        "scoreboard_text": "CABRITLSOARES LUISO\nARTHUR RONNY VITAL =",
+        "timer_digit_similarities": [
+          0.9314,
+          0.7534,
+          0.8514
+        ]
+      }
+    },
+    {
+      "frame_second": 10810,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "stopped",
+      "timer_value": "0:30",
+      "top_athlete_name": "PRITLSOARE LUSO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ARTHUR RONNY VITAL",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "3b3c6364-f466-4aad-b2c2-c59e162b7498",
+      "match_id": "ffdfbc34-1b2a-4b83-a293-797d70929023",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8553,
+          0.8729,
+          0.8553,
+          0.7357,
+          0.6039,
+          0.8462
+        ],
+        "score_digits": "000/310",
+        "scoreboard_text": "PRITLSOARE LUSO\nARTHUR RONNY VITAL -",
+        "timer_digit_similarities": [
+          0.8965,
+          0.7085,
+          0.872
+        ]
+      }
+    },
+    {
+      "frame_second": 10811,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "0:30",
+      "top_athlete_name": "TRIEL SOABES LUSO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ARTHUR RONNY VITAL",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "91bb0941-88ae-49f6-90ed-c6ab7271ae4f",
+      "match_id": "ffdfbc34-1b2a-4b83-a293-797d70929023",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8553,
+          0.8669,
+          0.8553,
+          0.7357,
+          0.8555,
+          0.8462
+        ],
+        "score_digits": "000/310",
+        "scoreboard_text": "TRIEL SOABES LUSO\nARTHUR RONNY VITAL -",
+        "timer_digit_similarities": [
+          0.8633,
+          0.7329,
+          0.8266
+        ]
+      }
+    },
+    {
+      "frame_second": 10841,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "stopped",
+      "timer_value": "0:00",
+      "top_athlete_name": "ABRIL SOADES LUSO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ARTHUR RONNY VITAL",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "bfae9d3b-b940-4990-8306-75ae9a9083b2",
+      "match_id": "ffdfbc34-1b2a-4b83-a293-797d70929023",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8648,
+          0.8789,
+          0.8553,
+          0.8176,
+          0.6303,
+          0.8324
+        ],
+        "score_digits": "000/310",
+        "scoreboard_text": "ABRIL SOADES LUSO\nARTHUR RONNY VITAL -",
+        "timer_digit_similarities": [
+          0.9077,
+          0.7978,
+          0.8646
+        ]
+      }
+    },
+    {
+      "frame_second": 10847,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": 2,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "RITL SOADES LUSO",
+      "top_team_name": null,
+      "bottom_athlete_name": "ARTHUR RONNY VITAL",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "8e87a2a9-2848-4db6-98b2-bf647e15765c",
+      "match_id": "ffdfbc34-1b2a-4b83-a293-797d70929023",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8443,
+          0.8991,
+          0.865,
+          0.8056,
+          0.7667,
+          0.8267
+        ],
+        "score_digits": "000/320",
+        "scoreboard_text": "RITL SOADES LUSO\nARTHUR RONNY VITAL",
+        "timer_digit_similarities": [
+          0.8598,
+          0.8573,
+          0.9115
+        ]
+      }
+    },
+    {
+      "frame_second": 10894,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": "blank",
+      "timer_state": "blank",
+      "timer_value": null,
+      "top_athlete_name": "Victory",
+      "top_team_name": null,
+      "bottom_athlete_name": "Arthur Ronny Vital",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "daa1d3f9-3df9-4a55-ac33-f0e1448b19d9",
+      "match_id": "ffdfbc34-1b2a-4b83-a293-797d70929023",
+      "evidence": {
+        "score_digit_similarities": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "score_digits": "",
+        "scoreboard_text": "Victory\nArthur Ronny Vital\nROXBJJ",
+        "timer_digit_similarities": []
+      }
+    },
+    {
+      "frame_second": 10904,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "7:00",
+      "top_athlete_name": "JOAO PEDRO DA SILYA",
+      "top_team_name": null,
+      "bottom_athlete_name": "MAYCON EDUARDO VE",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "e3799562-2fcd-4673-886c-7e7f3918a8fd",
+      "match_id": "15724a7c-770e-48d6-8f5c-de224f404c71",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8553,
+          0.8596,
+          0.8553,
+          0.8872,
+          0.8488,
+          0.8358
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "JOAO PEDRO DA SILYA\nMAYCON EDUARDO VE..",
+        "timer_digit_similarities": [
+          0.8682,
+          0.8564,
+          0.8588
+        ]
+      }
+    },
+    {
+      "frame_second": 10981,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "7:00",
+      "top_athlete_name": "JOAO PEDRO DA SILVA",
+      "top_team_name": null,
+      "bottom_athlete_name": "MAYCON EDUARDO VE",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "c05d57cd-3af9-489b-b9cc-68aeb4c930f1",
+      "match_id": "15724a7c-770e-48d6-8f5c-de224f404c71",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8553,
+          0.8873,
+          0.8553,
+          0.8431,
+          0.8323,
+          0.8419
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "JOAO PEDRO DA SILVA\nMAYCON EDUARDO VE..",
+        "timer_digit_similarities": [
+          0.8501,
+          0.8651,
+          0.8745
+        ]
+      }
+    },
+    {
+      "frame_second": 10993,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "stopped",
+      "timer_value": "6:49",
+      "top_athlete_name": "JOAO PEEIO DA SILVA",
+      "top_team_name": null,
+      "bottom_athlete_name": "MAYCON EDUARDO VE",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "b62f94af-51f1-42ca-841f-0d4e746c408e",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.8235,
+          0.8713,
+          0.8443,
+          0.8637,
+          0.8252,
+          0.8294
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "JOAO PEEIO DA SILVA\nMAYCON EDUARDO VE.",
+        "timer_digit_similarities": [
+          0.7817,
+          0.8377,
+          0.8272
+        ]
+      }
+    },
+    {
+      "frame_second": 11001,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": 3,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "JOAO PEO DA SILYA",
+      "top_team_name": null,
+      "bottom_athlete_name": "MAYCON EDUARDO VE",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "7385650e-b99f-4537-85fb-5073c98fe570",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.8537,
+          0.8858,
+          0.837,
+          0.8769,
+          0.5832,
+          0.8294
+        ],
+        "score_digits": "000/030",
+        "scoreboard_text": "JOAO PEO DA SILYA\nMAYCON EDUARDO VE.",
+        "timer_digit_similarities": [
+          0.7623,
+          0.8473,
+          0.8336
+        ]
+      }
+    },
+    {
+      "frame_second": 11002,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": 1,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "JOAO PEDIRO DA SLVA",
+      "top_team_name": null,
+      "bottom_athlete_name": "MAYCON EDUARDO VE",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "54be32c9-6cf1-4488-906f-2a7b00bb3eed",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.8553,
+          0.8638,
+          0.8553,
+          0.8918,
+          0.6673,
+          0.8206
+        ],
+        "score_digits": "000/010",
+        "scoreboard_text": "JOAO PEDIRO DA SLVA\nMAYCON EDUARDO VE.",
+        "timer_digit_similarities": [
+          0.8256,
+          0.836,
+          0.7864
+        ]
+      }
+    },
+    {
+      "frame_second": 11014,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": "blank",
+      "timer_state": "blank",
+      "timer_value": null,
+      "top_athlete_name": "Victory",
+      "top_team_name": null,
+      "bottom_athlete_name": "Maycon Eduardo V",
+      "bottom_team_name": "Ares BJJ",
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "891eb4da-a325-4f43-be61-4ff166895685",
+      "match_id": null,
+      "evidence": {
+        "score_digit_similarities": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "score_digits": "",
+        "scoreboard_text": "Victory\nMaycon Eduardo V\nAres BJJ",
+        "timer_digit_similarities": []
+      }
+    },
+    {
+      "frame_second": 11288,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "7:00",
+      "top_athlete_name": "MAYCON EDUARDO VE",
+      "top_team_name": null,
+      "bottom_athlete_name": "PEDRO VICTOR PEREIR",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "17676717-2af7-492a-996f-b4c8c53e8ef2",
+      "match_id": "5b94faad-71c4-410b-a10a-574891695574",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8553,
+          0.8729,
+          0.8553,
+          0.9007,
+          0.8606,
+          0.8775
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "MAYCON EDUARDO VE\nPEDRO VICTOR PEREIR..",
+        "timer_digit_similarities": [
+          0.8621,
+          0.8992,
+          0.8653
+        ]
+      }
+    },
+    {
+      "frame_second": 11321,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "7:00",
+      "top_athlete_name": "MAYCON EDUARDO VE",
+      "top_team_name": null,
+      "bottom_athlete_name": "PEDRO VICTOR PEREIR",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "4342680c-6699-4356-a397-573ade50a7a3",
+      "match_id": "5b94faad-71c4-410b-a10a-574891695574",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8537,
+          0.8579,
+          0.8553,
+          0.8762,
+          0.8149,
+          0.8354
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "MAYCON EDUARDO VE.\nPEDRO VICTOR PEREIR,",
+        "timer_digit_similarities": [
+          0.8228,
+          0.852,
+          0.9171
+        ]
+      }
+    },
+    {
+      "frame_second": 11411,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 2,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "MAYCON EDUARDO VE",
+      "top_team_name": null,
+      "bottom_athlete_name": "PEDRO VICTOR PEREIR",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "1ced5d00-091e-4a56-9736-5bb0dcee0e3c",
+      "match_id": "5b94faad-71c4-410b-a10a-574891695574",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8524,
+          0.8632,
+          0.8443,
+          0.8559,
+          0.8029,
+          0.8327
+        ],
+        "score_digits": "000/200",
+        "scoreboard_text": "MAYCON EDUARDO VE...\nPEDRO VICTOR PEREIR.",
+        "timer_digit_similarities": [
+          0.8319,
+          0.7273,
+          0.9027
+        ]
+      }
+    },
+    {
+      "frame_second": 11471,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 5,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "MAYCON EDUARDO VE",
+      "top_team_name": null,
+      "bottom_athlete_name": "PEDRO VICTOR PEREIR",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "346f86f0-074c-48a2-9188-4fbead60715d",
+      "match_id": "5b94faad-71c4-410b-a10a-574891695574",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8553,
+          0.8579,
+          0.8553,
+          0.7244,
+          0.8356,
+          0.8336
+        ],
+        "score_digits": "000/500",
+        "scoreboard_text": "MAYCON EDUARDO VE\nPEDRO VICTOR PEREIR.",
+        "timer_digit_similarities": [
+          0.8704,
+          0.7133,
+          0.8745
+        ]
+      }
+    },
+    {
+      "frame_second": 11499,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": 7,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": null,
+      "timer_value": null,
+      "top_athlete_name": "MAYCON EDUARDO VE",
+      "top_team_name": null,
+      "bottom_athlete_name": "PEDRO VICTOR PEREIR",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "e5323a24-d331-4534-b6b3-a08bf1445178",
+      "match_id": "5b94faad-71c4-410b-a10a-574891695574",
+      "evidence": {
+        "score_digit_similarities": [
+          0.837,
+          0.8866,
+          0.8553,
+          0.8848,
+          0.8356,
+          0.8282
+        ],
+        "score_digits": "000/700",
+        "scoreboard_text": "MAYCON EDUARDO VE...\nPEDRO VICTOR PEREIR",
+        "timer_digit_similarities": [
+          0.8815,
+          0.8537,
+          0.8195
+        ]
+      }
+    },
+    {
+      "frame_second": 11556,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "stopped",
+      "timer_value": "3:05",
+      "top_athlete_name": "MAYCION EDUARDO VE",
+      "top_team_name": null,
+      "bottom_athlete_name": "PEDRO VICTOR PEREIR",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "f935aeb8-6e9f-46c4-a8c6-0870c40d9d87",
+      "match_id": "5b94faad-71c4-410b-a10a-574891695574",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8537,
+          0.8844,
+          0.8443,
+          0.878,
+          0.8517,
+          0.8193
+        ],
+        "score_digits": "000/700",
+        "scoreboard_text": "MAYCION EDUARDO VE\nPEDRO VICTOR PEREIR.",
+        "timer_digit_similarities": [
+          0.7637,
+          0.832,
+          0.8316
+        ]
+      }
+    },
+    {
+      "frame_second": 11613,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": "blank",
+      "timer_state": "blank",
+      "timer_value": null,
+      "top_athlete_name": "Victory",
+      "top_team_name": null,
+      "bottom_athlete_name": "Pedro Victor Pereir",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "d1de6d03-5cc5-4026-b5cf-957e1d169e05",
+      "match_id": "5b94faad-71c4-410b-a10a-574891695574",
+      "evidence": {
+        "score_digit_similarities": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "score_digits": "",
+        "scoreboard_text": "Victory\nPedro Victor Pereir\nAOJ",
+        "timer_digit_similarities": []
+      }
+    },
+    {
+      "frame_second": 11623,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "7:00",
+      "top_athlete_name": "O MARANHIAD DE",
+      "top_team_name": null,
+      "bottom_athlete_name": "FRANCISCO DE ASSIS D",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "1a2f14ef-6efd-497c-9156-b5798f0a89e0",
+      "match_id": "a09bfcf5-880e-48ec-ba27-984392cbf29d",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8806,
+          0.8506,
+          0.8443,
+          0.8824,
+          0.8532,
+          0.8909
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "O MARANHIAD DE\nFRANCISCO DE ASSIS D.",
+        "timer_digit_similarities": [
+          0.866,
+          0.8498,
+          0.9054
+        ]
+      }
+    },
+    {
+      "frame_second": 11686,
+      "top_points": null,
+      "top_advantages": null,
+      "top_penalties": null,
+      "bottom_points": null,
+      "bottom_advantages": null,
+      "bottom_penalties": null,
+      "scoreboard_state": null,
+      "timer_state": "running",
+      "timer_value": "7:00",
+      "top_athlete_name": "ARO MARANHAD DE",
+      "top_team_name": null,
+      "bottom_athlete_name": "FRANCISCO DE ASSIS",
+      "bottom_team_name": null,
+      "profile_id": "auto",
+      "score_engine": "fixed_digit",
+      "name_engine": "paddle",
+      "confidence": null,
+      "id": "81a983ed-690f-4544-bcdc-9eafdd340170",
+      "match_id": "a09bfcf5-880e-48ec-ba27-984392cbf29d",
+      "evidence": {
+        "score_digit_similarities": [
+          0.8553,
+          0.861,
+          0.8553,
+          0.8419,
+          0.8296,
+          0.8358
+        ],
+        "score_digits": "000/000",
+        "scoreboard_text": "ARO MARANHAD DE\nFRANCISCO DE ASSIS D..",
+        "timer_digit_similarities": [
+          0.8516,
+          0.8568,
+          0.8629
+        ]
+      }
+    }
+  ]
+}

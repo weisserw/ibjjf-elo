@@ -40,6 +40,7 @@ NO_FIGHT_NOTE_PARTS = (
 MIN_NAME_SCORE = 78.0
 MIN_SCORE_MARGIN = 8.0
 MIN_RESET_NAME_CONFIDENCE = 0.9
+MIN_CONTINUATION_NAME_SCORE = 82.0
 LOOKAHEAD_MATCHES = 8
 TIME_MATCH_WINDOW_SECONDS = 20 * 60
 CONTINUATION_TIME_WINDOW_SECONDS = 3 * 60
@@ -161,6 +162,57 @@ def _same_start_names(first: TextState, second: TextState) -> bool:
     ) and _names_are_similar(first.bottom_athlete_name, second.bottom_athlete_name)
 
 
+def _names_are_continuation_match(first: str | None, second: str | None) -> bool:
+    first_norm = _norm(first)
+    second_norm = _norm(second)
+    if not first_norm or not second_norm:
+        return False
+    return (
+        fuzz.ratio(first_norm, second_norm) >= MIN_CONTINUATION_NAME_SCORE
+        or fuzz.partial_ratio(first_norm, second_norm) >= MIN_CONTINUATION_NAME_SCORE
+    )
+
+
+def _name_matches_any_continuation(value: str | None, choices: list[str]) -> bool:
+    return any(_names_are_continuation_match(value, choice) for choice in choices)
+
+
+def _has_terminal_boundary(points: list[TimelinePoint]) -> bool:
+    return any(
+        point.state.scoreboard_state == SCOREBOARD_STATE_BLANK
+        or point.event.top_athlete_name == "Victory"
+        for point in points
+    )
+
+
+def _continuation_start_matches_active_window(
+    timeline: list[TimelinePoint], start_index: int, candidate_index: int
+) -> bool:
+    points = timeline[start_index:candidate_index]
+    if not points or _has_terminal_boundary(points):
+        return False
+
+    candidate_state = timeline[candidate_index].state
+    if not candidate_state.top_athlete_name or not candidate_state.bottom_athlete_name:
+        return False
+
+    top_names = [
+        point.state.top_athlete_name
+        for point in points
+        if point.state.top_athlete_name and point.state.top_athlete_name != "Victory"
+    ]
+    bottom_names = [
+        point.state.bottom_athlete_name
+        for point in points
+        if point.state.bottom_athlete_name
+    ]
+    return _name_matches_any_continuation(
+        candidate_state.top_athlete_name, top_names
+    ) and _name_matches_any_continuation(
+        candidate_state.bottom_athlete_name, bottom_names
+    )
+
+
 def _event_confidently_matches_names(
     event: LivestreamFrameTextEvent, state: TextState
 ) -> bool:
@@ -228,7 +280,15 @@ def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchW
     for index, point in enumerate(timeline):
         if not _is_start_point(point):
             continue
-        if starts and _same_start_names(timeline[starts[-1]].state, point.state):
+        if starts and _continuation_start_matches_active_window(
+            timeline, starts[-1], index
+        ):
+            continue
+        if (
+            starts
+            and not _has_terminal_boundary(timeline[starts[-1] : index])
+            and _same_start_names(timeline[starts[-1]].state, point.state)
+        ):
             continue
         starts.append(index)
     windows = []
