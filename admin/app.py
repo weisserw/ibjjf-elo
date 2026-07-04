@@ -1064,6 +1064,14 @@ def tasks_unrecorded_winners():
 def livestream_frame_archives():
     message = request.args.get("message")
     error = None
+    selected_sort = request.values.get("sort") or "event_date_desc"
+    archive_sort_options = [
+        ("event_date_desc", "Event date descending"),
+        ("event_date_asc", "Event date ascending"),
+        ("youtube_id", "YouTube ID"),
+    ]
+    if selected_sort not in {value for value, _label in archive_sort_options}:
+        selected_sort = "event_date_desc"
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -1116,24 +1124,42 @@ def livestream_frame_archives():
                 db.session.commit()
                 message = f"Queued {segment_count} segment(s)."
             elif action == "retry_failed":
-                segment_count = retry_failed_segments(db.session, archive_ids or None)
+                segment_count = retry_failed_segments(
+                    db.session, archive_ids or None, ["error"]
+                )
                 db.session.commit()
-                message = f"Requeued {segment_count} failed/cancelled segment(s)."
-            elif action == "cancel":
-                segment_count = cancel_queued_segments(db.session, archive_ids or None)
+                message = f"Requeued {segment_count} failed segment(s)."
+            elif action == "retry_cancelled":
+                segment_count = retry_failed_segments(
+                    db.session, archive_ids or None, ["cancelled"]
+                )
                 db.session.commit()
-                message = f"Cancelled {segment_count} queued/running segment(s)."
+                message = f"Requeued {segment_count} cancelled segment(s)."
+            elif action == "cancel_queued":
+                segment_count = cancel_queued_segments(
+                    db.session, archive_ids or None, ["pending", "queued"]
+                )
+                db.session.commit()
+                message = f"Cancelled {segment_count} queued segment(s)."
+            elif action == "cancel_running":
+                segment_count = cancel_queued_segments(
+                    db.session, archive_ids or None, ["running"]
+                )
+                db.session.commit()
+                message = f"Cancelled {segment_count} running segment(s)."
         except Exception as exc:
             db.session.rollback()
             error = str(exc)
 
-    rows = get_archive_dashboard_rows(db.session)
+    rows = get_archive_dashboard_rows(db.session, sort=selected_sort)
     return render_template(
         "livestream_frame_archives.html",
         rows=rows,
         message=message,
         error=error,
         progress_label=archive_progress_label,
+        selected_sort=selected_sort,
+        archive_sort_options=archive_sort_options,
     )
 
 

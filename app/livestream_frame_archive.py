@@ -4,6 +4,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime
 
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 
 from models import (
@@ -11,6 +12,8 @@ from models import (
     LiveStream,
     LivestreamFrameArchive,
     LivestreamFrameCaptureSegment,
+    Match,
+    RegistrationLink,
 )
 from youtube_utils import canonical_youtube_url, extract_youtube_video_id
 
@@ -45,6 +48,7 @@ class LivestreamUsage:
     stream: LiveStream
     youtube_video_id: str
     event_name: str | None
+    event_date: datetime | None
 
 
 def s3_prefix_for_youtube_id(youtube_video_id: str) -> str:
@@ -81,6 +85,30 @@ def discover_livestream_usages(session) -> dict[str, list[LivestreamUsage]]:
         event.ibjjf_id: event.name
         for event in Event.query.filter(Event.ibjjf_id.in_(event_ids)).all()
     }
+    event_dates_by_id = {
+        ibjjf_id: min_happened_at
+        for ibjjf_id, min_happened_at in session.query(
+            Event.ibjjf_id, func.min(Match.happened_at)
+        )
+        .join(Match, Match.event_id == Event.id)
+        .filter(Event.ibjjf_id.in_(event_ids))
+        .group_by(Event.ibjjf_id)
+        .all()
+    }
+    registration_names_by_id = {}
+    for registration_link in (
+        RegistrationLink.query.filter(RegistrationLink.event_id.in_(event_ids))
+        .order_by(RegistrationLink.event_id, RegistrationLink.updated_at.desc())
+        .all()
+    ):
+        if registration_link.event_id:
+            registration_names_by_id.setdefault(
+                registration_link.event_id, registration_link.name
+            )
+            if registration_link.event_start_date:
+                event_dates_by_id.setdefault(
+                    registration_link.event_id, registration_link.event_start_date
+                )
 
     usages: dict[str, list[LivestreamUsage]] = {}
     for stream in streams:
@@ -91,7 +119,9 @@ def discover_livestream_usages(session) -> dict[str, list[LivestreamUsage]]:
             LivestreamUsage(
                 stream=stream,
                 youtube_video_id=youtube_video_id,
-                event_name=events_by_id.get(stream.event_id),
+                event_name=events_by_id.get(stream.event_id)
+                or registration_names_by_id.get(stream.event_id),
+                event_date=event_dates_by_id.get(stream.event_id),
             )
         )
     return usages
@@ -223,9 +253,12 @@ def queue_archive_capture(
     return created + requeued
 
 
-def retry_failed_segments(session, archive_ids: list | None = None) -> int:
+def retry_failed_segments(
+    session, archive_ids: list | None = None, statuses: list[str] | None = None
+) -> int:
+    statuses = statuses or ["error", "cancelled"]
     query = LivestreamFrameCaptureSegment.query.filter(
-        LivestreamFrameCaptureSegment.status.in_(["error", "cancelled"])
+        LivestreamFrameCaptureSegment.status.in_(statuses)
     )
     if archive_ids:
         query = query.filter(LivestreamFrameCaptureSegment.archive_id.in_(archive_ids))
@@ -279,9 +312,12 @@ def requeue_completed_segments(session, archive: LivestreamFrameArchive) -> int:
     return len(segments)
 
 
-def cancel_queued_segments(session, archive_ids: list | None = None) -> int:
+def cancel_queued_segments(
+    session, archive_ids: list | None = None, statuses: list[str] | None = None
+) -> int:
+    statuses = statuses or ["pending", "queued", "running"]
     query = LivestreamFrameCaptureSegment.query.filter(
-        LivestreamFrameCaptureSegment.status.in_(["pending", "queued", "running"])
+        LivestreamFrameCaptureSegment.status.in_(statuses)
     )
     if archive_ids:
         query = query.filter(LivestreamFrameCaptureSegment.archive_id.in_(archive_ids))
@@ -380,7 +416,14 @@ def recompute_archive_status(session, archive: LivestreamFrameArchive) -> None:
         archive.status = "partial"
 
 
-def get_archive_dashboard_rows(session) -> list[dict]:
+def _dashboard_row_event_date(usages: list[LivestreamUsage]) -> datetime | None:
+    dates = [usage.event_date for usage in usages if usage.event_date is not None]
+    if not dates:
+        return None
+    return min(dates)
+
+
+def get_archive_dashboard_rows(session, sort: str = "event_date_desc") -> list[dict]:
     usages = discover_livestream_usages(session)
     archives = {
         archive.youtube_video_id: archive
@@ -394,13 +437,31 @@ def get_archive_dashboard_rows(session) -> list[dict]:
     rows = []
     for youtube_video_id in sorted(set(usages) | set(archives)):
         archive = archives.get(youtube_video_id)
+        row_usages = usages.get(youtube_video_id, [])
         rows.append(
             {
                 "youtube_video_id": youtube_video_id,
                 "canonical_url": canonical_youtube_url(youtube_video_id),
                 "archive": archive,
-                "usages": usages.get(youtube_video_id, []),
+                "usages": row_usages,
+                "event_date": _dashboard_row_event_date(row_usages),
             }
+        )
+    if sort == "youtube_id":
+        rows.sort(key=lambda row: row["youtube_video_id"])
+    elif sort == "event_date_asc":
+        rows.sort(key=lambda row: row["youtube_video_id"])
+        rows.sort(
+            key=lambda row: (
+                row["event_date"] is None,
+                row["event_date"] or datetime.max,
+            )
+        )
+    else:
+        rows.sort(key=lambda row: row["youtube_video_id"])
+        rows.sort(
+            key=lambda row: row["event_date"] or datetime.min,
+            reverse=True,
         )
     return rows
 

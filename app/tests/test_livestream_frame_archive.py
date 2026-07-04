@@ -21,6 +21,7 @@ from models import (  # noqa: E402
     LiveStream,
     LivestreamFrameArchive,
     LivestreamFrameCaptureSegment,
+    RegistrationLink,
 )
 from test_db import TestDbMixin  # noqa: E402
 from youtube_utils import (  # noqa: E402
@@ -662,6 +663,207 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(len(usages["HxZSos1k_MA"]), 2)
         self.assertEqual(usages["HxZSos1k_MA"][0].event_name, "Test Open 2026")
 
+    def test_discovery_uses_registration_link_name_when_event_is_missing(self):
+        db.session.add(
+            RegistrationLink(
+                name="Registration Only Open 2026",
+                event_id="3301",
+                normalized_name="registration only open 2026",
+                updated_at=datetime(2026, 1, 1),
+                link="https://www.ibjjfdb.com/ChampionshipResults/3301",
+                hidden=False,
+            )
+        )
+        db.session.add(
+            LiveStream(
+                event_id="3301",
+                platform="youtube",
+                mat_number=9,
+                day_number=1,
+                start_hour=9,
+                start_minute=30,
+                start_seconds=0,
+                end_hour=18,
+                end_minute=0,
+                drift_factor=1.0,
+                hide_all=False,
+                link="https://www.youtube.com/watch?v=RegOnly1234",
+            )
+        )
+        db.session.commit()
+
+        try:
+            usages = archive_lib.discover_livestream_usages(db.session)
+
+            self.assertEqual(
+                usages["RegOnly1234"][0].event_name, "Registration Only Open 2026"
+            )
+        finally:
+            LiveStream.query.filter_by(event_id="3301").delete()
+            RegistrationLink.query.filter_by(event_id="3301").delete()
+            db.session.commit()
+
+    def test_dashboard_rows_default_to_event_date_descending(self):
+        db.session.add(
+            RegistrationLink(
+                name="Older Registration Open",
+                event_id="old-event",
+                normalized_name="older registration open",
+                updated_at=datetime(2026, 1, 1),
+                link="https://www.ibjjfdb.com/ChampionshipResults/old-event",
+                hidden=False,
+                event_start_date=datetime(2026, 2, 1),
+            )
+        )
+        db.session.add(
+            RegistrationLink(
+                name="Newer Registration Open",
+                event_id="new-event",
+                normalized_name="newer registration open",
+                updated_at=datetime(2026, 1, 1),
+                link="https://www.ibjjfdb.com/ChampionshipResults/new-event",
+                hidden=False,
+                event_start_date=datetime(2026, 6, 1),
+            )
+        )
+        db.session.add(
+            LiveStream(
+                event_id="old-event",
+                platform="youtube",
+                mat_number=1,
+                day_number=1,
+                start_hour=9,
+                start_minute=30,
+                start_seconds=0,
+                end_hour=18,
+                end_minute=0,
+                drift_factor=1.0,
+                hide_all=False,
+                link="https://www.youtube.com/watch?v=OldVideo001",
+            )
+        )
+        db.session.add(
+            LiveStream(
+                event_id="new-event",
+                platform="youtube",
+                mat_number=1,
+                day_number=1,
+                start_hour=9,
+                start_minute=30,
+                start_seconds=0,
+                end_hour=18,
+                end_minute=0,
+                drift_factor=1.0,
+                hide_all=False,
+                link="https://www.youtube.com/watch?v=NewVideo001",
+            )
+        )
+        db.session.commit()
+
+        try:
+            rows = archive_lib.get_archive_dashboard_rows(db.session)
+            youtube_ids = [row["youtube_video_id"] for row in rows]
+
+            self.assertLess(
+                youtube_ids.index("NewVideo001"), youtube_ids.index("OldVideo001")
+            )
+        finally:
+            LiveStream.query.filter(
+                LiveStream.event_id.in_(["old-event", "new-event"])
+            ).delete(synchronize_session=False)
+            RegistrationLink.query.filter(
+                RegistrationLink.event_id.in_(["old-event", "new-event"])
+            ).delete(synchronize_session=False)
+            db.session.commit()
+
+    def test_dashboard_rows_can_sort_by_event_date_ascending_and_youtube_id(self):
+        db.session.add(
+            RegistrationLink(
+                name="Beta Registration Open",
+                event_id="beta-event",
+                normalized_name="beta registration open",
+                updated_at=datetime(2026, 1, 1),
+                link="https://www.ibjjfdb.com/ChampionshipResults/beta-event",
+                hidden=False,
+                event_start_date=datetime(2026, 2, 1),
+            )
+        )
+        db.session.add(
+            RegistrationLink(
+                name="Alpha Registration Open",
+                event_id="alpha-event",
+                normalized_name="alpha registration open",
+                updated_at=datetime(2026, 1, 1),
+                link="https://www.ibjjfdb.com/ChampionshipResults/alpha-event",
+                hidden=False,
+                event_start_date=datetime(2026, 6, 1),
+            )
+        )
+        db.session.add(
+            LiveStream(
+                event_id="beta-event",
+                platform="youtube",
+                mat_number=1,
+                day_number=1,
+                start_hour=9,
+                start_minute=30,
+                start_seconds=0,
+                end_hour=18,
+                end_minute=0,
+                drift_factor=1.0,
+                hide_all=False,
+                link="https://www.youtube.com/watch?v=BetaVideo01",
+            )
+        )
+        db.session.add(
+            LiveStream(
+                event_id="alpha-event",
+                platform="youtube",
+                mat_number=1,
+                day_number=1,
+                start_hour=9,
+                start_minute=30,
+                start_seconds=0,
+                end_hour=18,
+                end_minute=0,
+                drift_factor=1.0,
+                hide_all=False,
+                link="https://www.youtube.com/watch?v=AlphaVideo1",
+            )
+        )
+        db.session.commit()
+
+        try:
+            ascending_ids = [
+                row["youtube_video_id"]
+                for row in archive_lib.get_archive_dashboard_rows(
+                    db.session, sort="event_date_asc"
+                )
+            ]
+            youtube_sorted_ids = [
+                row["youtube_video_id"]
+                for row in archive_lib.get_archive_dashboard_rows(
+                    db.session, sort="youtube_id"
+                )
+            ]
+
+            self.assertLess(
+                ascending_ids.index("BetaVideo01"),
+                ascending_ids.index("AlphaVideo1"),
+            )
+            self.assertLess(
+                youtube_sorted_ids.index("AlphaVideo1"),
+                youtube_sorted_ids.index("BetaVideo01"),
+            )
+        finally:
+            LiveStream.query.filter(
+                LiveStream.event_id.in_(["alpha-event", "beta-event"])
+            ).delete(synchronize_session=False)
+            RegistrationLink.query.filter(
+                RegistrationLink.event_id.in_(["alpha-event", "beta-event"])
+            ).delete(synchronize_session=False)
+            db.session.commit()
+
     def test_queue_archive_segments_for_known_duration(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
         archive.duration_seconds = 1201
@@ -793,6 +995,44 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(segment.archive.status, "queued")
         self.assertIsNone(segment.archive.last_error)
 
+    def test_retry_failed_segments_can_filter_statuses(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        db.session.flush()
+        db.session.add(
+            LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=0,
+                end_second=600,
+                status="error",
+                last_error="failed",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        db.session.add(
+            LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=600,
+                end_second=1200,
+                status="cancelled",
+                last_error="cancelled",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        db.session.commit()
+
+        requeued = archive_lib.retry_failed_segments(
+            db.session, [archive.id], ["error"]
+        )
+        db.session.commit()
+
+        statuses = {
+            segment.start_second: segment.status
+            for segment in LivestreamFrameCaptureSegment.query.all()
+        }
+        self.assertEqual(requeued, 1)
+        self.assertEqual(statuses[0], "queued")
+        self.assertEqual(statuses[600], "cancelled")
+
     def test_retry_failed_segments_clears_selected_archive_error_without_segments(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
         archive.status = "error"
@@ -804,6 +1044,40 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(requeued, 0)
         self.assertIsNone(archive.last_error)
+
+    def test_cancel_queued_segments_can_filter_statuses(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        db.session.flush()
+        db.session.add(
+            LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=0,
+                end_second=600,
+                status="queued",
+            )
+        )
+        db.session.add(
+            LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=600,
+                end_second=1200,
+                status="running",
+            )
+        )
+        db.session.commit()
+
+        cancelled = archive_lib.cancel_queued_segments(
+            db.session, [archive.id], ["queued"]
+        )
+        db.session.commit()
+
+        statuses = {
+            segment.start_second: segment.status
+            for segment in LivestreamFrameCaptureSegment.query.all()
+        }
+        self.assertEqual(cancelled, 1)
+        self.assertEqual(statuses[0], "cancelled")
+        self.assertEqual(statuses[600], "running")
 
     def test_requeue_completed_segments_clears_upload_metadata(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
