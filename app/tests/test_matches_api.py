@@ -393,6 +393,10 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
+    @unittest.skipUnless(
+        os.environ.get("RUN_OCR_TESTS") == "1",
+        "OCR-related tests run via `make test-ocr`",
+    )
     def test_matches_returns_ocr_linked_match_fields(self, mock_livestreams, _mock_s3):
         mock_livestreams.return_value = {
             "tournament_days": {"E1": datetime(2024, 1, 1).date()},

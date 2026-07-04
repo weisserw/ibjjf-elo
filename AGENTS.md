@@ -3,6 +3,9 @@
 ## Testing
 - Run Python unit tests from the repository root with:
   - `make test`
+- Run OCR/livestream text scan tests from the repository root with:
+  - `make test-ocr`
+- OCR tests are computationally expensive. Do not run OCR tests unless OCR/livestream text scan changes are being made.
 - Note that dependencies may be installed in a local pyenv; don't assume the global
   python3 will work, check the environment that would execute if one were running from a shell in the repository root.
 
