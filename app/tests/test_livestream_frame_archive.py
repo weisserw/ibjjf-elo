@@ -3,9 +3,11 @@ import os
 import sys
 import tarfile
 import tempfile
+import types
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.insert(
@@ -48,6 +50,17 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         self.assertEqual(options["format"], "best")
         self.assertEqual(options["js_runtimes"], {"node": {}})
         self.assertEqual(options["remote_components"], ["ejs:github"])
+
+    def test_default_fallback_format_prefers_video_only_after_primary(self):
+        args = runner.parse_args([])
+
+        self.assertEqual(args.format, runner.DEFAULT_FORMAT_SELECTOR)
+        self.assertEqual(
+            args.fallback_format,
+            runner.DEFAULT_FALLBACK_FORMAT_SELECTOR,
+        )
+        self.assertTrue(args.format.endswith("/best"))
+        self.assertTrue(args.fallback_format.startswith("bv*"))
 
     def test_yt_dlp_options_parse_runtime_path_and_cookie_sources(self):
         options = runner._yt_dlp_options(
@@ -144,6 +157,115 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
                     }
                 ]
             )
+        )
+
+    def test_probe_retries_fallback_format_only_after_primary_unavailable(self):
+        class DownloadError(Exception):
+            pass
+
+        class FakeYoutubeDL:
+            def __init__(self, options):
+                self.options = dict(options)
+                calls.append(self.options)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def extract_info(self, url, download=False):
+                self.url = url
+                self.download = download
+                if len(calls) == 1:
+                    raise DownloadError("ERROR: Requested format is not available")
+                return {
+                    "duration": 600,
+                    "format_id": "135",
+                    "format_note": "480p",
+                    "height": 480,
+                    "width": 854,
+                    "fps": 30,
+                    "vcodec": "avc1.4d401f",
+                    "protocol": "https",
+                    "url": "https://video.example.com/480.mp4",
+                }
+
+        class FakeState:
+            def mark_probe_started(self, archive, fps):
+                archive.frame_rate = fps
+
+            def mark_probe_complete(
+                self,
+                archive,
+                info,
+                selected,
+                yt_dlp_version,
+                segment_seconds,
+                fps,
+            ):
+                archive.duration_seconds = int(info["duration"])
+                archive.format_id = selected["format_id"]
+                archive.width = selected["width"]
+                archive.height = selected["height"]
+                archive.source_fps = selected["fps"]
+                archive.video_codec = selected["vcodec"]
+                archive.protocol = selected["protocol"]
+                archive.tbr = selected.get("tbr")
+                return 0
+
+        calls = []
+        yt_dlp_module = types.ModuleType("yt_dlp")
+        yt_dlp_module.__path__ = []
+        yt_dlp_module.YoutubeDL = FakeYoutubeDL
+        version_module = types.ModuleType("yt_dlp.version")
+        version_module.__version__ = "test-version"
+        utils_module = types.ModuleType("yt_dlp.utils")
+        utils_module.DownloadError = DownloadError
+        yt_dlp_module.version = version_module
+        yt_dlp_module.utils = utils_module
+
+        archive = runner.ApiObject(
+            {
+                "youtube_video_id": "video123",
+                "canonical_url": "https://www.youtube.com/watch?v=video123",
+                "duration_seconds": None,
+                "format_id": None,
+                "width": None,
+                "height": None,
+                "source_fps": None,
+                "video_codec": None,
+                "protocol": None,
+                "tbr": None,
+            }
+        )
+
+        with patch.dict(
+            sys.modules,
+            {
+                "yt_dlp": yt_dlp_module,
+                "yt_dlp.version": version_module,
+                "yt_dlp.utils": utils_module,
+            },
+        ):
+            stream_url = runner.probe_youtube_archive(
+                archive,
+                FakeState(),
+                "primary-selector",
+                "fallback-selector",
+                None,
+                [],
+                None,
+                None,
+                None,
+                600,
+                1.0,
+            )
+
+        self.assertEqual(stream_url, "https://video.example.com/480.mp4")
+        self.assertEqual(
+            [call["format"] for call in calls],
+            ["primary-selector", "fallback-selector"],
         )
 
     def test_ffmpeg_extract_command_can_include_progress_output(self):

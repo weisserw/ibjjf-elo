@@ -39,6 +39,12 @@ from photos import bucket_name, get_s3_client  # noqa: E402
 
 
 DEFAULT_FORMAT_SELECTOR = "best[height=480]/18/best[height<=480]/best"
+DEFAULT_FALLBACK_FORMAT_SELECTOR = (
+    "bv*[height=480][vcodec^=avc1]/135/"
+    "bv*[height<=480][vcodec^=avc1]/"
+    "bv*[height<=720][vcodec^=avc1]/"
+    "bv*[vcodec^=avc1]/bv*"
+)
 FFMPEG_PROGRESS_LOG_SECONDS = 30
 CROP_VARIANTS = ("score", "timer")
 COOKIES_ENV_VAR = "YTDLP_COOKIES"
@@ -583,6 +589,7 @@ def probe_youtube_archive(
     archive: LivestreamFrameArchive,
     state,
     format_selector: str,
+    fallback_format_selector: str | None,
     js_runtime: str | None,
     remote_components: list[str],
     cookies: str | None,
@@ -607,22 +614,47 @@ def probe_youtube_archive(
             cookies_from_browser=cookies_from_browser,
         )
         _log_probe_config(options, yt_dlp.version.__version__)
+        selected = None
         try:
             with yt_dlp.YoutubeDL(options) as ydl:
                 info = ydl.extract_info(archive.canonical_url, download=False)
         except DownloadError as exc:
             if FORMAT_UNAVAILABLE_MARKER not in str(exc):
                 raise
-            log(
-                "yt-dlp format selector failed; probing available formats without "
-                f"selector: {exc}"
-            )
-            info = _extract_info_without_format(archive.canonical_url, options)
-            _log_format_inventory(info)
-            selected = _select_available_video_format(info.get("formats") or [])
-            if not selected:
-                raise
-            log(f"Selected fallback video format: {_format_label(selected)}")
+            if fallback_format_selector and fallback_format_selector != format_selector:
+                fallback_options = dict(options)
+                fallback_options["format"] = fallback_format_selector
+                log(
+                    "yt-dlp format selector failed; retrying fallback selector: "
+                    f"{exc}"
+                )
+                try:
+                    with yt_dlp.YoutubeDL(fallback_options) as ydl:
+                        info = ydl.extract_info(
+                            archive.canonical_url,
+                            download=False,
+                        )
+                except DownloadError as fallback_exc:
+                    if FORMAT_UNAVAILABLE_MARKER not in str(fallback_exc):
+                        raise
+                    log(
+                        "yt-dlp fallback format selector failed; probing available "
+                        f"formats without selector: {fallback_exc}"
+                    )
+                else:
+                    selected = _selected_format(info)
+                    log(f"Selected fallback video format: {_format_label(selected)}")
+            if selected is None:
+                log(
+                    "yt-dlp format selector failed; probing available formats without "
+                    f"selector: {exc}"
+                )
+                info = _extract_info_without_format(archive.canonical_url, options)
+                _log_format_inventory(info)
+                selected = _select_available_video_format(info.get("formats") or [])
+                if not selected:
+                    raise
+                log(f"Selected fallback video format: {_format_label(selected)}")
         else:
             selected = _selected_format(info)
 
@@ -863,6 +895,7 @@ def process_segment(
     segment: LivestreamFrameCaptureSegment,
     state,
     format_selector: str,
+    fallback_format_selector: str | None,
     js_runtime: str | None,
     remote_components: list[str],
     cookies: str | None,
@@ -884,6 +917,7 @@ def process_segment(
         archive,
         state,
         format_selector,
+        fallback_format_selector,
         js_runtime,
         remote_components,
         cookies,
@@ -978,6 +1012,7 @@ def run(args, state=None) -> int:
                 segment,
                 state,
                 args.format,
+                args.fallback_format,
                 args.js_runtime,
                 args.remote_component,
                 args.cookies,
@@ -1009,6 +1044,14 @@ def parse_args(argv=None):
     parser.add_argument("--segment-seconds", type=int, default=DEFAULT_SEGMENT_SECONDS)
     parser.add_argument("--fps", type=float, default=1.0)
     parser.add_argument("--format", default=DEFAULT_FORMAT_SELECTOR)
+    parser.add_argument(
+        "--fallback-format",
+        default=DEFAULT_FALLBACK_FORMAT_SELECTOR,
+        help=(
+            "yt-dlp format selector used only when --format is unavailable; "
+            "set to an empty string to disable"
+        ),
+    )
     parser.add_argument("--js-runtime", default="node")
     parser.add_argument(
         "--remote-component",
