@@ -647,8 +647,9 @@ class ScoreboardDigitReader:
             if not _score_cell_has_background(cell, role):
                 has_layout = False
             prediction = self._predict_score_cell(cell)
-            if prediction.digit is None:
-                prediction = self._predict_score_cell(raw_cell)
+            raw_prediction = self._predict_score_cell(raw_cell)
+            if self._should_use_raw_score_prediction(prediction, raw_prediction):
+                prediction = raw_prediction
             if prediction.digit is None:
                 predictions.append(DigitPrediction(None, 0.0, "none"))
             else:
@@ -679,6 +680,39 @@ class ScoreboardDigitReader:
         ) / len(digit_predictions)
         source = "+".join(prediction.source for prediction in digit_predictions)
         return DigitPrediction(value, similarity, source)
+
+    @staticmethod
+    def _prediction_digit_count(prediction: DigitPrediction) -> int:
+        if prediction.digit is None:
+            return 0
+        return len(str(prediction.digit))
+
+    @staticmethod
+    def _prediction_has_leading_one_geometry(prediction: DigitPrediction) -> bool:
+        return bool(
+            prediction.digit is not None
+            and str(prediction.digit).startswith("1")
+            and (
+                ":score-one-geometry" in prediction.source
+                or ":score-leading-one-edge" in prediction.source
+            )
+        )
+
+    @classmethod
+    def _should_use_raw_score_prediction(
+        cls, prediction: DigitPrediction, raw_prediction: DigitPrediction
+    ) -> bool:
+        if raw_prediction.digit is None:
+            return False
+        if prediction.digit is None:
+            return True
+        if not cls._prediction_has_leading_one_geometry(raw_prediction):
+            return False
+        if cls._prediction_has_leading_one_geometry(prediction):
+            return False
+        return cls._prediction_digit_count(
+            raw_prediction
+        ) >= cls._prediction_digit_count(prediction)
 
     def _predict_score_digit_entry(
         self, entry: ScoreDigitMask, mask_count: int
