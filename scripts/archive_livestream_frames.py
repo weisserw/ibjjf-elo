@@ -17,6 +17,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
+from math import ceil, floor
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -572,18 +573,87 @@ def _fragment_url(format_info: dict, fragment: dict) -> str:
     return urljoin(fragment_base_url, fragment_path)
 
 
+def _looks_like_init_fragment(format_info: dict, fragment: dict) -> bool:
+    fragment_url = fragment.get("url") or fragment.get("path") or ""
+    return "init" in fragment_url.lower()
+
+
+def _durationless_dash_fragments_for_range(
+    format_info: dict,
+    start_second: int,
+    duration_seconds: int,
+    fragments: list[dict],
+) -> tuple[list[dict], float] | None:
+    total_duration = format_info.get("_archive_duration_seconds") or format_info.get(
+        "duration"
+    )
+    if not total_duration:
+        return None
+    try:
+        total_duration = float(total_duration)
+    except (TypeError, ValueError):
+        return None
+    if total_duration <= 0:
+        return None
+
+    init_fragments = [
+        fragment
+        for fragment in fragments
+        if _looks_like_init_fragment(format_info, fragment)
+    ]
+    media_fragments = [
+        fragment
+        for fragment in fragments
+        if not _looks_like_init_fragment(format_info, fragment)
+    ]
+    if not media_fragments:
+        return None
+
+    inferred_fragment_duration = total_duration / len(media_fragments)
+    if inferred_fragment_duration <= 0:
+        return None
+
+    start_index = max(0, floor(start_second / inferred_fragment_duration))
+    end_index = min(
+        len(media_fragments),
+        max(
+            start_index + 1,
+            ceil((start_second + duration_seconds) / inferred_fragment_duration),
+        ),
+    )
+    if start_index >= len(media_fragments):
+        return None
+
+    first_media_start = start_index * inferred_fragment_duration
+    return (
+        init_fragments + media_fragments[start_index:end_index],
+        max(0.0, start_second - first_media_start),
+    )
+
+
 def _dash_fragments_for_range(
     format_info: dict,
     start_second: int,
     duration_seconds: int,
 ) -> tuple[list[dict], float]:
     end_second = start_second + duration_seconds
+    fragments = list(format_info.get("fragments") or [])
+    if fragments and all(fragment.get("duration") is None for fragment in fragments):
+        inferred = _durationless_dash_fragments_for_range(
+            format_info,
+            start_second,
+            duration_seconds,
+            fragments,
+        )
+        if inferred is not None:
+            return inferred
+
     selected_fragments = []
     init_fragments = []
     cursor = 0.0
     first_media_start = None
 
-    for fragment in format_info.get("fragments") or []:
+    for fragment in fragments:
         fragment_duration = fragment.get("duration")
         if fragment_duration is None:
             init_fragments.append(fragment)
@@ -785,6 +855,9 @@ def probe_youtube_archive(
         f"protocol={archive.protocol or 'unknown'} "
         f"tbr={archive.tbr or 'unknown'} "
         f"created_segments={created_segments}"
+    )
+    selected["_archive_duration_seconds"] = archive.duration_seconds or info.get(
+        "duration"
     )
     return StreamSource(stream_url, selected)
 

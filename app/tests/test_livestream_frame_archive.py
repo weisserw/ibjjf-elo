@@ -296,6 +296,33 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         )
         self.assertEqual(local_start, 2.0)
 
+    def test_dash_fragments_for_range_infers_missing_fragment_durations(self):
+        format_info = {
+            "_archive_duration_seconds": 100,
+            "fragments": [
+                {"url": "https://video.example.com/sq/0"},
+                {"url": "https://video.example.com/sq/1"},
+                {"url": "https://video.example.com/sq/2"},
+                {"url": "https://video.example.com/sq/3"},
+                {"url": "https://video.example.com/sq/4"},
+            ],
+        }
+
+        fragments, local_start = runner._dash_fragments_for_range(
+            format_info,
+            start_second=45,
+            duration_seconds=35,
+        )
+
+        self.assertEqual(
+            [fragment["url"] for fragment in fragments],
+            [
+                "https://video.example.com/sq/2",
+                "https://video.example.com/sq/3",
+            ],
+        )
+        self.assertEqual(local_start, 5.0)
+
     def test_download_dash_fragment_section_writes_selected_fragment_bytes(self):
         class FakeResponse:
             def __init__(self, body):
