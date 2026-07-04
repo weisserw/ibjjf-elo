@@ -1082,6 +1082,7 @@ class FrameImageTextParser:
             return box_text, box_fields
 
         first_text = ""
+        compact_top_name = None
         for text in self._paddle_name_texts(score_image, column_boxes):
             if not first_text:
                 first_text = text
@@ -1099,7 +1100,15 @@ class FrameImageTextParser:
             )
             if fields:
                 return text, fields
-        row_text, row_fields = self._paddle_row_name_fields(score_image)
+            if compact_name_column:
+                parsed_names = self._parse_names(text, allow_two_line_fallback=False)
+                if parsed_names.get("top_athlete_name") and not parsed_names.get(
+                    "bottom_athlete_name"
+                ):
+                    compact_top_name = parsed_names["top_athlete_name"]
+        row_text, row_fields = self._paddle_row_name_fields(
+            score_image, top_name_fallback=compact_top_name
+        )
         if row_fields:
             return (
                 "\n".join(part for part in (first_text, row_text) if part),
@@ -1107,7 +1116,9 @@ class FrameImageTextParser:
             )
         return first_text, {}
 
-    def _paddle_row_name_fields(self, score_image) -> tuple[str, dict]:
+    def _paddle_row_name_fields(
+        self, score_image, *, top_name_fallback: str | None = None
+    ) -> tuple[str, dict]:
         if score_image is None or not hasattr(score_image, "crop"):
             return "", {}
 
@@ -1134,6 +1145,8 @@ class FrameImageTextParser:
                 row_fields[field_name] = max(
                     name_candidates, key=self._name_candidate_score
                 )
+        if top_name_fallback and not row_fields.get("top_athlete_name"):
+            row_fields["top_athlete_name"] = top_name_fallback
 
         return "\n".join(row_texts), self._complete_athlete_name_fields(row_fields)
 

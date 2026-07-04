@@ -830,7 +830,7 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
 
 
 class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
-    def _name_parser(self, name_engine="tesseract"):
+    def _name_parser(self, name_engine):
         parser = text_ocr.FrameImageTextParser.__new__(text_ocr.FrameImageTextParser)
         parser.name_engine = name_engine
         return parser
@@ -943,8 +943,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             "bucket",
         )
 
-    def test_tesseract_parser_reads_names_from_scoreboard_text(self):
-        parser = self._name_parser()
+    def test_name_parser_reads_names_from_scoreboard_text(self):
+        parser = self._name_parser(name_engine="paddle")
 
         fields = parser._parse_names(
             "\n".join(
@@ -967,8 +967,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
 
-    def test_tesseract_parser_strips_score_junk_from_name_lines(self):
-        parser = self._name_parser()
+    def test_name_parser_strips_score_junk_from_name_lines(self):
+        parser = self._name_parser(name_engine="paddle")
 
         fields = parser._parse_names(
             "\n".join(
@@ -987,8 +987,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
 
-    def test_tesseract_parser_ignores_short_junk_name_lines(self):
-        parser = self._name_parser()
+    def test_name_parser_ignores_short_junk_name_lines(self):
+        parser = self._name_parser(name_engine="paddle")
 
         fields = parser._parse_names(
             "S\ney 1\nrs PT\nTEST ATHLETE ALPHA\nTEST ATHLETE BETA"
@@ -1003,15 +1003,15 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         )
 
     def test_name_parser_keeps_accented_four_token_names(self):
-        parser = self._name_parser()
+        parser = self._name_parser(name_engine="paddle")
 
         self.assertEqual(
             parser._clean_name_line("JOÄO MANOEL DOS SA..."),
             "JOÄO MANOEL DOS SA",
         )
 
-    def test_tesseract_parser_uses_blank_lines_as_name_boundaries(self):
-        parser = self._name_parser()
+    def test_name_parser_uses_blank_lines_as_name_boundaries(self):
+        parser = self._name_parser(name_engine="paddle")
 
         fields = parser._parse_names(
             "\n".join(
@@ -1036,8 +1036,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
 
-    def test_tesseract_parser_handles_split_team_lines_in_rendered_scoreboard(self):
-        parser = self._name_parser()
+    def test_name_parser_handles_split_team_lines_in_rendered_scoreboard(self):
+        parser = self._name_parser(name_engine="paddle")
 
         cases = [
             (
@@ -1120,8 +1120,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                     },
                 )
 
-    def test_tesseract_parser_does_not_infer_rendered_scoreboard_from_three_lines(self):
-        parser = self._name_parser()
+    def test_name_parser_does_not_infer_rendered_scoreboard_from_three_lines(self):
+        parser = self._name_parser(name_engine="paddle")
 
         fields = parser._parse_names(
             "\n".join(
@@ -1136,8 +1136,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         self.assertEqual(fields, {})
 
-    def test_tesseract_parser_reads_victory_screen(self):
-        parser = self._name_parser()
+    def test_name_parser_reads_victory_screen(self):
+        parser = self._name_parser(name_engine="paddle")
 
         fields = parser._parse_names(
             "\n".join(
@@ -1158,8 +1158,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
 
-    def test_tesseract_parser_reads_cropped_victory_screen(self):
-        parser = self._name_parser()
+    def test_name_parser_reads_cropped_victory_screen(self):
+        parser = self._name_parser(name_engine="paddle")
 
         fields = parser._parse_names(
             "\n".join(
@@ -1191,7 +1191,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                 self.boxes.append(box)
                 return f"crop-{len(self.boxes)}"
 
-        parser = self._name_parser()
+        parser = self._name_parser(name_engine="tesseract")
         parser._prepare_name_ocr_image = lambda image: f"prepared-{image}"
         parser._ocr = mock.Mock(
             side_effect=[
@@ -1244,7 +1244,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                 self.boxes.append(box)
                 return f"crop-{len(self.boxes)}"
 
-        parser = self._name_parser()
+        parser = self._name_parser(name_engine="tesseract")
         parser._prepare_name_ocr_image = lambda image: f"prepared-{image}"
         parser._ocr = mock.Mock(
             side_effect=[
@@ -1278,7 +1278,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                 self.boxes.append(box)
                 return f"crop-{len(self.boxes)}"
 
-        parser = self._name_parser()
+        parser = self._name_parser(name_engine="tesseract")
         parser._prepare_name_ocr_image = lambda image: f"prepared-{image}"
         parser._ocr = mock.Mock(
             side_effect=["", "TEST ATHLETE GAMMA-RAY", "TEST ATHLETE DELTA"]
@@ -1312,7 +1312,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             def crop(self, box):
                 return box
 
-        parser = self._name_parser()
+        parser = self._name_parser(name_engine="tesseract")
         parser._prepare_name_ocr_image = lambda image: image
         parser._ocr = mock.Mock(side_effect=["", "TEST ATHLETE GAMMA-RAY", "", "", ""])
 
@@ -1320,7 +1320,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         self.assertEqual(fields, {})
 
-    def test_tesseract_parser_skips_names_when_name_engine_disabled(self):
+    def test_name_parser_skips_names_when_name_engine_disabled(self):
         parser = self._name_parser(name_engine=None)
 
         self.assertEqual(parser._parse_names("TEST ATHLETE ALPHA\n0 0 0"), {})
@@ -1572,7 +1572,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(os.environ["FLAGS_use_onednn"], "0")
 
     def test_frame_image_parser_name_only_mode_does_not_emit_score_or_timer(self):
-        parser = self._name_parser()
+        parser = self._name_parser(name_engine="paddle")
         parser.parser_profile = "auto"
         parser.score_engine = "none"
         parser.score_reader = None
@@ -1591,7 +1591,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertIsNone(reading.timer_state)
 
     def test_frame_image_parser_uses_fixed_digit_readers_for_score_and_timer(self):
-        parser = self._name_parser()
+        parser = self._name_parser(name_engine="paddle")
         parser.parser_profile = "auto"
         parser.score_engine = "fixed_digit"
         parser.name_engine = None
@@ -1632,10 +1632,9 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(reading.evidence["score_digits"], "000/210")
 
     def test_frame_image_parser_caches_score_timer_and_name_reads(self):
-        parser = self._name_parser()
+        parser = self._name_parser(name_engine="paddle")
         parser.parser_profile = "auto"
         parser.score_engine = "fixed_digit"
-        parser.name_engine = "tesseract"
         parser._image_from_bytes = lambda image_bytes: image_bytes
         parser.score_reader = mock.Mock()
         parser.score_reader.read.return_value = text_ocr.ScoreboardDigitReading(
@@ -1967,6 +1966,24 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         self.assertEqual(reading.predictions[2].digit, 3)
         self.assertGreater(reading.predictions[2].similarity, 0.7)
         self.assertIn("top-crop", reading.predictions[2].source)
+
+    def test_paddle_smaller_name_fixture_reads_both_names(self):
+        try:
+            text_ocr.validate_ocr_engines("none", "paddle")
+        except RuntimeError as exc:
+            self.skipTest(str(exc))
+
+        parser = text_ocr.FrameImageTextParser("auto", "none", "paddle")
+        score_path = os.path.join(self.fixture_dir, "score_smaller_names.jpg")
+        self.assertTrue(
+            os.path.exists(score_path),
+            "missing livestream OCR score fixture: score_smaller_names.jpg",
+        )
+        with open(score_path, "rb") as fileobj:
+            reading = parser.parse(0, fileobj.read(), None)
+
+        self.assertEqual(reading.top_athlete_name, "MARTIN RAPCAN")
+        self.assertEqual(reading.bottom_athlete_name, "ALEX CABANES GISBERT")
 
     def test_paddle_existing_name_fixtures_find_two_names(self):
         try:
