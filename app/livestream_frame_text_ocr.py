@@ -1898,14 +1898,54 @@ class FrameImageTextParser:
 
     @classmethod
     def _looks_like_junk_name_line(cls, name: str) -> bool:
-        token_lengths = [
-            sum(1 for char in token if char.isalpha()) for token in name.split()
-        ]
+        tokens = name.split()
+        token_lengths = [sum(1 for char in token if char.isalpha()) for token in tokens]
         token_lengths = [length for length in token_lengths if length]
         if len(token_lengths) < 4:
             return False
         short_count = sum(length <= 3 for length in token_lengths)
         long_count = sum(length >= 5 for length in token_lengths)
+        if short_count > len(token_lengths) // 2 and long_count <= 1:
+            normalized_tokens = [
+                "".join(
+                    char
+                    for char in unicodedata.normalize("NFKD", token)
+                    if not unicodedata.combining(char)
+                ).upper()
+                for token in tokens
+            ]
+            name_particles = {
+                "DA",
+                "DAS",
+                "DE",
+                "DEL",
+                "DI",
+                "DO",
+                "DOS",
+                "DU",
+                "E",
+                "LA",
+                "LE",
+                "SA",
+                "VAN",
+                "VON",
+            }
+            substantial_name_tokens = [
+                token
+                for token in normalized_tokens
+                if len(re.sub(r"[^A-Z]", "", token)) >= 4
+            ]
+            short_tokens = [
+                token
+                for token in normalized_tokens
+                if 0 < len(re.sub(r"[^A-Z]", "", token)) <= 3
+            ]
+            if (
+                len(substantial_name_tokens) >= 2
+                and short_tokens
+                and all(token in name_particles for token in short_tokens)
+            ):
+                return False
         return short_count > len(token_lengths) // 2 and long_count <= 1
 
     @staticmethod

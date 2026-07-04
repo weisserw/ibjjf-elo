@@ -1257,6 +1257,14 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         self.assertEqual(parser._parse_names("TEST ATHLETE ALPHA\n0 0 0"), {})
 
+    def test_paddle_name_parser_keeps_particle_heavy_names(self):
+        parser = self._name_parser(name_engine="paddle")
+
+        self.assertEqual(
+            parser._name_from_paddle_item_text("DAVI DE SA DA CRUZ"),
+            "DAVI DE SA DA CRUZ",
+        )
+
     def test_paddle_parser_extracts_text_from_legacy_result_shape(self):
         result = [
             [
@@ -1940,6 +1948,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 "new_score_names6.jpg",
                 "Stephany Correa Oliveira",
                 "Zaian Langella",
+            ),
+            (
+                "new_score_names7.jpg",
+                "LEO HUAN LIMA ALVES",
+                "DAVI DE SA DA CRUZ",
             ),
             (
                 "raw_score_000_000.jpg",
