@@ -775,6 +775,8 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
         ).all()
         for index, segment in enumerate(segments):
             segment.event_count = 1
+            segment.status = "success" if index == 0 else "queued"
+            segment.last_processed_second = segment.end_second - 1
             db.session.add(
                 LivestreamFrameTextEvent(
                     scan_id=scan.id,
@@ -795,11 +797,26 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(
             summary,
-            {"events": 2, "matches": 1, "participants": 2, "associations": 3},
+            {
+                "events": 2,
+                "segments": 2,
+                "matches": 1,
+                "participants": 2,
+                "associations": 3,
+            },
         )
         clear_links.assert_called_once_with(db.session, archive.id)
         self.assertEqual(LivestreamFrameTextEvent.query.count(), 0)
         self.assertEqual([segment.event_count for segment in segments], [0, 0])
+        self.assertEqual(
+            [segment.status for segment in segments],
+            ["pending", "pending"],
+        )
+        self.assertEqual(
+            [segment.last_processed_second for segment in segments],
+            [None, None],
+        )
+        self.assertEqual(scan.status, "pending")
 
     def test_s3_frame_batch_provider_reads_across_batches(self):
         archive, segments = self._archive_with_segments()

@@ -1302,7 +1302,8 @@ def livestream_frame_text_scans():
                 db.session.commit()
                 message = (
                     f"Deleted {summary['events']} text event(s) and cleared "
-                    f"{summary['associations']} match link(s)."
+                    f"{summary['associations']} match link(s); reset "
+                    f"{summary['segments']} segment status(es)."
                 )
         except Exception as exc:
             db.session.rollback()

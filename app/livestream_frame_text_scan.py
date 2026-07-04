@@ -338,7 +338,13 @@ def cancel_queued_text_scan_segments(
 
 def clear_text_scan_events(session, scan_ids: list | None = None) -> dict[str, int]:
     if not scan_ids:
-        return {"events": 0, "matches": 0, "participants": 0, "associations": 0}
+        return {
+            "events": 0,
+            "segments": 0,
+            "matches": 0,
+            "participants": 0,
+            "associations": 0,
+        }
 
     scans = LivestreamFrameTextScan.query.filter(
         LivestreamFrameTextScan.id.in_(scan_ids)
@@ -359,7 +365,28 @@ def clear_text_scan_events(session, scan_ids: list | None = None) -> dict[str, i
     LivestreamFrameTextScanSegment.query.filter(
         LivestreamFrameTextScanSegment.scan_id.in_(scan_ids)
     ).update({"event_count": 0}, synchronize_session=False)
-    return {"events": event_count, **summary}
+
+    reset_segments = LivestreamFrameTextScanSegment.query.filter(
+        LivestreamFrameTextScanSegment.scan_id.in_(scan_ids),
+        LivestreamFrameTextScanSegment.status.in_(["success", "queued"]),
+    ).all()
+    for segment in reset_segments:
+        segment.status = "pending"
+        segment.last_processed_second = None
+        segment.last_error = None
+        segment.started_at = None
+        segment.finished_at = None
+
+    for scan in scans:
+        recompute_text_scan_status(session, scan)
+        if scan.status == "queued" and all(
+            segment.status == "pending" for segment in scan.segments
+        ):
+            scan.status = "pending"
+            scan.started_at = None
+            scan.completed_at = None
+
+    return {"events": event_count, "segments": len(reset_segments), **summary}
 
 
 def reset_text_scan_for_rescan(session, scan_id, background_task_id=None):
