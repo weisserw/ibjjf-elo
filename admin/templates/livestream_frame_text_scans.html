@@ -33,13 +33,33 @@
             <div class="level-right">
                 <form method="POST">
                     <input type="hidden" name="action" value="queue_ready">
+                    <input type="hidden" name="sort" value="{{ selected_sort }}">
                     <button class="button is-info" type="submit">Queue ready streams</button>
                 </form>
             </div>
         </div>
     </div>
 
+    <form method="GET" class="mb-4">
+        <div class="field is-grouped is-align-items-center">
+            <label class="label mb-0" for="text-scan-sort">Sort</label>
+            <div class="control">
+                <div class="select is-small">
+                    <select id="text-scan-sort" name="sort">
+                        {% for value, label in text_scan_sort_options %}
+                        <option value="{{ value }}" {% if value == selected_sort %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="control">
+                <button class="button is-small" type="submit">Apply</button>
+            </div>
+        </div>
+    </form>
+
     <form method="POST">
+        <input type="hidden" name="sort" value="{{ selected_sort }}">
         <div class="buttons">
             <button class="button is-info is-small" name="action" value="queue_selected" type="submit">Queue selected</button>
             <button class="button is-warning is-small" name="action" value="retry_failed" type="submit">Retry failed/cancelled</button>

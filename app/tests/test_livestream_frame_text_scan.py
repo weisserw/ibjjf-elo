@@ -2254,6 +2254,23 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
         db.session.commit()
         return archive, segment
 
+    def test_admin_text_scan_page_passes_selected_sort(self):
+        client = self._admin_client()
+        with client.session_transaction() as session_data:
+            session_data["logged_in"] = True
+
+        with mock.patch.object(
+            self.admin_module, "_livestream_frame_text_scan_rows", return_value=[]
+        ) as rows:
+            response = client.get("/livestream_frame_text_scans?sort=youtube_id")
+
+        self.assertEqual(response.status_code, 200)
+        rows.assert_called_once_with(sort="youtube_id")
+        html = response.get_data(as_text=True)
+        self.assertIn('id="text-scan-sort"', html)
+        self.assertIn('value="youtube_id" selected', html)
+        self.assertIn('name="sort" value="youtube_id"', html)
+
     def test_worker_claim_complete_and_initial_state_api(self):
         archive, _ = self._archive_with_segment()
         text_scan.queue_text_scan(db.session, archive, score_engine="none")

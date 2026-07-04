@@ -490,8 +490,8 @@ def _text_scan_segment_status_counts(scan_ids):
     return counts
 
 
-def _livestream_frame_text_scan_rows():
-    archive_rows = get_archive_dashboard_rows(db.session)
+def _livestream_frame_text_scan_rows(sort: str = "event_date_desc"):
+    archive_rows = get_archive_dashboard_rows(db.session, sort=sort)
     archive_ids = [
         row["archive"].id for row in archive_rows if row.get("archive") is not None
     ]
@@ -1211,6 +1211,14 @@ def livestream_frame_archive_detail(archive_id):
 def livestream_frame_text_scans():
     message = request.args.get("message")
     error = None
+    selected_sort = request.values.get("sort") or "event_date_desc"
+    text_scan_sort_options = [
+        ("event_date_desc", "Event date descending"),
+        ("event_date_asc", "Event date ascending"),
+        ("youtube_id", "YouTube ID"),
+    ]
+    if selected_sort not in {value for value, _label in text_scan_sort_options}:
+        selected_sort = "event_date_desc"
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -1280,7 +1288,7 @@ def livestream_frame_text_scans():
             db.session.rollback()
             error = str(exc)
 
-    rows = _livestream_frame_text_scan_rows()
+    rows = _livestream_frame_text_scan_rows(sort=selected_sort)
     ready_count = sum(1 for row in rows if row["ready_to_queue"])
     active_count = sum(
         1
@@ -1296,6 +1304,8 @@ def livestream_frame_text_scans():
         error=error,
         progress_label=_text_scan_progress_label,
         segment_statuses=TEXT_SCAN_SEGMENT_STATUSES,
+        selected_sort=selected_sort,
+        text_scan_sort_options=text_scan_sort_options,
     )
 
 
