@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import io
-import json
 import os
 import re
 import shutil
@@ -36,10 +35,8 @@ SUPPORTED_SCORE_ENGINES = ("none", "fixed_digit")
 SUPPORTED_NAME_ENGINES = ("none", "tesseract", "paddle")
 SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
-RAW_DIGIT_TEMPLATE_SIZE = (12, 16)
 SCORE_THREE_EIGHT_SIMILARITY_MARGIN = 0.02
 OCR_FONT_DIR = Path(__file__).resolve().parent / "ocr_fonts"
-RAW_DIGIT_TEMPLATE_PATH = OCR_FONT_DIR / "raw_digit_templates.json"
 NAME_COLUMN_RIGHT_RATIO = 0.481
 NAME_RENDERED_COLUMN_RIGHT_RATIO = 0.52
 NAME_ROW_Y_EDGES = (0.0, 0.431, 0.861)
@@ -114,9 +111,6 @@ class PaddleTextItem:
     text: str
     confidence: float | None
     box: tuple[float, float, float, float] | None = None
-
-
-_RAW_DIGIT_TEMPLATES: dict[str, tuple[tuple[int, str], ...]] | None = None
 
 
 def _require_fixed_digit_dependencies():
@@ -318,66 +312,6 @@ def _normalize_mask(mask, size: tuple[int, int]):
     return np.asarray(image.resize(size, Image.Resampling.NEAREST)) > 0
 
 
-def _raw_digit_template_data(kind: str) -> tuple[tuple[int, str], ...]:
-    global _RAW_DIGIT_TEMPLATES
-    if _RAW_DIGIT_TEMPLATES is None:
-        with RAW_DIGIT_TEMPLATE_PATH.open() as fileobj:
-            data = json.load(fileobj)
-        size = tuple(data.get("size", ()))
-        if size != RAW_DIGIT_TEMPLATE_SIZE:
-            raise RuntimeError(
-                f"raw OCR template size mismatch: {size} != {RAW_DIGIT_TEMPLATE_SIZE}"
-            )
-        _RAW_DIGIT_TEMPLATES = {
-            name: tuple((int(item["digit"]), str(item["mask"])) for item in items)
-            for name, items in data.items()
-            if name != "size"
-        }
-    return _RAW_DIGIT_TEMPLATES[kind]
-
-
-def _raw_mask_text(mask) -> str:
-    return "".join("1" if value else "0" for value in mask.reshape(-1))
-
-
-def _raw_normalized_mask_text(mask) -> str | None:
-    y_coordinates, x_coordinates = np.where(mask)
-    if len(x_coordinates) == 0:
-        return None
-    top = max(0, int(y_coordinates.min()) - 1)
-    bottom = min(mask.shape[0], int(y_coordinates.max()) + 2)
-    left = max(0, int(x_coordinates.min()) - 1)
-    right = min(mask.shape[1], int(x_coordinates.max()) + 2)
-    normalized = _normalize_mask(mask[top:bottom, left:right], RAW_DIGIT_TEMPLATE_SIZE)
-    return _raw_mask_text(normalized)
-
-
-def _raw_digit_jaccard(mask_text: str, template_text: str) -> float:
-    intersection = 0
-    union = 0
-    for mask_value, template_value in zip(mask_text, template_text):
-        if mask_value == "1" or template_value == "1":
-            union += 1
-            if mask_value == "1" and template_value == "1":
-                intersection += 1
-    return float(intersection / union) if union else 0.0
-
-
-def _predict_raw_digit(mask_text: str | None, kind: str) -> DigitPrediction:
-    if not mask_text:
-        return DigitPrediction(None, 0.0, "none")
-    best_digit = None
-    best_similarity = 0.0
-    for digit, template_text in _raw_digit_template_data(kind):
-        similarity = _raw_digit_jaccard(mask_text, template_text)
-        if similarity > best_similarity:
-            best_digit = digit
-            best_similarity = similarity
-    if best_similarity < 0.45:
-        return DigitPrediction(None, best_similarity, "raw-template")
-    return DigitPrediction(best_digit, best_similarity, "raw-template")
-
-
 def _score_digit_mask(image):
     threshold = _score_digit_threshold(image)
     component = _largest_component(threshold, min_area=20)
@@ -570,13 +504,6 @@ class FixedDigitClassifier:
 
 
 class ScoreboardDigitReader:
-    RAW_SCORE_REFERENCE_SIZE = (230, 104)
-    RAW_SCORE_X_RANGES = ((0.455, 0.600), (0.600, 0.745), (0.745, 0.900))
-    RAW_SCORE_DIGIT_Y_RANGES = ((0.000, 0.180), (0.445, 0.620))
-    RAW_SCORE_CELL_Y_RANGES = ((0.000, 0.300), (0.445, 0.745))
-    RAW_SCORE_CONTROL_Y_RANGES = ((0.180, 0.420), (0.620, 0.860))
-    RAW_SCORE_BACKGROUND_ROLES = ("green", "yellow", "red", "green", "yellow", "red")
-
     def __init__(self, classifier: FixedDigitClassifier | None = None):
         self.classifier = classifier or FixedDigitClassifier(
             SCORE_TEMPLATE_SIZE, range(28, 50, 4), "score-font"
@@ -605,10 +532,6 @@ class ScoreboardDigitReader:
         ]
         if readings_with_digits:
             return max(readings_with_digits, key=self._reading_confidence)
-
-        raw_reading = self._read_raw_scoreboard(image)
-        if raw_reading is not None:
-            return raw_reading
 
         readings_with_layout = [reading for reading in readings if reading.has_layout]
         if readings_with_layout:
@@ -640,170 +563,6 @@ class ScoreboardDigitReader:
             tuple(predictions),
             True,
         )
-
-    def _read_raw_scoreboard(self, image) -> ScoreboardDigitReading | None:
-        raw_image = self._raw_score_image(image)
-        if not self._raw_scoreboard_has_side_margin(raw_image):
-            return None
-        if self._raw_scoreboard_has_popup(raw_image):
-            return ScoreboardDigitReading(None, (), True)
-        if not self._raw_scoreboard_has_layout(
-            raw_image
-        ) or not self._raw_scoreboard_has_control_widgets(raw_image):
-            return None
-
-        predictions = []
-        for box in self._raw_score_digit_boxes(raw_image.size):
-            mask_text = self._raw_score_digit_mask_text(raw_image.crop(box))
-            predictions.append(_predict_raw_digit(mask_text, "score"))
-        if any(prediction.digit is None for prediction in predictions):
-            return ScoreboardDigitReading(None, tuple(predictions), True)
-        return ScoreboardDigitReading(
-            tuple(prediction.digit for prediction in predictions),
-            tuple(predictions),
-            True,
-        )
-
-    @classmethod
-    def _raw_score_image(cls, image):
-        if image.size == cls.RAW_SCORE_REFERENCE_SIZE:
-            return image
-        return image.resize(cls.RAW_SCORE_REFERENCE_SIZE, Image.Resampling.LANCZOS)
-
-    @classmethod
-    def _raw_score_digit_boxes(cls, image_size):
-        width, height = image_size
-        return tuple(
-            (
-                int(width * x_start),
-                int(height * y_start),
-                int(width * x_end),
-                int(height * y_end),
-            )
-            for y_start, y_end in cls.RAW_SCORE_DIGIT_Y_RANGES
-            for x_start, x_end in cls.RAW_SCORE_X_RANGES
-        )
-
-    @classmethod
-    def _raw_score_cell_boxes(cls, image_size):
-        width, height = image_size
-        return tuple(
-            (
-                int(width * x_start),
-                int(height * y_start),
-                int(width * x_end),
-                int(height * y_end),
-            )
-            for y_start, y_end in cls.RAW_SCORE_CELL_Y_RANGES
-            for x_start, x_end in cls.RAW_SCORE_X_RANGES
-        )
-
-    def _raw_scoreboard_has_layout(self, image) -> bool:
-        matches = 0
-        for box, role in zip(
-            self._raw_score_cell_boxes(image.size), self.RAW_SCORE_BACKGROUND_ROLES
-        ):
-            if _score_cell_has_background(image.crop(box), role):
-                matches += 1
-        return matches >= 4
-
-    @staticmethod
-    def _raw_scoreboard_has_side_margin(image) -> bool:
-        rgb = np.asarray(image.convert("RGB"))
-        red = rgb[:, :, 0]
-        green = rgb[:, :, 1]
-        blue = rgb[:, :, 2]
-        width = image.width
-        side = slice(int(width * 0.90), width)
-        beige = (
-            (red[:, side] > 160)
-            & (green[:, side] > 130)
-            & (blue[:, side] > 80)
-            & (red[:, side] < 230)
-            & (green[:, side] < 210)
-            & (blue[:, side] < 180)
-        )
-        return bool(beige.mean() > 0.70)
-
-    @classmethod
-    def _raw_scoreboard_has_control_widgets(cls, image) -> bool:
-        rgb = np.asarray(image.convert("RGB"))
-        red = rgb[:, :, 0]
-        green = rgb[:, :, 1]
-        blue = rgb[:, :, 2]
-        white = (red > 210) & (green > 210) & (blue > 210)
-        height, width = white.shape
-        left = int(width * 0.45)
-        right = int(width * 0.90)
-        for y_start, y_end in cls.RAW_SCORE_CONTROL_Y_RANGES:
-            band = white[int(height * y_start) : int(height * y_end), left:right]
-            if band.size == 0:
-                continue
-            component_count, _labels, stats, _ = cv2.connectedComponentsWithStats(
-                band.astype("uint8"), 8
-            )
-            matches = 0
-            max_area = max(12, int(band.size * 0.01))
-            max_width = max(4, int(band.shape[1] * 0.06))
-            max_height = max(4, int(band.shape[0] * 0.25))
-            for component_index in range(1, component_count):
-                _x, _y, component_width, component_height, area = stats[component_index]
-                if (
-                    2 <= int(area) <= max_area
-                    and int(component_width) <= max_width
-                    and int(component_height) <= max_height
-                ):
-                    matches += 1
-            if matches >= 8:
-                return True
-        return False
-
-    @staticmethod
-    def _raw_scoreboard_has_popup(image) -> bool:
-        rgb = np.asarray(image.convert("RGB"))
-        red = rgb[:, :, 0]
-        green = rgb[:, :, 1]
-        blue = rgb[:, :, 2]
-        white = (red > 220) & (green > 220) & (blue > 220)
-        component_count, _labels, stats, _ = cv2.connectedComponentsWithStats(
-            white.astype("uint8"), 8
-        )
-        for component_index in range(1, component_count):
-            x, y, width, height, area = stats[component_index]
-            if (
-                int(area) >= 800
-                and int(x) > image.width * 0.20
-                and int(y) < image.height * 0.45
-                and int(height) >= image.height * 0.20
-            ):
-                return True
-        return False
-
-    @staticmethod
-    def _raw_score_digit_mask_text(cell) -> str | None:
-        rgb = np.asarray(cell.convert("RGB")).astype("float32")
-        median_rgb = np.median(rgb.reshape(-1, 3), axis=0)
-        distance = np.sqrt(((rgb - median_rgb) ** 2).sum(axis=2))
-        luminance = rgb.mean(axis=2)
-        mask = (distance > 32) & (luminance > np.median(luminance) + 3)
-        mask = cv2.morphologyEx(
-            mask.astype("uint8"), cv2.MORPH_CLOSE, np.ones((2, 2), np.uint8)
-        )
-        component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
-            mask.astype("uint8"), 8
-        )
-        components = []
-        for component_index in range(1, component_count):
-            _x, _y, width, height, area = stats[component_index]
-            if (
-                int(area) >= 3
-                and int(width) <= cell.width * 0.80
-                and int(height) <= cell.height * 0.95
-            ):
-                components.append(component_index)
-        if not components:
-            return None
-        return _raw_normalized_mask_text(np.isin(labels, components))
 
     def _predict_score_cell(self, cell) -> DigitPrediction:
         mask_entries = _score_digit_mask_entries(cell)
@@ -979,15 +738,6 @@ class TimerDigitReader:
         return allowed_digits
 
     def read(self, image) -> TimerDigitReading:
-        reading = self._read_standard_timer(image)
-        if reading.value is not None:
-            return reading
-        raw_reading = self._read_raw_timer(image)
-        if raw_reading is not None:
-            return raw_reading
-        return reading
-
-    def _read_standard_timer(self, image) -> TimerDigitReading:
         state = self._state(image)
         if image is None or state in (None, "blank"):
             return TimerDigitReading(state, None, ())
@@ -1051,136 +801,6 @@ class TimerDigitReader:
             value = f"{minutes}:{digits[2]}{digits[3]}"
         else:
             return TimerDigitReading("blank", None, tuple(predictions))
-        if value == "0:00":
-            state = "stopped"
-        return TimerDigitReading(state, value, tuple(predictions))
-
-    def _raw_state(self, image) -> str | None:
-        if image is None:
-            return None
-        rgb = np.asarray(image.convert("RGB"))
-        red = rgb[:, :, 0]
-        green = rgb[:, :, 1]
-        blue = rgb[:, :, 2]
-        height, width = red.shape
-        display = (
-            slice(0, int(height * 0.65)),
-            slice(int(width * 0.08), int(width * 0.85)),
-        )
-        controls = (
-            slice(int(height * 0.62), height),
-            slice(int(width * 0.08), int(width * 0.85)),
-        )
-        red_background = (
-            (red[display] > 80) & (green[display] < 80) & (blue[display] < 85)
-        ).mean()
-        black_background = (
-            (red[display] < 45) & (green[display] < 45) & (blue[display] < 45)
-        ).mean()
-        green_digits = (
-            (green[display] > 90)
-            & (red[display] < 145)
-            & (blue[display] < 145)
-            & ((green[display].astype("int16") - red[display].astype("int16")) > 10)
-        ).mean()
-        white_controls = (
-            (red[controls] > 180) & (green[controls] > 180) & (blue[controls] > 180)
-        ).mean()
-        if 0.25 <= red_background <= 0.60 and (
-            white_controls > 0.45 or black_background < 0.10
-        ):
-            return "stopped"
-        if green_digits > 0.004 and black_background > 0.25 and white_controls > 0.45:
-            return "running"
-        return None
-
-    @staticmethod
-    def _split_raw_timer_component(component_mask):
-        height, width = component_mask.shape
-        if width < height * 1.20:
-            return [component_mask]
-        start = max(2, width // 3)
-        end = min(width - 2, (width * 2) // 3 + 1)
-        if start < end:
-            projection = component_mask.sum(axis=0)
-            split = min(range(start, end), key=lambda index: projection[index])
-        else:
-            split = width // 2
-        return [component_mask[:, :split], component_mask[:, split:]]
-
-    def _raw_timer_mask_texts(self, image, state: str) -> list[str]:
-        width, height = image.size
-        display_box = (
-            int(width * 0.22),
-            0,
-            int(width * 0.80),
-            int(height * 0.64),
-        )
-        display = image.crop(display_box)
-        rgb = np.asarray(display.convert("RGB"))
-        red = rgb[:, :, 0]
-        green = rgb[:, :, 1]
-        blue = rgb[:, :, 2]
-        if state == "stopped":
-            mask = (red < 65) & (green < 65) & (blue < 65)
-        else:
-            mask = (
-                (green > 90)
-                & (red < 145)
-                & (blue < 145)
-                & ((green.astype("int16") - red.astype("int16")) > 10)
-            )
-        component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
-            mask.astype("uint8"), 8
-        )
-        components = []
-        for component_index in range(1, component_count):
-            x, y, component_width, component_height, area = stats[component_index]
-            if int(area) < 5 or int(component_height) < 6 or int(component_width) < 2:
-                continue
-            if (
-                int(component_width) >= display.width * 0.45
-                or int(component_height) >= display.height * 0.90
-            ):
-                continue
-            components.append(
-                (
-                    int(x),
-                    int(y),
-                    int(component_width),
-                    int(component_height),
-                    int(component_index),
-                )
-            )
-        components.sort(key=lambda item: item[0])
-
-        masks = []
-        for x, y, component_width, component_height, component_index in components:
-            component_mask = (
-                labels[y : y + component_height, x : x + component_width]
-                == component_index
-            )
-            for part in self._split_raw_timer_component(component_mask):
-                mask_text = _raw_normalized_mask_text(part)
-                if mask_text:
-                    masks.append(mask_text)
-        return masks
-
-    def _read_raw_timer(self, image) -> TimerDigitReading | None:
-        state = self._raw_state(image)
-        if state is None:
-            return None
-
-        mask_texts = self._raw_timer_mask_texts(image, state)
-        allowed_digits = self._allowed_digits_for_timer_masks(len(mask_texts))
-        predictions = [
-            _predict_raw_digit(mask_text, "timer")
-            for mask_text, _allowed in zip(mask_texts, allowed_digits)
-        ]
-        digits = [prediction.digit for prediction in predictions]
-        if len(digits) != 3 or any(digit is None for digit in digits):
-            return TimerDigitReading("blank", None, tuple(predictions))
-        value = f"{digits[0]}:{digits[1]}{digits[2]}"
         if value == "0:00":
             state = "stopped"
         return TimerDigitReading(state, value, tuple(predictions))
