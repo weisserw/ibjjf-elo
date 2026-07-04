@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from math import ceil, floor
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -575,7 +575,25 @@ def _fragment_url(format_info: dict, fragment: dict) -> str:
 
 def _looks_like_init_fragment(format_info: dict, fragment: dict) -> bool:
     fragment_url = fragment.get("url") or fragment.get("path") or ""
-    return "init" in fragment_url.lower()
+    parsed = urlparse(fragment_url)
+    path = parsed.path or fragment_url
+    basename = Path(path).name.lower()
+    return basename == "init" or basename.startswith(("init.", "init-", "init_"))
+
+
+def _fragment_debug_label(fragment: dict) -> str:
+    fragment_url = fragment.get("url") or fragment.get("path") or ""
+    if not fragment_url:
+        return "missing-url"
+
+    parsed = urlparse(fragment_url)
+    path = parsed.path or fragment_url
+    parts = [part for part in path.split("/") if part]
+    if not parts:
+        return "missing-path"
+    if len(parts) >= 2 and parts[-2] == "sq":
+        return f"sq/{parts[-1]}"
+    return "/".join(parts[-2:])
 
 
 def _durationless_dash_fragments_for_range(
@@ -588,12 +606,30 @@ def _durationless_dash_fragments_for_range(
         "duration"
     )
     if not total_duration:
+        log(
+            "DASH fragment range inference unavailable: "
+            "missing archive duration "
+            f"fragments={len(fragments)} "
+            f"range={start_second}-{start_second + duration_seconds}"
+        )
         return None
     try:
         total_duration = float(total_duration)
     except (TypeError, ValueError):
+        log(
+            "DASH fragment range inference unavailable: "
+            f"invalid archive duration={total_duration!r} "
+            f"fragments={len(fragments)} "
+            f"range={start_second}-{start_second + duration_seconds}"
+        )
         return None
     if total_duration <= 0:
+        log(
+            "DASH fragment range inference unavailable: "
+            f"nonpositive archive duration={total_duration:g} "
+            f"fragments={len(fragments)} "
+            f"range={start_second}-{start_second + duration_seconds}"
+        )
         return None
 
     init_fragments = [
@@ -607,10 +643,23 @@ def _durationless_dash_fragments_for_range(
         if not _looks_like_init_fragment(format_info, fragment)
     ]
     if not media_fragments:
+        log(
+            "DASH fragment range inference unavailable: "
+            "no media fragments after init classification "
+            f"fragments={len(fragments)} "
+            f"init={len(init_fragments)} "
+            f"first={_fragment_debug_label(fragments[0]) if fragments else 'none'} "
+            f"last={_fragment_debug_label(fragments[-1]) if fragments else 'none'}"
+        )
         return None
 
     inferred_fragment_duration = total_duration / len(media_fragments)
     if inferred_fragment_duration <= 0:
+        log(
+            "DASH fragment range inference unavailable: "
+            f"nonpositive inferred fragment duration={inferred_fragment_duration:g} "
+            f"duration={total_duration:g} media={len(media_fragments)}"
+        )
         return None
 
     start_index = max(0, floor(start_second / inferred_fragment_duration))
@@ -622,9 +671,30 @@ def _durationless_dash_fragments_for_range(
         ),
     )
     if start_index >= len(media_fragments):
+        log(
+            "DASH fragment range inference selected no media fragments: "
+            f"range={start_second}-{start_second + duration_seconds} "
+            f"duration={total_duration:g} "
+            f"media={len(media_fragments)} "
+            f"inferred_fragment_duration={inferred_fragment_duration:.3f} "
+            f"start_index={start_index} end_index={end_index}"
+        )
         return None
 
     first_media_start = start_index * inferred_fragment_duration
+    log(
+        "DASH fragment range inferred: "
+        f"range={start_second}-{start_second + duration_seconds} "
+        f"duration={total_duration:g} "
+        f"fragments={len(fragments)} "
+        f"init={len(init_fragments)} "
+        f"media={len(media_fragments)} "
+        f"inferred_fragment_duration={inferred_fragment_duration:.3f} "
+        f"media_indexes={start_index}-{end_index - 1} "
+        f"local_start={max(0.0, start_second - first_media_start):.3f} "
+        f"first={_fragment_debug_label(media_fragments[start_index])} "
+        f"last={_fragment_debug_label(media_fragments[end_index - 1])}"
+    )
     return (
         init_fragments + media_fragments[start_index:end_index],
         max(0.0, start_second - first_media_start),
@@ -638,6 +708,19 @@ def _dash_fragments_for_range(
 ) -> tuple[list[dict], float]:
     end_second = start_second + duration_seconds
     fragments = list(format_info.get("fragments") or [])
+    duration_count = sum(
+        1 for fragment in fragments if fragment.get("duration") is not None
+    )
+    log(
+        "DASH fragment range scan: "
+        f"format_id={format_info.get('format_id') or 'unknown'} "
+        f"protocol={format_info.get('protocol') or 'unknown'} "
+        f"range={start_second}-{end_second} "
+        f"fragments={len(fragments)} "
+        f"with_duration={duration_count} "
+        f"first={_fragment_debug_label(fragments[0]) if fragments else 'none'} "
+        f"last={_fragment_debug_label(fragments[-1]) if fragments else 'none'}"
+    )
     if fragments and all(fragment.get("duration") is None for fragment in fragments):
         inferred = _durationless_dash_fragments_for_range(
             format_info,
@@ -678,8 +761,24 @@ def _dash_fragments_for_range(
         selected_fragments.append(fragment)
 
     if first_media_start is None:
+        log(
+            "DASH fragment range scan selected no fragments: "
+            f"range={start_second}-{end_second} "
+            f"fragments={len(fragments)} "
+            f"with_duration={duration_count} "
+            f"init={len(init_fragments)} "
+            f"cursor={cursor:.3f}"
+        )
         raise RuntimeError("No DASH fragments overlap requested segment range")
 
+    log(
+        "DASH fragment range selected: "
+        f"range={start_second}-{end_second} "
+        f"fragments={len(selected_fragments)} "
+        f"local_start={max(0.0, start_second - first_media_start):.3f} "
+        f"first={_fragment_debug_label(selected_fragments[0])} "
+        f"last={_fragment_debug_label(selected_fragments[-1])}"
+    )
     return selected_fragments, max(0.0, start_second - first_media_start)
 
 

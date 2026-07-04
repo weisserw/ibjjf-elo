@@ -323,6 +323,40 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         )
         self.assertEqual(local_start, 5.0)
 
+    def test_dash_fragments_for_range_does_not_treat_initcwndbps_as_init(self):
+        format_info = {
+            "_archive_duration_seconds": 100,
+            "fragments": [
+                {
+                    "url": "https://rr1---sn.googlevideo.com/videoplayback/initcwndbps/123/sq/0"
+                },
+                {
+                    "url": "https://rr1---sn.googlevideo.com/videoplayback/initcwndbps/123/sq/1"
+                },
+                {
+                    "url": "https://rr1---sn.googlevideo.com/videoplayback/initcwndbps/123/sq/2"
+                },
+                {
+                    "url": "https://rr1---sn.googlevideo.com/videoplayback/initcwndbps/123/sq/3"
+                },
+                {
+                    "url": "https://rr1---sn.googlevideo.com/videoplayback/initcwndbps/123/sq/4"
+                },
+            ],
+        }
+
+        fragments, local_start = runner._dash_fragments_for_range(
+            format_info,
+            start_second=45,
+            duration_seconds=35,
+        )
+
+        self.assertEqual(
+            [fragment["url"].rsplit("/", 1)[-1] for fragment in fragments],
+            ["2", "3"],
+        )
+        self.assertEqual(local_start, 5.0)
+
     def test_download_dash_fragment_section_writes_selected_fragment_bytes(self):
         class FakeResponse:
             def __init__(self, body):
