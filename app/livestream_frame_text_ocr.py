@@ -35,7 +35,6 @@ SUPPORTED_SCORE_ENGINES = ("none", "fixed_digit")
 SUPPORTED_NAME_ENGINES = ("none", "tesseract", "paddle")
 SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
-SCORE_ONE_THREE_SIMILARITY_MARGIN = 0.03
 SCORE_THREE_EIGHT_SIMILARITY_MARGIN = 0.02
 OCR_FONT_DIR = Path(__file__).resolve().parent / "ocr_fonts"
 NAME_COLUMN_RIGHT_RATIO = 0.481
@@ -449,6 +448,13 @@ def _score_mask_looks_like_one(mask) -> bool:
     return bool(lower_left.mean() < 0.05 and right_third.mean() > 0.55)
 
 
+def _score_digit_entry_looks_like_one(entry: ScoreDigitMask) -> bool:
+    return bool(
+        entry.width <= int(entry.image_width * 0.42)
+        and _score_mask_looks_like_one(entry.mask)
+    )
+
+
 def _score_mask_looks_like_three(mask) -> bool:
     height, width = mask.shape
     left_third = mask[:, : max(1, width // 3)]
@@ -578,6 +584,16 @@ class ScoreboardDigitReader:
     def _predict_score_digit_entry(
         self, entry: ScoreDigitMask, mask_count: int
     ) -> DigitPrediction:
+        if _score_digit_entry_looks_like_one(entry):
+            one_prediction = self.classifier.predict(
+                entry.mask, allowed_digits=frozenset((1,))
+            )
+            return DigitPrediction(
+                1,
+                one_prediction.similarity,
+                f"{one_prediction.source}:score-one-geometry",
+            )
+
         prediction = self._predict_score_digit(entry.mask)
         if (
             mask_count > 1
@@ -607,20 +623,6 @@ class ScoreboardDigitReader:
                     three_prediction.similarity,
                     f"{three_prediction.source}:score-three-shape",
                 )
-        if prediction.digit != 3 or not _score_mask_looks_like_one(mask):
-            return prediction
-
-        one_prediction = self.classifier.predict(mask, allowed_digits=frozenset((1,)))
-        if (
-            one_prediction.digit == 1
-            and one_prediction.similarity
-            >= prediction.similarity - SCORE_ONE_THREE_SIMILARITY_MARGIN
-        ):
-            return DigitPrediction(
-                1,
-                one_prediction.similarity,
-                f"{one_prediction.source}:score-one-shape",
-            )
         return prediction
 
     @staticmethod
