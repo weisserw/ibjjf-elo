@@ -289,9 +289,12 @@ def queue_text_scan(
     return created + requeued
 
 
-def retry_failed_text_scan_segments(session, scan_ids: list | None = None) -> int:
+def retry_failed_text_scan_segments(
+    session, scan_ids: list | None = None, statuses: list | None = None
+) -> int:
+    retry_statuses = statuses or ["error", "cancelled"]
     query = LivestreamFrameTextScanSegment.query.filter(
-        LivestreamFrameTextScanSegment.status.in_(["error", "cancelled"])
+        LivestreamFrameTextScanSegment.status.in_(retry_statuses)
     )
     if scan_ids:
         query = query.filter(LivestreamFrameTextScanSegment.scan_id.in_(scan_ids))
@@ -316,9 +319,12 @@ def retry_failed_text_scan_segments(session, scan_ids: list | None = None) -> in
     return len(segments)
 
 
-def cancel_queued_text_scan_segments(session, scan_ids: list | None = None) -> int:
+def cancel_queued_text_scan_segments(
+    session, scan_ids: list | None = None, statuses: list | None = None
+) -> int:
+    cancel_statuses = statuses or ["pending", "queued", "running"]
     query = LivestreamFrameTextScanSegment.query.filter(
-        LivestreamFrameTextScanSegment.status.in_(["pending", "queued", "running"])
+        LivestreamFrameTextScanSegment.status.in_(cancel_statuses)
     )
     if scan_ids:
         query = query.filter(LivestreamFrameTextScanSegment.scan_id.in_(scan_ids))
@@ -328,6 +334,32 @@ def cancel_queued_text_scan_segments(session, scan_ids: list | None = None) -> i
         segment.finished_at = datetime.utcnow()
         recompute_text_scan_status(session, segment.scan)
     return len(segments)
+
+
+def clear_text_scan_events(session, scan_ids: list | None = None) -> dict[str, int]:
+    if not scan_ids:
+        return {"events": 0, "matches": 0, "participants": 0, "associations": 0}
+
+    scans = LivestreamFrameTextScan.query.filter(
+        LivestreamFrameTextScan.id.in_(scan_ids)
+    ).all()
+    archive_ids = {scan.archive_id for scan in scans}
+
+    from livestream_match_linking import clear_livestream_match_links
+
+    summary = {"matches": 0, "participants": 0, "associations": 0}
+    for archive_id in archive_ids:
+        archive_summary = clear_livestream_match_links(session, archive_id)
+        for key in summary:
+            summary[key] += archive_summary[key]
+
+    event_count = LivestreamFrameTextEvent.query.filter(
+        LivestreamFrameTextEvent.scan_id.in_(scan_ids)
+    ).delete(synchronize_session=False)
+    LivestreamFrameTextScanSegment.query.filter(
+        LivestreamFrameTextScanSegment.scan_id.in_(scan_ids)
+    ).update({"event_count": 0}, synchronize_session=False)
+    return {"events": event_count, **summary}
 
 
 def reset_text_scan_for_rescan(session, scan_id, background_task_id=None):

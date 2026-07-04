@@ -62,8 +62,11 @@
         <input type="hidden" name="sort" value="{{ selected_sort }}">
         <div class="buttons">
             <button class="button is-info is-small" name="action" value="queue_selected" type="submit">Queue selected</button>
-            <button class="button is-warning is-small" name="action" value="retry_failed" type="submit">Retry failed/cancelled</button>
-            <button class="button is-danger is-small" name="action" value="cancel" type="submit">Cancel queued/running</button>
+            <button class="button is-warning is-small" name="action" value="retry_failed" type="submit">Retry failed</button>
+            <button class="button is-warning is-small" name="action" value="retry_cancelled" type="submit">Retry cancelled</button>
+            <button class="button is-danger is-small" name="action" value="cancel_queued" type="submit">Cancel queued</button>
+            <button class="button is-danger is-small" name="action" value="cancel_running" type="submit">Cancel running</button>
+            <button class="button is-danger is-light is-small" name="action" value="clear_selected" type="submit" onclick="return confirm('Delete text events and match links for the selected scans?')">Clear selected</button>
         </div>
 
         <div class="table-container">

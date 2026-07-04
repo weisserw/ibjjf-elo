@@ -82,6 +82,7 @@ from livestream_frame_text_scan import (
     apply_event_to_state,
     cancel_queued_text_scan_segments,
     claim_next_text_scan_segment,
+    clear_text_scan_events,
     mark_text_scan_segment_error,
     mark_text_scan_segment_success,
     prepare_text_scan_segment_rescan,
@@ -1274,16 +1275,35 @@ def livestream_frame_text_scans():
                 message = f"Queued {segment_count} text scan segment(s)."
             elif action == "retry_failed":
                 segment_count = retry_failed_text_scan_segments(
-                    db.session, scan_ids or None
+                    db.session, scan_ids or None, ["error"]
                 )
                 db.session.commit()
-                message = f"Requeued {segment_count} failed/cancelled segment(s)."
-            elif action == "cancel":
+                message = f"Requeued {segment_count} failed segment(s)."
+            elif action == "retry_cancelled":
+                segment_count = retry_failed_text_scan_segments(
+                    db.session, scan_ids or None, ["cancelled"]
+                )
+                db.session.commit()
+                message = f"Requeued {segment_count} cancelled segment(s)."
+            elif action == "cancel_queued":
                 segment_count = cancel_queued_text_scan_segments(
-                    db.session, scan_ids or None
+                    db.session, scan_ids or None, ["pending", "queued"]
                 )
                 db.session.commit()
-                message = f"Cancelled {segment_count} queued/running segment(s)."
+                message = f"Cancelled {segment_count} queued segment(s)."
+            elif action == "cancel_running":
+                segment_count = cancel_queued_text_scan_segments(
+                    db.session, scan_ids or None, ["running"]
+                )
+                db.session.commit()
+                message = f"Cancelled {segment_count} running segment(s)."
+            elif action == "clear_selected":
+                summary = clear_text_scan_events(db.session, scan_ids)
+                db.session.commit()
+                message = (
+                    f"Deleted {summary['events']} text event(s) and cleared "
+                    f"{summary['associations']} match link(s)."
+                )
         except Exception as exc:
             db.session.rollback()
             error = str(exc)

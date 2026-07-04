@@ -733,6 +733,74 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(LivestreamFrameTextEvent.query.count(), 1)
 
+    def test_retry_and_cancel_text_scan_segments_accept_status_filters(self):
+        archive, _ = self._archive_with_segments()
+        text_scan.queue_text_scan(db.session, archive, score_engine="none")
+        scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
+        segments = LivestreamFrameTextScanSegment.query.order_by(
+            LivestreamFrameTextScanSegment.start_second
+        ).all()
+        segments[0].status = "error"
+        segments[1].status = "cancelled"
+        db.session.commit()
+
+        retry_count = text_scan.retry_failed_text_scan_segments(
+            db.session, [scan.id], ["error"]
+        )
+        db.session.commit()
+
+        self.assertEqual(retry_count, 1)
+        self.assertEqual(
+            [segment.status for segment in segments],
+            ["queued", "cancelled"],
+        )
+
+        cancel_count = text_scan.cancel_queued_text_scan_segments(
+            db.session, [scan.id], ["queued"]
+        )
+        db.session.commit()
+
+        self.assertEqual(cancel_count, 1)
+        self.assertEqual(
+            [segment.status for segment in segments],
+            ["cancelled", "cancelled"],
+        )
+
+    def test_clear_text_scan_events_deletes_events_and_clears_match_links(self):
+        archive, _ = self._archive_with_segments()
+        text_scan.queue_text_scan(db.session, archive, score_engine="none")
+        scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
+        segments = LivestreamFrameTextScanSegment.query.order_by(
+            LivestreamFrameTextScanSegment.start_second
+        ).all()
+        for index, segment in enumerate(segments):
+            segment.event_count = 1
+            db.session.add(
+                LivestreamFrameTextEvent(
+                    scan_id=scan.id,
+                    archive_id=archive.id,
+                    scan_segment_id=segment.id,
+                    capture_segment_id=segment.capture_segment_id,
+                    frame_second=index,
+                )
+            )
+        db.session.commit()
+
+        with mock.patch(
+            "livestream_match_linking.clear_livestream_match_links",
+            return_value={"matches": 1, "participants": 2, "associations": 3},
+        ) as clear_links:
+            summary = text_scan.clear_text_scan_events(db.session, [scan.id])
+        db.session.commit()
+
+        self.assertEqual(
+            summary,
+            {"events": 2, "matches": 1, "participants": 2, "associations": 3},
+        )
+        clear_links.assert_called_once_with(db.session, archive.id)
+        self.assertEqual(LivestreamFrameTextEvent.query.count(), 0)
+        self.assertEqual([segment.event_count for segment in segments], [0, 0])
+
     def test_s3_frame_batch_provider_reads_across_batches(self):
         archive, segments = self._archive_with_segments()
         fake_s3 = FakeS3(
