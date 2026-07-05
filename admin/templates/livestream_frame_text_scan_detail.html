@@ -26,7 +26,14 @@
                 <tr><th>Text scan progress</th><td>{{ progress_label(scan) }}</td></tr>
                 <tr><th>Parser / score / name engines</th><td>{{ scan.parser_profile }} / {{ scan.score_engine }} / {{ scan.name_engine or '' }}</td></tr>
                 <tr><th>Last processed second</th><td>{{ time_label(scan.last_processed_second) }}</td></tr>
-                <tr><th>Last error</th><td class="has-text-danger">{{ scan.last_error or '' }}</td></tr>
+                <tr>
+                    <th>Last error</th>
+                    <td class="has-text-danger">
+                        {% if scan.last_error %}
+                        <span class="admin-error-preview" title="{{ scan.last_error }}">{{ scan.last_error }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
                 {% else %}
                 <tr><th>Text scan status</th><td><span class="has-text-grey">not queued</span></td></tr>
                 {% endif %}
@@ -113,7 +120,11 @@
                     <td>{{ segment.attempt_count }}</td>
                     <td>{{ segment.event_count }}</td>
                     <td>{{ time_label(segment.last_processed_second) }}</td>
-                    <td class="has-text-danger">{{ segment.last_error or '' }}</td>
+                    <td class="has-text-danger">
+                        {% if segment.last_error %}
+                        <span class="admin-error-preview" title="{{ segment.last_error }}">{{ segment.last_error }}</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr><td colspan="8">No text scan segments queued.</td></tr>

@@ -3,6 +3,15 @@
 <head>
     <title>{% block title %}Admin{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <style>
+        .admin-error-preview {
+            display: block;
+            max-width: 24rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
 </head>
 <body>
     {% block content %}{% endblock %}

@@ -147,7 +147,11 @@
                             {% endif %}
                             {% endif %}
                         </td>
-                        <td class="has-text-danger">{{ scan.last_error if scan and scan.last_error else '' }}</td>
+                        <td class="has-text-danger">
+                            {% if scan and scan.last_error %}
+                            <span class="admin-error-preview" title="{{ scan.last_error }}">{{ scan.last_error }}</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if archive %}
                             <a href="{{ url_for('livestream_frame_text_scan_detail', archive_id=archive.id) }}">Detail</a>

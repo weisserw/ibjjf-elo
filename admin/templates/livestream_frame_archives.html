@@ -102,7 +102,11 @@
                             {% endif %}
                         </td>
                         <td>{{ progress_label(archive) }}</td>
-                        <td class="has-text-danger">{{ archive.last_error if archive and archive.last_error else '' }}</td>
+                        <td class="has-text-danger">
+                            {% if archive and archive.last_error %}
+                            <span class="admin-error-preview" title="{{ archive.last_error }}">{{ archive.last_error }}</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if archive %}
                             <a href="{{ url_for('livestream_frame_archive_detail', archive_id=archive.id) }}">Detail</a>

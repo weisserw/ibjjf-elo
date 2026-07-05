@@ -30,7 +30,14 @@
                 <tr><th>Codecs</th><td>{{ archive.video_codec or '' }} / {{ archive.audio_codec or '' }}</td></tr>
                 <tr><th>Bitrate / protocol</th><td>{{ archive.tbr or '' }} {{ archive.protocol or '' }}</td></tr>
                 <tr><th>yt-dlp</th><td>{{ archive.yt_dlp_version or '' }}</td></tr>
-                <tr><th>Last error</th><td class="has-text-danger">{{ archive.last_error or '' }}</td></tr>
+                <tr>
+                    <th>Last error</th>
+                    <td class="has-text-danger">
+                        {% if archive.last_error %}
+                        <span class="admin-error-preview" title="{{ archive.last_error }}">{{ archive.last_error }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
             </tbody>
         </table>
         <form method="POST">
@@ -102,7 +109,11 @@
                         <a href="{{ url_for('task_detail', task_id=segment.background_task_id) }}">View</a>
                         {% endif %}
                     </td>
-                    <td class="has-text-danger">{{ segment.last_error or '' }}</td>
+                    <td class="has-text-danger">
+                        {% if segment.last_error %}
+                        <span class="admin-error-preview" title="{{ segment.last_error }}">{{ segment.last_error }}</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr><td colspan="10">No segments queued.</td></tr>
