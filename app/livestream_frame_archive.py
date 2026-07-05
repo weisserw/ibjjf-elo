@@ -406,15 +406,28 @@ def claim_next_segment(
         LivestreamFrameCaptureSegment.start_second,
         LivestreamFrameCaptureSegment.created_at,
     )
-    segment = (
-        base_query.filter(
-            LivestreamFrameCaptureSegment.status.in_(["pending", "queued"])
+    now = datetime.utcnow()
+    segment = None
+    if max_error_retry_backoff_seconds > 0:
+        stale_error_cutoff = now - timedelta(seconds=max_error_retry_backoff_seconds)
+        segment = (
+            base_query.filter(LivestreamFrameCaptureSegment.status == "error")
+            .filter(LivestreamFrameCaptureSegment.finished_at.isnot(None))
+            .filter(LivestreamFrameCaptureSegment.finished_at <= stale_error_cutoff)
+            .order_by(*ordering)
+            .first()
         )
-        .order_by(*ordering)
-        .first()
-    )
+
     if not segment:
-        now = datetime.utcnow()
+        segment = (
+            base_query.filter(
+                LivestreamFrameCaptureSegment.status.in_(["pending", "queued"])
+            )
+            .order_by(*ordering)
+            .first()
+        )
+
+    if not segment:
         error_segments = (
             base_query.filter(LivestreamFrameCaptureSegment.status == "error")
             .order_by(*ordering)
@@ -436,7 +449,6 @@ def claim_next_segment(
     if not segment:
         return None
 
-    now = datetime.utcnow()
     segment.status = "running"
     segment.attempt_count = (segment.attempt_count or 0) + 1
     segment.started_at = now
