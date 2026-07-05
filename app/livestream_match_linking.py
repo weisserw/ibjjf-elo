@@ -457,6 +457,31 @@ def choose_match_for_window(
     return best
 
 
+def choose_active_continuation_for_window(
+    window: MatchWindow, candidate: Candidate | None
+) -> MatchChoice | None:
+    if candidate is None:
+        return None
+    if not window.top_names or not window.bottom_names:
+        return None
+    if not window.has_running_timer and window.final_timer_seconds is None:
+        return None
+
+    choice = _choice_for_candidate(window, candidate)
+    if choice.raw_score < MIN_NAME_SCORE:
+        return None
+
+    time_delta = _candidate_time_delta(window, candidate)
+    return MatchChoice(
+        candidate=choice.candidate,
+        score=choice.raw_score,
+        top_participant=choice.top_participant,
+        bottom_participant=choice.bottom_participant,
+        raw_score=choice.raw_score,
+        time_delta_seconds=time_delta,
+    )
+
+
 def _continuation_time_delta(window: MatchWindow, candidate: Candidate) -> int | None:
     if (
         window.video_start_offset_seconds is None
@@ -1001,6 +1026,14 @@ def _rejection_reason(
     return "not_selected"
 
 
+def _window_has_terminal_boundary(window: MatchWindow) -> bool:
+    return any(
+        event.scoreboard_state == SCOREBOARD_STATE_BLANK
+        or event.top_athlete_name == "Victory"
+        for event in window.events
+    )
+
+
 def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
     scan = _scan_from_id(session, scan_or_archive_id)
     if not scan:
@@ -1040,12 +1073,15 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
     cursor = 0
     linked = 0
     used_match_ids = set()
+    active_candidate = None
     decisions = []
     for index, window in enumerate(windows, start=1):
         cursor_before = cursor
         choices = _candidate_choices(window, candidates, cursor, used_match_ids)
-        choice = choose_match_for_window(window, candidates, cursor, used_match_ids)
-        continuation = False
+        choice = choose_active_continuation_for_window(window, active_candidate)
+        continuation = choice is not None
+        if not choice:
+            choice = choose_match_for_window(window, candidates, cursor, used_match_ids)
         if not choice:
             choice = choose_continuation_for_window(
                 window, candidates, cursor, used_match_ids
@@ -1055,7 +1091,12 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
             if not continuation:
                 cursor = max(cursor, choice.candidate.order_index + 1)
                 used_match_ids.add(choice.candidate.match.id)
+            active_candidate = (
+                None if _window_has_terminal_boundary(window) else choice.candidate
+            )
             linked += 1
+        elif _window_has_terminal_boundary(window):
+            active_candidate = None
         decisions.append(
             {
                 "window_index": index,
@@ -1146,15 +1187,20 @@ def link_completed_text_scan(
     cursor = 0
     linked = 0
     used_match_ids = set()
+    active_candidate = None
     for window in windows:
-        choice = choose_match_for_window(window, candidates, cursor, used_match_ids)
-        continuation = False
+        choice = choose_active_continuation_for_window(window, active_candidate)
+        continuation = choice is not None
+        if not choice:
+            choice = choose_match_for_window(window, candidates, cursor, used_match_ids)
         if not choice:
             choice = choose_continuation_for_window(
                 window, candidates, cursor, used_match_ids
             )
             continuation = choice is not None
         if not choice:
+            if _window_has_terminal_boundary(window):
+                active_candidate = None
             continue
         if not dry_run:
             _store_choice(
@@ -1166,6 +1212,9 @@ def link_completed_text_scan(
         if not continuation:
             cursor = max(cursor, choice.candidate.order_index + 1)
             used_match_ids.add(choice.candidate.match.id)
+        active_candidate = (
+            None if _window_has_terminal_boundary(window) else choice.candidate
+        )
         linked += 1
     return SimpleNamespace(
         linked=linked,
