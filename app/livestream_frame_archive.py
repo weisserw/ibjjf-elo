@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
@@ -29,6 +29,47 @@ ARCHIVE_STATUSES = (
     "error",
     "cancelled",
 )
+DEFAULT_ERROR_RETRY_BACKOFF_SECONDS = 300
+DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS = 1800
+
+
+def error_retry_backoff_seconds(
+    attempt_count: int | None,
+    base_seconds: int = DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
+    max_seconds: int = DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
+) -> int:
+    if base_seconds <= 0:
+        return 0
+    attempts = max((attempt_count or 0), 1)
+    retry_seconds = base_seconds * (2 ** (attempts - 1))
+    if max_seconds > 0:
+        retry_seconds = min(retry_seconds, max_seconds)
+    return retry_seconds
+
+
+def error_segment_retry_ready(
+    segment: LivestreamFrameCaptureSegment,
+    now: datetime | None = None,
+    base_seconds: int = DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
+    max_seconds: int = DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
+) -> bool:
+    if segment.status != "error":
+        return False
+    if base_seconds <= 0:
+        return True
+    if not segment.finished_at:
+        return True
+    now = now or datetime.utcnow()
+    retry_at = segment.finished_at + timedelta(
+        seconds=error_retry_backoff_seconds(
+            segment.attempt_count,
+            base_seconds=base_seconds,
+            max_seconds=max_seconds,
+        )
+    )
+    return retry_at <= now
+
+
 SEGMENT_STATUSES = (
     "pending",
     "queued",
@@ -335,26 +376,63 @@ def claim_next_segment(
     archive_id=None,
     youtube_video_id: str | None = None,
     background_task_id=None,
+    error_retry_backoff_seconds: int = DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
+    max_error_retry_backoff_seconds: int = DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
 ) -> LivestreamFrameCaptureSegment | None:
-    query = (
-        LivestreamFrameCaptureSegment.query.options(
-            selectinload(LivestreamFrameCaptureSegment.archive)
-        )
-        .join(LivestreamFrameArchive)
-        .filter(LivestreamFrameCaptureSegment.status.in_(["pending", "queued"]))
+    error_retry_backoff_seconds = (
+        DEFAULT_ERROR_RETRY_BACKOFF_SECONDS
+        if error_retry_backoff_seconds is None
+        else int(error_retry_backoff_seconds)
     )
+    max_error_retry_backoff_seconds = (
+        DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS
+        if max_error_retry_backoff_seconds is None
+        else int(max_error_retry_backoff_seconds)
+    )
+    base_query = LivestreamFrameCaptureSegment.query.options(
+        selectinload(LivestreamFrameCaptureSegment.archive)
+    ).join(LivestreamFrameArchive)
     if archive_id:
-        query = query.filter(LivestreamFrameCaptureSegment.archive_id == archive_id)
+        base_query = base_query.filter(
+            LivestreamFrameCaptureSegment.archive_id == archive_id
+        )
     if youtube_video_id:
-        query = query.filter(
+        base_query = base_query.filter(
             LivestreamFrameArchive.youtube_video_id == youtube_video_id
         )
 
-    segment = query.order_by(
+    ordering = (
         LivestreamFrameArchive.created_at,
         LivestreamFrameCaptureSegment.start_second,
         LivestreamFrameCaptureSegment.created_at,
-    ).first()
+    )
+    segment = (
+        base_query.filter(
+            LivestreamFrameCaptureSegment.status.in_(["pending", "queued"])
+        )
+        .order_by(*ordering)
+        .first()
+    )
+    if not segment:
+        now = datetime.utcnow()
+        error_segments = (
+            base_query.filter(LivestreamFrameCaptureSegment.status == "error")
+            .order_by(*ordering)
+            .all()
+        )
+        segment = next(
+            (
+                error_segment
+                for error_segment in error_segments
+                if error_segment_retry_ready(
+                    error_segment,
+                    now=now,
+                    base_seconds=error_retry_backoff_seconds,
+                    max_seconds=max_error_retry_backoff_seconds,
+                )
+            ),
+            None,
+        )
     if not segment:
         return None
 

@@ -56,6 +56,8 @@ from models import (
     AthleteMediaCoverage,
 )
 from livestream_frame_archive import (
+    DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
+    DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
     DEFAULT_SEGMENT_SECONDS,
     apply_probe_metadata,
     archive_progress_label,
@@ -1465,6 +1467,14 @@ def worker_claim_livestream_frame_segment():
         archive_id=archive_id,
         youtube_video_id=data.get("youtube_video_id"),
         background_task_id=background_task_id,
+        error_retry_backoff_seconds=data.get(
+            "error_retry_backoff_seconds",
+            DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
+        ),
+        max_error_retry_backoff_seconds=data.get(
+            "max_error_retry_backoff_seconds",
+            DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
+        ),
     )
     return jsonify({"segment": _segment_payload(segment)})
 

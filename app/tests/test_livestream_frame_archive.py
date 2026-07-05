@@ -5,7 +5,7 @@ import tarfile
 import tempfile
 import types
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -1179,6 +1179,98 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(segment.status, "running")
         self.assertEqual(segment.attempt_count, 1)
         self.assertEqual(segment.archive.status, "running")
+
+    def test_claim_next_segment_prefers_queued_before_error_retry(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        db.session.flush()
+        db.session.add_all(
+            [
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=0,
+                    end_second=600,
+                    status="error",
+                    attempt_count=1,
+                    last_error="temporary yt-dlp error",
+                    finished_at=datetime.utcnow() - timedelta(minutes=10),
+                ),
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=600,
+                    end_second=1200,
+                    status="queued",
+                    attempt_count=0,
+                ),
+            ]
+        )
+        db.session.commit()
+
+        segment = archive_lib.claim_next_segment(db.session)
+
+        self.assertIsNotNone(segment)
+        self.assertEqual(segment.start_second, 600)
+        self.assertEqual(segment.status, "running")
+        self.assertEqual(segment.attempt_count, 1)
+
+    def test_claim_next_segment_skips_error_still_in_backoff(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        db.session.flush()
+        db.session.add(
+            LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=0,
+                end_second=600,
+                status="error",
+                attempt_count=1,
+                last_error="temporary yt-dlp error",
+                finished_at=datetime.utcnow() - timedelta(minutes=1),
+            )
+        )
+        db.session.commit()
+
+        segment = archive_lib.claim_next_segment(
+            db.session,
+            error_retry_backoff_seconds=300,
+        )
+
+        self.assertIsNone(segment)
+
+    def test_claim_next_segment_retries_error_after_backoff(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        db.session.flush()
+        db.session.add(
+            LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=0,
+                end_second=600,
+                status="error",
+                attempt_count=2,
+                last_error="temporary yt-dlp error",
+                finished_at=datetime.utcnow() - timedelta(minutes=11),
+            )
+        )
+        db.session.commit()
+
+        segment = archive_lib.claim_next_segment(
+            db.session,
+            error_retry_backoff_seconds=300,
+            max_error_retry_backoff_seconds=3600,
+        )
+
+        self.assertIsNotNone(segment)
+        self.assertEqual(segment.status, "running")
+        self.assertEqual(segment.attempt_count, 3)
+        self.assertIsNone(segment.last_error)
+
+    def test_default_error_retry_backoff_caps_at_30_minutes(self):
+        self.assertEqual(
+            archive_lib.DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
+            1800,
+        )
+        self.assertEqual(
+            archive_lib.error_retry_backoff_seconds(10),
+            1800,
+        )
 
 
 class UploadMappingTestCase(unittest.TestCase):

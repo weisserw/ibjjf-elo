@@ -29,6 +29,8 @@ sys.path.insert(0, str(APP_DIR))
 
 from extensions import db  # noqa: E402
 from livestream_frame_archive import (  # noqa: E402
+    DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
+    DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
     DEFAULT_SEGMENT_SECONDS,
     apply_probe_metadata,
     batch_s3_key,
@@ -98,12 +100,16 @@ class LocalArchiveState:
         archive_id=None,
         youtube_video_id=None,
         background_task_id=None,
+        error_retry_backoff_seconds=DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
+        max_error_retry_backoff_seconds=DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
     ):
         return claim_next_segment(
             db.session,
             archive_id=archive_id,
             youtube_video_id=youtube_video_id,
             background_task_id=background_task_id,
+            error_retry_backoff_seconds=error_retry_backoff_seconds,
+            max_error_retry_backoff_seconds=max_error_retry_backoff_seconds,
         )
 
     def mark_probe_started(self, archive, frame_rate: float):
@@ -195,6 +201,8 @@ class AdminApiArchiveState:
         archive_id=None,
         youtube_video_id=None,
         background_task_id=None,
+        error_retry_backoff_seconds=DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
+        max_error_retry_backoff_seconds=DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
     ):
         payload = self._request(
             "POST",
@@ -205,6 +213,8 @@ class AdminApiArchiveState:
                 "background_task_id": (
                     str(background_task_id) if background_task_id else None
                 ),
+                "error_retry_backoff_seconds": error_retry_backoff_seconds,
+                "max_error_retry_backoff_seconds": max_error_retry_backoff_seconds,
             },
         )
         segment = payload.get("segment")
@@ -1326,6 +1336,8 @@ def run(args, state=None) -> int:
             archive_id=archive_id,
             youtube_video_id=args.youtube_id,
             background_task_id=background_task_id,
+            error_retry_backoff_seconds=args.error_retry_backoff_seconds,
+            max_error_retry_backoff_seconds=args.max_error_retry_backoff_seconds,
         )
         if not segment:
             print("No claimable livestream frame capture segments.")
@@ -1373,6 +1385,21 @@ def parse_args(argv=None):
     parser.add_argument("--claim-next", action="store_true")
     parser.add_argument("--max-segments", type=int, default=1)
     parser.add_argument("--segment-seconds", type=int, default=DEFAULT_SEGMENT_SECONDS)
+    parser.add_argument(
+        "--error-retry-backoff-seconds",
+        type=int,
+        default=DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
+        help=(
+            "Seconds to wait before retrying a failed segment; retries back off "
+            "exponentially by attempt count"
+        ),
+    )
+    parser.add_argument(
+        "--max-error-retry-backoff-seconds",
+        type=int,
+        default=DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
+        help="Maximum automatic failed-segment retry backoff in seconds",
+    )
     parser.add_argument("--fps", type=float, default=1.0)
     parser.add_argument("--format", default=DEFAULT_FORMAT_SELECTOR)
     parser.add_argument(
