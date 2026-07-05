@@ -1237,6 +1237,7 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
 
     def test_claim_next_segment_retries_error_after_backoff(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        archive.last_error = "temporary yt-dlp error"
         db.session.flush()
         db.session.add(
             LivestreamFrameCaptureSegment(
@@ -1261,6 +1262,7 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(segment.status, "running")
         self.assertEqual(segment.attempt_count, 3)
         self.assertIsNone(segment.last_error)
+        self.assertIsNone(segment.archive.last_error)
 
     def test_default_error_retry_backoff_caps_at_30_minutes(self):
         self.assertEqual(

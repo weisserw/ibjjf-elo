@@ -444,6 +444,7 @@ def claim_next_segment(
     segment.last_error = None
     segment.background_task_id = background_task_id
     segment.archive.status = "running"
+    segment.archive.last_error = None
     segment.archive.started_at = segment.archive.started_at or now
     session.commit()
     return segment
