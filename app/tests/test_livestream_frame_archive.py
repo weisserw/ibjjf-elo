@@ -46,11 +46,16 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
             "best",
             "node",
             ["ejs:github"],
+            extractor_args=runner.DEFAULT_EXTRACTOR_ARGS,
         )
 
         self.assertEqual(options["format"], "best")
         self.assertEqual(options["js_runtimes"], {"node": {}})
         self.assertEqual(options["remote_components"], ["ejs:github"])
+        self.assertEqual(
+            options["extractor_args"],
+            {"youtube": {"player_client": ["default", "-web_embedded"]}},
+        )
 
     def test_default_fallback_format_prefers_video_only_after_primary(self):
         args = runner.parse_args([])
@@ -60,8 +65,31 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
             args.fallback_format,
             runner.DEFAULT_FALLBACK_FORMAT_SELECTOR,
         )
+        self.assertEqual(args.extractor_args, runner.DEFAULT_EXTRACTOR_ARGS)
         self.assertTrue(args.format.endswith("/best"))
         self.assertTrue(args.fallback_format.startswith("bv*"))
+
+    def test_yt_dlp_options_parse_extractor_args(self):
+        options = runner._yt_dlp_options(
+            "best",
+            "node",
+            ["ejs:github"],
+            extractor_args=(
+                "youtube:player-client=default,-web_embedded;skip=dash "
+                "twitter:api=syndication"
+            ),
+        )
+
+        self.assertEqual(
+            options["extractor_args"],
+            {
+                "youtube": {
+                    "player_client": ["default", "-web_embedded"],
+                    "skip": ["dash"],
+                },
+                "twitter": {"api": ["syndication"]},
+            },
+        )
 
     def test_yt_dlp_options_parse_runtime_path_and_cookie_sources(self):
         options = runner._yt_dlp_options(
@@ -259,6 +287,7 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
                 None,
                 None,
                 None,
+                runner.DEFAULT_EXTRACTOR_ARGS,
                 600,
                 1.0,
             )

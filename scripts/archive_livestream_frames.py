@@ -53,6 +53,8 @@ COOKIES_ENV_VAR = "YTDLP_COOKIES"
 COOKIES_CONTENT_ENV_VAR = "YTDLP_COOKIES_CONTENT"
 COOKIES_BASE64_ENV_VAR = "YTDLP_COOKIES_BASE64"
 COOKIES_FROM_BROWSER_ENV_VAR = "YTDLP_COOKIES_FROM_BROWSER"
+EXTRACTOR_ARGS_ENV_VAR = "YTDLP_EXTRACTOR_ARGS"
+DEFAULT_EXTRACTOR_ARGS = "youtube:player_client=default,-web_embedded"
 ADMIN_URL_ENV_VAR = "LIVESTREAM_ARCHIVE_ADMIN_URL"
 ADMIN_PASSWORD_ENV_VAR = "LIVESTREAM_ARCHIVE_ADMIN_PASSWORD"
 YOUTUBE_COOKIE_DOMAINS = ("youtube.com", "google.com", "googlevideo.com", "ytimg.com")
@@ -334,12 +336,39 @@ def _parse_cookies_from_browser(
     )
 
 
+def _parse_extractor_args(value: str | None):
+    if not value:
+        return None
+
+    parsed = {}
+    for extractor_entry in value.split():
+        if ":" not in extractor_entry:
+            raise ValueError(f"invalid extractor args value: {value}")
+        extractor, raw_args = extractor_entry.split(":", 1)
+        if not extractor or not raw_args:
+            raise ValueError(f"invalid extractor args value: {value}")
+        extractor_args = parsed.setdefault(extractor, {})
+        for raw_arg in raw_args.split(";"):
+            if not raw_arg:
+                continue
+            if "=" not in raw_arg:
+                raise ValueError(f"invalid extractor args value: {value}")
+            key, raw_values = raw_arg.split("=", 1)
+            if not key:
+                raise ValueError(f"invalid extractor args value: {value}")
+            extractor_args[key.replace("-", "_")] = [
+                item for item in raw_values.split(",") if item
+            ]
+    return parsed
+
+
 def _yt_dlp_options(
     format_selector,
     js_runtime,
     remote_components,
     cookies: str | None = None,
     cookies_from_browser: str | None = None,
+    extractor_args: str | None = None,
 ):
     options = {
         "format": format_selector,
@@ -357,6 +386,9 @@ def _yt_dlp_options(
         options["cookiesfrombrowser"] = _parse_cookies_from_browser(
             cookies_from_browser
         )
+    parsed_extractor_args = _parse_extractor_args(extractor_args)
+    if parsed_extractor_args:
+        options["extractor_args"] = parsed_extractor_args
     return options
 
 
@@ -450,6 +482,7 @@ def _log_probe_config(options, yt_dlp_version):
         f"format={options.get('format')} "
         f"js_runtimes={js_runtimes} "
         f"remote_components={sorted(options.get('remote_components') or [])} "
+        f"extractor_args={options.get('extractor_args') or {}} "
         f"node_path={node_path or 'missing'} "
         f"cookies={cookie_source}"
         f"{cookie_stats}",
@@ -869,6 +902,7 @@ def probe_youtube_archive(
     cookies: str | None,
     cookies_content: str | None,
     cookies_from_browser: str | None,
+    extractor_args: str | None,
     segment_seconds: int,
     fps: float,
 ):
@@ -886,6 +920,7 @@ def probe_youtube_archive(
             remote_components,
             cookies=cookiefile,
             cookies_from_browser=cookies_from_browser,
+            extractor_args=extractor_args,
         )
         _log_probe_config(options, yt_dlp.version.__version__)
         selected = None
@@ -1178,6 +1213,7 @@ def process_segment(
     cookies: str | None,
     cookies_content: str | None,
     cookies_from_browser: str | None,
+    extractor_args: str | None,
     segment_seconds: int,
     fps: float,
     jpeg_quality: int,
@@ -1200,6 +1236,7 @@ def process_segment(
         cookies,
         cookies_content,
         cookies_from_browser,
+        extractor_args,
         segment_seconds,
         fps,
     )
@@ -1311,6 +1348,7 @@ def run(args, state=None) -> int:
                 args.cookies,
                 args.cookies_content,
                 args.cookies_from_browser,
+                args.extractor_args,
                 args.segment_seconds,
                 args.fps,
                 args.jpeg_quality,
@@ -1374,6 +1412,15 @@ def parse_args(argv=None):
         help=(
             "yt-dlp browser cookie source, defaults to "
             f"${COOKIES_FROM_BROWSER_ENV_VAR}"
+        ),
+    )
+    parser.add_argument(
+        "--extractor-args",
+        default=os.environ.get(EXTRACTOR_ARGS_ENV_VAR, DEFAULT_EXTRACTOR_ARGS),
+        help=(
+            "yt-dlp extractor args, defaults to "
+            f"${EXTRACTOR_ARGS_ENV_VAR} or {DEFAULT_EXTRACTOR_ARGS!r}; "
+            "set to an empty string to disable"
         ),
     )
     parser.add_argument("--jpeg-quality", type=int, default=2)
