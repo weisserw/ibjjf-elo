@@ -17,6 +17,7 @@ import "./BracketTree.css";
 
 export type SeedHighlight = 'swap' | 'tied' | 'swap-tied' | 'hypothetical';
 type NumberMode = 'rating' | 'seed';
+type ScoreboardPosition = 'top' | 'bottom';
 
 interface BracketTreeMatchProps {
   match: Match;
@@ -52,6 +53,73 @@ const seedHighlightTooltipId = (h: SeedHighlight | undefined): string | undefine
   return h === 'swap-tied' ? 'bracket-multiline-tooltip' : 'bracket-normal-tooltip';
 }
 
+const matchHasFinalScoreValues = (match: Match) => {
+  const values = [
+    match.finalTopPoints,
+    match.finalTopAdvantages,
+    match.finalTopPenalties,
+    match.finalBottomPoints,
+    match.finalBottomAdvantages,
+    match.finalBottomPenalties,
+  ];
+
+  return values.some(value => value !== null && value !== undefined);
+}
+
+const scoreForPosition = (match: Match, position: string | null | undefined) => {
+  if (!matchHasFinalScoreValues(match) || (position !== 'top' && position !== 'bottom')) {
+    return null;
+  }
+
+  const scorePosition = position as ScoreboardPosition;
+  return scorePosition === 'top'
+    ? {
+      points: match.finalTopPoints,
+      advantages: match.finalTopAdvantages,
+      penalties: match.finalTopPenalties,
+    }
+    : {
+      points: match.finalBottomPoints,
+      advantages: match.finalBottomAdvantages,
+      penalties: match.finalBottomPenalties,
+    };
+}
+
+const hasDqNote = (match: Match) => {
+  const notes = `${match.red_note ?? ''} ${match.blue_note ?? ''}`.toLowerCase();
+  return notes.includes('disqualified') || notes.includes('desqualificado');
+}
+
+const matchHasSubmission = (match: Match) => {
+  return match.finalMatchTimeSeconds !== null &&
+    match.finalMatchTimeSeconds !== undefined &&
+    match.finalMatchTimeSeconds > 0 &&
+    !hasDqNote(match);
+}
+
+const renderBracketScore = (score: ReturnType<typeof scoreForPosition>, showSubmission: boolean) => {
+  if (!score) {
+    return null;
+  }
+
+  const show = (value: number | null | undefined) => value ?? '-';
+
+  return (
+    <span className="bracket-tree-match-score-stack">
+      <span className="bracket-tree-match-score" aria-label={t("Final Score")}>
+        <span className="bracket-tree-match-score-points">{show(score.points)}</span>
+        <span className="bracket-tree-match-score-advantages">{show(score.advantages)}</span>
+        <span className="bracket-tree-match-score-penalties">{show(score.penalties)}</span>
+      </span>
+      {showSubmission && (
+        <span className="bracket-tree-match-submission" aria-label={t("Submission")}>
+          SUB
+        </span>
+      )}
+    </span>
+  );
+}
+
 function BracketTreeMatch(props: BracketTreeMatchProps) {
   const { match, levelIndex, matchIndex, belt } = props;
   const { language } = useAppContext();
@@ -74,6 +142,11 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
 
   const [redBadge, redBadgeDesc] = badgeForPercentile(match.red_percentile, belt, match.red_percentile_age);
   const [blueBadge, blueBadgeDesc] = badgeForPercentile(match.blue_percentile, belt, match.blue_percentile_age);
+  const redScore = scoreForPosition(match, match.redScoreboardPosition);
+  const blueScore = scoreForPosition(match, match.blueScoreboardPosition);
+  const redWinner = match.blue_loser && !match.red_loser && !match.red_bye;
+  const blueWinner = match.red_loser && !match.blue_loser && !match.blue_bye;
+  const showSubmission = matchHasSubmission(match);
 
   const logoForLink = (link: string) => {
     if (link.includes('flograppling')) {
@@ -130,7 +203,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
         }
         <table className="bracket-tree-match-competitors">
           <tbody>
-            <tr className={classNames({"bracket-tree-match-winner": match.blue_loser && !match.red_loser && !match.red_bye}, seedHighlightClass(redHighlight))}>
+            <tr className={classNames({"bracket-tree-match-winner": redWinner}, seedHighlightClass(redHighlight))}>
               <td className="bracket-tree-match-ordinal">
                 {props.showSeed && match.red_seed}
                 {props.showSeed && !match.red_seed && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
@@ -206,6 +279,9 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                   {!match.red_team && <span className="bracket-tree-match-no-team">&nbsp;</span>}
                 </div>
               </td>
+              <td className="bracket-tree-match-score-cell">
+                {renderBracketScore(redScore, Boolean(redWinner && showSubmission))}
+              </td>
               <td className="bracket-tree-match-info">
                 {match.red_medal === "1" && <span title="First place">🥇</span>}
                 {match.red_medal === "2" && <span title="Second place">🥈</span>}
@@ -213,7 +289,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 {match.red_note && <span className="bracket-tree-match-note has-cursor-pointer" data-tooltip-id="bracket-normal-tooltip" data-tooltip-content={match.red_note}> ℹ️</span>}
               </td>
             </tr>
-            <tr className={classNames({"bracket-tree-match-winner": match.red_loser && !match.blue_loser && !match.blue_bye}, seedHighlightClass(blueHighlight))}>
+            <tr className={classNames({"bracket-tree-match-winner": blueWinner}, seedHighlightClass(blueHighlight))}>
               <td className="bracket-tree-match-ordinal">
                 {props.showSeed && match.blue_seed}
                 {props.showSeed && !match.blue_seed && <span className="bracket-tree-match-no-ordinal">&nbsp;</span>}
@@ -289,6 +365,9 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                   {!match.blue_team && <span className="bracket-tree-match-no-team">&nbsp;</span>}
                 </div>
               </td>
+              <td className="bracket-tree-match-score-cell">
+                {renderBracketScore(blueScore, Boolean(blueWinner && showSubmission))}
+              </td>
               <td className="bracket-tree-match-info">
                 {match.blue_medal === "1" && <span title="First place">🥇</span>}
                 {match.blue_medal === "2" && <span title="Second place">🥈</span>}
@@ -340,7 +419,7 @@ function BracketTree(props: BracketTreeProps) {
 
   useEffect(() => {
     updateNaturalWidth();
-  }, [props.matches]);
+  }, [props.hasMatchNums, props.matchCount, props.matches]);
 
   useEffect(() => {
     window.addEventListener('resize', updateNaturalWidth);
@@ -355,7 +434,7 @@ function BracketTree(props: BracketTreeProps) {
     } else {
       return createTreeFromMatchNums(props.matches, props.matchCount);
     }
-  }, [props.matches]);
+  }, [props.hasMatchNums, props.matchCount, props.matches]);
 
   return (
     <div className="mt-4">

@@ -2815,6 +2815,85 @@ def update_live_ratings(gi, results, division_id, happened_at_by_id):
     db.session.commit()
 
 
+def attach_live_match_scores(event_ibjjf_id, division, parsed_matches):
+    if division is None or not parsed_matches:
+        return
+
+    match_numbers = {
+        match["match_num"]
+        for match in parsed_matches
+        if match.get("match_num") is not None
+    }
+    if not match_numbers:
+        return
+
+    event = db.session.query(Event).filter(Event.ibjjf_id == event_ibjjf_id).first()
+    if event is None:
+        return
+
+    rows = (
+        db.session.query(Match, MatchParticipant, Athlete.ibjjf_id)
+        .join(MatchParticipant, MatchParticipant.match_id == Match.id)
+        .join(Athlete, MatchParticipant.athlete_id == Athlete.id)
+        .filter(
+            Match.event_id == event.id,
+            Match.division_id == division.id,
+            Match.match_number.in_(match_numbers),
+        )
+        .all()
+    )
+
+    matches_by_number = {}
+    ambiguous_numbers = set()
+    for db_match, participant, athlete_ibjjf_id in rows:
+        match_number = db_match.match_number
+        if (
+            match_number in matches_by_number
+            and matches_by_number[match_number]["id"] != db_match.id
+        ):
+            ambiguous_numbers.add(match_number)
+            continue
+
+        entry = matches_by_number.setdefault(
+            match_number,
+            {
+                "id": db_match.id,
+                "match": db_match,
+                "scoreboard_positions": {},
+            },
+        )
+        if athlete_ibjjf_id is not None:
+            entry["scoreboard_positions"][
+                athlete_ibjjf_id
+            ] = participant.scoreboard_position
+
+    for match_number in ambiguous_numbers:
+        matches_by_number.pop(match_number, None)
+
+    for live_match in parsed_matches:
+        match_number = live_match.get("match_num")
+        entry = matches_by_number.get(match_number)
+        if entry is None:
+            continue
+
+        scoreboard_positions = entry["scoreboard_positions"]
+        red_id = live_match.get("red_id")
+        blue_id = live_match.get("blue_id")
+        if red_id not in scoreboard_positions and blue_id not in scoreboard_positions:
+            continue
+
+        db_match = entry["match"]
+        live_match["finalMatchTimeSeconds"] = db_match.final_match_time_seconds
+        live_match["finalTopPoints"] = db_match.final_top_points
+        live_match["finalTopAdvantages"] = db_match.final_top_advantages
+        live_match["finalTopPenalties"] = db_match.final_top_penalties
+        live_match["finalBottomPoints"] = db_match.final_bottom_points
+        live_match["finalBottomAdvantages"] = db_match.final_bottom_advantages
+        live_match["finalBottomPenalties"] = db_match.final_bottom_penalties
+        live_match["redScoreboardPosition"] = scoreboard_positions.get(red_id)
+        live_match["blueScoreboardPosition"] = scoreboard_positions.get(blue_id)
+
+
 @brackets_route.route("/api/brackets/competitors")
 def competitors():
     link = request.args.get("link")
@@ -3107,6 +3186,8 @@ def competitors():
         )
         thread.start()
 
+    attach_live_match_scores(event_id, division, parsed_matches)
+
     add_canonical_display_match_numbers(parsed_matches, len(results), seed_swaps)
 
     return jsonify(
@@ -3397,10 +3478,18 @@ def archive_competitors():
                 "video_link": match.video_link,
                 "video_start_offset_seconds": match.video_start_offset_seconds,
                 "fight_num": match.fight_number,
+                "finalMatchTimeSeconds": match.final_match_time_seconds,
+                "finalTopPoints": match.final_top_points,
+                "finalTopAdvantages": match.final_top_advantages,
+                "finalTopPenalties": match.final_top_penalties,
+                "finalBottomPoints": match.final_bottom_points,
+                "finalBottomAdvantages": match.final_bottom_advantages,
+                "finalBottomPenalties": match.final_bottom_penalties,
                 "red_percentile": None,
                 "red_percentile_age": None,
                 "red_bye": False,
                 "red_id": str(red.athlete_id),
+                "redScoreboardPosition": red.scoreboard_position,
                 "red_seed": red.seed if use_seeds else None,
                 "red_loser": not red.winner,
                 "red_name": red.athlete.name,
@@ -3430,6 +3519,7 @@ def archive_competitors():
                 "blue_percentile_age": None,
                 "blue_bye": False,
                 "blue_id": str(blue.athlete_id),
+                "blueScoreboardPosition": blue.scoreboard_position,
                 "blue_seed": blue.seed if use_seeds else None,
                 "blue_loser": not blue.winner,
                 "blue_name": blue.athlete.name,

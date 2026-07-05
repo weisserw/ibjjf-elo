@@ -50,7 +50,7 @@
   width: 36px;
 }
 
-.bracket-tree-match-competitor-name, .bracket-tree-match-info {
+.bracket-tree-match-competitor-name, .bracket-tree-match-score-cell, .bracket-tree-match-info {
   padding-left: 8px;
   padding-right: 8px;
   padding-top: 4px;
@@ -59,6 +59,54 @@
 
 .bracket-tree-match-competitor-name-team {
   font-size: 10px;
+}
+
+.bracket-tree-match-score-cell {
+  vertical-align: top;
+  text-align: right;
+  width: 58px;
+}
+
+.bracket-tree-match-score-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.bracket-tree-match-score {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 2ch);
+  flex-shrink: 0;
+  column-gap: 0.1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bracket-tree-match-score > span {
+  text-align: right;
+}
+
+.bracket-tree-match-score-points {
+  color: #257a3e;
+}
+
+.bracket-tree-match-score-advantages {
+  color: #bd9014;
+}
+
+.bracket-tree-match-score-penalties {
+  color: #b4232a;
+}
+
+.bracket-tree-match-submission {
+  background-color: #3273dc;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
 }
 
 .bracket-tree-match-competitor-badge {

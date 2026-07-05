@@ -57,8 +57,16 @@ export interface Match {
   where: string | null
   fight_num: number | null
   video_link: string | null
+  finalMatchTimeSeconds?: number | null
+  finalTopPoints?: number | null
+  finalTopAdvantages?: number | null
+  finalTopPenalties?: number | null
+  finalBottomPoints?: number | null
+  finalBottomAdvantages?: number | null
+  finalBottomPenalties?: number | null
   red_bye: boolean
   red_id: string | null
+  redScoreboardPosition?: string | null
   red_seed: number | null
   red_loser: boolean | null
   red_name: string | null
@@ -82,6 +90,7 @@ export interface Match {
   red_percentile_age: string | null
   blue_bye: boolean
   blue_id: string | null
+  blueScoreboardPosition?: string | null
   blue_seed: number | null
   blue_loser: boolean | null
   blue_name: string | null

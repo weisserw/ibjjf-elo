@@ -54,6 +54,13 @@ class BracketsArchiveCompetitorsApiTestCase(TestDbMixin, unittest.TestCase):
             rated=True,
             match_location="Mat 1",
             video_link=None,
+            final_top_points=2,
+            final_top_advantages=1,
+            final_top_penalties=0,
+            final_bottom_points=0,
+            final_bottom_advantages=0,
+            final_bottom_penalties=1,
+            final_match_time_seconds=360,
         )
         db.session.add(match)
         db.session.flush()
@@ -70,6 +77,7 @@ class BracketsArchiveCompetitorsApiTestCase(TestDbMixin, unittest.TestCase):
                 end_rating=1510.0,
                 start_match_count=10,
                 end_match_count=11,
+                scoreboard_position="top",
             ),
             MatchParticipant(
                 match_id=match.id,
@@ -82,6 +90,7 @@ class BracketsArchiveCompetitorsApiTestCase(TestDbMixin, unittest.TestCase):
                 end_rating=1440.0,
                 start_match_count=9,
                 end_match_count=10,
+                scoreboard_position="bottom",
             ),
         ]
         db.session.add_all(participants)
@@ -126,6 +135,16 @@ class BracketsArchiveCompetitorsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(len(data["competitors"]), 2)
         self.assertEqual(len(data["matches"]), 1)
         self.assertIsNone(data["competitors"][0]["seed"])
+        match = data["matches"][0]
+        self.assertEqual(match["finalMatchTimeSeconds"], 360)
+        self.assertEqual(match["finalTopPoints"], 2)
+        self.assertEqual(match["finalTopAdvantages"], 1)
+        self.assertEqual(match["finalTopPenalties"], 0)
+        self.assertEqual(match["finalBottomPoints"], 0)
+        self.assertEqual(match["finalBottomAdvantages"], 0)
+        self.assertEqual(match["finalBottomPenalties"], 1)
+        self.assertEqual(match["redScoreboardPosition"], "top")
+        self.assertEqual(match["blueScoreboardPosition"], "bottom")
         medals = {c["name"]: c["medal"] for c in data["competitors"]}
         self.assertEqual(medals["Red Fighter"], "1")
 
