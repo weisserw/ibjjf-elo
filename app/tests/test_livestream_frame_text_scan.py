@@ -1826,6 +1826,26 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         self.assertIn("DejaVuSans-Bold.ttf", template_source_text)
         self.assertIn("Roboto-wdth-wght.ttf", template_source_text)
 
+    def test_score_error_fixture_detects_aligned_score_cells(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        score_path = os.path.join(self.fixture_dir, "score_error.jpg")
+        self.assertTrue(
+            os.path.exists(score_path),
+            "missing livestream OCR score fixture: score_error.jpg",
+        )
+
+        with open(score_path, "rb") as fileobj:
+            image = text_ocr.Image.open(fileobj).convert("RGB")
+
+        boxes = text_ocr._detected_rendered_score_cell_boxes(image)
+        self.assertEqual(len(boxes), 6)
+        self.assertTrue(all(box[2] - box[0] > 1 for box in boxes))
+
+        reader = text_ocr.ScoreboardDigitReader()
+        reading = reader.read(image)
+
+        self.assertEqual(reading.digits, (0, 0, 0, 0, 0, 0))
+
     def test_score_and_timer_fixture_cases(self):
         cases_path = os.path.join(self.fixture_dir, "cases.json")
         self.assertTrue(

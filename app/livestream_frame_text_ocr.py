@@ -218,6 +218,13 @@ def _row_vertical_overlap(first, second) -> float:
     return overlap / min_height
 
 
+def _row_x_edge_delta(first, second) -> int:
+    return max(
+        abs(first_edge - second_edge)
+        for first_edge, second_edge in zip(first[2], second[2])
+    )
+
+
 def _detected_rendered_score_cell_boxes(image):
     yellow_boxes = _score_role_component_boxes(image, "yellow")
     red_boxes = _score_role_component_boxes(image, "red")
@@ -246,22 +253,31 @@ def _detected_rendered_score_cell_boxes(image):
         area = yellow_box[4] + red_box[4]
         row_pairs.append((y_start, y_end, x_edges, area))
 
-    rows = []
-    for row in sorted(row_pairs, key=lambda item: item[3], reverse=True):
-        if any(_row_vertical_overlap(row, existing) > 0.45 for existing in rows):
-            continue
-        rows.append(row)
-        if len(rows) == 2:
-            break
-    if len(rows) != 2:
+    max_x_edge_delta = max(8, int(image.width * 0.05))
+    best_rows = None
+    best_score = None
+    for first_index, first in enumerate(row_pairs):
+        for second in row_pairs[first_index + 1 :]:
+            if _row_vertical_overlap(first, second) > 0.45:
+                continue
+            x_edge_delta = _row_x_edge_delta(first, second)
+            if x_edge_delta > max_x_edge_delta:
+                continue
+            score = first[3] + second[3] - x_edge_delta
+            if best_score is None or score > best_score:
+                best_rows = (first, second)
+                best_score = score
+    if best_rows is None:
         return ()
 
     boxes = []
-    for y_start, y_end, x_edges, _ in sorted(rows, key=lambda item: item[0]):
-        if y_end <= y_start:
+    min_cell_width = max(4, int(image.width * 0.02))
+    min_cell_height = max(4, int(image.height * 0.08))
+    for y_start, y_end, x_edges, _ in sorted(best_rows, key=lambda item: item[0]):
+        if y_end - y_start < min_cell_height:
             return ()
         for col in range(3):
-            if x_edges[col + 1] <= x_edges[col]:
+            if x_edges[col + 1] - x_edges[col] < min_cell_width:
                 return ()
             boxes.append((x_edges[col], y_start, x_edges[col + 1], y_end))
     return tuple(boxes)
@@ -337,6 +353,8 @@ def _name_column_boxes(
 
 def _inner_cell(image):
     margin = max(2, min(image.size) // 12)
+    if image.width <= margin * 2 or image.height <= margin * 2:
+        return image
     return image.crop((margin, margin, image.width - margin, image.height - margin))
 
 
