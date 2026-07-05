@@ -70,7 +70,7 @@
 .bracket-tree-match-score-stack {
   display: inline-flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 2px;
 }
 
@@ -107,6 +107,7 @@
   font-weight: 700;
   line-height: 1;
   padding: 2px 4px;
+  margin-left: 9px;
 }
 
 .bracket-tree-match-competitor-badge {
