@@ -2883,6 +2883,8 @@ def attach_live_match_scores(event_ibjjf_id, division, parsed_matches):
             continue
 
         db_match = entry["match"]
+        live_match["video_link"] = db_match.video_link
+        live_match["video_start_offset_seconds"] = db_match.video_start_offset_seconds
         live_match["finalMatchTimeSeconds"] = db_match.final_match_time_seconds
         live_match["finalTopPoints"] = db_match.final_top_points
         live_match["finalTopAdvantages"] = db_match.final_top_advantages
@@ -3108,6 +3110,20 @@ def competitors():
                 else:
                     final["red_note"] = f'{final["red_note"]}, {CLOSEOUT_NOTE}'
 
+    division = (
+        db.session.query(Division)
+        .filter(
+            Division.gi == gi,
+            Division.age == age,
+            Division.belt == belt,
+            Division.weight == weight,
+            Division.gender == gender,
+        )
+        .first()
+    )
+
+    attach_live_match_scores(event_id, division, parsed_matches)
+
     last_match_whens = {}
     livestream_data = load_livestream_links(db.session, [event_id], registrations=True)
     for m in parsed_matches:
@@ -3136,7 +3152,7 @@ def competitors():
                 m["blue_personal_name"],
                 m["red_personal_name"],
                 m["video_link"],
-                None,
+                m.get("video_start_offset_seconds"),
             )
 
     mat_links = {}
@@ -3167,26 +3183,12 @@ def competitors():
                 str(mat_number), {"link": link, "type": "flo"}
             )
 
-    division = (
-        db.session.query(Division)
-        .filter(
-            Division.gi == gi,
-            Division.age == age,
-            Division.belt == belt,
-            Division.weight == weight,
-            Division.gender == gender,
-        )
-        .first()
-    )
-
     if len(last_match_whens) and division is not None:
         thread = threading.Thread(
             target=update_live_ratings_thread,
             args=(gi, results, division.id, last_match_whens),
         )
         thread.start()
-
-    attach_live_match_scores(event_id, division, parsed_matches)
 
     add_canonical_display_match_numbers(parsed_matches, len(results), seed_swaps)
 

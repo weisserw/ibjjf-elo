@@ -55,6 +55,8 @@ class BracketsLiveMatchScoresTestCase(TestDbMixin, unittest.TestCase):
             happened_at=datetime(2026, 1, 1, 10, 0, 0),
             rated=True,
             match_number=7,
+            video_link="https://www.youtube.com/watch?v=stored",
+            video_start_offset_seconds=123,
             final_match_time_seconds=241,
             final_top_points=12,
             final_top_advantages=1,
@@ -112,6 +114,8 @@ class BracketsLiveMatchScoresTestCase(TestDbMixin, unittest.TestCase):
             attach_live_match_scores("LIVE1", division, parsed_matches)
 
         match = parsed_matches[0]
+        self.assertEqual(match["video_link"], "https://www.youtube.com/watch?v=stored")
+        self.assertEqual(match["video_start_offset_seconds"], 123)
         self.assertEqual(match["finalMatchTimeSeconds"], 241)
         self.assertEqual(match["finalTopPoints"], 12)
         self.assertEqual(match["finalTopAdvantages"], 1)

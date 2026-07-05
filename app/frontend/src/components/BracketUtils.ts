@@ -57,6 +57,7 @@ export interface Match {
   where: string | null
   fight_num: number | null
   video_link: string | null
+  video_start_offset_seconds?: number | null
   finalMatchTimeSeconds?: number | null
   finalTopPoints?: number | null
   finalTopAdvantages?: number | null
