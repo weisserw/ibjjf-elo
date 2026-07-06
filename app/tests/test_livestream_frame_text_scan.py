@@ -90,6 +90,28 @@ def make_tgz(files):
 
 
 class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
+    def test_blank_scoreboard_event_clears_carried_names(self):
+        state = text_scan.TextState(
+            scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+            top_points=2,
+            top_athlete_name="CAIO AYROSA MACZEY",
+            top_team_name="Team Caio",
+            bottom_athlete_name="PATRYK PRUCNAL",
+            bottom_team_name="Team Patryk",
+        )
+        event = text_scan.TextEventData(
+            frame_second=100,
+            scoreboard_state=text_scan.SCOREBOARD_STATE_BLANK,
+        )
+
+        next_state = text_scan.apply_event_to_state(state, event)
+
+        self.assertIsNone(next_state.top_points)
+        self.assertIsNone(next_state.top_athlete_name)
+        self.assertIsNone(next_state.top_team_name)
+        self.assertIsNone(next_state.bottom_athlete_name)
+        self.assertIsNone(next_state.bottom_team_name)
+
     def test_scanner_reads_every_frame_to_find_score_change(self):
         provider = DictFrameProvider()
         parser = TimelineParser(

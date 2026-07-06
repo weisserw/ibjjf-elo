@@ -579,6 +579,8 @@ def apply_event_to_state(state: TextState, event) -> TextState:
         if event_scoreboard_state == SCOREBOARD_STATE_BLANK:
             for field in SCORE_FIELDS:
                 setattr(next_state, field, None)
+            for field in NAME_FIELDS:
+                setattr(next_state, field, None)
     for field in SCORE_FIELDS:
         value = getattr(event, field, None)
         if value is not None:
@@ -729,6 +731,8 @@ def apply_reading_to_state(
         next_state.scoreboard_state = reading.scoreboard_state
         if reading.scoreboard_state == SCOREBOARD_STATE_BLANK:
             for field in SCORE_FIELDS:
+                setattr(next_state, field, None)
+            for field in NAME_FIELDS:
                 setattr(next_state, field, None)
     for field in SCORE_FIELDS:
         value = getattr(reading, field)

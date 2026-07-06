@@ -468,6 +468,78 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             0,
         )
 
+    def test_forward_match_with_weak_opponent_side_waits_for_both_names(self):
+        matches = self._match_setup(
+            pairs=[
+                ("OPENING WINNER", "OPENING LOSER"),
+                ("AINISA TEKEBAEVA", "MADIHA SADIK"),
+                ("GUSTAVO DO AMARAL ZANINI FRANK", "PATRYK PRUCNAL"),
+            ],
+            match_offsets=[20, 120, 240],
+        )
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    0,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="OPENING WINNER",
+                    bottom_athlete_name="OPENING LOSER",
+                ),
+                self._event_data(20, timer_state="running", timer_value="4:40"),
+                self._event_data(50, timer_state="stopped", timer_value="0:00"),
+                self._event_data(
+                    100,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="PATRYK PRUCNAL",
+                    bottom_athlete_name="alph Gc",
+                ),
+                self._event_data(110, timer_state="running", timer_value="4:45"),
+                self._event_data(
+                    200,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="GUSTAVO DO AMARAL",
+                    bottom_athlete_name="PATRYK PRUCNAL",
+                ),
+                self._event_data(220, timer_state="running", timer_value="4:40"),
+                self._event_data(230, top_points=2),
+            ]
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        self.assertEqual(summary.linked, 2)
+        target_match = db.session.get(Match, matches[2].id)
+        self.assertEqual(target_match.video_start_offset_seconds, 220)
+        self.assertEqual(self._linked_seconds(target_match), [200, 220, 230])
+        self.assertIsNone(
+            db.session.get(Match, matches[1].id).video_start_offset_seconds
+        )
+
     def test_completed_scan_links_match_score_timer_positions_and_events(self):
         matches = self._match_setup()
         _, scan = self._stored_events(

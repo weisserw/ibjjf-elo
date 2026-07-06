@@ -39,6 +39,7 @@ NO_FIGHT_NOTE_PARTS = (
 )
 MIN_NAME_SCORE = 78.0
 MIN_SCORE_MARGIN = 8.0
+MIN_NON_CURSOR_SIDE_NAME_SCORE = 60.0
 MIN_RESET_NAME_CONFIDENCE = 0.9
 MIN_CONTINUATION_NAME_SCORE = 82.0
 LOOKAHEAD_MATCHES = 8
@@ -366,9 +367,8 @@ def _orientation_score(
     top_participant: MatchParticipant,
     bottom_participant: MatchParticipant,
 ) -> float:
-    top_score = _best_name_score(window.top_names, top_participant.athlete.name)
-    bottom_score = _best_name_score(
-        window.bottom_names, bottom_participant.athlete.name
+    top_score, bottom_score = _oriented_name_scores(
+        window, top_participant, bottom_participant
     )
     if window.top_names and window.bottom_names:
         return top_score * 0.7 + bottom_score * 0.3
@@ -379,6 +379,17 @@ def _orientation_score(
     return 0.0
 
 
+def _oriented_name_scores(
+    window: MatchWindow,
+    top_participant: MatchParticipant,
+    bottom_participant: MatchParticipant,
+) -> tuple[float, float]:
+    return (
+        _best_name_score(window.top_names, top_participant.athlete.name),
+        _best_name_score(window.bottom_names, bottom_participant.athlete.name),
+    )
+
+
 def _choice_for_candidate(window: MatchWindow, candidate: Candidate) -> MatchChoice:
     first, second = candidate.participants
     first_top_score = _orientation_score(window, first, second)
@@ -386,6 +397,22 @@ def _choice_for_candidate(window: MatchWindow, candidate: Candidate) -> MatchCho
     if first_top_score >= second_top_score:
         return MatchChoice(candidate, first_top_score, first, second, first_top_score)
     return MatchChoice(candidate, second_top_score, second, first, second_top_score)
+
+
+def _has_non_cursor_name_evidence(
+    window: MatchWindow, choice: MatchChoice, cursor: int
+) -> bool:
+    if choice.candidate.order_index == cursor:
+        return True
+    if not window.top_names or not window.bottom_names:
+        return False
+    top_score, bottom_score = _oriented_name_scores(
+        window, choice.top_participant, choice.bottom_participant
+    )
+    return (
+        top_score >= MIN_NON_CURSOR_SIDE_NAME_SCORE
+        and bottom_score >= MIN_NON_CURSOR_SIDE_NAME_SCORE
+    )
 
 
 def _candidate_time_delta(window: MatchWindow, candidate: Candidate) -> int | None:
@@ -454,7 +481,12 @@ def choose_match_for_window(
     if best.score < MIN_NAME_SCORE:
         return None
     if second_score and best.score - second_score < MIN_SCORE_MARGIN:
-        return _sequential_choice_for_ambiguous_window(window, choices, cursor)
+        choice = _sequential_choice_for_ambiguous_window(window, choices, cursor)
+        if choice and _has_non_cursor_name_evidence(window, choice, cursor):
+            return choice
+        return None
+    if not _has_non_cursor_name_evidence(window, best, cursor):
+        return None
     return best
 
 
@@ -1016,7 +1048,10 @@ def _choice_debug(choice: MatchChoice) -> dict:
 
 
 def _rejection_reason(
-    window: MatchWindow, choices: list[MatchChoice], choice: MatchChoice | None
+    window: MatchWindow,
+    choices: list[MatchChoice],
+    choice: MatchChoice | None,
+    cursor: int,
 ) -> str | None:
     if choice:
         return None
@@ -1026,6 +1061,12 @@ def _rejection_reason(
         return "no_candidates_in_cursor_or_time_window"
     if choices[0].score < MIN_NAME_SCORE:
         return "below_name_score_threshold"
+    if not any(
+        _has_non_cursor_name_evidence(window, item, cursor)
+        for item in choices
+        if item.score >= MIN_NAME_SCORE
+    ):
+        return "missing_non_cursor_name_evidence"
     if len(choices) > 1 and choices[0].score - choices[1].score < MIN_SCORE_MARGIN:
         return "ambiguous_candidate_margin"
     return "not_selected"
@@ -1197,7 +1238,9 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
                 "final_score": _final_score_dict(window.final_state),
                 "matched": _choice_debug(choice) if choice else None,
                 "continuation": continuation,
-                "rejection_reason": _rejection_reason(window, choices, choice),
+                "rejection_reason": _rejection_reason(
+                    window, choices, choice, cursor_before
+                ),
                 "top_candidates": [_choice_debug(item) for item in choices[:5]],
             }
         )
