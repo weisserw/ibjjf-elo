@@ -132,14 +132,19 @@ function DBTableRows(props: DBTableRowsProps) {
     }
 
     return (
-      <button
-        type="button"
-        className="db-score-button"
-        aria-label={t("Final Score")}
-        onClick={onClick}
-      >
+      <span className="db-score-detail-control">
         {score}
-      </button>
+        <button
+          type="button"
+          className="button is-small is-tiny"
+          aria-label={t("View score detail")}
+          onClick={onClick}
+        >
+          <span className="icon has-text-info">
+            <i className="fas fa-magnifying-glass" aria-hidden="true" />
+          </span>
+        </button>
+      </span>
     );
   }
 

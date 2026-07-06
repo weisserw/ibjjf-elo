@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { t, type translationKeys } from '../translate';
 
@@ -24,6 +25,7 @@ interface MatchDetailScore {
 interface MatchDetailEvent {
   kind: string;
   time: string | null;
+  videoOffsetSeconds?: number | null;
   actions?: MatchDetailAction[];
   endingMethod?: string;
   endingMethodAmount?: number | null;
@@ -35,6 +37,7 @@ interface MatchDetailEvent {
 interface MatchDetailResponse {
   matchId: string;
   matchTime: string | null;
+  videoSourceUrl?: string | null;
   participants: MatchDetailParticipant[];
   events: MatchDetailEvent[];
 }
@@ -109,7 +112,7 @@ const formatActionGroup = (athleteName: string, actions: MatchDetailAction[]) =>
     phrases.push(`${athleteName} ${t("received")} ${joinAmounts(received)}`);
   }
   retractions.forEach(action => {
-    phrases.push(`${athleteName} ${t(categoryLabels[action.category].plural)} ${t("retracted on review")}`);
+    phrases.push(`${athleteName} ${t("had")} ${t(categoryLabels[action.category].plural)} ${t("retracted on review")}`);
   });
 
   return phrases.join('. ');
@@ -144,11 +147,82 @@ const endingMethodText = (event: MatchDetailEvent) => {
   const method = event.endingMethod ?? "Final";
   if (method === 'points' || method === 'advantages' || method === 'penalties') {
     const labels = categoryLabels[method];
+    if (method === 'points') {
+      return labels.plural;
+    }
     return t((event.endingMethodAmount === 1 ? labels.singular : labels.plural));
   }
   const translated = t(method as translationKeys);
   return method === 'DQ' ? translated : translated.toLocaleLowerCase();
 }
+
+const youtubeVideoId = (url: string | null | undefined) => {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.replace(/^www\./, '');
+    const pathParts = parsed.pathname.split('/').filter(Boolean);
+
+    if (hostname === 'youtu.be') {
+      return pathParts[0] ?? null;
+    }
+    if (hostname.endsWith('youtube.com')) {
+      if (parsed.pathname === '/watch') {
+        return parsed.searchParams.get('v');
+      }
+      if (['embed', 'live', 'shorts'].includes(pathParts[0])) {
+        return pathParts[1] ?? null;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+const youtubeWatchUrl = (sourceUrl: string | null | undefined, offsetSeconds: number | null | undefined) => {
+  const videoId = youtubeVideoId(sourceUrl);
+  if (!videoId || offsetSeconds === null || offsetSeconds === undefined) {
+    return null;
+  }
+
+  const startSeconds = Math.max(0, Math.floor(offsetSeconds) - 10);
+  return `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&t=${startSeconds}s`;
+}
+
+/*
+ * Inline YouTube embeds are disabled while some IBJJF videos block playback on
+ * external sites. Re-enable this helper and the commented iframe row below if
+ * YouTube embeds become available for those videos again.
+ *
+ * const youtubeEmbedUrl = (sourceUrl: string | null | undefined, offsetSeconds: number | null | undefined) => {
+ *   const videoId = youtubeVideoId(sourceUrl);
+ *   if (!videoId || offsetSeconds === null || offsetSeconds === undefined) {
+ *     return null;
+ *   }
+ *
+ *   const startSeconds = Math.max(0, Math.floor(offsetSeconds) - 10);
+ *   return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?start=${startSeconds}&rel=0`;
+ * }
+ *
+ * const shouldShowVideoPreview = (events: MatchDetailEvent[], index: number) => {
+ *   const event = events[index];
+ *   if (event.videoOffsetSeconds === null || event.videoOffsetSeconds === undefined) {
+ *     return false;
+ *   }
+ *
+ *   const previousEvent = events[index - 1];
+ *   if (!previousEvent || previousEvent.videoOffsetSeconds === null || previousEvent.videoOffsetSeconds === undefined) {
+ *     return true;
+ *   }
+ *
+ *   return event.videoOffsetSeconds - previousEvent.videoOffsetSeconds > 10;
+ * }
+ */
 
 function MatchDetailView({ matchId, showTitle = false }: MatchDetailViewProps) {
   const [detail, setDetail] = useState<MatchDetailResponse | null>(null);
@@ -184,7 +258,7 @@ function MatchDetailView({ matchId, showTitle = false }: MatchDetailViewProps) {
   }, [matchId]);
 
   if (loading) {
-    return <div className="match-detail-status">{t("Loading match details")}</div>;
+    return <div className="match-detail-status">{t("Loading score details")}</div>;
   }
 
   if (error) {
@@ -196,12 +270,15 @@ function MatchDetailView({ matchId, showTitle = false }: MatchDetailViewProps) {
   }
 
   const winnerKey = detail.events.find(event => event.kind === 'final')?.winnerKey ?? null;
+  const titleFirstKey = winnerKey ?? 'red';
+  const titleSecondKey = winnerKey === 'red' ? 'blue' : 'red';
 
   return (
     <div className="match-detail-view">
       {showTitle && (
         <h3 className="title is-5 match-detail-title">
-          {titleName(detail.participants, 'red')} vs {titleName(detail.participants, 'blue')}
+          <strong>{t("Score Detail")}</strong>:{' '}
+          {titleName(detail.participants, titleFirstKey)} vs {titleName(detail.participants, titleSecondKey)}
         </h3>
       )}
       <div className="match-detail-match-time">
@@ -211,18 +288,63 @@ function MatchDetailView({ matchId, showTitle = false }: MatchDetailViewProps) {
         <thead>
           <tr>
             <th>{t("Time")}</th>
+            <th className="match-detail-video-heading">
+              <i className="fas fa-video" aria-label={t("Video")} title={t("Video")} />
+            </th>
             <th>{t("Event")}</th>
             <th>{t("Score")}</th>
           </tr>
         </thead>
         <tbody>
-          {detail.events.map((event, index) => (
-            <tr key={`${event.kind}-${index}`}>
-              <td className="match-detail-time">{event.time ?? '-'}</td>
-              <td>{eventText(event)}</td>
-              <td className="match-detail-score">{scoreSummary(event.totals, winnerKey)}</td>
-            </tr>
-          ))}
+          {detail.events.map((event, index) => {
+            const videoLinkUrl = youtubeWatchUrl(detail.videoSourceUrl, event.videoOffsetSeconds);
+            // const previewEmbedUrl = shouldShowVideoPreview(detail.events, index)
+            //   ? youtubeEmbedUrl(detail.videoSourceUrl, event.videoOffsetSeconds)
+            //   : null;
+
+            return (
+              <Fragment key={`${event.kind}-${index}`}>
+                <tr>
+                  <td className="match-detail-time">{event.time ?? '-'}</td>
+                  <td className="match-detail-video-cell">
+                    {videoLinkUrl && (
+                      <a
+                        className="match-detail-video-link"
+                        href={videoLinkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Open score video"
+                      >
+                        <i className="fas fa-video" aria-hidden="true" />
+                      </a>
+                    )}
+                  </td>
+                  <td>
+                    {eventText(event)}
+                  </td>
+                  <td className="match-detail-score">{scoreSummary(event.totals, winnerKey)}</td>
+                </tr>
+                {/*
+                  Inline YouTube embeds are disabled while some IBJJF videos block
+                  playback on external sites. Re-enable this row when embeds work.
+
+                  {previewEmbedUrl && (
+                  <tr className="match-detail-video-row">
+                    <td colSpan={4}>
+                      <iframe
+                        className="match-detail-video-preview"
+                        src={previewEmbedUrl}
+                        title={`${t("Score Detail")} ${event.time ?? index}`}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    </td>
+                  </tr>
+                  )}
+                */}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -230,7 +352,11 @@ function MatchDetailView({ matchId, showTitle = false }: MatchDetailViewProps) {
 }
 
 export function MatchDetailModal({ matchId, onClose }: MatchDetailModalProps) {
-  return (
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(
     <div className="modal is-active match-detail-modal">
       <div className="modal-background" onClick={onClose}></div>
       <div className="modal-content match-detail-modal-content">
@@ -244,7 +370,8 @@ export function MatchDetailModal({ matchId, onClose }: MatchDetailModalProps) {
           <MatchDetailView matchId={matchId} showTitle />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

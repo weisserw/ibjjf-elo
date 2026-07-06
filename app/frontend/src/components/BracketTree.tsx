@@ -128,7 +128,7 @@ const renderBracketScore = (score: ReturnType<typeof scoreForPosition>, showSubm
     <button
       type="button"
       className="bracket-tree-match-score-button"
-      aria-label={t("Final Score")}
+      aria-label={t("View score detail")}
       onClick={onClick}
     >
       {scoreContent}

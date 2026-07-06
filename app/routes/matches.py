@@ -325,6 +325,7 @@ def _build_match_detail_score_events(raw_events, participants_by_position):
             current_response_event = {
                 "kind": "score",
                 "time": event["time"],
+                "videoOffsetSeconds": event["frameSecond"],
                 "actions": [],
                 "totals": _copy_totals(totals),
             }
@@ -343,6 +344,16 @@ def _build_match_detail_score_events(raw_events, participants_by_position):
         current_response_event["totals"] = _copy_totals(totals)
 
     return response_events, match_time
+
+
+def _match_detail_video_source_url(match, raw_events):
+    for raw_event in raw_events:
+        archive = getattr(raw_event, "archive", None)
+        canonical_url = getattr(archive, "canonical_url", None)
+        if canonical_url:
+            return canonical_url
+
+    return getattr(match, "video_link", None)
 
 
 def _final_totals(match, participants):
@@ -412,7 +423,41 @@ def _winner_key(match):
     return None
 
 
+def _final_video_offset_seconds(match, raw_events):
+    if not raw_events:
+        return None
+
+    final_match_time_seconds = getattr(match, "final_match_time_seconds", None)
+    stopped_timer_offsets = []
+    matching_stopped_timer_offsets = []
+
+    for raw_event in raw_events:
+        if getattr(raw_event, "timer_state", None) != "stopped":
+            continue
+
+        parsed_timer_seconds = _parse_match_time(
+            getattr(raw_event, "timer_value", None)
+        )
+        if parsed_timer_seconds is None:
+            continue
+
+        stopped_timer_offsets.append(raw_event.frame_second)
+        if (
+            final_match_time_seconds is not None
+            and parsed_timer_seconds == final_match_time_seconds
+        ):
+            matching_stopped_timer_offsets.append(raw_event.frame_second)
+
+    if matching_stopped_timer_offsets:
+        return matching_stopped_timer_offsets[-1]
+    if stopped_timer_offsets:
+        return stopped_timer_offsets[-1]
+
+    return raw_events[-1].frame_second
+
+
 def build_match_detail_payload(match, raw_events):
+    video_source_url = _match_detail_video_source_url(match, raw_events)
     participants, participants_by_position = _match_detail_participants(match)
     events, match_time = _build_match_detail_score_events(
         raw_events, participants_by_position
@@ -431,6 +476,7 @@ def build_match_detail_payload(match, raw_events):
         {
             "kind": "final",
             "time": _format_match_time(match.final_match_time_seconds),
+            "videoOffsetSeconds": _final_video_offset_seconds(match, raw_events),
             "endingMethod": ending_method["category"],
             "endingMethodAmount": ending_method["amount"],
             "winnerKey": winner_key,
@@ -441,6 +487,7 @@ def build_match_detail_payload(match, raw_events):
     return {
         "matchId": str(match.id),
         "matchTime": match_time,
+        "videoSourceUrl": video_source_url,
         "participants": participants,
         "events": events,
     }

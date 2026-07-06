@@ -202,6 +202,32 @@ class MatchDetailEventsTestCase(unittest.TestCase):
 
         self.assertEqual(payload["matchTime"], "5:00")
         self.assertEqual(payload["events"][0]["time"], "4:43")
+        self.assertEqual(payload["events"][0]["videoOffsetSeconds"], 37)
+
+    def test_payload_includes_livestream_source_url_from_archive(self):
+        archive = SimpleNamespace(
+            canonical_url="https://www.youtube.com/watch?v=source123"
+        )
+        payload = build_match_detail_payload(
+            match(final_top_points=2, video_link="https://youtu.be/fallback123"),
+            [text_event(10, "4:50", top_points=2, archive=archive)],
+        )
+
+        self.assertEqual(
+            payload["videoSourceUrl"], "https://www.youtube.com/watch?v=source123"
+        )
+
+    def test_final_event_includes_video_offset(self):
+        payload = build_match_detail_payload(
+            match(video_start_offset_seconds=100, final_match_time_seconds=63),
+            [
+                text_event(100, "5:00", timer_state="running", top_points=0),
+                text_event(217, "1:03", timer_state="stopped", top_points=2),
+                text_event(260, top_points=2),
+            ],
+        )
+
+        self.assertEqual(payload["events"][-1]["videoOffsetSeconds"], 217)
 
     def test_final_method_classification(self):
         self.assertEqual(

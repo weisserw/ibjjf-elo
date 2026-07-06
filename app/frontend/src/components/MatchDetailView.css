@@ -21,13 +21,28 @@
   width: 4.5rem;
 }
 
+.match-detail-video-heading,
+.match-detail-video-cell {
+  text-align: center;
+  width: 2.25rem;
+}
+
+.match-detail-video-heading {
+  color: #3e8ed0 !important;
+}
+
 .match-detail-score {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .match-detail-title {
+  font-weight: 400;
   padding-right: 2rem;
+}
+
+.match-detail-title strong {
+  font-weight: 700;
 }
 
 .match-detail-match-time {
@@ -53,9 +68,49 @@
   color: #b4232a;
 }
 
+.match-detail-video-link {
+  color: #3e8ed0;
+  display: inline-flex;
+  line-height: 1;
+}
+
+.match-detail-video-link:hover,
+.match-detail-video-link:focus {
+  color: #3273dc;
+}
+
+/*
+ * Inline YouTube embeds are disabled while some IBJJF videos block playback on
+ * external sites. Re-enable these styles and the commented iframe row in
+ * MatchDetailView.tsx if YouTube embeds become available for those videos again.
+ *
+ * .match-detail-row-with-video td {
+ *   border-bottom: 0;
+ * }
+ *
+ * .match-detail-video-row td {
+ *   border-top: 0;
+ *   padding-top: 0;
+ * }
+ *
+ * .match-detail-video-preview {
+ *   aspect-ratio: 16 / 9;
+ *   border: 0;
+ *   display: block;
+ *   margin-left: auto;
+ *   margin-right: auto;
+ *   max-width: 315px;
+ *   width: 100%;
+ * }
+ */
+
 .match-detail-modal .modal-content {
   max-width: 720px;
   width: calc(100vw - 2rem);
+}
+
+.match-detail-modal {
+  z-index: 2000;
 }
 
 .match-detail-modal-content {
@@ -71,4 +126,28 @@
 
 .match-detail-modal-body {
   padding-top: 1.5rem;
+}
+
+@media screen and (max-width: 768px) {
+  .match-detail-table {
+    font-size: 0.85rem;
+    min-width: 20rem;
+  }
+
+  .match-detail-table th,
+  .match-detail-table td {
+    padding: 0.45rem 0.5rem;
+  }
+
+  .match-detail-score-summary {
+    gap: 0.35rem;
+  }
+
+  /*
+   * Re-enable with inline YouTube embeds.
+   *
+   * .match-detail-video-preview {
+   *   max-width: none;
+   * }
+   */
 }
