@@ -1,13 +1,10 @@
 .PHONY: test test-ocr format
 
 OCR_TESTS = \
-	test_livestream_frame_text_scan \
-	test_livestream_match_linking \
-	test_matches_api.MatchesApiTestCase.test_matches_returns_ocr_linked_match_fields
+	test_livestream_frame_text_scan
 
 NON_OCR_TESTS = $(shell cd app/tests && find . -maxdepth 1 -name 'test_*.py' \
 	! -name 'test_livestream_frame_text_scan.py' \
-	! -name 'test_livestream_match_linking.py' \
 	-exec basename {} .py \; | sort)
 
 test:
