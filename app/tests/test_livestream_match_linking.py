@@ -560,6 +560,21 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
                 self._event_data(120, timer_state="running", timer_value="4:40"),
                 self._event_data(150, top_points=2, bottom_penalties=1),
                 self._event_data(160, timer_state="stopped", timer_value="0:00"),
+                self._event_data(
+                    200,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="MICHAEL BET",
+                    bottom_athlete_name="JON ALPHA",
+                ),
+                self._event_data(210, timer_state="running", timer_value="4:50"),
             ]
         )
 

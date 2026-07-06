@@ -1034,6 +1034,10 @@ def _window_has_terminal_boundary(window: MatchWindow) -> bool:
     )
 
 
+def _window_closes_active_match(window: MatchWindow) -> bool:
+    return _window_has_terminal_boundary(window) or window.final_timer_seconds == 0
+
+
 def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
     scan = _scan_from_id(session, scan_or_archive_id)
     if not scan:
@@ -1092,10 +1096,10 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
                 cursor = max(cursor, choice.candidate.order_index + 1)
                 used_match_ids.add(choice.candidate.match.id)
             active_candidate = (
-                None if _window_has_terminal_boundary(window) else choice.candidate
+                None if _window_closes_active_match(window) else choice.candidate
             )
             linked += 1
-        elif _window_has_terminal_boundary(window):
+        elif _window_closes_active_match(window):
             active_candidate = None
         decisions.append(
             {
@@ -1199,7 +1203,7 @@ def link_completed_text_scan(
             )
             continuation = choice is not None
         if not choice:
-            if _window_has_terminal_boundary(window):
+            if _window_closes_active_match(window):
                 active_candidate = None
             continue
         if not dry_run:
@@ -1213,7 +1217,7 @@ def link_completed_text_scan(
             cursor = max(cursor, choice.candidate.order_index + 1)
             used_match_ids.add(choice.candidate.match.id)
         active_candidate = (
-            None if _window_has_terminal_boundary(window) else choice.candidate
+            None if _window_closes_active_match(window) else choice.candidate
         )
         linked += 1
     return SimpleNamespace(
