@@ -276,6 +276,7 @@ def queue_archive_capture(
     session,
     archive: LivestreamFrameArchive,
     segment_seconds: int = DEFAULT_SEGMENT_SECONDS,
+    queue_requested_at: datetime | None = None,
 ) -> int:
     created = create_missing_segments(session, archive, segment_seconds)
     requeued = (
@@ -286,6 +287,7 @@ def queue_archive_capture(
         .update({"status": "queued", "last_error": None}, synchronize_session=False)
     )
     archive.status = "queued"
+    archive.queue_requested_at = queue_requested_at or datetime.utcnow()
     archive.last_error = None
     archive.completed_at = None
     archive.expected_frame_count = expected_frame_count(
@@ -402,6 +404,10 @@ def claim_next_segment(
         )
 
     ordering = (
+        func.coalesce(
+            LivestreamFrameArchive.queue_requested_at,
+            LivestreamFrameArchive.created_at,
+        ),
         LivestreamFrameArchive.created_at,
         LivestreamFrameCaptureSegment.start_second,
         LivestreamFrameCaptureSegment.created_at,

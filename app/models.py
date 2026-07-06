@@ -509,6 +509,7 @@ class LivestreamFrameArchive(db.Model):
     protocol = Column(String, nullable=True)
     yt_dlp_version = Column(String, nullable=True)
     last_error = Column(Text, nullable=True)
+    queue_requested_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow

@@ -1096,12 +1096,20 @@ def livestream_frame_archives():
                 )
             elif action == "queue_missing":
                 sync_archives_from_livestreams(db.session)
-                archives = LivestreamFrameArchive.query.filter(
-                    LivestreamFrameArchive.status != "success"
-                ).all()
+                rows = get_archive_dashboard_rows(db.session, sort=selected_sort)
+                archives = [
+                    row["archive"]
+                    for row in rows
+                    if row["archive"] and row["archive"].status != "success"
+                ]
                 segment_count = 0
-                for archive in archives:
-                    segment_count += queue_archive_capture(db.session, archive)
+                requested_at = datetime.utcnow()
+                for index, archive in enumerate(archives):
+                    segment_count += queue_archive_capture(
+                        db.session,
+                        archive,
+                        queue_requested_at=requested_at + timedelta(microseconds=index),
+                    )
                     recompute_archive_status(db.session, archive)
                 db.session.commit()
                 message = f"Queued {segment_count} segment(s)."
@@ -1110,19 +1118,18 @@ def livestream_frame_archives():
                 for youtube_id in youtube_ids:
                     archive, _ = get_or_create_archive(db.session, youtube_id)
                     archives.append(archive)
-                if archive_ids:
-                    archives.extend(
-                        LivestreamFrameArchive.query.filter(
-                            LivestreamFrameArchive.id.in_(archive_ids)
-                        ).all()
-                    )
                 seen = set()
                 segment_count = 0
-                for archive in archives:
+                requested_at = datetime.utcnow()
+                for index, archive in enumerate(archives):
                     if archive.id in seen:
                         continue
                     seen.add(archive.id)
-                    segment_count += queue_archive_capture(db.session, archive)
+                    segment_count += queue_archive_capture(
+                        db.session,
+                        archive,
+                        queue_requested_at=requested_at + timedelta(microseconds=index),
+                    )
                     recompute_archive_status(db.session, archive)
                 db.session.commit()
                 message = f"Queued {segment_count} segment(s)."

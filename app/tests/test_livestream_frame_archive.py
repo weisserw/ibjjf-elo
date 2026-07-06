@@ -1,4 +1,5 @@
 import io
+import importlib
 import os
 import sys
 import tarfile
@@ -9,7 +10,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+from sqlalchemy import create_engine
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0,
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")),
+)
 sys.path.insert(
     0,
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts")),
@@ -675,6 +682,21 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         db.session.remove()
         self.app_context.pop()
 
+    def _admin_client(self):
+        admin_module = importlib.import_module("admin.app")
+        db_path = os.path.join(self.temp_dir, "test.db")
+        admin_module.app.config.update(
+            TESTING=True,
+            SQLALCHEMY_DATABASE_URI=f"sqlite:///{db_path}",
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        )
+        with admin_module.app.app_context():
+            sqlalchemy_ext = admin_module.app.extensions.get("sqlalchemy")
+            if sqlalchemy_ext and getattr(sqlalchemy_ext, "engines", None) is not None:
+                sqlalchemy_ext.engines[None] = create_engine(f"sqlite:///{db_path}")
+        self.admin_module = admin_module
+        return admin_module.app.test_client()
+
     def test_sync_archives_from_livestreams_is_unique_and_idempotent(self):
         result = archive_lib.sync_archives_from_livestreams(db.session)
         db.session.commit()
@@ -892,6 +914,135 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
                 RegistrationLink.event_id.in_(["alpha-event", "beta-event"])
             ).delete(synchronize_session=False)
             db.session.commit()
+
+    def test_admin_queue_missing_uses_selected_dashboard_sort_order(self):
+        db.session.add(
+            RegistrationLink(
+                name="Old Queue Event",
+                event_id="queue-old-event",
+                normalized_name="old queue event",
+                updated_at=datetime(2026, 1, 1),
+                link="https://www.ibjjfdb.com/ChampionshipResults/queue-old-event",
+                hidden=False,
+                event_start_date=datetime(2026, 2, 1),
+            )
+        )
+        db.session.add(
+            RegistrationLink(
+                name="New Queue Event",
+                event_id="queue-new-event",
+                normalized_name="new queue event",
+                updated_at=datetime(2026, 1, 1),
+                link="https://www.ibjjfdb.com/ChampionshipResults/queue-new-event",
+                hidden=False,
+                event_start_date=datetime(2026, 6, 1),
+            )
+        )
+        db.session.add(
+            LiveStream(
+                event_id="queue-new-event",
+                platform="youtube",
+                mat_number=1,
+                day_number=1,
+                start_hour=9,
+                start_minute=30,
+                start_seconds=0,
+                end_hour=18,
+                end_minute=0,
+                drift_factor=1.0,
+                hide_all=False,
+                link="https://www.youtube.com/watch?v=QueueNew01",
+            )
+        )
+        db.session.add(
+            LiveStream(
+                event_id="queue-old-event",
+                platform="youtube",
+                mat_number=1,
+                day_number=1,
+                start_hour=9,
+                start_minute=30,
+                start_seconds=0,
+                end_hour=18,
+                end_minute=0,
+                drift_factor=1.0,
+                hide_all=False,
+                link="https://www.youtube.com/watch?v=QueueOld01",
+            )
+        )
+        db.session.commit()
+
+        try:
+            client = self._admin_client()
+            with client.session_transaction() as session_data:
+                session_data["logged_in"] = True
+
+            queued = []
+
+            def fake_queue_capture(session, archive, segment_seconds=3600, **kwargs):
+                archive.status = "queued"
+                archive.queue_requested_at = kwargs["queue_requested_at"]
+                queued.append((archive.youtube_video_id, archive.queue_requested_at))
+                return 0
+
+            with patch.object(
+                self.admin_module,
+                "queue_archive_capture",
+                side_effect=fake_queue_capture,
+            ):
+                response = client.post(
+                    "/livestream_frame_archives",
+                    data={"action": "queue_missing", "sort": "event_date_asc"},
+                )
+
+            self.assertEqual(response.status_code, 200)
+            queued_ids = [youtube_id for youtube_id, _queued_at in queued]
+            self.assertLess(
+                queued_ids.index("QueueOld01"), queued_ids.index("QueueNew01")
+            )
+            old_queued_at = dict(queued)["QueueOld01"]
+            new_queued_at = dict(queued)["QueueNew01"]
+            self.assertLess(old_queued_at, new_queued_at)
+        finally:
+            LiveStream.query.filter(
+                LiveStream.event_id.in_(["queue-old-event", "queue-new-event"])
+            ).delete(synchronize_session=False)
+            RegistrationLink.query.filter(
+                RegistrationLink.event_id.in_(["queue-old-event", "queue-new-event"])
+            ).delete(synchronize_session=False)
+            db.session.commit()
+
+    def test_admin_queue_selected_uses_submitted_row_order(self):
+        client = self._admin_client()
+        with client.session_transaction() as session_data:
+            session_data["logged_in"] = True
+
+        queued = []
+
+        def fake_queue_capture(session, archive, segment_seconds=3600, **kwargs):
+            archive.status = "queued"
+            archive.queue_requested_at = kwargs["queue_requested_at"]
+            queued.append((archive.youtube_video_id, archive.queue_requested_at))
+            return 0
+
+        with patch.object(
+            self.admin_module, "queue_archive_capture", side_effect=fake_queue_capture
+        ):
+            response = client.post(
+                "/livestream_frame_archives",
+                data={
+                    "action": "queue_selected",
+                    "sort": "youtube_id",
+                    "selected_youtube_id": ["SelectedSecond", "SelectedFirst"],
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [youtube_id for youtube_id, _queued_at in queued],
+            ["SelectedSecond", "SelectedFirst"],
+        )
+        self.assertLess(queued[0][1], queued[1][1])
 
     def test_queue_archive_segments_for_known_duration(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
@@ -1211,6 +1362,37 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(segment.start_second, 600)
         self.assertEqual(segment.status, "running")
         self.assertEqual(segment.attempt_count, 1)
+
+    def test_claim_next_segment_uses_queue_requested_order_before_created_at(self):
+        first_archive, _ = archive_lib.get_or_create_archive(db.session, "QueueFirst1")
+        second_archive, _ = archive_lib.get_or_create_archive(db.session, "QueueSecond")
+        first_archive.created_at = datetime(2026, 1, 2)
+        second_archive.created_at = datetime(2026, 1, 1)
+        first_archive.queue_requested_at = datetime(2026, 1, 1, 12, 0, 0)
+        second_archive.queue_requested_at = datetime(2026, 1, 1, 12, 0, 1)
+        db.session.flush()
+        db.session.add_all(
+            [
+                LivestreamFrameCaptureSegment(
+                    archive_id=first_archive.id,
+                    start_second=0,
+                    end_second=600,
+                    status="queued",
+                ),
+                LivestreamFrameCaptureSegment(
+                    archive_id=second_archive.id,
+                    start_second=0,
+                    end_second=600,
+                    status="queued",
+                ),
+            ]
+        )
+        db.session.commit()
+
+        segment = archive_lib.claim_next_segment(db.session)
+
+        self.assertIsNotNone(segment)
+        self.assertEqual(segment.archive.youtube_video_id, "QueueFirst1")
 
     def test_claim_next_segment_prioritizes_errors_after_max_backoff(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
