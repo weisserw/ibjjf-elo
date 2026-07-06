@@ -50,6 +50,7 @@ export interface Competitor {
 }
 
 export interface Match {
+  id?: string
   match_num: number | null
   display_match_num?: number | null
   final: boolean

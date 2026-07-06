@@ -84,6 +84,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+.bracket-tree-match-score-button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.bracket-tree-match-score-button:focus-visible {
+  outline: 2px solid #3273dc;
+  outline-offset: 2px;
+}
+
 .bracket-tree-match-score > span {
   text-align: right;
 }

@@ -74,6 +74,19 @@ td.video-link-cell {
   font-weight: 600;
 }
 
+.db-score-button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.db-score-button:focus-visible {
+  outline: 2px solid #3273dc;
+  outline-offset: 2px;
+}
+
 .db-score-points {
   color: #257a3e;
 }

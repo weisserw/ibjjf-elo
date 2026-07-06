@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import classNames from "classnames";
 import dayjs from "dayjs";
 import 'dayjs/locale/pt';
@@ -10,6 +10,7 @@ import { noMatchStrings } from '../constants';
 import { useAppContext } from '../AppContext';
 import { t, translateMulti, translateMultiSpace, translationKeys } from '../translate';
 import NameInfo from './NameInfo';
+import MatchDetailView, { MatchDetailModal } from './MatchDetailView';
 
 const BLACK_WEIGHT_HANDICAPS = [
   0,
@@ -64,6 +65,8 @@ function DBTableRows(props: DBTableRowsProps) {
   const { data, loading, athleteClicked, eventClicked, divisionClicked, divisionBracketClicked, noLinks, linkAthlete } = props;
 
   const { language } = useAppContext();
+  const [detailModalMatchId, setDetailModalMatchId] = useState<string | null>(null);
+  const [inlineDetailMatchId, setInlineDetailMatchId] = useState<string | null>(null);
 
   const notesWithWeight = (row: Row) => {
     const weightText = openWeightText(row);
@@ -89,7 +92,7 @@ function DBTableRows(props: DBTableRowsProps) {
     return values.some(value => value !== null && value !== undefined);
   }
 
-  const finalScoreText = (row: Row) => {
+  const finalScoreText = (row: Row, onClick?: () => void) => {
     if (!rowHasFinalScoreValues(row)) {
       return undefined;
     }
@@ -116,12 +119,27 @@ function DBTableRows(props: DBTableRowsProps) {
     const loserScore = scoreForSide(loserSide);
     const show = (value: number | null) => value ?? '-';
 
-    return (
+    const score = (
       <span className="db-score">
         <span className="db-score-points">{show(winnerScore.points)}-{show(loserScore.points)}</span>
         <span className="db-score-advantages">{show(winnerScore.advantages)}-{show(loserScore.advantages)}</span>
         <span className="db-score-penalties">{show(winnerScore.penalties)}-{show(loserScore.penalties)}</span>
       </span>
+    );
+
+    if (!onClick) {
+      return score;
+    }
+
+    return (
+      <button
+        type="button"
+        className="db-score-button"
+        aria-label={t("Final Score")}
+        onClick={onClick}
+      >
+        {score}
+      </button>
     );
   }
 
@@ -315,7 +333,7 @@ function DBTableRows(props: DBTableRowsProps) {
                   </td>
                   {showScoreColumns &&
                     <>
-                      <td>{finalScoreText(row)}</td>
+                      <td>{finalScoreText(row, () => setDetailModalMatchId(row.id))}</td>
                       <td className="has-text-centered">{submissionCheckbox(row)}</td>
                     </>
                   }
@@ -368,7 +386,9 @@ function DBTableRows(props: DBTableRowsProps) {
         {
           !!data.length && data.map((row: Row) => {
             const weightText = openWeightText(row);
-            const score = finalScoreText(row);
+            const score = finalScoreText(row, () => {
+              setInlineDetailMatchId(current => current === row.id ? null : row.id);
+            });
             const hasSubmissionValue = row.submission !== null && row.submission !== undefined && !hasDqNote(row);
             return (
               <div key={row.id} data-id={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row.event)})}>
@@ -484,6 +504,13 @@ function DBTableRows(props: DBTableRowsProps) {
                       </div>
                     </div>
                   }
+                  {inlineDetailMatchId === row.id &&
+                    <div className="columns">
+                      <div className="column">
+                        <MatchDetailView matchId={row.id} />
+                      </div>
+                    </div>
+                  }
                 </div>
               </div>
               );
@@ -491,6 +518,12 @@ function DBTableRows(props: DBTableRowsProps) {
           )
         }
       </div>
+      {detailModalMatchId &&
+        <MatchDetailModal
+          matchId={detailModalMatchId}
+          onClose={() => setDetailModalMatchId(null)}
+        />
+      }
       <Tooltip id="db-top-tooltip" className="tooltip-multiline" />
       <Tooltip id="db-bottom-tooltip" className="tooltip-multiline" place="bottom"/>
     </>

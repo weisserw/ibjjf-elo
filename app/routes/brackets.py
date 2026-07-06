@@ -2883,6 +2883,7 @@ def attach_live_match_scores(event_ibjjf_id, division, parsed_matches):
             continue
 
         db_match = entry["match"]
+        live_match["id"] = str(db_match.id)
         live_match["video_link"] = db_match.video_link
         live_match["video_start_offset_seconds"] = db_match.video_start_offset_seconds
         live_match["finalMatchTimeSeconds"] = db_match.final_match_time_seconds
@@ -3472,6 +3473,7 @@ def archive_competitors():
 
         parsed_matches.append(
             {
+                "id": str(match.id),
                 "match_num": match.match_number,
                 "division_size": match.division_size,
                 "final": False,

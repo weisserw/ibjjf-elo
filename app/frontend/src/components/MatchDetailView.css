@@ -1,0 +1,74 @@
+.match-detail-view {
+  overflow-x: auto;
+}
+
+.match-detail-status {
+  padding: 1rem;
+  text-align: center;
+}
+
+.match-detail-table {
+  min-width: 24rem;
+}
+
+.match-detail-table th,
+.match-detail-table td {
+  vertical-align: middle;
+}
+
+.match-detail-time {
+  white-space: nowrap;
+  width: 4.5rem;
+}
+
+.match-detail-score {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.match-detail-title {
+  padding-right: 2rem;
+}
+
+.match-detail-match-time {
+  margin-bottom: 0.75rem;
+}
+
+.match-detail-score-summary {
+  display: inline-flex;
+  gap: 0.45rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-detail-score-points {
+  color: #257a3e;
+}
+
+.match-detail-score-advantages {
+  color: #bd9014;
+}
+
+.match-detail-score-penalties {
+  color: #b4232a;
+}
+
+.match-detail-modal .modal-content {
+  max-width: 720px;
+  width: calc(100vw - 2rem);
+}
+
+.match-detail-modal-content {
+  position: relative;
+}
+
+.match-detail-modal-close {
+  position: absolute;
+  right: 0.75rem;
+  top: 0.75rem;
+  z-index: 1;
+}
+
+.match-detail-modal-body {
+  padding-top: 1.5rem;
+}

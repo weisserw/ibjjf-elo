@@ -1,4 +1,6 @@
 import os
+import re
+import uuid
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from collections import defaultdict
@@ -48,7 +50,14 @@ from constants import (
     OPEN_CLASS_LIGHT,
     OPEN_CLASS_HEAVY,
 )
-from models import Athlete, MatchParticipant, Division, Match, Event
+from models import (
+    Athlete,
+    MatchParticipant,
+    Division,
+    Match,
+    Event,
+    LivestreamFrameTextEvent,
+)
 from elo import RATING_VERY_IMMATURE_COUNT
 from photos import get_public_photo_url, get_s3_client
 from normalize import normalize
@@ -62,6 +71,9 @@ ATHLETES_MATCH_PAGE_SIZE = 100
 INITIAL_RATE_LIMIT = 15
 RATE_LIMIT_WINDOW = 10
 PENALTY_PERIOD = 60
+REVIEW_RETRACTION_SECONDS = 30
+SCORE_CATEGORIES = ("points", "advantages", "penalties")
+SCORE_POSITIONS = ("top", "bottom")
 DQ_TYPE_NOTES: dict[str, tuple[str, ...]] = {
     "technical": ("Disqualified by technical desc.", "Disqualified by desc técnica"),
     "disciplinary": (
@@ -71,6 +83,367 @@ DQ_TYPE_NOTES: dict[str, tuple[str, ...]] = {
 }
 client_requests = defaultdict(list)
 client_penalties = {}
+
+
+def _clean_display_name(name):
+    if not name:
+        return ""
+    return re.sub(r'\s*"[^"]*"', "", name).strip()
+
+
+def _first_name(name):
+    cleaned = _clean_display_name(name)
+    return cleaned.split()[0] if cleaned else ""
+
+
+def _format_match_time(seconds):
+    if seconds is None:
+        return None
+    minutes, remainder = divmod(max(0, seconds), 60)
+    return f"{minutes}:{remainder:02d}"
+
+
+def _parse_match_time(value):
+    if not value:
+        return None
+    parts = str(value).split(":")
+    if len(parts) != 2:
+        return None
+    try:
+        minutes = int(parts[0])
+        seconds = int(parts[1])
+    except ValueError:
+        return None
+    if minutes < 0 or seconds < 0 or seconds >= 60:
+        return None
+    return minutes * 60 + seconds
+
+
+def _event_match_time(timer_anchor, frame_second, fallback_time):
+    if timer_anchor is None:
+        return fallback_time
+    anchor_seconds, anchor_frame_second = timer_anchor
+    elapsed_seconds = max(0, frame_second - anchor_frame_second)
+    return _format_match_time(anchor_seconds - elapsed_seconds)
+
+
+def _has_dq_note(match):
+    notes = " ".join(
+        participant.note or "" for participant in getattr(match, "participants", [])
+    ).lower()
+    return "disqualified" in notes or "desqualificado" in notes
+
+
+def _match_detail_participants(match):
+    participants = sorted(match.participants, key=lambda p: 0 if p.red else 1)
+    if len(participants) != 2:
+        return [], {}
+
+    bases = [
+        _clean_display_name(
+            participant.athlete.personal_name or participant.athlete.name
+        )
+        for participant in participants
+    ]
+    title_names = [
+        participant.athlete.personal_name or participant.athlete.name
+        for participant in participants
+    ]
+    first_names = [_first_name(base) for base in bases]
+    use_full_names = (
+        first_names[0]
+        and first_names[1]
+        and first_names[0].lower() == first_names[1].lower()
+    )
+
+    participant_payload = []
+    participants_by_position = {}
+    fallback_positions = {True: "top", False: "bottom"}
+
+    for index, participant in enumerate(participants):
+        key = "red" if participant.red else "blue"
+        display_name = (
+            bases[index] if use_full_names else first_names[index] or bases[index]
+        )
+        position = (
+            participant.scoreboard_position or fallback_positions[participant.red]
+        )
+        payload = {
+            "key": key,
+            "name": display_name,
+            "fullName": bases[index],
+            "titleName": title_names[index],
+            "scoreboardPosition": position,
+        }
+        participant_payload.append(payload)
+        if position in SCORE_POSITIONS:
+            participants_by_position[position] = payload
+
+    return participant_payload, participants_by_position
+
+
+def _empty_totals():
+    return {
+        "red": {"points": 0, "advantages": 0, "penalties": 0},
+        "blue": {"points": 0, "advantages": 0, "penalties": 0},
+    }
+
+
+def _copy_totals(totals):
+    return {
+        side: {category: values[category] for category in SCORE_CATEGORIES}
+        for side, values in totals.items()
+    }
+
+
+def _find_prior_score_event(events, position, category):
+    for event in reversed(events):
+        if (
+            event["kind"] == "score"
+            and not event.get("cancelled")
+            and event["position"] == position
+            and event["category"] == category
+            and event["delta"] > 0
+        ):
+            return event
+    return None
+
+
+def _cancel_prior_score_events(events, position, category, amount):
+    remaining = amount
+    while remaining > 0:
+        event = _find_prior_score_event(events, position, category)
+        if event is None:
+            break
+        if event["delta"] > remaining:
+            event["delta"] -= remaining
+            remaining = 0
+        else:
+            remaining -= event["delta"]
+            event["cancelled"] = True
+
+
+def _build_match_detail_score_events(raw_events, participants_by_position):
+    score_state = {
+        f"{position}_{category}": 0
+        for position in SCORE_POSITIONS
+        for category in SCORE_CATEGORIES
+    }
+    semantic_events = []
+    current_timer = None
+    timer_anchor = None
+    match_time = None
+    last_score_change_frame = None
+
+    for raw_event in raw_events:
+        if raw_event.timer_value is not None:
+            current_timer = raw_event.timer_value
+            if getattr(raw_event, "timer_state", None) == "running":
+                timer_seconds = _parse_match_time(raw_event.timer_value)
+                if timer_seconds is not None:
+                    timer_anchor = (timer_seconds, raw_event.frame_second)
+                    if match_time is None:
+                        match_time = raw_event.timer_value
+
+        for position in SCORE_POSITIONS:
+            participant = participants_by_position.get(position)
+            if participant is None:
+                continue
+
+            for category in SCORE_CATEGORIES:
+                field = f"{position}_{category}"
+                value = getattr(raw_event, field)
+                if value is None:
+                    continue
+
+                old_value = score_state[field] or 0
+                delta = value - old_value
+                score_state[field] = value
+                if delta == 0:
+                    continue
+
+                prior_event = _find_prior_score_event(
+                    semantic_events, position, category
+                )
+                review_retraction = (
+                    delta < 0
+                    and prior_event is not None
+                    and last_score_change_frame is not None
+                    and raw_event.frame_second - last_score_change_frame
+                    >= REVIEW_RETRACTION_SECONDS
+                )
+
+                if delta > 0:
+                    semantic_events.append(
+                        {
+                            "kind": "score",
+                            "frameSecond": raw_event.frame_second,
+                            "time": _event_match_time(
+                                timer_anchor, raw_event.frame_second, current_timer
+                            ),
+                            "position": position,
+                            "participantKey": participant["key"],
+                            "athleteName": participant["name"],
+                            "category": category,
+                            "delta": delta,
+                        }
+                    )
+                elif review_retraction:
+                    prior_event["verb"] = "awarded"
+                    semantic_events.append(
+                        {
+                            "kind": "retraction",
+                            "frameSecond": raw_event.frame_second,
+                            "time": _event_match_time(
+                                timer_anchor, raw_event.frame_second, current_timer
+                            ),
+                            "position": position,
+                            "participantKey": participant["key"],
+                            "athleteName": participant["name"],
+                            "category": category,
+                            "delta": delta,
+                        }
+                    )
+                else:
+                    _cancel_prior_score_events(
+                        semantic_events, position, category, abs(delta)
+                    )
+
+                last_score_change_frame = raw_event.frame_second
+
+    totals = _empty_totals()
+    response_events = []
+    current_response_event = None
+    current_group_key = None
+
+    for event in semantic_events:
+        if event.get("cancelled"):
+            continue
+        totals[event["participantKey"]][event["category"]] += event["delta"]
+        group_key = (event["frameSecond"], event["time"])
+        if current_response_event is None or group_key != current_group_key:
+            current_response_event = {
+                "kind": "score",
+                "time": event["time"],
+                "actions": [],
+                "totals": _copy_totals(totals),
+            }
+            response_events.append(current_response_event)
+            current_group_key = group_key
+        current_response_event["actions"].append(
+            {
+                "kind": event["kind"],
+                "participantKey": event["participantKey"],
+                "athleteName": event["athleteName"],
+                "category": event["category"],
+                "delta": event["delta"],
+                "verb": event.get("verb"),
+            }
+        )
+        current_response_event["totals"] = _copy_totals(totals)
+
+    return response_events, match_time
+
+
+def _final_totals(match, participants):
+    totals = _empty_totals()
+    by_position = {
+        participant["scoreboardPosition"]: participant for participant in participants
+    }
+    for position in SCORE_POSITIONS:
+        participant = by_position.get(position)
+        if participant is None:
+            continue
+        for category in SCORE_CATEGORIES:
+            value = getattr(match, f"final_{position}_{category}")
+            totals[participant["key"]][category] = value or 0
+    return totals
+
+
+def _winner_loser_participants(match):
+    winner = None
+    loser = None
+    for participant in match.participants:
+        if participant.winner:
+            winner = participant
+        else:
+            loser = participant
+    if winner is None or loser is None:
+        return None, None
+    return winner, loser
+
+
+def _score_for_participant(match, participant, category):
+    fallback_positions = {True: "top", False: "bottom"}
+    position = participant.scoreboard_position or fallback_positions[participant.red]
+    if position not in SCORE_POSITIONS:
+        return 0
+    return getattr(match, f"final_{position}_{category}") or 0
+
+
+def _ending_method(match):
+    if _has_dq_note(match):
+        return {"category": "DQ", "amount": None}
+    if match.final_match_time_seconds is None:
+        return {"category": "Final", "amount": None}
+    if match.final_match_time_seconds > 0:
+        return {"category": "Submission", "amount": None}
+
+    winner, loser = _winner_loser_participants(match)
+    if winner is None or loser is None:
+        return {"category": "Final", "amount": None}
+
+    for category in SCORE_CATEGORIES:
+        winner_score = _score_for_participant(match, winner, category)
+        loser_score = _score_for_participant(match, loser, category)
+        if winner_score != loser_score:
+            return {
+                "category": category,
+                "amount": abs(winner_score - loser_score),
+            }
+
+    return {"category": "Decision", "amount": None}
+
+
+def _winner_key(match):
+    for participant in match.participants:
+        if participant.winner:
+            return "red" if participant.red else "blue"
+    return None
+
+
+def build_match_detail_payload(match, raw_events):
+    participants, participants_by_position = _match_detail_participants(match)
+    events, match_time = _build_match_detail_score_events(
+        raw_events, participants_by_position
+    )
+    ending_method = _ending_method(match)
+    winner_key = _winner_key(match)
+    winner_name = next(
+        (
+            participant["name"]
+            for participant in participants
+            if participant["key"] == winner_key
+        ),
+        None,
+    )
+    events.append(
+        {
+            "kind": "final",
+            "time": _format_match_time(match.final_match_time_seconds),
+            "endingMethod": ending_method["category"],
+            "endingMethodAmount": ending_method["amount"],
+            "winnerKey": winner_key,
+            "athleteName": winner_name,
+            "totals": _final_totals(match, participants),
+        }
+    )
+    return {
+        "matchId": str(match.id),
+        "matchTime": match_time,
+        "participants": participants,
+        "events": events,
+    }
 
 
 def rate_limit():
@@ -104,6 +477,26 @@ def rate_limit():
 
 
 matches_route.before_request(rate_limit)
+
+
+@matches_route.route("/api/matches/<match_id>/detail-events")
+def match_detail_events(match_id):
+    try:
+        match_uuid = uuid.UUID(match_id)
+    except ValueError:
+        return jsonify({"error": "Match not found"}), 404
+
+    match = db.session.query(Match).filter(Match.id == match_uuid).first()
+    if match is None:
+        return jsonify({"error": "Match not found"}), 404
+
+    raw_events = (
+        db.session.query(LivestreamFrameTextEvent)
+        .filter(LivestreamFrameTextEvent.match_id == match.id)
+        .order_by(LivestreamFrameTextEvent.frame_second)
+        .all()
+    )
+    return jsonify(build_match_detail_payload(match, raw_events))
 
 
 @matches_route.route("/api/matches")

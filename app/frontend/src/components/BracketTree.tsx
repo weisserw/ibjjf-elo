@@ -12,6 +12,7 @@ import igLogo from '/src/assets/instagram.png';
 import youtubeLogo from '/src/assets/youtube.png';
 import floLogo from '/src/assets/flo.png';
 import "/node_modules/flag-icons/css/flag-icons.min.css";
+import { MatchDetailModal } from './MatchDetailView';
 
 import "./BracketTree.css";
 
@@ -97,14 +98,14 @@ const matchHasSubmission = (match: Match) => {
     !hasDqNote(match);
 }
 
-const renderBracketScore = (score: ReturnType<typeof scoreForPosition>, showSubmission: boolean) => {
+const renderBracketScore = (score: ReturnType<typeof scoreForPosition>, showSubmission: boolean, onClick?: () => void) => {
   if (!score) {
     return null;
   }
 
   const show = (value: number | null | undefined) => value ?? '-';
 
-  return (
+  const scoreContent = (
     <span className="bracket-tree-match-score-stack">
       <span className="bracket-tree-match-score" aria-label={t("Final Score")}>
         <span className="bracket-tree-match-score-points">{show(score.points)}</span>
@@ -117,6 +118,21 @@ const renderBracketScore = (score: ReturnType<typeof scoreForPosition>, showSubm
         </span>
       )}
     </span>
+  );
+
+  if (!onClick) {
+    return scoreContent;
+  }
+
+  return (
+    <button
+      type="button"
+      className="bracket-tree-match-score-button"
+      aria-label={t("Final Score")}
+      onClick={onClick}
+    >
+      {scoreContent}
+    </button>
   );
 }
 
@@ -147,6 +163,8 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
   const redWinner = match.blue_loser && !match.red_loser && !match.red_bye;
   const blueWinner = match.red_loser && !match.blue_loser && !match.blue_bye;
   const showSubmission = matchHasSubmission(match);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const openMatchDetail = match.id ? () => setDetailModalOpen(true) : undefined;
 
   const logoForLink = (link: string) => {
     if (link.includes('flograppling')) {
@@ -157,6 +175,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
   }
 
   return (
+    <>
     <div className="bracket-tree-match-container">
       <div className="bracket-tree-match">
         {
@@ -280,7 +299,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 </div>
               </td>
               <td className="bracket-tree-match-score-cell">
-                {renderBracketScore(redScore, Boolean(redWinner && showSubmission))}
+                {renderBracketScore(redScore, Boolean(redWinner && showSubmission), openMatchDetail)}
               </td>
               <td className="bracket-tree-match-info">
                 {match.red_medal === "1" && <span title="First place">🥇</span>}
@@ -366,7 +385,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 </div>
               </td>
               <td className="bracket-tree-match-score-cell">
-                {renderBracketScore(blueScore, Boolean(blueWinner && showSubmission))}
+                {renderBracketScore(blueScore, Boolean(blueWinner && showSubmission), openMatchDetail)}
               </td>
               <td className="bracket-tree-match-info">
                 {match.blue_medal === "1" && <span title="First place">🥇</span>}
@@ -379,6 +398,13 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
         </table>
       </div>
     </div>
+    {detailModalOpen && match.id &&
+      <MatchDetailModal
+        matchId={match.id}
+        onClose={() => setDetailModalOpen(false)}
+      />
+    }
+    </>
   );
 }
 
