@@ -682,6 +682,56 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(rematch.video_start_offset_seconds, 510)
         self.assertEqual(self._linked_seconds(rematch), [500, 510])
 
+    def test_closed_match_is_not_resurrected_by_continuation_fallback(self):
+        matches = self._match_setup(pairs=[("JOHNATHAN ALPHA", "MICHAEL BETA")])
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHNATHAN AL",
+                    bottom_athlete_name="MICHAEL BETA",
+                ),
+                self._event_data(20, timer_state="running", timer_value="4:50"),
+                self._event_data(70, top_points=2),
+                self._event_data(100, timer_state="stopped", timer_value="0:00"),
+                self._event_data(
+                    110, scoreboard_state=text_scan.SCOREBOARD_STATE_BLANK
+                ),
+                self._event_data(
+                    200,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHNATHAN ALPHA",
+                    bottom_athlete_name="MICHAEL BETA",
+                ),
+                self._event_data(210, timer_state="running", timer_value="4:50"),
+            ]
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        self.assertEqual(summary.linked, 1)
+        linked_match = db.session.get(Match, matches[0].id)
+        self.assertEqual(linked_match.video_start_offset_seconds, 20)
+        self.assertEqual(self._linked_seconds(linked_match), [10, 20, 70, 100, 110])
+
     def test_stopped_zero_timer_without_running_clock_finalizes_continuation(self):
         matches = self._match_setup()
         _, scan = self._stored_events(
@@ -1216,10 +1266,133 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         summary = link_completed_text_scan(db.session, scan)
         db.session.commit()
 
-        self.assertEqual(summary.linked, 2)
+        self.assertEqual(summary.linked, 1)
+        self.assertIsNone(
+            db.session.get(Match, matches[2].id).video_start_offset_seconds
+        )
         linked_match = db.session.get(Match, target_match.id)
         self.assertEqual(linked_match.video_start_offset_seconds, 70)
         self.assertEqual(linked_match.final_top_points, 2)
+
+    def test_out_of_order_forward_link_can_be_reused_when_turn_arrives(self):
+        matches = self._match_setup(
+            pairs=[
+                ("OPENING WINNER", "OPENING LOSER"),
+                ("FIRST LOWER", "FIRST OPPONENT"),
+                ("SECOND LOWER", "SECOND OPPONENT"),
+                ("THIRD LOWER", "THIRD OPPONENT"),
+                ("FUTURE WINNER", "FUTURE OPPONENT"),
+            ],
+            match_offsets=[20, 120, 220, 320, 420],
+        )
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="OPENING WINNER",
+                    bottom_athlete_name="OPENING LOSER",
+                ),
+                self._event_data(20, timer_state="running", timer_value="4:50"),
+                self._event_data(50, timer_state="stopped", timer_value="0:00"),
+                self._event_data(
+                    70,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="FUTURE WINNER",
+                    bottom_athlete_name="FUTURE OPPONENT",
+                ),
+                self._event_data(80, timer_state="running", timer_value="4:50"),
+                self._event_data(
+                    110,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="FIRST LOWER",
+                    bottom_athlete_name="FIRST OPPONENT",
+                ),
+                self._event_data(120, timer_state="running", timer_value="4:50"),
+                self._event_data(
+                    210,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="SECOND LOWER",
+                    bottom_athlete_name="SECOND OPPONENT",
+                ),
+                self._event_data(220, timer_state="running", timer_value="4:50"),
+                self._event_data(
+                    310,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="THIRD LOWER",
+                    bottom_athlete_name="THIRD OPPONENT",
+                ),
+                self._event_data(320, timer_state="running", timer_value="4:50"),
+                self._event_data(
+                    410,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="FUTURE WINNER",
+                    bottom_athlete_name="FUTURE OPPONENT",
+                ),
+                self._event_data(420, timer_state="running", timer_value="4:50"),
+                self._event_data(450, top_points=2),
+            ]
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        self.assertEqual(summary.linked, 5)
+        future_match = db.session.get(Match, matches[4].id)
+        self.assertEqual(future_match.video_start_offset_seconds, 420)
+        self.assertEqual(future_match.final_top_points, 2)
+        self.assertEqual(
+            self._linked_seconds(future_match),
+            [410, 420, 450],
+        )
 
 
 if __name__ == "__main__":

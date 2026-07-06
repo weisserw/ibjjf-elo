@@ -44,6 +44,7 @@ MIN_CONTINUATION_NAME_SCORE = 82.0
 LOOKAHEAD_MATCHES = 8
 TIME_MATCH_WINDOW_SECONDS = 20 * 60
 CONTINUATION_TIME_WINDOW_SECONDS = 3 * 60
+SPECULATIVE_FORWARD_RELEASE_GAP = 2
 
 
 @dataclass
@@ -509,13 +510,17 @@ def choose_continuation_for_window(
     candidates: list[Candidate],
     cursor: int,
     used_match_ids: set | None = None,
+    closed_match_ids: set | None = None,
 ) -> MatchChoice | None:
     terminal_zero_timer = window.final_timer_seconds == 0
     if not window.has_running_timer and not terminal_zero_timer:
         return None
     used_match_ids = used_match_ids or set()
+    closed_match_ids = closed_match_ids or set()
     raw_choices = []
     for candidate in candidates:
+        if candidate.match.id in closed_match_ids:
+            continue
         choice = _choice_for_candidate(window, candidate)
         raw_choices.append(choice)
     raw_choices.sort(key=lambda item: item.raw_score, reverse=True)
@@ -1034,8 +1039,52 @@ def _window_has_terminal_boundary(window: MatchWindow) -> bool:
     )
 
 
+def _window_has_stopped_zero_timer(window: MatchWindow) -> bool:
+    return any(
+        event.timer_state == "stopped" and parse_timer_seconds(event.timer_value) == 0
+        for event in window.events
+    )
+
+
 def _window_closes_active_match(window: MatchWindow) -> bool:
-    return _window_has_terminal_boundary(window) or window.final_timer_seconds == 0
+    return _window_has_terminal_boundary(window) or _window_has_stopped_zero_timer(
+        window
+    )
+
+
+def _release_speculative_forward_links(
+    used_match_ids: set,
+    closed_match_ids: set,
+    speculative_forward_links: dict,
+    linked_order_index: int,
+) -> list:
+    released_ids = [
+        match_id
+        for match_id, order_index in speculative_forward_links.items()
+        if order_index > linked_order_index
+    ]
+    for match_id in released_ids:
+        used_match_ids.discard(match_id)
+        closed_match_ids.discard(match_id)
+        speculative_forward_links.pop(match_id, None)
+    return released_ids
+
+
+def _clear_stored_choice(window: MatchWindow, choice: MatchChoice) -> None:
+    match = choice.candidate.match
+    match.video_start_offset_seconds = None
+    match.final_match_time_seconds = None
+    match.final_top_points = None
+    match.final_top_advantages = None
+    match.final_top_penalties = None
+    match.final_bottom_points = None
+    match.final_bottom_advantages = None
+    match.final_bottom_penalties = None
+    choice.top_participant.scoreboard_position = None
+    choice.bottom_participant.scoreboard_position = None
+    for event in window.events:
+        if event.match_id == match.id:
+            event.match_id = None
 
 
 def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
@@ -1077,6 +1126,9 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
     cursor = 0
     linked = 0
     used_match_ids = set()
+    closed_match_ids = set()
+    speculative_forward_links = {}
+    speculative_forward_decisions = {}
     active_candidate = None
     decisions = []
     for index, window in enumerate(windows, start=1):
@@ -1088,13 +1140,43 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
             choice = choose_match_for_window(window, candidates, cursor, used_match_ids)
         if not choice:
             choice = choose_continuation_for_window(
-                window, candidates, cursor, used_match_ids
+                window, candidates, cursor, used_match_ids, closed_match_ids
             )
             continuation = choice is not None
         if choice:
             if not continuation:
+                if choice.candidate.order_index < cursor_before:
+                    released_ids = _release_speculative_forward_links(
+                        used_match_ids,
+                        closed_match_ids,
+                        speculative_forward_links,
+                        choice.candidate.order_index,
+                    )
+                    for match_id in released_ids:
+                        decision_index = speculative_forward_decisions.pop(
+                            match_id, None
+                        )
+                        if decision_index is None:
+                            continue
+                        decisions[decision_index]["matched"] = None
+                        decisions[decision_index][
+                            "rejection_reason"
+                        ] = "released_out_of_order"
+                        linked -= 1
                 cursor = max(cursor, choice.candidate.order_index + 1)
                 used_match_ids.add(choice.candidate.match.id)
+                if (
+                    choice.candidate.order_index - cursor_before
+                    >= SPECULATIVE_FORWARD_RELEASE_GAP
+                ):
+                    speculative_forward_links[choice.candidate.match.id] = (
+                        choice.candidate.order_index
+                    )
+                    speculative_forward_decisions[choice.candidate.match.id] = len(
+                        decisions
+                    )
+            if _window_closes_active_match(window):
+                closed_match_ids.add(choice.candidate.match.id)
             active_candidate = (
                 None if _window_closes_active_match(window) else choice.candidate
             )
@@ -1191,15 +1273,19 @@ def link_completed_text_scan(
     cursor = 0
     linked = 0
     used_match_ids = set()
+    closed_match_ids = set()
+    speculative_forward_links = {}
+    speculative_forward_windows = {}
     active_candidate = None
     for window in windows:
+        cursor_before = cursor
         choice = choose_active_continuation_for_window(window, active_candidate)
         continuation = choice is not None
         if not choice:
             choice = choose_match_for_window(window, candidates, cursor, used_match_ids)
         if not choice:
             choice = choose_continuation_for_window(
-                window, candidates, cursor, used_match_ids
+                window, candidates, cursor, used_match_ids, closed_match_ids
             )
             continuation = choice is not None
         if not choice:
@@ -1214,8 +1300,36 @@ def link_completed_text_scan(
                 update_start_offset=not continuation,
             )
         if not continuation:
+            if choice.candidate.order_index < cursor_before:
+                released_ids = _release_speculative_forward_links(
+                    used_match_ids,
+                    closed_match_ids,
+                    speculative_forward_links,
+                    choice.candidate.order_index,
+                )
+                for match_id in released_ids:
+                    stored = speculative_forward_windows.pop(match_id, None)
+                    if stored is None:
+                        continue
+                    stored_window, stored_choice = stored
+                    if not dry_run:
+                        _clear_stored_choice(stored_window, stored_choice)
+                    linked -= 1
             cursor = max(cursor, choice.candidate.order_index + 1)
             used_match_ids.add(choice.candidate.match.id)
+            if (
+                choice.candidate.order_index - cursor_before
+                >= SPECULATIVE_FORWARD_RELEASE_GAP
+            ):
+                speculative_forward_links[choice.candidate.match.id] = (
+                    choice.candidate.order_index
+                )
+                speculative_forward_windows[choice.candidate.match.id] = (
+                    window,
+                    choice,
+                )
+        if _window_closes_active_match(window):
+            closed_match_ids.add(choice.candidate.match.id)
         active_candidate = (
             None if _window_closes_active_match(window) else choice.candidate
         )
