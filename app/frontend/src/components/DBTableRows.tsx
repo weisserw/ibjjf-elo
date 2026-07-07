@@ -143,7 +143,7 @@ function DBTableRows(props: DBTableRowsProps) {
     );
   }
 
-  const matchDetailButton = (onClick: () => void) => (
+  const matchDetailButton = (onClick: () => void, expanded = false) => (
     <button
       type="button"
       className="db-match-detail-icon-button"
@@ -151,7 +151,7 @@ function DBTableRows(props: DBTableRowsProps) {
       title={t("View score detail")}
       onClick={onClick}
     >
-      <i className="fas fa-circle-plus" aria-hidden="true" />
+      <i className={classNames("fas", expanded ? "fa-circle-minus" : "fa-circle-plus")} aria-hidden="true" />
     </button>
   );
 
@@ -250,7 +250,7 @@ function DBTableRows(props: DBTableRowsProps) {
     return Boolean(row.videoLink && row.videoLink.toLowerCase() !== 'none' && !noMatch(row));
   }
 
-  const matchActions = (row: Row, onDetailClick: () => void) => {
+  const matchActions = (row: Row, onDetailClick: () => void, expanded = false) => {
     const videoLink = showVideoLink(row) ? row.videoLink : null;
     const hasMatchDetail = rowHasFinalScoreValues(row);
 
@@ -265,7 +265,7 @@ function DBTableRows(props: DBTableRowsProps) {
             {logoForLink(videoLink)}
           </a>
         }
-        {hasMatchDetail && matchDetailButton(onDetailClick)}
+        {hasMatchDetail && matchDetailButton(onDetailClick, expanded)}
       </div>
     );
   }
@@ -430,7 +430,7 @@ function DBTableRows(props: DBTableRowsProps) {
                 <div className="card-actions">
                   {matchActions(row, () => {
                     setInlineDetailMatchId(current => current === row.id ? null : row.id);
-                  })}
+                  }, inlineDetailMatchId === row.id)}
                 </div>
                 <div className="card-content">
                   <div className="columns">
