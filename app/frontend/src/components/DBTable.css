@@ -32,8 +32,9 @@ div.card.db-row-card {
 }
 
 .db-row-card div.card-actions {
+  left: 20px;
   position: absolute;
-  right: 10px;
+  right: auto;
   top: 4px;
 }
 
