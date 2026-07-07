@@ -35,10 +35,41 @@
   align-items: center;
 }
 
-.bracket-tree-match-video-link {
+.bracket-tree-match-actions {
+  align-items: center;
+  display: flex;
+  gap: 5px;
   position: absolute;
-  top: -26px;
   left: 0;
+  top: -26px;
+}
+
+.bracket-tree-match-actions a {
+  align-items: center;
+  display: inline-flex;
+}
+
+.bracket-tree-match-detail-icon-button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: rgb(33, 150, 243);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0;
+}
+
+.bracket-tree-match-detail-icon-button:hover,
+.bracket-tree-match-detail-icon-button:focus {
+  color: rgb(21, 101, 192);
+}
+
+.bracket-tree-match-detail-icon-button:focus-visible {
+  outline: 2px solid #3273dc;
+  outline-offset: 2px;
 }
 
 .bracket-tree-match-ordinal {

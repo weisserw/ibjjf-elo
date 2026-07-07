@@ -164,7 +164,14 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
   const blueWinner = match.red_loser && !match.blue_loser && !match.blue_bye;
   const showSubmission = matchHasSubmission(match);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const openMatchDetail = match.id ? () => setDetailModalOpen(true) : undefined;
+  const showMatchDetailButton = Boolean(match.id && matchHasFinalScoreValues(match));
+  const showMatchVideoLink = Boolean(
+    match.video_link &&
+    !match.red_bye && !match.blue_bye &&
+    !noMatchStrings.some(s => match.red_note?.toLowerCase() === s) &&
+    !noMatchStrings.some(s => match.blue_note?.toLowerCase() === s) &&
+    (!match.video_link.includes('flograppling') || match.red_loser || match.blue_loser)
+  );
 
   const logoForLink = (link: string) => {
     if (link.includes('flograppling')) {
@@ -208,16 +215,24 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
             }
           </div>
         </div>
-        {
-          (match.video_link &&
-            !match.red_bye && !match.blue_bye &&
-            !noMatchStrings.some(s => match.red_note?.toLowerCase() === s) &&
-            !noMatchStrings.some(s => match.blue_note?.toLowerCase() === s) &&
-            (!match.video_link.includes('flograppling') || match.red_loser || match.blue_loser)) &&
-          <div className="bracket-tree-match-video-link">
-            <a href={match.video_link} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, match.video_link)}>
-              {logoForLink(match.video_link)}
-            </a>
+        {(showMatchVideoLink || showMatchDetailButton) &&
+          <div className="bracket-tree-match-actions">
+            {showMatchVideoLink && match.video_link &&
+              <a href={match.video_link} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, match.video_link)}>
+                {logoForLink(match.video_link)}
+              </a>
+            }
+            {showMatchDetailButton &&
+              <button
+                type="button"
+                className="bracket-tree-match-detail-icon-button"
+                aria-label={t("View score detail")}
+                title={t("View score detail")}
+                onClick={() => setDetailModalOpen(true)}
+              >
+                <i className="fas fa-circle-plus" aria-hidden="true" />
+              </button>
+            }
           </div>
         }
         <table className="bracket-tree-match-competitors">
@@ -299,7 +314,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 </div>
               </td>
               <td className="bracket-tree-match-score-cell">
-                {renderBracketScore(redScore, Boolean(redWinner && showSubmission), openMatchDetail)}
+                {renderBracketScore(redScore, Boolean(redWinner && showSubmission), showMatchDetailButton ? () => setDetailModalOpen(true) : undefined)}
               </td>
               <td className="bracket-tree-match-info">
                 {match.red_medal === "1" && <span title="First place">🥇</span>}
@@ -385,7 +400,7 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
                 </div>
               </td>
               <td className="bracket-tree-match-score-cell">
-                {renderBracketScore(blueScore, Boolean(blueWinner && showSubmission), openMatchDetail)}
+                {renderBracketScore(blueScore, Boolean(blueWinner && showSubmission), showMatchDetailButton ? () => setDetailModalOpen(true) : undefined)}
               </td>
               <td className="bracket-tree-match-info">
                 {match.blue_medal === "1" && <span title="First place">🥇</span>}

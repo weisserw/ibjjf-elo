@@ -132,21 +132,28 @@ function DBTableRows(props: DBTableRowsProps) {
     }
 
     return (
-      <span className="db-score-detail-control">
+      <button
+        type="button"
+        className="db-score-button"
+        aria-label={t("View score detail")}
+        onClick={onClick}
+      >
         {score}
-        <button
-          type="button"
-          className="button is-small is-tiny"
-          aria-label={t("View score detail")}
-          onClick={onClick}
-        >
-          <span className="icon has-text-info">
-            <i className="fas fa-magnifying-glass" aria-hidden="true" />
-          </span>
-        </button>
-      </span>
+      </button>
     );
   }
+
+  const matchDetailButton = (onClick: () => void) => (
+    <button
+      type="button"
+      className="db-match-detail-icon-button"
+      aria-label={t("View score detail")}
+      title={t("View score detail")}
+      onClick={onClick}
+    >
+      <i className="fas fa-circle-plus" aria-hidden="true" />
+    </button>
+  );
 
   const submissionCheckbox = (row: Row) => {
     return row.submission && !hasDqNote(row) ? (
@@ -239,6 +246,30 @@ function DBTableRows(props: DBTableRowsProps) {
     }
   }
 
+  const showVideoLink = (row: Row) => {
+    return Boolean(row.videoLink && row.videoLink.toLowerCase() !== 'none' && !noMatch(row));
+  }
+
+  const matchActions = (row: Row, onDetailClick: () => void) => {
+    const videoLink = showVideoLink(row) ? row.videoLink : null;
+    const hasMatchDetail = rowHasFinalScoreValues(row);
+
+    if (!videoLink && !hasMatchDetail) {
+      return null;
+    }
+
+    return (
+      <div className="db-match-actions">
+        {videoLink &&
+          <a href={videoLink} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, videoLink)}>
+            {logoForLink(videoLink)}
+          </a>
+        }
+        {hasMatchDetail && matchDetailButton(onDetailClick)}
+      </div>
+    );
+  }
+
   const showScoreColumns = data.some(rowHasFinalScoreValues);
   const desktopColumnCount = showScoreColumns ? 11 : 9;
 
@@ -281,11 +312,7 @@ function DBTableRows(props: DBTableRowsProps) {
               !!data.length && data.map((row: Row, index: number) => (
                 <tr key={row.id} data-id={row.id} className={classNames({"is-historical": isHistorical(row.event)})}>
                   <td className="video-link-cell">
-                    {(row.videoLink && row.videoLink.toLowerCase() !== 'none' && !noMatch(row)) &&
-                      <a href={row.videoLink} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, row.videoLink)}>
-                        {logoForLink(row.videoLink)}
-                      </a>
-                    }
+                    {matchActions(row, () => setDetailModalMatchId(row.id))}
                   </td>
                   <td data-id={row.winnerId}>
                     {
@@ -396,18 +423,15 @@ function DBTableRows(props: DBTableRowsProps) {
             });
             const hasSubmissionValue = row.submission !== null && row.submission !== undefined && !hasDqNote(row);
             return (
-              <div key={row.id} data-id={row.id} className={classNames("card db-row-card", {"is-historical": isHistorical(row.event)})}>
+              <div key={row.id} data-id={row.id} className={classNames("card db-row-card db-row-data-card", {"is-historical": isHistorical(row.event)})}>
                 <div className="date-box">
                   {dayjs(row.date).locale(language).format('MMM D YYYY, h:mma')}{row.matchLocation && ` ${row.matchLocation}`}
                 </div>
-                {
-                  (row.videoLink && row.videoLink.toLowerCase() !== 'none'  && !noMatch(row)) &&
-                  <div className="video-link">
-                    <a href={row.videoLink} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, row.videoLink)}>
-                      {logoForLink(row.videoLink)}
-                    </a>
-                  </div>
-                }
+                <div className="card-actions">
+                  {matchActions(row, () => {
+                    setInlineDetailMatchId(current => current === row.id ? null : row.id);
+                  })}
+                </div>
                 <div className="card-content">
                   <div className="columns">
                     <div className="column" data-id={row.winnerId}>

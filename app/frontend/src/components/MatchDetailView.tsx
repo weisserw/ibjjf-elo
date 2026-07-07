@@ -106,7 +106,7 @@ const formatActionGroup = (athleteName: string, actions: MatchDetailAction[]) =>
   const phrases: string[] = [];
 
   if (scored.length > 0) {
-    phrases.push(`${athleteName} ${t(scored[0].verb === 'awarded' ? "awarded" : "scored")} ${joinAmounts(scored)}`);
+    phrases.push(`${athleteName} ${t(scored[0].verb === 'awarded' ? "was awarded" : "scored")} ${joinAmounts(scored)}`);
   }
   if (received.length > 0) {
     phrases.push(`${athleteName} ${t("received")} ${joinAmounts(received)}`);

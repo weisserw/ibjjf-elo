@@ -10,6 +10,7 @@ td.empty-row {
 div.card.db-row-card {
   padding-top: 8px;
   margin-bottom: 10px;
+  position: relative;
 }
 
 .db-row-card div.column {
@@ -17,20 +18,22 @@ div.card.db-row-card {
   padding: 4px 10px;
 }
 
-.db-row-card .card-content {
+.db-row-card.db-row-data-card .card-content {
   overflow-x: auto;
   overscroll-behavior-x: none;
+  padding-top: 52px;
 }
 
 .db-row-card div.date-box {
   position: absolute;
   right: 10px;
-  top: 0px;
+  top: 30px;
+  font-size: 0.85rem;
 }
 
-.db-row-card div.video-link {
+.db-row-card div.card-actions {
   position: absolute;
-  left: 20px;
+  right: 10px;
   top: 4px;
 }
 
@@ -68,16 +71,59 @@ td.video-link-cell {
   padding-top: 6px !important;
 }
 
+.db-match-actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  min-height: 22px;
+}
+
+.db-match-actions a {
+  align-items: center;
+  display: inline-flex;
+}
+
+.db-match-detail-icon-button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: rgb(33, 150, 243);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.875rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0;
+}
+
+.db-match-detail-icon-button:hover,
+.db-match-detail-icon-button:focus {
+  color: rgb(21, 101, 192);
+}
+
+.db-match-detail-icon-button:focus-visible {
+  outline: 2px solid #3273dc;
+  outline-offset: 2px;
+}
+
 .db-score {
   display: inline-flex;
   gap: 0.45rem;
   font-weight: 600;
 }
 
-.db-score-detail-control {
-  align-items: center;
-  display: inline-flex;
-  gap: 0.4rem;
+.db-score-button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.db-score-button:focus-visible {
+  outline: 2px solid #3273dc;
+  outline-offset: 2px;
 }
 
 .db-score-points {

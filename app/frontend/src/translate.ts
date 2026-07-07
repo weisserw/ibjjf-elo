@@ -15,7 +15,7 @@ const translations = {
     "Time": "Tempo",
     "scored": "marcou",
     "received": "recebeu",
-    "awarded": "recebeu",
+    "was awarded": "recebeu",
     "won by": "venceu por",
     "had": "teve",
     "retracted on review": "retirados após revisão",
