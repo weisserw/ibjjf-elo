@@ -5,10 +5,16 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from bs4 import BeautifulSoup
+
 from extensions import db
 from constants import JUVENILE, JUVENILE_1
 from models import Division, RegistrationLink, RegistrationLinkCompetitor
-from routes.brackets import _registration_seeding_start_date, save_competitors
+from routes.brackets import (
+    _registration_seeding_start_date,
+    parse_registrations,
+    save_competitors,
+)
 from test_db import TestDbMixin
 
 
@@ -89,6 +95,111 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
             )
 
         self.assertEqual(start_date, datetime(2026, 6, 13))
+
+    def test_parse_registrations_reads_legacy_script_model(self):
+        soup = BeautifulSoup(
+            """
+            <html>
+              <body>
+                <script>
+                  const model = [{
+                    "FriendlyName": "BLUE / Adult / Male / Light",
+                    "RegistrationCategories": [{
+                      "AthleteName": "Legacy Athlete",
+                      "AcademyTeamName": "Legacy Team"
+                    }]
+                  }];
+                </script>
+              </body>
+            </html>
+            """,
+            "html.parser",
+        )
+
+        data = parse_registrations(soup)
+
+        self.assertEqual(data[0]["FriendlyName"], "BLUE / Adult / Male / Light")
+        self.assertEqual(
+            data[0]["RegistrationCategories"][0]["AthleteName"], "Legacy Athlete"
+        )
+        self.assertEqual(
+            data[0]["RegistrationCategories"][0]["AcademyTeamName"], "Legacy Team"
+        )
+
+    def test_parse_registrations_reads_html_registration_tables(self):
+        soup = BeautifulSoup(
+            """
+            <div id="registrations-by-category">
+              <section class="belt-group" data-belt-group="white">
+                <h3 class="belt-group-name">White belt</h3>
+                <section class="category-set" data-belt-group="white" data-gender="male">
+                  <div class="category-header">
+                    <h3 class="category-name">Adult / Male / Feather (154.60lb)</h3>
+                    <span class="category-total">TOTAL:<strong>2</strong></span>
+                  </div>
+                  <table class="registrations-table">
+                    <thead>
+                      <tr><th>Team</th><th>Athlete</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td class="team">Adonai Martial Arts School</td>
+                        <td class="athlete">Example Athlete One</td>
+                      </tr>
+                      <tr>
+                        <td class="team">Nova União</td>
+                        <td class="athlete">Example Athlete Two</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </section>
+              </section>
+              <section class="belt-group" data-belt-group="black">
+                <section class="category-set" data-belt-group="black" data-gender="female">
+                  <div class="category-header">
+                    <h3 class="category-name">Adult / Female / Open Class</h3>
+                  </div>
+                  <table class="registrations-table">
+                    <tbody>
+                      <tr>
+                        <td class="team">Alliance </td>
+                        <td class="athlete"> Example Athlete </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </section>
+              </section>
+            </div>
+            """,
+            "html.parser",
+        )
+
+        data = parse_registrations(soup)
+
+        self.assertEqual(len(data), 2)
+        self.assertEqual(
+            data[0]["FriendlyName"], "WHITE / Adult / Male / Feather (154.60lb)"
+        )
+        self.assertEqual(
+            data[0]["RegistrationCategories"],
+            [
+                {
+                    "AthleteName": "Example Athlete One",
+                    "AcademyTeamName": "Adonai Martial Arts School",
+                },
+                {
+                    "AthleteName": "Example Athlete Two",
+                    "AcademyTeamName": "Nova União",
+                },
+            ],
+        )
+        self.assertEqual(data[1]["FriendlyName"], "BLACK / Adult / Female / Open Class")
+        self.assertEqual(
+            data[1]["RegistrationCategories"][0]["AcademyTeamName"], "Alliance"
+        )
+        self.assertEqual(
+            data[1]["RegistrationCategories"][0]["AthleteName"], "Example Athlete"
+        )
 
     def test_save_competitors_allows_same_athlete_in_overlapping_juvenile_divisions(
         self,

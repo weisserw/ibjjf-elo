@@ -821,18 +821,84 @@ def compute_ordinals(results, weight, belt):
         last_rating = None if result_rating is None else round(result_rating)
 
 
+def _text_content(element):
+    if element is None:
+        return ""
+    return re.sub(r"\s+", " ", element.get_text(" ", strip=True)).strip()
+
+
+def _registration_json_model(soup):
+    decoder = json.JSONDecoder()
+    for script_tag in reversed(soup.find_all("script")):
+        script_text = script_tag.get_text(strip=True)
+        model_match = re.search(r"const\s+model\s*=", script_text)
+        if not model_match:
+            continue
+
+        json_text = script_text[model_match.end() :].lstrip()
+        try:
+            json_data, _ = decoder.raw_decode(json_text)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(json_data, list):
+            return json_data
+
+    return None
+
+
+def _registration_belt_name(belt_group):
+    belt_name = belt_group.get("data-belt-group")
+    if not belt_name:
+        belt_name = _text_content(belt_group.find(class_="belt-group-name"))
+    belt_name = re.sub(r"\s+belt$", "", belt_name.strip(), flags=re.IGNORECASE)
+    return belt_name.upper().replace(" ", "-")
+
+
+def _registration_html_model(soup):
+    registrations = []
+    container = soup.find(id="registrations-by-category")
+    if container is None:
+        return registrations
+
+    for belt_group in container.find_all("section", class_="belt-group"):
+        belt = _registration_belt_name(belt_group)
+        for category_set in belt_group.find_all("section", class_="category-set"):
+            category_name = _text_content(category_set.find(class_="category-name"))
+            if not belt or not category_name:
+                continue
+
+            competitors = []
+            for row in category_set.find_all("tr"):
+                athlete = _text_content(row.find("td", class_="athlete"))
+                if not athlete:
+                    continue
+                competitors.append(
+                    {
+                        "AthleteName": athlete,
+                        "AcademyTeamName": _text_content(row.find("td", class_="team")),
+                    }
+                )
+
+            registrations.append(
+                {
+                    "FriendlyName": f"{belt} / {category_name}",
+                    "RegistrationCategories": competitors,
+                }
+            )
+
+    return registrations
+
+
 def parse_registrations(soup):
-    script_tag = soup.find_all("script")[-1]
-    script_text = script_tag.get_text(strip=True)
-    json_match = re.search(r"const\s+model\s*=\s*(\[[^;]+)", script_text)
+    json_data = _registration_json_model(soup)
+    if json_data is not None:
+        return json_data
 
-    if not json_match:
-        raise Exception("No data found.")
+    html_data = _registration_html_model(soup)
+    if html_data:
+        return html_data
 
-    json_text = json_match.group(1)
-    json_data = json.loads(json_text)
-
-    return json_data
+    raise Exception("No data found.")
 
 
 def find_first_index(lst, predicate):
