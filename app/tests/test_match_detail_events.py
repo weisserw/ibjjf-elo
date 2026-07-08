@@ -121,6 +121,27 @@ class MatchDetailEventsTestCase(unittest.TestCase):
         self.assertEqual(score_event["actions"][0]["delta"], 2)
         self.assertEqual(score_event["totals"]["red"]["points"], 2)
 
+    def test_correction_can_cancel_earlier_matching_score(self):
+        payload = build_match_detail_payload(
+            match(final_top_points=5),
+            [
+                text_event(0, "5:00", timer_state="running", top_points=0),
+                text_event(161, top_points=2),
+                text_event(260, top_points=4),
+                text_event(263, top_points=7),
+                text_event(266, top_points=5),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 2)
+        self.assertEqual(score_events[0]["actions"][0]["delta"], 2)
+        self.assertEqual(score_events[0]["totals"]["red"]["points"], 2)
+        self.assertEqual(score_events[1]["actions"][0]["delta"], 3)
+        self.assertEqual(score_events[1]["totals"]["red"]["points"], 5)
+
     def test_review_retraction_keeps_award_and_adds_retraction(self):
         payload = build_match_detail_payload(
             match(final_top_points=0),

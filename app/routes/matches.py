@@ -209,8 +209,28 @@ def _find_prior_score_event(events, position, category):
     return None
 
 
+def _find_prior_score_event_with_delta(events, position, category, delta):
+    for event in reversed(events):
+        if (
+            event["kind"] == "score"
+            and not event.get("cancelled")
+            and event["position"] == position
+            and event["category"] == category
+            and event["delta"] == delta
+        ):
+            return event
+    return None
+
+
 def _cancel_prior_score_events(events, position, category, amount):
     remaining = amount
+    exact_event = _find_prior_score_event_with_delta(
+        events, position, category, remaining
+    )
+    if exact_event is not None:
+        exact_event["cancelled"] = True
+        return
+
     while remaining > 0:
         event = _find_prior_score_event(events, position, category)
         if event is None:
