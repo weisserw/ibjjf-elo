@@ -1,5 +1,9 @@
 # AGENTS
 
+## Documentation
+- Feature guides should be indexed from `docs/FEATURE_INDEX.md`.
+- Workflow and investigation notes live in `docs/workflows/`.
+
 ## Testing
 - Run Python unit tests from the repository root with:
   - `make test`
