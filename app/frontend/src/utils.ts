@@ -129,10 +129,12 @@ export interface AthleteSuggestion {
 }
 
 export function renderAthleteSuggestion(suggestion: AthleteSuggestion): string {
-  if (suggestion.personal_name) {
-    return `${suggestion.personal_name} (${suggestion.name})`;
+  const personalName = suggestion.personal_name?.trim();
+  const fullName = suggestion.name.trim();
+  if (personalName && personalName !== fullName) {
+    return `${personalName} (${fullName})`;
   }
-  return suggestion.name;
+  return fullName;
 }
 
 export function formatEventDates(startDate: string, endDate: string, language: string): string {
