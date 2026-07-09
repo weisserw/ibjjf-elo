@@ -1,5 +1,6 @@
 # Feature Index
 
+- [Athlete Profiles](features/athlete-profiles.md) - End-user athlete pages, profile payload APIs, admin edits, Instagram/S3 photos, medals, media coverage, tests, and regression history.
 - [Athlete Rankings](features/athlete-rankings.md) - Stored athlete ranking boards, EloTable APIs, profile/bracket rating consumers, generation flow, tests, and regression history.
 - [Bracket Predictor](features/bracket-predictor.md) - Registration-based bracket previews, hypothetical athlete seeding, side swaps, and bracket layout.
 - [Bracket Tree](features/bracket-tree.md) - Shared zoomable tree rendering for live, registration, and archive bracket views.
@@ -10,4 +11,4 @@
 - [Livestream Frame Text Scanner](features/livestream-frame-text-scanner.md) - OCR over archived livestream frame crops, sparse scoreboard/timer events, admin scheduling, worker APIs, and slow OCR test coverage.
 - [Match Detail View](features/match-detail-view.md) - Score detail timeline, event refinement, final result rows, and per-event video offsets for a single match.
 
-Documentation should be updated whenever relevant changes are made to features.
+Documentation should be updated whenever relevant changes are made to features. Not every change needs to be documented, only bugs / regressions and changes that impact documentation correctness or comprehensiveness.
