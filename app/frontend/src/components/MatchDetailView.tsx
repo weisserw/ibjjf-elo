@@ -184,13 +184,24 @@ const youtubeVideoId = (url: string | null | undefined) => {
   return null;
 }
 
-const youtubeWatchUrl = (sourceUrl: string | null | undefined, offsetSeconds: number | null | undefined) => {
+const videoLeadSeconds = (event: MatchDetailEvent) => {
+  if (event.kind === 'score') {
+    return 15;
+  }
+  if (event.kind === 'final' && event.endingMethod === 'points') {
+    return 2;
+  }
+  return 10;
+}
+
+const youtubeWatchUrl = (sourceUrl: string | null | undefined, event: MatchDetailEvent) => {
   const videoId = youtubeVideoId(sourceUrl);
+  const offsetSeconds = event.videoOffsetSeconds;
   if (!videoId || offsetSeconds === null || offsetSeconds === undefined) {
     return null;
   }
 
-  const startSeconds = Math.max(0, Math.floor(offsetSeconds) - 10);
+  const startSeconds = Math.max(0, Math.floor(offsetSeconds) - videoLeadSeconds(event));
   return `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&t=${startSeconds}s`;
 }
 
@@ -199,13 +210,14 @@ const youtubeWatchUrl = (sourceUrl: string | null | undefined, offsetSeconds: nu
  * external sites. Re-enable this helper and the commented iframe row below if
  * YouTube embeds become available for those videos again.
  *
- * const youtubeEmbedUrl = (sourceUrl: string | null | undefined, offsetSeconds: number | null | undefined) => {
+ * const youtubeEmbedUrl = (sourceUrl: string | null | undefined, event: MatchDetailEvent) => {
  *   const videoId = youtubeVideoId(sourceUrl);
+ *   const offsetSeconds = event.videoOffsetSeconds;
  *   if (!videoId || offsetSeconds === null || offsetSeconds === undefined) {
  *     return null;
  *   }
  *
- *   const startSeconds = Math.max(0, Math.floor(offsetSeconds) - 10);
+ *   const startSeconds = Math.max(0, Math.floor(offsetSeconds) - videoLeadSeconds(event));
  *   return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?start=${startSeconds}&rel=0`;
  * }
  *
@@ -297,9 +309,9 @@ function MatchDetailView({ matchId, showTitle = false }: MatchDetailViewProps) {
         </thead>
         <tbody>
           {detail.events.map((event, index) => {
-            const videoLinkUrl = youtubeWatchUrl(detail.videoSourceUrl, event.videoOffsetSeconds);
+            const videoLinkUrl = youtubeWatchUrl(detail.videoSourceUrl, event);
             // const previewEmbedUrl = shouldShowVideoPreview(detail.events, index)
-            //   ? youtubeEmbedUrl(detail.videoSourceUrl, event.videoOffsetSeconds)
+            //   ? youtubeEmbedUrl(detail.videoSourceUrl, event)
             //   : null;
 
             return (

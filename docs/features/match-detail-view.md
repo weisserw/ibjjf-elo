@@ -155,7 +155,9 @@ interface MatchDetailAction {
 - The final event is always appended and uses final match fields, not the last
   OCR score snapshot alone.
 - `videoOffsetSeconds` is stored in seconds from the source video. The frontend
-  opens YouTube links ten seconds before that offset.
+  opens YouTube links before that offset by event type: 15 seconds for score
+  events, 2 seconds for final wins by points, and 10 seconds for submissions
+  and other final rows.
 - `videoSourceUrl` prefers the OCR event archive's `canonical_url`; if no
   archive URL is available, it falls back to the match's `video_link`.
 
