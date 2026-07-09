@@ -5,6 +5,7 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app"))
 
+import argparse
 from photos import save_instagram_profile_photo_to_s3, get_s3_client
 from app import db, app
 from models import Athlete
@@ -12,6 +13,16 @@ import time
 import random
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Get and upload missing Instagram profile photos to S3"
+    )
+    parser.add_argument(
+        "--save-name",
+        action="store_true",
+        help="Also save athletes' personal names from Instagram when empty",
+    )
+    args = parser.parse_args()
+
     errfp = None
 
     with app.app_context():
@@ -30,7 +41,9 @@ if __name__ == "__main__":
             .all()
         ):
             try:
-                save_instagram_profile_photo_to_s3(s3_client, athlete)
+                save_instagram_profile_photo_to_s3(
+                    s3_client, athlete, save_name=args.save_name
+                )
                 db.session.commit()
                 errors = 0
             except Exception as e:

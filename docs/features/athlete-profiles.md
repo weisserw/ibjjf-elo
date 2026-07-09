@@ -167,7 +167,7 @@ coverage titles. The server limits title fetches with `MAX_MEDIA_TITLE_SCAN_BYTE
 - `save_instagram_profile_photo_to_s3` reads Instagram `og:image`, downloads the
   image if requested, accepts JPEG/PNG content types, uploads via
   `save_profile_photo_to_s3`, and only fills `personal_name` from Instagram when
-  it is currently empty.
+  the optional `save_name` flag is enabled and the field is currently empty.
 - `save_profile_photo_to_s3` validates non-empty bytes, accepts JPEG/PNG magic
   bytes for manual uploads, writes to S3, and updates
   `athlete.profile_image_saved_at`.

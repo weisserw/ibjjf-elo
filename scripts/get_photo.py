@@ -16,6 +16,11 @@ if __name__ == "__main__":
         description="Get and upload an athlete's Instagram profile photo to S3"
     )
     parser.add_argument("--athlete-id", type=str, help="Athlete ID")
+    parser.add_argument(
+        "--save-name",
+        action="store_true",
+        help="Also save the athlete's personal name from Instagram when empty",
+    )
     args = parser.parse_args()
 
     if not args.athlete_id:
@@ -37,7 +42,9 @@ if __name__ == "__main__":
 
         try:
             s3_client = get_s3_client()
-            save_instagram_profile_photo_to_s3(s3_client, athlete)
+            save_instagram_profile_photo_to_s3(
+                s3_client, athlete, save_name=args.save_name
+            )
 
             db.session.commit()
         except Exception as e:

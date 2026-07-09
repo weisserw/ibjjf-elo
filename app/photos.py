@@ -60,7 +60,7 @@ def get_instagram_profile_photo_url(instagram_username):
 
 
 def save_instagram_profile_photo_to_s3(
-    s3_client, athlete: Athlete, save_photo: bool = True, save_name: bool = True
+    s3_client, athlete: Athlete, save_photo: bool = True, save_name: bool = False
 ):
     photo_url, ig_name = get_instagram_profile_photo_url(athlete.instagram_profile)
 
