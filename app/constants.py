@@ -84,6 +84,8 @@ def translate_weight(weight: str) -> str:
         return MEDIUM_HEAVY
     if weight == "Meio-Pesado":
         return MEDIUM_HEAVY
+    if weight == "Meio Pesado":
+        return MEDIUM_HEAVY
     if weight == "Pena":
         return FEATHER
     if weight == "Pesadíssimo":

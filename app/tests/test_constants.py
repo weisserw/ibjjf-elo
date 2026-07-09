@@ -9,9 +9,11 @@ from constants import (
     JUVENILE,
     JUVENILE_1,
     JUVENILE_2,
+    MEDIUM_HEAVY,
     canonical_rating_age,
     same_or_higher_progression_ages,
     translate_age_keep_juvenile,
+    translate_weight,
 )
 
 
@@ -34,6 +36,9 @@ class ConstantsTestCase(unittest.TestCase):
         self.assertIn(JUVENILE_1, ages)
         self.assertIn(JUVENILE_2, ages)
         self.assertIn(ADULT, ages)
+
+    def test_translate_weight_accepts_spaced_portuguese_medium_heavy(self):
+        self.assertEqual(translate_weight("Meio Pesado"), MEDIUM_HEAVY)
 
 
 if __name__ == "__main__":
