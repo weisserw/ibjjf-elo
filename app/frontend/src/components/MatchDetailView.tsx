@@ -191,6 +191,10 @@ const videoLeadSeconds = (event: MatchDetailEvent) => {
   if (event.kind === 'final' && event.endingMethod === 'points') {
     return 2;
   }
+  if (event.kind === 'final' && event.endingMethod === 'Submission') {
+    const pointsDifference = Math.abs(event.totals.red.points - event.totals.blue.points);
+    return pointsDifference <= 2 ? 15 : 8;
+  }
   return 10;
 }
 
