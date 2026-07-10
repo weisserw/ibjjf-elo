@@ -966,6 +966,7 @@ class FrameImageTextParser:
         self._score_timer_cache = {}
         self._name_cache = {}
         self._paddle_ocr = None
+        self._paddle_result_cache = None
         score_enabled = score_engine not in (None, "none")
         self.score_reader = ScoreboardDigitReader() if score_enabled else None
         self.timer_reader = TimerDigitReader() if score_enabled else None
@@ -1056,6 +1057,15 @@ class FrameImageTextParser:
             return None
         if Image is not None and hasattr(image, "convert"):
             image = image.convert("RGB")
+        result_cache = getattr(self, "_paddle_result_cache", None)
+        cache_key = None
+        if result_cache is not None and hasattr(image, "tobytes"):
+            cache_key = (
+                image.size,
+                hashlib.blake2b(image.tobytes(), digest_size=16).digest(),
+            )
+            if cache_key in result_cache:
+                return result_cache[cache_key]
         ocr_input = (
             np.asarray(image) if np is not None and hasattr(image, "size") else image
         )
@@ -1064,6 +1074,8 @@ class FrameImageTextParser:
             result = reader.ocr(ocr_input, cls=True)
         except (TypeError, ValueError):
             result = reader.ocr(ocr_input)
+        if cache_key is not None:
+            result_cache[cache_key] = result
         return result
 
     def _paddle_image_to_string(self, image) -> str:
@@ -1163,16 +1175,11 @@ class FrameImageTextParser:
         for field_name, boxes in row_box_groups:
             name_candidates = []
             crop = score_image.crop(boxes[0])
-            retry_images = [crop, self._prepare_paddle_retry_image(crop)]
-            if use_scaled_retry:
-                for box in boxes[1:]:
-                    retry_images.append(
-                        self._prepare_paddle_scaled_retry_image(score_image.crop(box))
-                    )
-                retry_images.append(self._prepare_paddle_scaled_retry_image(crop))
-            for image in retry_images:
+            base_images = [crop, self._prepare_paddle_retry_image(crop)]
+
+            def read_candidate(image):
                 if image is None:
-                    continue
+                    return None
                 text = self._ocr(image)
                 if text:
                     row_texts.append(text)
@@ -1185,12 +1192,29 @@ class FrameImageTextParser:
                     name_candidate = self._name_from_paddle_item_text(
                         " ".join(text.splitlines())
                     )
+                return name_candidate
+
+            for image in base_images:
+                name_candidate = read_candidate(image)
                 if name_candidate:
                     name_candidates.append(name_candidate)
                     if not use_scaled_retry and not self._needs_name_retry(
                         name_candidate
                     ):
                         break
+
+            if use_scaled_retry and not self._name_candidates_agree(name_candidates):
+                scaled_retry_images = [
+                    self._prepare_paddle_scaled_retry_image(score_image.crop(box))
+                    for box in boxes[1:]
+                ]
+                scaled_retry_images.append(
+                    self._prepare_paddle_scaled_retry_image(crop)
+                )
+                for image in scaled_retry_images:
+                    name_candidate = read_candidate(image)
+                    if name_candidate:
+                        name_candidates.append(name_candidate)
             if name_candidates:
                 row_fields[field_name] = max(
                     name_candidates, key=self._name_candidate_score
@@ -1512,11 +1536,16 @@ class FrameImageTextParser:
         column_boxes = _name_column_boxes(score_image.size)
         compact_name_column = score_image.size[0] < 240 and len(column_boxes) > 1
         if self.name_engine == "paddle":
-            return self._paddle_name_fields(
-                score_image,
-                column_boxes,
-                compact_name_column=compact_name_column,
-            )
+            previous_result_cache = getattr(self, "_paddle_result_cache", None)
+            self._paddle_result_cache = {}
+            try:
+                return self._paddle_name_fields(
+                    score_image,
+                    column_boxes,
+                    compact_name_column=compact_name_column,
+                )
+            finally:
+                self._paddle_result_cache = previous_result_cache
 
         compact_top_name = None
         for index, box in enumerate(column_boxes):
@@ -1713,6 +1742,14 @@ class FrameImageTextParser:
         if len(first_letters) < 2 or first_letters != first_letters.upper():
             return False
         return len(cls._uppercase_name_prefix(tokens)) < 2
+
+    @classmethod
+    def _name_candidates_agree(cls, candidates: list[str]) -> bool:
+        return (
+            len(candidates) >= 2
+            and candidates[-1] == candidates[-2]
+            and not cls._needs_name_retry(candidates[-1])
+        )
 
     @classmethod
     def _name_candidate_score(cls, name: str) -> int:
@@ -1998,13 +2035,38 @@ class FrameImageTextParser:
         cache[cache_key] = result
         return result
 
+    @classmethod
+    def _name_region_cache_key(cls, score_image, score):
+        if score is None or not hasattr(score, "crop") or not hasattr(score, "size"):
+            return cls._image_cache_key(score_image)
+
+        boxes = [*_name_column_boxes(score.size), *_name_line_boxes(score.size)]
+        if score.size[0] < 240:
+            width, height = score.size
+            boxes.append(
+                (
+                    0,
+                    int(height * 0.40),
+                    int(width * 0.55),
+                    int(height * 0.65),
+                )
+            )
+        right = max(box[2] for box in boxes)
+        bottom = max(box[3] for box in boxes)
+        name_region = score.crop((0, 0, right, bottom)).convert("RGB")
+        return (
+            score.size,
+            (right, bottom),
+            hashlib.blake2b(name_region.tobytes(), digest_size=16).digest(),
+        )
+
     def _cached_name_fields(self, score_image, score):
         name_enabled = self.name_engine not in (None, "none")
         if not name_enabled:
             return "", {}
 
         cache = self._cache_attr("_name_cache")
-        cache_key = (self.name_engine, self._image_cache_key(score_image))
+        cache_key = (self.name_engine, self._name_region_cache_key(score_image, score))
         if cache_key not in cache:
             cache[cache_key] = self._ocr_name_fields(score)
         return cache[cache_key]

@@ -1528,6 +1528,140 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         )
         parser._ocr.assert_called_once()
 
+    def test_paddle_parser_reuses_primary_crop_result_during_column_fallback(self):
+        class FakePaddleReader:
+            def __init__(self):
+                self.calls = []
+                self.results = [
+                    {
+                        "rec_texts": ["TEST ATHLETE ALPHA"],
+                        "rec_scores": [0.95],
+                        "rec_boxes": [[1, 1, 80, 12]],
+                    },
+                    {
+                        "rec_texts": [
+                            "TEST ATHLETE ALPHA",
+                            "0 0 0",
+                            "TEST ATHLETE BETA",
+                            "2 0 0",
+                        ],
+                        "rec_scores": [0.95, 0.99, 0.96, 0.99],
+                    },
+                ]
+
+            def ocr(self, image, cls=True):
+                self.calls.append((image, cls))
+                return self.results[len(self.calls) - 1]
+
+        parser = self._name_parser(name_engine="paddle")
+        parser._paddle_ocr = FakePaddleReader()
+        score_image = text_ocr.Image.new("RGB", (172, 78), "white")
+
+        _, fields = parser._ocr_name_fields(score_image)
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "TEST ATHLETE ALPHA",
+                "bottom_athlete_name": "TEST ATHLETE BETA",
+            },
+        )
+        self.assertEqual(len(parser._paddle_ocr.calls), 2)
+
+    def test_paddle_row_parser_skips_scaled_retries_when_base_results_agree(self):
+        class FakeScoreImage:
+            size = (172, 78)
+
+            def crop(self, box):
+                return box
+
+        parser = self._name_parser(name_engine="paddle")
+        parser._prepare_paddle_retry_image = lambda image: ("gray", image)
+        parser._prepare_paddle_scaled_retry_image = mock.Mock(
+            side_effect=lambda image: ("scaled", image)
+        )
+        parser._ocr = mock.Mock(
+            side_effect=[
+                "TEST ATHLETE ALPHA",
+                "TEST ATHLETE ALPHA",
+                "TEST ATHLETE BETA",
+                "TEST ATHLETE BETA",
+            ]
+        )
+
+        _, fields = parser._paddle_row_name_fields(FakeScoreImage())
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "TEST ATHLETE ALPHA",
+                "bottom_athlete_name": "TEST ATHLETE BETA",
+            },
+        )
+        self.assertEqual(parser._ocr.call_count, 4)
+        parser._prepare_paddle_scaled_retry_image.assert_not_called()
+
+    def test_paddle_row_parser_keeps_scaled_retry_for_incomplete_base_results(self):
+        class FakeScoreImage:
+            size = (172, 78)
+
+            def crop(self, box):
+                return box
+
+        parser = self._name_parser(name_engine="paddle")
+        parser._prepare_paddle_retry_image = lambda image: ("gray", image)
+        parser._prepare_paddle_scaled_retry_image = mock.Mock(
+            side_effect=lambda image: ("scaled", image)
+        )
+        parser._ocr = mock.Mock(
+            side_effect=[
+                "TEST ATHLETE ALPHA",
+                "",
+                "TEST ATHLETE ALPHA",
+                "TEST ATHLETE BETA",
+                "TEST ATHLETE BETA",
+            ]
+        )
+
+        _, fields = parser._paddle_row_name_fields(FakeScoreImage())
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "TEST ATHLETE ALPHA",
+                "bottom_athlete_name": "TEST ATHLETE BETA",
+            },
+        )
+        self.assertEqual(parser._ocr.call_count, 5)
+        parser._prepare_paddle_scaled_retry_image.assert_called_once()
+
+    def test_name_cache_uses_only_pixels_read_by_name_ocr(self):
+        parser = self._name_parser(name_engine="paddle")
+        parser._name_cache = {}
+        parser._ocr_name_fields = mock.Mock(
+            return_value=(
+                "TEST ATHLETE ALPHA\nTEST ATHLETE BETA",
+                {
+                    "top_athlete_name": "TEST ATHLETE ALPHA",
+                    "bottom_athlete_name": "TEST ATHLETE BETA",
+                },
+            )
+        )
+        first_image = text_ocr.Image.new("RGB", (172, 78), "white")
+        score_only_change = first_image.copy()
+        score_only_change.putpixel((160, 60), (0, 0, 0))
+
+        parser._cached_name_fields(b"frame-1", first_image)
+        parser._cached_name_fields(b"frame-2", score_only_change)
+
+        parser._ocr_name_fields.assert_called_once()
+
+        name_change = score_only_change.copy()
+        name_change.putpixel((10, 10), (0, 0, 0))
+        parser._cached_name_fields(b"frame-3", name_change)
+
+        self.assertEqual(parser._ocr_name_fields.call_count, 2)
+
     def test_paddle_parser_retries_incomplete_name_column_with_alternate_crop(self):
         class FakeScoreImage:
             size = (500, 140)
