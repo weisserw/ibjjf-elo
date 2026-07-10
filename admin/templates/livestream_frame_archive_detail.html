@@ -176,10 +176,10 @@
     }
     function render(crop) {
         const box = boxes[crop];
-        box.style.left = `${box.crop.x * 100}%`;
-        box.style.top = `${box.crop.y * 100}%`;
-        box.style.width = `${box.crop.width * 100}%`;
-        box.style.height = `${box.crop.height * 100}%`;
+        box.element.style.left = `${box.crop.x * 100}%`;
+        box.element.style.top = `${box.crop.y * 100}%`;
+        box.element.style.width = `${box.crop.width * 100}%`;
+        box.element.style.height = `${box.crop.height * 100}%`;
         for (const name of ['x', 'y', 'width', 'height']) {
             field(crop, name).value = box.crop[name].toFixed(9);
         }
@@ -188,16 +188,23 @@
         event.preventDefault();
         const box = boxes[crop];
         const bounds = image.getBoundingClientRect();
-        const start = {x: event.clientX, y: event.clientY, ...box.crop};
+        const start = {
+            pointerX: event.clientX,
+            pointerY: event.clientY,
+            cropX: box.crop.x,
+            cropY: box.crop.y,
+            width: box.crop.width,
+            height: box.crop.height,
+        };
         const move = (next) => {
-            const dx = (next.clientX - start.x) / bounds.width;
-            const dy = (next.clientY - start.y) / bounds.height;
+            const dx = (next.clientX - start.pointerX) / bounds.width;
+            const dy = (next.clientY - start.pointerY) / bounds.height;
             if (resize) {
-                box.crop.width = Math.max(minimum, Math.min(1 - start.x, start.width + dx));
-                box.crop.height = Math.max(minimum, Math.min(1 - start.y, start.height + dy));
+                box.crop.width = Math.max(minimum, Math.min(1 - start.cropX, start.width + dx));
+                box.crop.height = Math.max(minimum, Math.min(1 - start.cropY, start.height + dy));
             } else {
-                box.crop.x = Math.max(0, Math.min(1 - start.width, start.x + dx));
-                box.crop.y = Math.max(0, Math.min(1 - start.height, start.y + dy));
+                box.crop.x = Math.max(0, Math.min(1 - start.width, start.cropX + dx));
+                box.crop.y = Math.max(0, Math.min(1 - start.height, start.cropY + dy));
             }
             render(crop);
         };
