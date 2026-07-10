@@ -72,6 +72,7 @@ INITIAL_RATE_LIMIT = 15
 RATE_LIMIT_WINDOW = 10
 PENALTY_PERIOD = 60
 REVIEW_RETRACTION_SECONDS = 30
+MATCH_DETAIL_RESET_TIMER_SECONDS = 4 * 60
 SCORE_CATEGORIES = ("points", "advantages", "penalties")
 SCORE_POSITIONS = ("top", "bottom")
 DQ_TYPE_NOTES: dict[str, tuple[str, ...]] = {
@@ -125,6 +126,34 @@ def _event_match_time(timer_anchor, frame_second, fallback_time):
     anchor_seconds, anchor_frame_second = timer_anchor
     elapsed_seconds = max(0, frame_second - anchor_frame_second)
     return _format_match_time(anchor_seconds - elapsed_seconds)
+
+
+def _looks_like_starting_timer_seconds(seconds):
+    return (
+        seconds is not None
+        and seconds >= MATCH_DETAIL_RESET_TIMER_SECONDS
+        and seconds % 60 == 0
+    )
+
+
+def _trim_match_detail_timer_reset_events(raw_events):
+    min_timer_seconds = None
+    for index, raw_event in enumerate(raw_events):
+        timer_seconds = _parse_match_time(getattr(raw_event, "timer_value", None))
+        if timer_seconds is None:
+            continue
+        if (
+            min_timer_seconds is not None
+            and timer_seconds > min_timer_seconds
+            and _looks_like_starting_timer_seconds(timer_seconds)
+        ):
+            return raw_events[:index]
+        min_timer_seconds = (
+            timer_seconds
+            if min_timer_seconds is None
+            else min(min_timer_seconds, timer_seconds)
+        )
+    return raw_events
 
 
 def _has_dq_note(match):
@@ -412,12 +441,12 @@ def _score_for_participant(match, participant, category):
     return getattr(match, f"final_{position}_{category}") or 0
 
 
-def _ending_method(match):
+def _ending_method(match, final_match_time_seconds):
     if _has_dq_note(match):
         return {"category": "DQ", "amount": None}
-    if match.final_match_time_seconds is None:
+    if final_match_time_seconds is None:
         return {"category": "Final", "amount": None}
-    if match.final_match_time_seconds > 0:
+    if final_match_time_seconds > 0:
         return {"category": "Submission", "amount": None}
 
     winner, loser = _winner_loser_participants(match)
@@ -443,11 +472,12 @@ def _winner_key(match):
     return None
 
 
-def _final_video_offset_seconds(match, raw_events):
+def _final_video_offset_seconds(
+    raw_events, final_match_time_seconds, *, ignore_starting_timer_offsets=False
+):
     if not raw_events:
         return None
 
-    final_match_time_seconds = getattr(match, "final_match_time_seconds", None)
     stopped_timer_offsets = []
     matching_stopped_timer_offsets = []
 
@@ -461,7 +491,11 @@ def _final_video_offset_seconds(match, raw_events):
         if parsed_timer_seconds is None:
             continue
 
-        stopped_timer_offsets.append(raw_event.frame_second)
+        if not (
+            ignore_starting_timer_offsets
+            and _looks_like_starting_timer_seconds(parsed_timer_seconds)
+        ):
+            stopped_timer_offsets.append(raw_event.frame_second)
         if (
             final_match_time_seconds is not None
             and parsed_timer_seconds == final_match_time_seconds
@@ -476,13 +510,71 @@ def _final_video_offset_seconds(match, raw_events):
     return raw_events[-1].frame_second
 
 
+def _last_non_starting_stopped_timer_seconds(raw_events):
+    final_timer_seconds = None
+    for raw_event in raw_events:
+        if getattr(raw_event, "timer_state", None) != "stopped":
+            continue
+        timer_seconds = _parse_match_time(getattr(raw_event, "timer_value", None))
+        if timer_seconds is None:
+            continue
+        if not _looks_like_starting_timer_seconds(timer_seconds):
+            final_timer_seconds = timer_seconds
+    return final_timer_seconds
+
+
+def _min_match_detail_timer_seconds(raw_events):
+    timer_values = [
+        timer_seconds
+        for raw_event in raw_events
+        if (timer_seconds := _parse_match_time(getattr(raw_event, "timer_value", None)))
+        is not None
+    ]
+    return min(timer_values) if timer_values else None
+
+
+def _stored_final_timer_looks_like_reset(
+    final_match_time_seconds, raw_events, reset_events_removed
+):
+    if not _looks_like_starting_timer_seconds(final_match_time_seconds):
+        return False
+    if reset_events_removed:
+        return True
+    min_timer_seconds = _min_match_detail_timer_seconds(raw_events)
+    return (
+        min_timer_seconds is not None and final_match_time_seconds > min_timer_seconds
+    )
+
+
+def _match_detail_final_match_time_seconds(
+    match, raw_events, final_timer_looks_like_reset
+):
+    final_match_time_seconds = getattr(match, "final_match_time_seconds", None)
+    if final_timer_looks_like_reset:
+        final_match_time_seconds = _last_non_starting_stopped_timer_seconds(raw_events)
+        if final_match_time_seconds is None:
+            final_match_time_seconds = 0
+    return final_match_time_seconds
+
+
 def build_match_detail_payload(match, raw_events):
+    original_raw_event_count = len(raw_events)
+    raw_events = _trim_match_detail_timer_reset_events(raw_events)
+    reset_events_removed = len(raw_events) < original_raw_event_count
     video_source_url = _match_detail_video_source_url(match, raw_events)
     participants, participants_by_position = _match_detail_participants(match)
     events, match_time = _build_match_detail_score_events(
         raw_events, participants_by_position
     )
-    ending_method = _ending_method(match)
+    final_timer_looks_like_reset = _stored_final_timer_looks_like_reset(
+        getattr(match, "final_match_time_seconds", None),
+        raw_events,
+        reset_events_removed,
+    )
+    final_match_time_seconds = _match_detail_final_match_time_seconds(
+        match, raw_events, final_timer_looks_like_reset
+    )
+    ending_method = _ending_method(match, final_match_time_seconds)
     winner_key = _winner_key(match)
     winner_name = next(
         (
@@ -495,8 +587,12 @@ def build_match_detail_payload(match, raw_events):
     events.append(
         {
             "kind": "final",
-            "time": _format_match_time(match.final_match_time_seconds),
-            "videoOffsetSeconds": _final_video_offset_seconds(match, raw_events),
+            "time": _format_match_time(final_match_time_seconds),
+            "videoOffsetSeconds": _final_video_offset_seconds(
+                raw_events,
+                final_match_time_seconds,
+                ignore_starting_timer_offsets=final_timer_looks_like_reset,
+            ),
             "endingMethod": ending_method["category"],
             "endingMethodAmount": ending_method["amount"],
             "winnerKey": winner_key,

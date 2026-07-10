@@ -46,6 +46,7 @@ LOOKAHEAD_MATCHES = 8
 TIME_MATCH_WINDOW_SECONDS = 20 * 60
 CONTINUATION_TIME_WINDOW_SECONDS = 3 * 60
 SPECULATIVE_FORWARD_RELEASE_GAP = 2
+STARTING_TIMER_RESET_SECONDS = 4 * 60
 
 
 @dataclass
@@ -95,6 +96,14 @@ def parse_timer_seconds(value: str | None) -> int | None:
     return int(match.group(1)) * 60 + int(match.group(2))
 
 
+def _looks_like_starting_timer_seconds(seconds: int | None) -> bool:
+    return (
+        seconds is not None
+        and seconds >= STARTING_TIMER_RESET_SECONDS
+        and seconds % 60 == 0
+    )
+
+
 def _norm(value: str | None) -> str:
     if not value:
         return ""
@@ -133,10 +142,8 @@ def _is_start_point(point: TimelinePoint) -> bool:
     if state.timer_state != "running":
         return True
     timer_seconds = parse_timer_seconds(state.timer_value)
-    return (
-        timer_seconds is not None
-        and timer_seconds >= 4 * 60
-        and timer_seconds % 60 == 0
+    return timer_seconds is not None and _looks_like_starting_timer_seconds(
+        timer_seconds
     )
 
 
@@ -271,6 +278,31 @@ def _trim_scoreboard_reset(points: list[TimelinePoint]) -> list[TimelinePoint]:
     return points
 
 
+def _final_timer_seconds_from_window(points: list[TimelinePoint]) -> int | None:
+    final_timer_seconds = None
+    timer_values = [
+        timer_seconds
+        for point in points
+        if (timer_seconds := parse_timer_seconds(point.state.timer_value)) is not None
+    ]
+    min_timer_seconds = min(timer_values) if timer_values else None
+
+    for point in points:
+        timer_seconds = parse_timer_seconds(point.state.timer_value)
+        if (
+            point.state.timer_state == "stopped"
+            and timer_seconds is not None
+            and not (
+                min_timer_seconds is not None
+                and timer_seconds > min_timer_seconds
+                and _looks_like_starting_timer_seconds(timer_seconds)
+            )
+        ):
+            final_timer_seconds = timer_seconds
+
+    return final_timer_seconds
+
+
 def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchWindow]:
     state = TextState()
     timeline = []
@@ -306,7 +338,6 @@ def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchW
 
         names_top = []
         names_bottom = []
-        final_timer_seconds = None
         for point in points:
             if (
                 point.state.top_athlete_name
@@ -315,13 +346,10 @@ def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchW
                 names_top.append(point.state.top_athlete_name)
             if point.state.bottom_athlete_name:
                 names_bottom.append(point.state.bottom_athlete_name)
-            if point.state.timer_state == "stopped":
-                parsed = parse_timer_seconds(point.state.timer_value)
-                if parsed is not None:
-                    final_timer_seconds = parsed
 
         final_state = _score_state_from_window(points)
         running_timer_start_second = _running_timer_start_second(points)
+        final_timer_seconds = _final_timer_seconds_from_window(points)
         windows.append(
             MatchWindow(
                 start_second=points[0].event.frame_second,

@@ -225,6 +225,91 @@ class MatchDetailEventsTestCase(unittest.TestCase):
         self.assertEqual(payload["events"][0]["time"], "4:43")
         self.assertEqual(payload["events"][0]["videoOffsetSeconds"], 37)
 
+    def test_timer_reset_at_end_is_filtered_from_detail_events(self):
+        payload = build_match_detail_payload(
+            match(final_match_time_seconds=86, final_top_points=2),
+            [
+                text_event(20, "5:00", timer_state="running", top_points=0),
+                text_event(70, "4:10", top_points=2),
+                text_event(100, "1:26", timer_state="stopped"),
+                text_event(
+                    120,
+                    "4:00",
+                    timer_state="stopped",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                ),
+            ],
+        )
+
+        self.assertEqual(
+            [event["kind"] for event in payload["events"]], ["score", "final"]
+        )
+        self.assertEqual(payload["events"][0]["time"], "4:10")
+        self.assertEqual(payload["events"][0]["totals"]["red"]["points"], 2)
+        self.assertEqual(payload["events"][-1]["videoOffsetSeconds"], 100)
+
+    def test_timer_reset_does_not_display_saved_starting_final_time(self):
+        payload = build_match_detail_payload(
+            match(final_match_time_seconds=360, final_top_points=2),
+            [
+                text_event(20, "6:00", timer_state="running", top_points=0),
+                text_event(70, "5:10", top_points=2),
+                text_event(100, "0:00", timer_state="stopped"),
+                text_event(
+                    120,
+                    "6:00",
+                    timer_state="stopped",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                ),
+            ],
+        )
+
+        final_event = payload["events"][-1]
+        self.assertEqual(final_event["kind"], "final")
+        self.assertEqual(final_event["time"], "0:00")
+        self.assertEqual(final_event["endingMethod"], "points")
+        self.assertEqual(final_event["videoOffsetSeconds"], 100)
+
+    def test_saved_opening_timer_final_time_is_ignored_after_clock_counts_down(self):
+        payload = build_match_detail_payload(
+            match(final_match_time_seconds=360, final_top_points=2),
+            [
+                text_event(10, "6:00", timer_state="stopped", top_points=0),
+                text_event(20, "5:50", timer_state="running"),
+                text_event(100, top_points=2),
+            ],
+        )
+
+        final_event = payload["events"][-1]
+        self.assertEqual(final_event["time"], "0:00")
+        self.assertEqual(final_event["endingMethod"], "points")
+        self.assertEqual(final_event["videoOffsetSeconds"], 100)
+
+    def test_stopped_four_minute_timer_is_kept_before_clock_drops_below_four(self):
+        payload = build_match_detail_payload(
+            match(final_match_time_seconds=240, final_top_points=2),
+            [
+                text_event(20, "5:00", timer_state="running", top_points=0),
+                text_event(70, "4:10", top_points=2),
+                text_event(80, "4:00", timer_state="stopped"),
+            ],
+        )
+
+        final_event = payload["events"][-1]
+        self.assertEqual(final_event["time"], "4:00")
+        self.assertEqual(final_event["endingMethod"], "Submission")
+        self.assertEqual(final_event["videoOffsetSeconds"], 80)
+
     def test_payload_includes_livestream_source_url_from_archive(self):
         archive = SimpleNamespace(
             canonical_url="https://www.youtube.com/watch?v=source123"

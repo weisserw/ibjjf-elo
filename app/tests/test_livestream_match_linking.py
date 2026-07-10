@@ -434,6 +434,95 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(windows[0].final_timer_seconds, 86)
         self.assertTrue(windows[0].has_running_timer)
 
+    def test_extract_match_windows_ignores_final_timer_reset(self):
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="6:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHN ALPHA",
+                    bottom_athlete_name="MICHAEL BETA",
+                ),
+                self._event_data(20, timer_state="running", timer_value="5:50"),
+                self._event_data(100, top_points=2),
+                self._event_data(150, timer_state="stopped", timer_value="0:30"),
+                self._event_data(160, timer_state="stopped", timer_value="6:00"),
+            ]
+        )
+        events = LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id).all()
+
+        windows = extract_match_windows(events)
+
+        self.assertEqual(len(windows), 1)
+        self.assertEqual(windows[0].final_timer_seconds, 30)
+
+    def test_extract_match_windows_does_not_use_opening_timer_as_final_time(self):
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="6:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHN ALPHA",
+                    bottom_athlete_name="MICHAEL BETA",
+                ),
+                self._event_data(20, timer_state="running", timer_value="5:50"),
+                self._event_data(100, top_points=2),
+            ]
+        )
+        events = LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id).all()
+
+        windows = extract_match_windows(events)
+
+        self.assertEqual(len(windows), 1)
+        self.assertIsNone(windows[0].final_timer_seconds)
+
+    def test_extract_match_windows_keeps_four_minute_stop_before_clock_drops_below_four(
+        self,
+    ):
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHN ALPHA",
+                    bottom_athlete_name="MICHAEL BETA",
+                ),
+                self._event_data(20, timer_state="running", timer_value="4:50"),
+                self._event_data(100, top_points=2),
+                self._event_data(150, timer_state="stopped", timer_value="4:00"),
+            ]
+        )
+        events = LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id).all()
+
+        windows = extract_match_windows(events)
+
+        self.assertEqual(len(windows), 1)
+        self.assertEqual(windows[0].final_timer_seconds, 240)
+
     def test_ambiguous_repeated_athlete_without_bottom_name_is_not_linked(self):
         matches = self._match_setup()
         _, scan = self._stored_events(
