@@ -43,6 +43,7 @@ NAME_ROW_Y_EDGES = (0.0, 0.431, 0.861)
 NAME_LINE_TOP_RATIO = 0.02
 NAME_LINE_BOTTOM_RATIO = 0.42
 NAME_OCR_SCALE = 3
+PADDLE_ROW_NAME_RETRY_SCALE = 4
 
 
 def _configure_paddle_runtime():
@@ -1142,13 +1143,17 @@ class FrameImageTextParser:
 
         row_fields = {}
         row_texts = []
+        use_scaled_retry = score_image.size[0] < 240
         for field_name, box in zip(
             ("top_athlete_name", "bottom_athlete_name"),
             _name_line_boxes(score_image.size),
         ):
             crop = score_image.crop(box)
             name_candidates = []
-            for image in (crop, self._prepare_paddle_retry_image(crop)):
+            retry_images = [crop, self._prepare_paddle_retry_image(crop)]
+            if use_scaled_retry:
+                retry_images.append(self._prepare_paddle_scaled_retry_image(crop))
+            for image in retry_images:
                 if image is None:
                     continue
                 text = self._ocr(image)
@@ -1157,7 +1162,9 @@ class FrameImageTextParser:
                 name_candidate = self._name_from_row_text(text)
                 if name_candidate:
                     name_candidates.append(name_candidate)
-                    if not self._needs_name_retry(name_candidate):
+                    if not use_scaled_retry and not self._needs_name_retry(
+                        name_candidate
+                    ):
                         break
             if name_candidates:
                 row_fields[field_name] = max(
@@ -1300,6 +1307,18 @@ class FrameImageTextParser:
         if image is None or ImageOps is None:
             return None
         return ImageOps.autocontrast(ImageOps.grayscale(image)).convert("RGB")
+
+    def _prepare_paddle_scaled_retry_image(self, image):
+        if image is None or ImageOps is None:
+            return None
+        prepared = ImageOps.autocontrast(ImageOps.grayscale(image))
+        return prepared.resize(
+            (
+                prepared.width * PADDLE_ROW_NAME_RETRY_SCALE,
+                prepared.height * PADDLE_ROW_NAME_RETRY_SCALE,
+            ),
+            Image.Resampling.LANCZOS,
+        ).convert("RGB")
 
     @classmethod
     def _paddle_text_items(cls, result):
