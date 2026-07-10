@@ -523,6 +523,57 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         filter_complex = command[command.index("-filter_complex") + 1]
         self.assertIn("crop=w=trunc(iw*0.27):h=trunc(ih*0.22)", filter_complex)
 
+    def test_extract_segment_frames_passes_custom_crops_to_popen_command(self):
+        archive = type(
+            "Archive",
+            (),
+            {
+                "scoreboard_crop_x": 0.1,
+                "scoreboard_crop_y": 0.2,
+                "scoreboard_crop_width": 0.3,
+                "scoreboard_crop_height": 0.4,
+                "timer_crop_x": 0.5,
+                "timer_crop_y": 0.6,
+                "timer_crop_width": 0.2,
+                "timer_crop_height": 0.1,
+            },
+        )()
+        commands = []
+
+        class FakeProcess:
+            stdout = ["progress=end\n"]
+
+            def wait(self):
+                return 0
+
+        def fake_popen(command, **_kwargs):
+            commands.append(command)
+            return FakeProcess()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch.object(runner.subprocess, "Popen", side_effect=fake_popen):
+                runner.extract_segment_frames(
+                    "https://example.com/video",
+                    0,
+                    60,
+                    1.0,
+                    2,
+                    Path(temp_dir),
+                    archive=archive,
+                )
+
+        filter_complex = commands[0][commands[0].index("-filter_complex") + 1]
+        self.assertIn(
+            "crop=w=trunc(iw*0.3):h=trunc(ih*0.4):"
+            "x=trunc(iw*0.1):y=trunc(ih*0.2)[score]",
+            filter_complex,
+        )
+        self.assertIn(
+            "crop=w=trunc(iw*0.2):h=trunc(ih*0.1):"
+            "x=trunc(iw*0.5):y=trunc(ih*0.6)[timer]",
+            filter_complex,
+        )
+
 
 class LivestreamPreviewImageTestCase(unittest.TestCase):
     def test_png_preview_is_converted_to_rgb_jpeg(self):

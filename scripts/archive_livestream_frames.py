@@ -1121,6 +1121,7 @@ def extract_segment_frames(
         jpeg_quality,
         output_dir,
         progress=True,
+        archive=archive,
     )
     process = subprocess.Popen(
         command,
