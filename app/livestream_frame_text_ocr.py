@@ -1144,14 +1144,31 @@ class FrameImageTextParser:
         row_fields = {}
         row_texts = []
         use_scaled_retry = score_image.size[0] < 240
-        for field_name, box in zip(
-            ("top_athlete_name", "bottom_athlete_name"),
-            _name_line_boxes(score_image.size),
-        ):
-            crop = score_image.crop(box)
+        base_boxes = _name_line_boxes(score_image.size)
+        row_box_groups = [
+            ("top_athlete_name", [base_boxes[0]]),
+            ("bottom_athlete_name", [base_boxes[1]]),
+        ]
+        if use_scaled_retry:
+            width, height = score_image.size
+            row_box_groups[1][1].append(
+                (
+                    0,
+                    int(height * 0.40),
+                    int(width * 0.55),
+                    int(height * 0.65),
+                )
+            )
+
+        for field_name, boxes in row_box_groups:
             name_candidates = []
+            crop = score_image.crop(boxes[0])
             retry_images = [crop, self._prepare_paddle_retry_image(crop)]
             if use_scaled_retry:
+                for box in boxes[1:]:
+                    retry_images.append(
+                        self._prepare_paddle_scaled_retry_image(score_image.crop(box))
+                    )
                 retry_images.append(self._prepare_paddle_scaled_retry_image(crop))
             for image in retry_images:
                 if image is None:
@@ -1160,6 +1177,14 @@ class FrameImageTextParser:
                 if text:
                     row_texts.append(text)
                 name_candidate = self._name_from_row_text(text)
+                if (
+                    not name_candidate
+                    and use_scaled_retry
+                    and field_name == "bottom_athlete_name"
+                ):
+                    name_candidate = self._name_from_paddle_item_text(
+                        " ".join(text.splitlines())
+                    )
                 if name_candidate:
                     name_candidates.append(name_candidate)
                     if not use_scaled_retry and not self._needs_name_retry(

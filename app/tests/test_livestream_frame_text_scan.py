@@ -2137,8 +2137,8 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
             ),
             (
                 "score_names9.jpg",
-                "JESUS DANIEL MARIN",
-                "TYLER SILVA NEIVA",
+                "JAMES ANTHONY SPA",
+                "MATTHEW GERARD",
             ),
         ]
 
