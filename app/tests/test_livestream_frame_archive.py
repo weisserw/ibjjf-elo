@@ -40,6 +40,7 @@ from youtube_utils import (  # noqa: E402
 
 import archive_livestream_frames as runner  # noqa: E402
 import livestream_frame_archive as archive_lib  # noqa: E402
+from photos import convert_image_to_jpeg  # noqa: E402
 
 
 class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
@@ -521,6 +522,28 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
 
         filter_complex = command[command.index("-filter_complex") + 1]
         self.assertIn("crop=w=trunc(iw*0.27):h=trunc(ih*0.22)", filter_complex)
+
+
+class LivestreamPreviewImageTestCase(unittest.TestCase):
+    def test_png_preview_is_converted_to_rgb_jpeg(self):
+        from io import BytesIO
+        from PIL import Image
+
+        source = BytesIO()
+        image = Image.new("RGBA", (4, 3), (255, 0, 0, 128))
+        image.save(source, format="PNG")
+
+        converted = convert_image_to_jpeg(source.getvalue())
+
+        self.assertTrue(converted.startswith(b"\xff\xd8\xff"))
+        with Image.open(BytesIO(converted)) as result:
+            self.assertEqual(result.format, "JPEG")
+            self.assertEqual(result.mode, "RGB")
+            self.assertEqual(result.size, (4, 3))
+
+    def test_invalid_preview_image_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "Invalid image data"):
+            convert_image_to_jpeg(b"not an image")
 
 
 class ArchiveLivestreamFramesAdminApiStateTestCase(unittest.TestCase):

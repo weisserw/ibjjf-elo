@@ -6,11 +6,36 @@ import re
 from uuid import UUID
 from bs4 import BeautifulSoup
 import logging
+import io
 from datetime import datetime, timezone
+from PIL import Image, ImageOps, UnidentifiedImageError
 from models import Athlete
 from normalize import normalize
 
 log = logging.getLogger("ibjjf")
+
+
+def convert_image_to_jpeg(image_bytes: bytes, quality: int = 90) -> bytes:
+    """Decode an uploaded image and return orientation-corrected RGB JPEG bytes."""
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as source:
+            source.load()
+            image = ImageOps.exif_transpose(source)
+            if image.mode in ("RGBA", "LA") or (
+                image.mode == "P" and "transparency" in image.info
+            ):
+                rgba = image.convert("RGBA")
+                rgb = Image.new("RGB", rgba.size, "white")
+                rgb.paste(rgba, mask=rgba.getchannel("A"))
+                image = rgb
+            else:
+                image = image.convert("RGB")
+
+            output = io.BytesIO()
+            image.save(output, format="JPEG", quality=quality, optimize=True)
+            return output.getvalue()
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise ValueError("Invalid image data") from exc
 
 
 def get_s3_client():

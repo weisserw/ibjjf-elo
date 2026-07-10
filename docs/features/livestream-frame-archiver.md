@@ -44,8 +44,8 @@ The capture worker can run in two modes:
 - `timer`: top timer area, currently `w=iw*0.22`, `h=ih*0.11`, `x=iw*0.30`, `y=0`.
 
 Admins can upload a JPG/PNG preview frame on an archive detail page and drag/resize
-scoreboard and timer overlays. The preview is stored under
-`livestream-frame-previews/<youtube_video_id>.<extension>`. Crop coordinates and sizes
+scoreboard and timer overlays. Uploads are orientation-corrected, converted to RGB
+JPEG, and stored under `livestream-frame-previews/<youtube_video_id>.jpg`. Crop coordinates and sizes
 are stored as normalized values on `LivestreamFrameArchive`, so the same rectangles
 scale to the resolution selected by the capture worker. When all eight custom crop
 values are present, the worker uses them instead of `CROP_FILTER` defaults.

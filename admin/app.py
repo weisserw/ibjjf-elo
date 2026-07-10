@@ -101,6 +101,7 @@ from normalize import normalize
 from elo import WINNER_NOT_RECORDED
 from photos import (
     bucket_name,
+    convert_image_to_jpeg,
     detect_image_content_type,
     get_public_photo_url,
     get_s3_client,
@@ -1205,18 +1206,16 @@ def livestream_frame_archive_detail(archive_id):
                 content_type = detect_image_content_type(image_bytes)
                 if content_type not in ("image/jpeg", "image/png"):
                     raise ValueError("Preview image must be a JPG or PNG file.")
-                extension = "jpg" if content_type == "image/jpeg" else "png"
-                key = (
-                    f"livestream-frame-previews/{archive.youtube_video_id}.{extension}"
-                )
+                jpeg_bytes = convert_image_to_jpeg(image_bytes)
+                key = f"livestream-frame-previews/{archive.youtube_video_id}.jpg"
                 get_s3_client().put_object(
                     Bucket=bucket_name,
                     Key=key,
-                    Body=image_bytes,
-                    ContentType=content_type,
+                    Body=jpeg_bytes,
+                    ContentType="image/jpeg",
                 )
                 archive.preview_s3_key = key
-                archive.preview_content_type = content_type
+                archive.preview_content_type = "image/jpeg"
                 db.session.commit()
                 message = "Preview image uploaded."
             elif action == "save_crops":
