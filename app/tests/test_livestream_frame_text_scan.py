@@ -1635,6 +1635,70 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         self.assertEqual(parser._ocr.call_count, 5)
         parser._prepare_paddle_scaled_retry_image.assert_called_once()
 
+    def test_paddle_direct_row_parser_batches_compact_variants(self):
+        recognition_calls = []
+
+        def recognize(images):
+            recognition_calls.append(images)
+            return iter(
+                [
+                    {"rec_text": "TEST ATHLETE ALPHA", "rec_score": 0.98},
+                    {"rec_text": "TEST ATHLETE ALPHA", "rec_score": 0.99},
+                    {"rec_text": "TEST ATHLETE ALPHA", "rec_score": 0.99},
+                    {"rec_text": "Test Athlete Beta", "rec_score": 0.90},
+                    {"rec_text": "TEST ATHLETE BETA", "rec_score": 0.98},
+                    {"rec_text": "TEST ATHLETE BETA", "rec_score": 0.97},
+                    {"rec_text": "TEST ATHLETE BETA", "rec_score": 0.99},
+                ]
+            )
+
+        parser = self._name_parser(name_engine="paddle")
+        parser._paddle_ocr = types.SimpleNamespace(
+            paddlex_pipeline=types.SimpleNamespace(text_rec_model=recognize)
+        )
+        score_image = text_ocr.Image.new("RGB", (172, 78), "white")
+
+        _, fields = parser._paddle_direct_row_name_fields(score_image)
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "TEST ATHLETE ALPHA",
+                "bottom_athlete_name": "TEST ATHLETE BETA",
+            },
+        )
+        self.assertEqual(len(recognition_calls), 1)
+        self.assertEqual(len(recognition_calls[0]), 7)
+
+    def test_paddle_direct_row_parser_falls_back_without_recognition_model(self):
+        parser = self._name_parser(name_engine="paddle")
+        parser._paddle_ocr = object()
+        parser._paddle_box_name_fields = mock.Mock(
+            return_value=(
+                "TEST ATHLETE ALPHA\nTEST ATHLETE BETA",
+                {
+                    "top_athlete_name": "TEST ATHLETE ALPHA",
+                    "bottom_athlete_name": "TEST ATHLETE BETA",
+                },
+            )
+        )
+        score_image = text_ocr.Image.new("RGB", (172, 78), "white")
+
+        _, fields = parser._paddle_name_fields(
+            score_image,
+            text_ocr._name_column_boxes(score_image.size),
+            compact_name_column=True,
+        )
+
+        self.assertEqual(
+            fields,
+            {
+                "top_athlete_name": "TEST ATHLETE ALPHA",
+                "bottom_athlete_name": "TEST ATHLETE BETA",
+            },
+        )
+        parser._paddle_box_name_fields.assert_called_once()
+
     def test_name_cache_uses_only_pixels_read_by_name_ocr(self):
         parser = self._name_parser(name_engine="paddle")
         parser._name_cache = {}

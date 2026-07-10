@@ -44,6 +44,8 @@ NAME_LINE_TOP_RATIO = 0.02
 NAME_LINE_BOTTOM_RATIO = 0.42
 NAME_OCR_SCALE = 3
 PADDLE_ROW_NAME_RETRY_SCALE = 4
+PADDLE_DIRECT_ROW_MIN_WIDTH = 170
+PADDLE_DIRECT_ROW_MAX_HEIGHT = 100
 
 
 def _configure_paddle_runtime():
@@ -1106,6 +1108,10 @@ class FrameImageTextParser:
                 yield self._ocr(prepared)
 
     def _paddle_name_fields(self, score_image, column_boxes, *, compact_name_column):
+        direct_text, direct_fields = self._paddle_direct_row_name_fields(score_image)
+        if direct_fields:
+            return direct_text, direct_fields
+
         box_text, box_fields = self._paddle_box_name_fields(
             score_image, column_boxes[0]
         )
@@ -1146,6 +1152,105 @@ class FrameImageTextParser:
                 row_fields,
             )
         return first_text, {}
+
+    def _paddle_recognize_lines(self, images) -> list[str] | None:
+        if np is None or not images:
+            return None
+        reader = self._paddle_reader()
+        # PaddleOCR 3.7 keeps the loaded recognizer on its pipeline. Using it here
+        # avoids rerunning text detection for crops that already contain one row.
+        # Keep this optional so a future PaddleOCR layout falls back to full OCR.
+        pipeline = getattr(reader, "paddlex_pipeline", None)
+        recognizer = getattr(pipeline, "text_rec_model", None)
+        if recognizer is None:
+            return None
+
+        recognition_inputs = []
+        for image in images:
+            if image is None or not hasattr(image, "convert"):
+                return None
+            rgb = np.asarray(image.convert("RGB"))
+            recognition_inputs.append(rgb[:, :, ::-1].copy())
+        try:
+            results = list(recognizer(recognition_inputs))
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return None
+        if len(results) != len(images):
+            return None
+
+        texts = []
+        for result in results:
+            if hasattr(result, "get"):
+                text = result.get("rec_text", "")
+            else:
+                text = getattr(result, "rec_text", "")
+            texts.append(str(text or "").strip())
+        return texts
+
+    def _paddle_direct_row_name_fields(self, score_image) -> tuple[str, dict]:
+        if score_image is None or not hasattr(score_image, "crop"):
+            return "", {}
+        width, height = score_image.size
+        if not (
+            PADDLE_DIRECT_ROW_MIN_WIDTH <= width < 240
+            and height <= PADDLE_DIRECT_ROW_MAX_HEIGHT
+        ):
+            return "", {}
+
+        base_boxes = _name_line_boxes(score_image.size)
+        top_crop = score_image.crop(base_boxes[0])
+        bottom_crop = score_image.crop(base_boxes[1])
+        alternate_bottom_crop = score_image.crop(
+            (
+                0,
+                int(height * 0.40),
+                int(width * 0.55),
+                int(height * 0.65),
+            )
+        )
+        image_groups = (
+            (
+                "top_athlete_name",
+                [
+                    top_crop,
+                    self._prepare_paddle_retry_image(top_crop),
+                    self._prepare_paddle_scaled_retry_image(top_crop),
+                ],
+            ),
+            (
+                "bottom_athlete_name",
+                [
+                    bottom_crop,
+                    self._prepare_paddle_retry_image(bottom_crop),
+                    self._prepare_paddle_scaled_retry_image(alternate_bottom_crop),
+                    self._prepare_paddle_scaled_retry_image(bottom_crop),
+                ],
+            ),
+        )
+        images = [image for _field_name, group in image_groups for image in group]
+        texts = self._paddle_recognize_lines(images)
+        if texts is None:
+            return "", {}
+
+        fields = {}
+        offset = 0
+        for field_name, group in image_groups:
+            candidates = []
+            for text in texts[offset : offset + len(group)]:
+                candidate = self._name_from_row_text(text)
+                if not candidate and field_name == "bottom_athlete_name":
+                    candidate = self._name_from_paddle_item_text(
+                        " ".join(text.splitlines())
+                    )
+                if candidate:
+                    candidates.append(candidate)
+            offset += len(group)
+            if candidates:
+                fields[field_name] = max(candidates, key=self._name_candidate_score)
+
+        return "\n".join(
+            text for text in texts if text
+        ), self._complete_athlete_name_fields(fields)
 
     def _paddle_row_name_fields(
         self, score_image, *, top_name_fallback: str | None = None
