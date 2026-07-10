@@ -134,6 +134,7 @@ MEDIA_COVERAGE_TYPES = (
     "breakdown",
 )
 MAX_MEDIA_TITLE_SCAN_BYTES = 4 * 1024 * 1024
+MAX_LIVESTREAM_PREVIEW_BYTES = 8 * 1024 * 1024
 WORKER_API_PREFIX = "/api/livestream_frame_archives/worker/"
 
 
@@ -155,6 +156,14 @@ def _archive_payload(archive):
         "youtube_video_id": archive.youtube_video_id,
         "canonical_url": archive.canonical_url,
         "s3_prefix": archive.s3_prefix,
+        "scoreboard_crop_x": archive.scoreboard_crop_x,
+        "scoreboard_crop_y": archive.scoreboard_crop_y,
+        "scoreboard_crop_width": archive.scoreboard_crop_width,
+        "scoreboard_crop_height": archive.scoreboard_crop_height,
+        "timer_crop_x": archive.timer_crop_x,
+        "timer_crop_y": archive.timer_crop_y,
+        "timer_crop_width": archive.timer_crop_width,
+        "timer_crop_height": archive.timer_crop_height,
         "status": archive.status,
         "frame_rate": archive.frame_rate,
         "image_format": archive.image_format,
@@ -1184,7 +1193,55 @@ def livestream_frame_archive_detail(archive_id):
     if request.method == "POST":
         action = request.form.get("action")
         try:
-            if action == "requeue_completed":
+            if action == "upload_preview":
+                upload = request.files.get("preview_image")
+                if not upload or not upload.filename:
+                    raise ValueError("Select a preview image to upload.")
+                image_bytes = upload.read(MAX_LIVESTREAM_PREVIEW_BYTES + 1)
+                if not image_bytes:
+                    raise ValueError("The selected preview image is empty.")
+                if len(image_bytes) > MAX_LIVESTREAM_PREVIEW_BYTES:
+                    raise ValueError("Preview image is too large. Maximum size is 8MB.")
+                content_type = detect_image_content_type(image_bytes)
+                if content_type not in ("image/jpeg", "image/png"):
+                    raise ValueError("Preview image must be a JPG or PNG file.")
+                extension = "jpg" if content_type == "image/jpeg" else "png"
+                key = (
+                    f"livestream-frame-previews/{archive.youtube_video_id}.{extension}"
+                )
+                get_s3_client().put_object(
+                    Bucket=bucket_name,
+                    Key=key,
+                    Body=image_bytes,
+                    ContentType=content_type,
+                )
+                archive.preview_s3_key = key
+                archive.preview_content_type = content_type
+                db.session.commit()
+                message = "Preview image uploaded."
+            elif action == "save_crops":
+                values = {}
+                for crop in ("scoreboard", "timer"):
+                    for field in ("x", "y", "width", "height"):
+                        name = f"{crop}_crop_{field}"
+                        values[name] = float(request.form[name])
+                    x, y = values[f"{crop}_crop_x"], values[f"{crop}_crop_y"]
+                    width = values[f"{crop}_crop_width"]
+                    height = values[f"{crop}_crop_height"]
+                    if (
+                        x < 0
+                        or y < 0
+                        or width <= 0
+                        or height <= 0
+                        or x + width > 1.000001
+                        or y + height > 1.000001
+                    ):
+                        raise ValueError(f"Invalid {crop} crop rectangle.")
+                for name, value in values.items():
+                    setattr(archive, name, value)
+                db.session.commit()
+                message = "Custom crop sizes saved."
+            elif action == "requeue_completed":
                 segment_count = requeue_completed_segments(db.session, archive)
                 db.session.commit()
                 message = f"Requeued {segment_count} completed segment(s)."
@@ -1205,6 +1262,16 @@ def livestream_frame_archive_detail(archive_id):
         .all()
     )
     usages = archive_usage_rows(db.session, archive.youtube_video_id)
+    preview_url = None
+    if archive.preview_s3_key:
+        try:
+            preview_url = get_s3_client().generate_presigned_url(
+                "get_object",
+                Params={"Bucket": bucket_name, "Key": archive.preview_s3_key},
+                ExpiresIn=3600,
+            )
+        except Exception:
+            app.logger.exception("Failed to generate livestream preview URL")
     return render_template(
         "livestream_frame_archive_detail.html",
         archive=archive,
@@ -1214,6 +1281,7 @@ def livestream_frame_archive_detail(archive_id):
         error=error,
         canonical_url=canonical_youtube_url(archive.youtube_video_id),
         progress_label=archive_progress_label,
+        preview_url=preview_url,
     )
 
 

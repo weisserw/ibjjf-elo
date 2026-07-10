@@ -66,6 +66,36 @@ CROP_FILTER = (
     "[score_src]crop=w=trunc(iw*0.27):h=trunc(ih*0.22):x=0:y=0[score];"
     "[timer_src]crop=w=trunc(iw*0.22):h=trunc(ih*0.11):x=trunc(iw*0.30):y=0[timer]"
 )
+
+
+def _crop_filter(archive=None):
+    fields = (
+        "scoreboard_crop_x",
+        "scoreboard_crop_y",
+        "scoreboard_crop_width",
+        "scoreboard_crop_height",
+        "timer_crop_x",
+        "timer_crop_y",
+        "timer_crop_width",
+        "timer_crop_height",
+    )
+    if archive is None or any(
+        getattr(archive, field, None) is None for field in fields
+    ):
+        return CROP_FILTER
+    return (
+        "[0:v]fps={fps:g},split=2[score_src][timer_src];"
+        f"[score_src]crop=w=trunc(iw*{archive.scoreboard_crop_width:.9g}):"
+        f"h=trunc(ih*{archive.scoreboard_crop_height:.9g}):"
+        f"x=trunc(iw*{archive.scoreboard_crop_x:.9g}):"
+        f"y=trunc(ih*{archive.scoreboard_crop_y:.9g})[score];"
+        f"[timer_src]crop=w=trunc(iw*{archive.timer_crop_width:.9g}):"
+        f"h=trunc(ih*{archive.timer_crop_height:.9g}):"
+        f"x=trunc(iw*{archive.timer_crop_x:.9g}):"
+        f"y=trunc(ih*{archive.timer_crop_y:.9g})[timer]"
+    )
+
+
 DASH_FRAGMENT_PROTOCOLS = {"http_dash_segments", "http_dash_segments_generator"}
 
 
@@ -1014,6 +1044,7 @@ def _ffmpeg_extract_command(
     jpeg_quality: int,
     output_dir: Path,
     progress: bool = False,
+    archive=None,
 ):
     command = [
         "ffmpeg",
@@ -1033,7 +1064,7 @@ def _ffmpeg_extract_command(
             "-i",
             stream_url,
             "-filter_complex",
-            CROP_FILTER.format(fps=fps),
+            _crop_filter(archive).format(fps=fps),
             "-map",
             "[score]",
             "-q:v",
@@ -1064,6 +1095,7 @@ def extract_segment_frames(
     jpeg_quality: int,
     output_dir: Path,
     run=subprocess.run,
+    archive=None,
 ):
     output_dir.mkdir(parents=True, exist_ok=True)
     if run is not subprocess.run:
@@ -1075,6 +1107,7 @@ def extract_segment_frames(
                 fps,
                 jpeg_quality,
                 output_dir,
+                archive=archive,
             ),
             check=True,
         )
@@ -1301,6 +1334,7 @@ def process_segment(
             archive.frame_rate or 1.0,
             jpeg_quality,
             frames_dir,
+            archive=archive,
         )
         crop_file_count = len(list(frames_dir.glob("*.jpg")))
         log(

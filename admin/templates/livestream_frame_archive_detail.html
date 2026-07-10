@@ -15,6 +15,42 @@
     {% endif %}
 
     <div class="box">
+        <h2 class="title is-5">Custom crop sizes</h2>
+        <form method="POST" enctype="multipart/form-data" class="mb-4">
+            <input type="hidden" name="action" value="upload_preview">
+            <div class="field is-grouped is-align-items-center">
+                <div class="control"><input class="input" type="file" name="preview_image" accept="image/jpeg,image/png" required></div>
+                <div class="control"><button class="button is-link" type="submit">Upload preview image</button></div>
+            </div>
+            <p class="help">Upload a JPG or PNG frame (maximum 8MB) from this stream.</p>
+        </form>
+
+        {% if preview_url %}
+        <form method="POST" id="crop-form">
+            <input type="hidden" name="action" value="save_crops">
+            <div id="crop-editor" style="position:relative;display:inline-block;max-width:100%;line-height:0;touch-action:none;user-select:none;">
+                <img id="crop-preview" src="{{ preview_url }}" alt="Livestream preview" style="display:block;max-width:100%;height:auto;">
+                <div class="crop-box" data-crop="scoreboard" style="position:absolute;border:3px solid #3273dc;background:rgba(50,115,220,.15);cursor:move;box-sizing:border-box;">
+                    <span style="position:absolute;left:3px;top:3px;line-height:1.2;color:white;background:#3273dc;padding:2px 4px;font-size:12px;">Scoreboard</span>
+                    <span class="crop-handle" style="position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;background:#3273dc;border:2px solid white;cursor:nwse-resize;"></span>
+                </div>
+                <div class="crop-box" data-crop="timer" style="position:absolute;border:3px solid #f14668;background:rgba(241,70,104,.15);cursor:move;box-sizing:border-box;">
+                    <span style="position:absolute;left:3px;top:3px;line-height:1.2;color:white;background:#f14668;padding:2px 4px;font-size:12px;">Timer</span>
+                    <span class="crop-handle" style="position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;background:#f14668;border:2px solid white;cursor:nwse-resize;"></span>
+                </div>
+            </div>
+            {% for crop in ('scoreboard', 'timer') %}
+                {% for field in ('x', 'y', 'width', 'height') %}
+                <input type="hidden" name="{{ crop }}_crop_{{ field }}" id="{{ crop }}-{{ field }}"
+                    value="{{ archive|attr(crop + '_crop_' + field) if archive|attr(crop + '_crop_' + field) is not none else '' }}">
+                {% endfor %}
+            {% endfor %}
+            <div class="mt-4"><button class="button is-primary" type="submit">Save crop sizes</button></div>
+        </form>
+        {% endif %}
+    </div>
+
+    <div class="box">
         <h2 class="title is-5"><code>{{ archive.youtube_video_id }}</code></h2>
         <table class="table is-fullwidth is-size-7">
             <tbody>
@@ -122,4 +158,66 @@
         </table>
     </div>
 </div>
+{% if preview_url %}
+<script>
+(() => {
+    const image = document.getElementById('crop-preview');
+    const minimum = 0.01;
+    const defaults = {
+        scoreboard: {x: 0, y: 0, width: 0.27, height: 0.22},
+        timer: {x: 0.30, y: 0, width: 0.22, height: 0.11},
+    };
+    const boxes = {};
+
+    function field(crop, name) { return document.getElementById(`${crop}-${name}`); }
+    function read(crop, name) {
+        const value = Number.parseFloat(field(crop, name).value);
+        return Number.isFinite(value) ? value : defaults[crop][name];
+    }
+    function render(crop) {
+        const box = boxes[crop];
+        box.style.left = `${box.crop.x * 100}%`;
+        box.style.top = `${box.crop.y * 100}%`;
+        box.style.width = `${box.crop.width * 100}%`;
+        box.style.height = `${box.crop.height * 100}%`;
+        for (const name of ['x', 'y', 'width', 'height']) {
+            field(crop, name).value = box.crop[name].toFixed(9);
+        }
+    }
+    function begin(event, crop, resize) {
+        event.preventDefault();
+        const box = boxes[crop];
+        const bounds = image.getBoundingClientRect();
+        const start = {x: event.clientX, y: event.clientY, ...box.crop};
+        const move = (next) => {
+            const dx = (next.clientX - start.x) / bounds.width;
+            const dy = (next.clientY - start.y) / bounds.height;
+            if (resize) {
+                box.crop.width = Math.max(minimum, Math.min(1 - start.x, start.width + dx));
+                box.crop.height = Math.max(minimum, Math.min(1 - start.y, start.height + dy));
+            } else {
+                box.crop.x = Math.max(0, Math.min(1 - start.width, start.x + dx));
+                box.crop.y = Math.max(0, Math.min(1 - start.height, start.y + dy));
+            }
+            render(crop);
+        };
+        const end = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', end);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', end);
+    }
+    document.querySelectorAll('.crop-box').forEach((box) => {
+        const crop = box.dataset.crop;
+        boxes[crop] = {element: box, crop: {
+            x: read(crop, 'x'), y: read(crop, 'y'),
+            width: read(crop, 'width'), height: read(crop, 'height'),
+        }};
+        box.addEventListener('pointerdown', (event) => begin(event, crop, event.target.classList.contains('crop-handle')));
+        render(crop);
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

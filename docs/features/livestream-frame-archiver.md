@@ -43,6 +43,13 @@ The capture worker can run in two modes:
 - `score`: left/top scoreboard area, currently `w=iw*0.27`, `h=ih*0.22`, `x=0`, `y=0`.
 - `timer`: top timer area, currently `w=iw*0.22`, `h=ih*0.11`, `x=iw*0.30`, `y=0`.
 
+Admins can upload a JPG/PNG preview frame on an archive detail page and drag/resize
+scoreboard and timer overlays. The preview is stored under
+`livestream-frame-previews/<youtube_video_id>.<extension>`. Crop coordinates and sizes
+are stored as normalized values on `LivestreamFrameArchive`, so the same rectangles
+scale to the resolution selected by the capture worker. When all eight custom crop
+values are present, the worker uses them instead of `CROP_FILTER` defaults.
+
 `upload_segment_artifacts()` stores only cropped images in a gzip tarball. Batch keys use:
 
 ```text
@@ -77,6 +84,7 @@ Browser/admin routes:
   - `cancel_running`: cancel running segments.
 - `GET/POST /livestream_frame_archives/<archive_id>`
   - shows archive metadata, segment rows, S3 batch prefix, errors, and livestream usages.
+  - uploads a custom S3 preview and saves draggable scoreboard/timer crop rectangles.
   - `requeue_completed`: requeues successful/skipped capture segments and clears upload metadata.
 - `GET/POST /livestream_frame_text_scans`
   - `queue_ready`: queue scans for successful archives with successful capture segments and no scan yet.

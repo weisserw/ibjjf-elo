@@ -468,6 +468,60 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         self.assertIn("/tmp/frames/%06d_score.jpg", command)
         self.assertEqual(command[-1], "/tmp/frames/%06d_timer.jpg")
 
+    def test_ffmpeg_extract_command_uses_archive_custom_crops(self):
+        archive = type(
+            "Archive",
+            (),
+            {
+                "scoreboard_crop_x": 0.1,
+                "scoreboard_crop_y": 0.2,
+                "scoreboard_crop_width": 0.3,
+                "scoreboard_crop_height": 0.4,
+                "timer_crop_x": 0.5,
+                "timer_crop_y": 0.6,
+                "timer_crop_width": 0.2,
+                "timer_crop_height": 0.1,
+            },
+        )()
+
+        command = runner._ffmpeg_extract_command(
+            "https://example.com/video",
+            0,
+            60,
+            1.0,
+            2,
+            Path("/tmp/frames"),
+            archive=archive,
+        )
+
+        filter_complex = command[command.index("-filter_complex") + 1]
+        self.assertIn(
+            "crop=w=trunc(iw*0.3):h=trunc(ih*0.4):"
+            "x=trunc(iw*0.1):y=trunc(ih*0.2)[score]",
+            filter_complex,
+        )
+        self.assertIn(
+            "crop=w=trunc(iw*0.2):h=trunc(ih*0.1):"
+            "x=trunc(iw*0.5):y=trunc(ih*0.6)[timer]",
+            filter_complex,
+        )
+
+    def test_ffmpeg_extract_command_falls_back_for_partial_custom_crops(self):
+        archive = type("Archive", (), {"scoreboard_crop_x": 0.1})()
+
+        command = runner._ffmpeg_extract_command(
+            "https://example.com/video",
+            0,
+            60,
+            1.0,
+            2,
+            Path("/tmp/frames"),
+            archive=archive,
+        )
+
+        filter_complex = command[command.index("-filter_complex") + 1]
+        self.assertIn("crop=w=trunc(iw*0.27):h=trunc(ih*0.22)", filter_complex)
+
 
 class ArchiveLivestreamFramesAdminApiStateTestCase(unittest.TestCase):
     class FakeResponse:
