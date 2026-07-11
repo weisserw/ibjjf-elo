@@ -152,13 +152,17 @@ interface MatchDetailAction {
 - Multiple score changes at the same timestamp are combined into one response
   event with multiple `actions`.
 - Every emitted score event includes running totals for both participants.
+- Event match times count down from the latest running-timer snapshot. A stopped
+  timer invalidates that running anchor, so subsequent events keep the stopped
+  timer value until a new running snapshot resumes the countdown.
 - The final event is always appended and uses final match fields, not the last
   OCR score snapshot alone.
 - `videoOffsetSeconds` is stored in seconds from the source video. The frontend
-  opens YouTube links before that offset by event type: 15 seconds for score
-  events, 2 seconds for final wins by points, 15 seconds for submissions with a
-  final points difference of 2 or less, 8 seconds for submissions with a final
-  points difference greater than 2, and 10 seconds for other final rows.
+  opens YouTube links before that offset by event type: 8 seconds for standalone
+  penalty events, 15 seconds for other score events, 2 seconds for final wins by
+  points, 15 seconds for submissions with a final points difference of 2 or
+  less, 8 seconds for submissions with a final points difference greater than
+  2, and 10 seconds for other final rows.
 - `videoSourceUrl` prefers the OCR event archive's `canonical_url`; if no
   archive URL is available, it falls back to the match's `video_link`.
 
@@ -196,6 +200,7 @@ Focused test file:
   - `test_same_first_names_use_cleaned_full_names`
   - `test_same_timestamp_scores_are_combined_into_one_event`
   - `test_event_time_uses_running_timer_anchor_and_frame_offset`
+  - `test_event_time_pauses_while_timer_is_stopped`
   - `test_payload_includes_livestream_source_url_from_archive`
   - `test_final_event_includes_video_offset`
   - `test_final_method_classification`

@@ -225,6 +225,23 @@ class MatchDetailEventsTestCase(unittest.TestCase):
         self.assertEqual(payload["events"][0]["time"], "4:43")
         self.assertEqual(payload["events"][0]["videoOffsetSeconds"], 37)
 
+    def test_event_time_pauses_while_timer_is_stopped(self):
+        payload = build_match_detail_payload(
+            match(final_top_points=2, final_top_advantages=1),
+            [
+                text_event(20, "5:00", timer_state="running", top_points=0),
+                text_event(30, "4:50", timer_state="stopped"),
+                text_event(50, top_points=2),
+                text_event(60, "4:50", timer_state="running"),
+                text_event(70, top_advantages=1),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual([event["time"] for event in score_events], ["4:50", "4:40"])
+
     def test_timer_reset_at_end_is_filtered_from_detail_events(self):
         payload = build_match_detail_payload(
             match(final_match_time_seconds=86, final_top_points=2),

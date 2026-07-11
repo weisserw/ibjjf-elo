@@ -186,6 +186,10 @@ const youtubeVideoId = (url: string | null | undefined) => {
 
 const videoLeadSeconds = (event: MatchDetailEvent) => {
   if (event.kind === 'score') {
+    const isStandalonePenalty = event.actions?.length === 1 && event.actions[0].category === 'penalties';
+    if (isStandalonePenalty) {
+      return 8;
+    }
     return 15;
   }
   if (event.kind === 'final' && event.endingMethod === 'points') {

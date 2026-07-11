@@ -285,9 +285,13 @@ def _build_match_detail_score_events(raw_events, participants_by_position):
     last_score_change_frame = None
 
     for raw_event in raw_events:
+        timer_state = getattr(raw_event, "timer_state", None)
+        if timer_state == "stopped":
+            timer_anchor = None
+
         if raw_event.timer_value is not None:
             current_timer = raw_event.timer_value
-            if getattr(raw_event, "timer_state", None) == "running":
+            if timer_state == "running":
                 timer_seconds = _parse_match_time(raw_event.timer_value)
                 if timer_seconds is not None:
                     timer_anchor = (timer_seconds, raw_event.frame_second)
