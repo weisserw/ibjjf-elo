@@ -97,7 +97,7 @@
                         <td>{{ archive.status if archive else 'not synced' }}</td>
                         <td>
                             {% if archive and archive.is_bad %}
-                            <span class="has-text-danger">No scoreboard data</span>
+                            <span class="has-text-danger">Bad / no scoreboard data</span>
                             {% elif archive %}
                             {{ archive.segments|length }}
                             {% endif %}

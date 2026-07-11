@@ -207,7 +207,7 @@ Requeueing or clearing scanner work calls `clear_livestream_match_links()`, whic
 - Text scan segments are claimed sequentially within a scan; a later segment is blocked until earlier segments are successful/skipped. This preserves correct `reconstruct_text_state()` behavior across segment boundaries.
 - `queue_text_scan()` requires a successful archive and clears existing match links for that archive.
 - Bad archives cannot be queued or claimed for capture or text scanning. They show
-  `No scoreboard data` in the archive dashboard's Segments column and are omitted
+  `Bad / no scoreboard data` in the archive dashboard's Segments column and are omitted
   from the text scan dashboard.
 - `reset_text_scan_for_rescan()` refuses to reset while scan segments are running.
 - `S3_BUCKET` must be configured for both capture upload and scanner read paths.

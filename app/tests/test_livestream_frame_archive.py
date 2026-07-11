@@ -1203,7 +1203,7 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
             html,
         )
         self.assertIn("Toggle bad", html)
-        self.assertIn("No scoreboard data", html)
+        self.assertIn("Bad / no scoreboard data", html)
 
     def test_bad_archive_cannot_be_queued(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
