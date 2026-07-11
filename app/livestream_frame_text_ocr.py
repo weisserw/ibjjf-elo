@@ -36,6 +36,7 @@ SUPPORTED_NAME_ENGINES = ("none", "tesseract", "paddle")
 SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
 SCORE_THREE_EIGHT_SIMILARITY_MARGIN = 0.02
+SCORE_BORDER_COLUMN_MIN_DENSITY = 0.85
 OCR_FONT_DIR = Path(__file__).resolve().parent / "ocr_fonts"
 NAME_COLUMN_RIGHT_RATIO = 0.481
 NAME_RENDERED_COLUMN_RIGHT_RATIO = 0.52
@@ -433,6 +434,11 @@ def _score_digit_masks(image):
 
 def _score_digit_mask_entries(image):
     threshold = _score_digit_threshold(image)
+    # Tight scoreboard crops can include a nearly solid vertical separator
+    # connected to the final digit. Remove the separator without discarding
+    # the digit component attached to it.
+    border_columns = threshold.mean(axis=0) >= SCORE_BORDER_COLUMN_MIN_DENSITY
+    threshold[:, border_columns] = False
     components, labels = _digit_components(threshold, min_area=20)
     min_height = max(8, int(image.height * 0.35))
     min_width = max(4, int(image.width * 0.12))
