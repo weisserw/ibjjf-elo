@@ -2545,6 +2545,39 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     "bottom_penalties": 0,
                 },
             ),
+            (
+                "score_exact_000_000.jpg",
+                {
+                    "top_points": 0,
+                    "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
+                "score_exact_000_000_2.jpg",
+                {
+                    "top_points": 0,
+                    "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
+                "score_exact_811_210.jpg",
+                {
+                    "top_points": 8,
+                    "top_advantages": 1,
+                    "top_penalties": 1,
+                    "bottom_points": 2,
+                    "bottom_advantages": 1,
+                    "bottom_penalties": 0,
+                },
+            ),
         ]
 
         for score_image, expected_fields in cases:

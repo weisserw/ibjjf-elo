@@ -440,7 +440,9 @@ def _score_digit_mask_entries(image):
     for x, y, width, height, component_index in components:
         if height < min_height or width < min_width:
             continue
-        touches_edge = x == 0 or x + width >= image.width
+        # JPEG resampling can leave a one-pixel gap between a crop-boundary
+        # stripe and the actual image edge.
+        touches_edge = x == 0 or x + width >= image.width - 1
         candidates.append((x, y, width, height, component_index, touches_edge))
 
     has_interior_candidate = any(not candidate[-1] for candidate in candidates)
