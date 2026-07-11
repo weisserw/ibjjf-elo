@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Callable, Protocol
 
 from flask import current_app
-from sqlalchemy import exists
+from sqlalchemy import exists, func
 from sqlalchemy.orm import selectinload
 
 from models import (
@@ -222,6 +222,7 @@ def queue_text_scan(
     parser_profile: str = DEFAULT_PARSER_PROFILE,
     score_engine: str = DEFAULT_SCORE_ENGINE,
     name_engine: str | None = DEFAULT_NAME_ENGINE,
+    queue_requested_at: datetime | None = None,
 ) -> int:
     if archive.status != "success":
         raise ValueError("text scans can only be queued for successful frame archives")
@@ -237,6 +238,7 @@ def queue_text_scan(
     scan.score_engine = score_engine
     scan.name_engine = name_engine
     scan.status = "queued"
+    scan.queue_requested_at = queue_requested_at or datetime.utcnow()
     scan.last_error = None
     scan.completed_at = None
     from livestream_match_linking import clear_livestream_match_links
@@ -464,6 +466,10 @@ def claim_next_text_scan_segment(
         )
 
     candidates = query.order_by(
+        func.coalesce(
+            LivestreamFrameTextScan.queue_requested_at,
+            LivestreamFrameTextScan.created_at,
+        ),
         LivestreamFrameTextScan.created_at,
         LivestreamFrameTextScanSegment.start_second,
         LivestreamFrameTextScanSegment.created_at,

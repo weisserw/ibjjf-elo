@@ -1309,44 +1309,37 @@ def livestream_frame_text_scans():
             ]
 
             if action == "queue_ready":
-                scan_archive_ids = [
-                    row[0]
-                    for row in db.session.query(LivestreamFrameTextScan.archive_id)
-                ]
-                successful_capture_archive_ids = [
-                    row[0]
-                    for row in db.session.query(
-                        LivestreamFrameCaptureSegment.archive_id
-                    )
-                    .filter(LivestreamFrameCaptureSegment.status == "success")
-                    .distinct()
-                ]
-                archives = (
-                    LivestreamFrameArchive.query.filter(
-                        LivestreamFrameArchive.status == "success",
-                        ~LivestreamFrameArchive.id.in_(scan_archive_ids),
-                        LivestreamFrameArchive.id.in_(successful_capture_archive_ids),
-                    )
-                    .order_by(LivestreamFrameArchive.created_at)
-                    .all()
-                )
+                rows = _livestream_frame_text_scan_rows(sort=selected_sort)
+                archives = [row["archive"] for row in rows if row["ready_to_queue"]]
                 segment_count = 0
-                for archive in archives:
-                    segment_count += queue_text_scan(db.session, archive)
+                requested_at = datetime.utcnow()
+                for index, archive in enumerate(archives):
+                    segment_count += queue_text_scan(
+                        db.session,
+                        archive,
+                        queue_requested_at=requested_at + timedelta(microseconds=index),
+                    )
                 db.session.commit()
                 message = f"Queued {segment_count} text scan segment(s)."
             elif action == "queue_selected":
-                archives = (
-                    LivestreamFrameArchive.query.filter(
-                        LivestreamFrameArchive.id.in_(archive_ids),
-                        LivestreamFrameArchive.status == "success",
-                    )
-                    .order_by(LivestreamFrameArchive.created_at)
-                    .all()
-                )
+                matching_archives = LivestreamFrameArchive.query.filter(
+                    LivestreamFrameArchive.id.in_(archive_ids),
+                    LivestreamFrameArchive.status == "success",
+                ).all()
+                archive_by_id = {archive.id: archive for archive in matching_archives}
+                archives = [
+                    archive_by_id[archive_id]
+                    for archive_id in archive_ids
+                    if archive_id in archive_by_id
+                ]
                 segment_count = 0
-                for archive in archives:
-                    segment_count += queue_text_scan(db.session, archive)
+                requested_at = datetime.utcnow()
+                for index, archive in enumerate(archives):
+                    segment_count += queue_text_scan(
+                        db.session,
+                        archive,
+                        queue_requested_at=requested_at + timedelta(microseconds=index),
+                    )
                 db.session.commit()
                 message = f"Queued {segment_count} text scan segment(s)."
             elif action == "retry_failed":

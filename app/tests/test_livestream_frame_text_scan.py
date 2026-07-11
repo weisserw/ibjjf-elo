@@ -6,6 +6,7 @@ import tarfile
 import types
 import unittest
 import uuid
+from datetime import datetime
 from unittest import mock
 
 from sqlalchemy import create_engine
@@ -543,11 +544,11 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
         db.session.remove()
         self.app_context.pop()
 
-    def _archive_with_segments(self, status="success"):
+    def _archive_with_segments(self, status="success", youtube_video_id="HxZSos1k_MA"):
         archive = LivestreamFrameArchive(
-            youtube_video_id="HxZSos1k_MA",
-            canonical_url="https://www.youtube.com/watch?v=HxZSos1k_MA",
-            s3_prefix="livestream-frames/HxZSos1k_MA/",
+            youtube_video_id=youtube_video_id,
+            canonical_url=f"https://www.youtube.com/watch?v={youtube_video_id}",
+            s3_prefix=f"livestream-frames/{youtube_video_id}/",
             status=status,
             frame_rate=1.0,
             image_format="jpg",
@@ -608,6 +609,27 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
         db.session.commit()
         second = text_scan.claim_next_text_scan_segment(db.session)
         self.assertEqual(second.start_second, 120)
+
+    def test_claim_next_text_scan_segment_uses_queue_requested_order(self):
+        first_archive, _ = self._archive_with_segments(youtube_video_id="QueueFirst01")
+        text_scan.queue_text_scan(
+            db.session,
+            first_archive,
+            score_engine="none",
+            queue_requested_at=datetime(2026, 1, 1, 12, 0, 1),
+        )
+        second_archive, _ = self._archive_with_segments(youtube_video_id="QueueSecond1")
+        text_scan.queue_text_scan(
+            db.session,
+            second_archive,
+            score_engine="none",
+            queue_requested_at=datetime(2026, 1, 1, 12, 0, 0),
+        )
+        db.session.commit()
+
+        segment = text_scan.claim_next_text_scan_segment(db.session)
+
+        self.assertEqual(segment.archive_id, second_archive.id)
 
     def test_reconstruct_text_state_applies_sparse_events(self):
         archive, _ = self._archive_with_segments()
@@ -2660,11 +2682,11 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
                     sqlalchemy_ext.engines[None] = create_engine(f"sqlite:///{db_path}")
         return self.admin_module.app.test_client()
 
-    def _archive_with_segment(self):
+    def _archive_with_segment(self, youtube_video_id="HxZSos1k_MA"):
         archive = LivestreamFrameArchive(
-            youtube_video_id="HxZSos1k_MA",
-            canonical_url="https://www.youtube.com/watch?v=HxZSos1k_MA",
-            s3_prefix="livestream-frames/HxZSos1k_MA/",
+            youtube_video_id=youtube_video_id,
+            canonical_url=f"https://www.youtube.com/watch?v={youtube_video_id}",
+            s3_prefix=f"livestream-frames/{youtube_video_id}/",
             status="success",
             frame_rate=1.0,
             image_format="jpg",
@@ -2700,6 +2722,82 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertIn('id="text-scan-sort"', html)
         self.assertIn('value="youtube_id" selected', html)
         self.assertIn('name="sort" value="youtube_id"', html)
+
+    def test_admin_queue_ready_uses_selected_dashboard_sort_order(self):
+        first_archive, _ = self._archive_with_segment("QueueReady01")
+        second_archive, _ = self._archive_with_segment("QueueReady02")
+        client = self._admin_client()
+        with client.session_transaction() as session_data:
+            session_data["logged_in"] = True
+
+        queued = []
+
+        def fake_queue_text_scan(session, archive, **kwargs):
+            queued.append((archive.youtube_video_id, kwargs["queue_requested_at"]))
+            return 0
+
+        sorted_rows = [
+            {"archive": second_archive, "scan": None, "ready_to_queue": True},
+            {"archive": first_archive, "scan": None, "ready_to_queue": True},
+        ]
+        with mock.patch.object(
+            self.admin_module,
+            "_livestream_frame_text_scan_rows",
+            side_effect=[sorted_rows, []],
+        ) as rows, mock.patch.object(
+            self.admin_module,
+            "queue_text_scan",
+            side_effect=fake_queue_text_scan,
+        ):
+            response = client.post(
+                "/livestream_frame_text_scans",
+                data={"action": "queue_ready", "sort": "event_date_asc"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [youtube_id for youtube_id, _queued_at in queued],
+            ["QueueReady02", "QueueReady01"],
+        )
+        self.assertLess(queued[0][1], queued[1][1])
+        self.assertEqual(rows.call_args_list[0].kwargs, {"sort": "event_date_asc"})
+
+    def test_admin_queue_selected_uses_submitted_row_order(self):
+        first_archive, _ = self._archive_with_segment("QueueSelect1")
+        second_archive, _ = self._archive_with_segment("QueueSelect2")
+        client = self._admin_client()
+        with client.session_transaction() as session_data:
+            session_data["logged_in"] = True
+
+        queued = []
+
+        def fake_queue_text_scan(session, archive, **kwargs):
+            queued.append((archive.youtube_video_id, kwargs["queue_requested_at"]))
+            return 0
+
+        with mock.patch.object(
+            self.admin_module, "queue_text_scan", side_effect=fake_queue_text_scan
+        ), mock.patch.object(
+            self.admin_module, "_livestream_frame_text_scan_rows", return_value=[]
+        ):
+            response = client.post(
+                "/livestream_frame_text_scans",
+                data={
+                    "action": "queue_selected",
+                    "sort": "youtube_id",
+                    "selected_archive_id": [
+                        str(second_archive.id),
+                        str(first_archive.id),
+                    ],
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [youtube_id for youtube_id, _queued_at in queued],
+            ["QueueSelect2", "QueueSelect1"],
+        )
+        self.assertLess(queued[0][1], queued[1][1])
 
     def test_worker_claim_complete_and_initial_state_api(self):
         archive, _ = self._archive_with_segment()

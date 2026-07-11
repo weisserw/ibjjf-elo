@@ -615,6 +615,7 @@ class LivestreamFrameTextScan(db.Model):
         UUID(as_uuid=True), ForeignKey("background_tasks.id"), nullable=True
     )
     last_error = Column(Text, nullable=True)
+    queue_requested_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
