@@ -55,6 +55,7 @@
             <button class="button is-warning is-small" name="action" value="retry_cancelled" type="submit">Retry cancelled</button>
             <button class="button is-danger is-small" name="action" value="cancel_queued" type="submit">Cancel queued</button>
             <button class="button is-danger is-small" name="action" value="cancel_running" type="submit">Cancel running</button>
+            <button class="button is-dark is-small" name="action" value="toggle_bad" type="submit">Toggle bad</button>
         </div>
 
         <div class="table-container">
@@ -66,6 +67,7 @@
                         <th>Events / days / mats</th>
                         <th>Canonical URL</th>
                         <th>Status</th>
+                        <th>Segments</th>
                         <th>Resolution / format</th>
                         <th>Progress</th>
                         <th>Last error</th>
@@ -94,6 +96,13 @@
                         <td><a href="{{ row.canonical_url }}" target="_blank">{{ row.canonical_url }}</a></td>
                         <td>{{ archive.status if archive else 'not synced' }}</td>
                         <td>
+                            {% if archive and archive.is_bad %}
+                            <span class="has-text-danger">No scoreboard data</span>
+                            {% elif archive %}
+                            {{ archive.segments|length }}
+                            {% endif %}
+                        </td>
+                        <td>
                             {% if archive and archive.width and archive.height %}
                                 {{ archive.width }}x{{ archive.height }}
                                 {% if archive.format_id %}/ {{ archive.format_id }}{% endif %}
@@ -115,7 +124,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="9">No YouTube livestreams found.</td>
+                        <td colspan="10">No YouTube livestreams found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -25,6 +25,11 @@ Admins can queue, retry, cancel, clear, inspect, and rescan text-scanning work f
 
 `queue_text_scan()` creates one `LivestreamFrameTextScan` per successful archive and creates scan segments that correspond to archive capture segments. Each queue request records its position, so admin bulk queue actions preserve the dashboard's current sort order (and selected rows preserve their submitted order). `claim_next_text_scan_segment()` uses that recorded queue order before marking the next queued segment as running and incrementing attempts. The worker then:
 
+Archives marked `is_bad` for having no scoreboard data are excluded from this
+dashboard and rejected by queue, retry, reset, rescan, and worker claim paths.
+Toggling an archive to bad from the frame archive dashboard clears its match links
+and deletes its text scan, including text scan segments and events.
+
 1. Builds a parser with `build_parser(parser_profile, score_engine, name_engine)`.
 2. Builds an `S3FrameBatchProvider` for the archive's capture segments.
 3. Gets the previous sparse state from `reconstruct_text_state()` when needed.

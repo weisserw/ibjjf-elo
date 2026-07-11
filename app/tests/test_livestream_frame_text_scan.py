@@ -2799,6 +2799,51 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertLess(queued[0][1], queued[1][1])
 
+    def test_toggle_bad_clears_text_scan_and_hides_archive(self):
+        archive, capture_segment = self._archive_with_segment()
+        self._admin_client()
+        text_scan.queue_text_scan(db.session, archive, score_engine="none")
+        db.session.flush()
+        scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
+        scan_segment = LivestreamFrameTextScanSegment.query.filter_by(
+            scan_id=scan.id
+        ).one()
+        db.session.add(
+            LivestreamFrameTextEvent(
+                scan_id=scan.id,
+                archive_id=archive.id,
+                scan_segment_id=scan_segment.id,
+                capture_segment_id=capture_segment.id,
+                frame_second=0,
+            )
+        )
+        db.session.commit()
+
+        with mock.patch(
+            "livestream_match_linking.clear_livestream_match_links",
+            return_value={"matches": 1, "participants": 2, "associations": 1},
+        ) as clear_links:
+            summary = text_scan.toggle_bad_archives(db.session, [archive.id])
+            db.session.commit()
+
+        clear_links.assert_called_once_with(db.session, archive.id)
+        self.assertEqual(summary["segments"], 1)
+        self.assertEqual(summary["events"], 1)
+        self.assertEqual(summary["associations"], 1)
+        self.assertTrue(db.session.get(LivestreamFrameArchive, archive.id).is_bad)
+        self.assertEqual(LivestreamFrameTextScan.query.count(), 0)
+        self.assertEqual(LivestreamFrameTextScanSegment.query.count(), 0)
+        self.assertEqual(LivestreamFrameTextEvent.query.count(), 0)
+        self.assertEqual(self.admin_module._livestream_frame_text_scan_rows(), [])
+
+        with self.assertRaisesRegex(ValueError, "bad frame archives"):
+            text_scan.queue_text_scan(db.session, archive)
+
+        summary = text_scan.toggle_bad_archives(db.session, [archive.id])
+        db.session.commit()
+        self.assertEqual(summary["not_bad"], 1)
+        self.assertFalse(db.session.get(LivestreamFrameArchive, archive.id).is_bad)
+
     def test_worker_claim_complete_and_initial_state_api(self):
         archive, _ = self._archive_with_segment()
         text_scan.queue_text_scan(db.session, archive, score_engine="none")

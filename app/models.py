@@ -500,6 +500,7 @@ class LivestreamFrameArchive(db.Model):
     timer_crop_y = Column(Float, nullable=True)
     timer_crop_width = Column(Float, nullable=True)
     timer_crop_height = Column(Float, nullable=True)
+    is_bad = Column(Boolean, nullable=False, default=False)
     status = Column(String, nullable=False, default="pending")
     frame_rate = Column(Float, nullable=False, default=1.0)
     image_format = Column(String, nullable=False, default="jpg")

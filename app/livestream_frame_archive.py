@@ -278,6 +278,8 @@ def queue_archive_capture(
     segment_seconds: int = DEFAULT_SEGMENT_SECONDS,
     queue_requested_at: datetime | None = None,
 ) -> int:
+    if archive.is_bad:
+        raise ValueError("bad frame archives cannot be queued")
     created = create_missing_segments(session, archive, segment_seconds)
     requeued = (
         LivestreamFrameCaptureSegment.query.filter_by(archive_id=archive.id)
@@ -300,8 +302,10 @@ def retry_failed_segments(
     session, archive_ids: list | None = None, statuses: list[str] | None = None
 ) -> int:
     statuses = statuses or ["error", "cancelled"]
-    query = LivestreamFrameCaptureSegment.query.filter(
-        LivestreamFrameCaptureSegment.status.in_(statuses)
+    query = (
+        LivestreamFrameCaptureSegment.query.join(LivestreamFrameArchive)
+        .filter(LivestreamFrameCaptureSegment.status.in_(statuses))
+        .filter(LivestreamFrameArchive.is_bad.is_(False))
     )
     if archive_ids:
         query = query.filter(LivestreamFrameCaptureSegment.archive_id.in_(archive_ids))
@@ -325,6 +329,8 @@ def retry_failed_segments(
 
 
 def requeue_completed_segments(session, archive: LivestreamFrameArchive) -> int:
+    if archive.is_bad:
+        raise ValueError("bad frame archives cannot be queued")
     segments = (
         LivestreamFrameCaptureSegment.query.filter_by(archive_id=archive.id)
         .filter(LivestreamFrameCaptureSegment.status.in_(["success", "skipped"]))
@@ -391,9 +397,13 @@ def claim_next_segment(
         if max_error_retry_backoff_seconds is None
         else int(max_error_retry_backoff_seconds)
     )
-    base_query = LivestreamFrameCaptureSegment.query.options(
-        selectinload(LivestreamFrameCaptureSegment.archive)
-    ).join(LivestreamFrameArchive)
+    base_query = (
+        LivestreamFrameCaptureSegment.query.options(
+            selectinload(LivestreamFrameCaptureSegment.archive)
+        )
+        .join(LivestreamFrameArchive)
+        .filter(LivestreamFrameArchive.is_bad.is_(False))
+    )
     if archive_id:
         base_query = base_query.filter(
             LivestreamFrameCaptureSegment.archive_id == archive_id

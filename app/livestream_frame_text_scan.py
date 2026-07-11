@@ -224,6 +224,8 @@ def queue_text_scan(
     name_engine: str | None = DEFAULT_NAME_ENGINE,
     queue_requested_at: datetime | None = None,
 ) -> int:
+    if archive.is_bad:
+        raise ValueError("bad frame archives cannot be queued for text scanning")
     if archive.status != "success":
         raise ValueError("text scans can only be queued for successful frame archives")
 
@@ -295,14 +297,16 @@ def retry_failed_text_scan_segments(
     session, scan_ids: list | None = None, statuses: list | None = None
 ) -> int:
     retry_statuses = statuses or ["error", "cancelled"]
-    query = LivestreamFrameTextScanSegment.query.filter(
-        LivestreamFrameTextScanSegment.status.in_(retry_statuses)
+    query = (
+        LivestreamFrameTextScanSegment.query.join(LivestreamFrameArchive)
+        .filter(LivestreamFrameTextScanSegment.status.in_(retry_statuses))
+        .filter(LivestreamFrameArchive.is_bad.is_(False))
     )
     if scan_ids:
         query = query.filter(LivestreamFrameTextScanSegment.scan_id.in_(scan_ids))
 
     segments = query.all()
-    affected_scan_ids = set(scan_ids or [])
+    affected_scan_ids = set()
     for segment in segments:
         affected_scan_ids.add(segment.scan_id)
         segment.status = "queued"
@@ -391,10 +395,61 @@ def clear_text_scan_events(session, scan_ids: list | None = None) -> dict[str, i
     return {"events": event_count, "segments": len(reset_segments), **summary}
 
 
+def toggle_bad_archives(session, archive_ids: list | None = None) -> dict[str, int]:
+    if not archive_ids:
+        return {
+            "archives": 0,
+            "bad": 0,
+            "not_bad": 0,
+            "events": 0,
+            "segments": 0,
+            "associations": 0,
+        }
+
+    archives = LivestreamFrameArchive.query.filter(
+        LivestreamFrameArchive.id.in_(archive_ids)
+    ).all()
+    from livestream_match_linking import clear_livestream_match_links
+
+    summary = {
+        "archives": len(archives),
+        "bad": 0,
+        "not_bad": 0,
+        "events": 0,
+        "segments": 0,
+        "associations": 0,
+    }
+    for archive in archives:
+        archive.is_bad = not archive.is_bad
+        if not archive.is_bad:
+            summary["not_bad"] += 1
+            continue
+
+        summary["bad"] += 1
+        scan = LivestreamFrameTextScan.query.filter_by(
+            archive_id=archive.id
+        ).one_or_none()
+        if not scan:
+            continue
+        link_summary = clear_livestream_match_links(session, archive.id)
+        summary["associations"] += link_summary["associations"]
+        summary["events"] += LivestreamFrameTextEvent.query.filter_by(
+            scan_id=scan.id
+        ).count()
+        summary["segments"] += LivestreamFrameTextScanSegment.query.filter_by(
+            scan_id=scan.id
+        ).count()
+        session.delete(scan)
+
+    return summary
+
+
 def reset_text_scan_for_rescan(session, scan_id, background_task_id=None):
     scan = session.get(LivestreamFrameTextScan, scan_id)
     if not scan:
         return None
+    if scan.archive.is_bad:
+        raise ValueError("bad frame archives cannot be queued for text scanning")
 
     running_count = LivestreamFrameTextScanSegment.query.filter_by(
         scan_id=scan.id, status="running"
@@ -455,6 +510,7 @@ def claim_next_text_scan_segment(
         .join(LivestreamFrameTextScan)
         .join(LivestreamFrameArchive)
         .filter(LivestreamFrameTextScanSegment.status.in_(["pending", "queued"]))
+        .filter(LivestreamFrameArchive.is_bad.is_(False))
     )
     if scan_id:
         query = query.filter(LivestreamFrameTextScanSegment.scan_id == scan_id)
@@ -486,6 +542,8 @@ def claim_next_text_scan_segment(
             break
     if not segment:
         return None
+    if segment.archive.is_bad:
+        raise ValueError("bad frame archives cannot be queued for text scanning")
 
     now = datetime.utcnow()
     segment.status = "running"

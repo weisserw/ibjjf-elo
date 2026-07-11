@@ -92,6 +92,7 @@ from livestream_frame_text_scan import (
     reconstruct_text_state,
     reset_text_scan_for_archive,
     retry_failed_text_scan_segments,
+    toggle_bad_archives,
     S3FrameBatchProvider,
     TextEventData,
 )
@@ -165,6 +166,7 @@ def _archive_payload(archive):
         "timer_crop_y": archive.timer_crop_y,
         "timer_crop_width": archive.timer_crop_width,
         "timer_crop_height": archive.timer_crop_height,
+        "is_bad": archive.is_bad,
         "status": archive.status,
         "frame_rate": archive.frame_rate,
         "image_format": archive.image_format,
@@ -504,7 +506,11 @@ def _text_scan_segment_status_counts(scan_ids):
 
 
 def _livestream_frame_text_scan_rows(sort: str = "event_date_desc"):
-    archive_rows = get_archive_dashboard_rows(db.session, sort=sort)
+    archive_rows = [
+        row
+        for row in get_archive_dashboard_rows(db.session, sort=sort)
+        if row.get("archive") is None or not row["archive"].is_bad
+    ]
     archive_ids = [
         row["archive"].id for row in archive_rows if row.get("archive") is not None
     ]
@@ -1110,7 +1116,9 @@ def livestream_frame_archives():
                 archives = [
                     row["archive"]
                     for row in rows
-                    if row["archive"] and row["archive"].status != "success"
+                    if row["archive"]
+                    and not row["archive"].is_bad
+                    and row["archive"].status != "success"
                 ]
                 segment_count = 0
                 requested_at = datetime.utcnow()
@@ -1135,6 +1143,8 @@ def livestream_frame_archives():
                     if archive.id in seen:
                         continue
                     seen.add(archive.id)
+                    if archive.is_bad:
+                        continue
                     segment_count += queue_archive_capture(
                         db.session,
                         archive,
@@ -1167,6 +1177,15 @@ def livestream_frame_archives():
                 )
                 db.session.commit()
                 message = f"Cancelled {segment_count} running segment(s)."
+            elif action == "toggle_bad" and archive_ids:
+                summary = toggle_bad_archives(db.session, archive_ids)
+                db.session.commit()
+                message = (
+                    f"Toggled {summary['archives']} archive(s): "
+                    f"{summary['bad']} bad, {summary['not_bad']} not bad; cleared "
+                    f"{summary['segments']} text segment(s), {summary['events']} text "
+                    f"event(s), and {summary['associations']} match link(s)."
+                )
         except Exception as exc:
             db.session.rollback()
             error = str(exc)
@@ -1325,6 +1344,7 @@ def livestream_frame_text_scans():
                 matching_archives = LivestreamFrameArchive.query.filter(
                     LivestreamFrameArchive.id.in_(archive_ids),
                     LivestreamFrameArchive.status == "success",
+                    LivestreamFrameArchive.is_bad.is_(False),
                 ).all()
                 archive_by_id = {archive.id: archive for archive in matching_archives}
                 archives = [
@@ -1669,7 +1689,8 @@ def queue_livestream_frame_text_scans():
     name_engine = data.get("name_engine") or DEFAULT_NAME_ENGINE
 
     archives_query = LivestreamFrameArchive.query.filter(
-        LivestreamFrameArchive.status == "success"
+        LivestreamFrameArchive.status == "success",
+        LivestreamFrameArchive.is_bad.is_(False),
     )
     filters = []
     if archive_ids:

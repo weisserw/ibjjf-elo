@@ -1172,6 +1172,46 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertLess(queued[0][1], queued[1][1])
 
+    def test_admin_toggle_bad_requires_selection_and_shows_archive_status(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        db.session.commit()
+        client = self._admin_client()
+        with client.session_transaction() as session_data:
+            session_data["logged_in"] = True
+
+        response = client.post(
+            "/livestream_frame_archives",
+            data={"action": "toggle_bad", "sort": "youtube_id"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(db.session.get(LivestreamFrameArchive, archive.id).is_bad)
+        self.assertNotIn("Toggled 0 archive(s)", response.get_data(as_text=True))
+
+        response = client.post(
+            "/livestream_frame_archives",
+            data={
+                "action": "toggle_bad",
+                "sort": "youtube_id",
+                "selected_youtube_id": [archive.youtube_video_id],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        db.session.expire_all()
+        self.assertTrue(
+            db.session.get(LivestreamFrameArchive, archive.id).is_bad,
+            html,
+        )
+        self.assertIn("Toggle bad", html)
+        self.assertIn("No scoreboard data", html)
+
+    def test_bad_archive_cannot_be_queued(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        archive.is_bad = True
+
+        with self.assertRaisesRegex(ValueError, "bad frame archives"):
+            archive_lib.queue_archive_capture(db.session, archive)
+
     def test_queue_archive_segments_for_known_duration(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
         archive.duration_seconds = 1201

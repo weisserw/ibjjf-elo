@@ -4,7 +4,7 @@
 
 The livestream frame archiver takes YouTube livestreams attached to IBJJF event/mat/day records, extracts scoreboard and timer crops at a fixed frame rate, stores those crops in S3 batches, and tracks processing status in the admin app.
 
-In the admin app, operators can sync known livestreams into archive rows, queue missing work, queue selected streams, retry failed or cancelled work, cancel queued/running work, inspect archive segment details, queue OCR text scans, clear scan events, and manually relink completed OCR scans to matches.
+In the admin app, operators can sync known livestreams into archive rows, queue missing work, queue selected streams, retry failed or cancelled work, cancel queued/running work, flag archives with no scoreboard data, inspect archive segment details, queue OCR text scans, clear scan events, and manually relink completed OCR scans to matches.
 
 This is the first part of the livestream match pipeline:
 
@@ -82,6 +82,9 @@ Browser/admin routes:
   - `retry_cancelled`: requeue cancelled segments.
   - `cancel_queued`: cancel pending/queued segments.
   - `cancel_running`: cancel running segments.
+  - `toggle_bad`: toggles the no-scoreboard-data flag for checked archive rows. With
+    no checked rows it is a no-op. Marking an archive bad removes its text scan,
+    text scan segments, and text events after clearing downstream match links.
 - `GET/POST /livestream_frame_archives/<archive_id>`
   - shows archive metadata, segment rows, S3 batch prefix, errors, and livestream usages.
   - uploads a custom S3 preview and saves draggable scoreboard/timer crop rectangles.
@@ -124,6 +127,7 @@ Remote workers depend on the payload helpers in `admin/app.py`: `_archive_payloa
 `LivestreamFrameArchive` is one row per YouTube video:
 
 - Identity/source: `youtube_video_id`, `canonical_url`, `s3_prefix`.
+- Classification: `is_bad` marks an archive as having no scoreboard data.
 - Status/progress: `status`, `frame_rate`, `image_format`, `duration_seconds`, `expected_frame_count`, `uploaded_frame_count`, `last_uploaded_second`.
 - Probe metadata: `format_id`, `format_note`, `width`, `height`, `source_fps`, `video_codec`, `audio_codec`, `tbr`, `protocol`, `yt_dlp_version`.
 - Operations: `last_error`, `queue_requested_at`, `started_at`, `completed_at`.
@@ -202,6 +206,9 @@ Requeueing or clearing scanner work calls `clear_livestream_match_links()`, whic
 - Failed capture segments are automatically claimable after exponential backoff. Defaults are 300 seconds base and 1800 seconds max.
 - Text scan segments are claimed sequentially within a scan; a later segment is blocked until earlier segments are successful/skipped. This preserves correct `reconstruct_text_state()` behavior across segment boundaries.
 - `queue_text_scan()` requires a successful archive and clears existing match links for that archive.
+- Bad archives cannot be queued or claimed for capture or text scanning. They show
+  `No scoreboard data` in the archive dashboard's Segments column and are omitted
+  from the text scan dashboard.
 - `reset_text_scan_for_rescan()` refuses to reset while scan segments are running.
 - `S3_BUCKET` must be configured for both capture upload and scanner read paths.
 - Remote workers require `LIVESTREAM_ARCHIVE_ADMIN_URL` and `LIVESTREAM_ARCHIVE_ADMIN_PASSWORD` or `ADMIN_PASSWORD`.
