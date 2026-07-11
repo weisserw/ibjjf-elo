@@ -66,6 +66,12 @@ Automatic pipeline flow:
 8. Writes event links and match summary fields, then returns a summary with
    `linked`, `windows`, `candidates`, and optional `skipped`.
 
+Full tournament CSV imports also relink every successful text scan whose
+archived YouTube video is used by that tournament. This runs after replacement
+matches and participants have been flushed and before the import transaction is
+committed, so replacing match rows does not require manual relink actions for
+every mat and day. Partial-tournament imports do not trigger this relink.
+
 ## Admin Pages And APIs
 
 There is no React frontend call path for this feature in `app/frontend`.
@@ -239,4 +245,3 @@ Current regression tests show the main risk areas:
   - `test_time_aligned_match_can_link_beyond_cursor_lookahead`
   - `test_time_aligned_unused_match_can_link_after_cursor_passed_it`
   - `test_out_of_order_forward_link_can_be_reused_when_turn_arrives`
-

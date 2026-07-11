@@ -4,6 +4,8 @@ import sys
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -29,6 +31,7 @@ import livestream_frame_text_scan as text_scan
 from livestream_match_linking import (
     extract_match_windows,
     link_completed_text_scan,
+    relink_completed_text_scans_for_events,
 )
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "livestream_match_linking"
@@ -245,6 +248,22 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             matches.append(match)
         db.session.commit()
         return matches
+
+    def test_relink_completed_text_scans_for_events_selects_matching_archive(self):
+        self._match_setup(pairs=[("ALPHA", "BETA")])
+        archive, scan = self._stored_events([])
+        summary = SimpleNamespace(linked=1, windows=1, candidates=1, skipped=None)
+
+        with patch(
+            "livestream_match_linking.link_completed_text_scan",
+            return_value=summary,
+        ) as link_scan:
+            results = relink_completed_text_scans_for_events(db.session, {"evt-1"})
+
+        link_scan.assert_called_once_with(db.session, scan)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].archive_id, archive.id)
+        self.assertEqual(results[0].linked, 1)
 
     def test_real_joao_maycon_fixture_links_stopped_score_update(self):
         matches = self._match_setup(

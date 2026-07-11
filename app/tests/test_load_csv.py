@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from datetime import datetime
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.insert(
@@ -418,6 +419,33 @@ class LoadCsvTestCase(TestDbMixin, unittest.TestCase):
 
         division = db.session.query(Division).one()
         self.assertEqual(division.age, JUVENILE_1)
+
+    def test_process_file_relinks_completed_scans_for_full_tournament(self):
+        with patch.object(
+            load_csv, "relink_completed_text_scans_for_events", return_value=[]
+        ) as relink:
+            self._process_csv_rows([self._base_match_csv_row()])
+
+        self.assertEqual(relink.call_count, 1)
+        self.assertEqual(relink.call_args.args[1], {"division-size-event-1"})
+
+    def test_process_file_does_not_relink_for_partial_tournament(self):
+        row = self._base_match_csv_row(**{"Partial Tournament": "true"})
+        with patch.object(
+            load_csv, "relink_completed_text_scans_for_events", return_value=[]
+        ) as relink:
+            self._process_csv_rows([row])
+
+        self.assertEqual(relink.call_count, 1)
+        self.assertEqual(relink.call_args.args[1], set())
+
+    def test_process_file_exits_nonzero_after_error(self):
+        load_csv.app = self.app_module.app
+        with patch("builtins.open", side_effect=RuntimeError("broken input")):
+            with self.assertRaises(SystemExit) as raised:
+                load_csv.process_file("broken.csv", no_scores=True)
+
+        self.assertEqual(raised.exception.code, 1)
 
 
 if __name__ == "__main__":

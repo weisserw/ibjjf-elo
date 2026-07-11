@@ -11,7 +11,7 @@ from rapidfuzz import fuzz
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 
-from livestream_frame_archive import archive_usage_rows
+from livestream_frame_archive import archive_usage_rows, discover_livestream_usages
 from youtube_utils import extract_youtube_video_id
 from livestream_frame_text_scan import (
     SCOREBOARD_STATE_BLANK,
@@ -1411,3 +1411,41 @@ def link_completed_text_scan(
         candidates=len(candidates),
         skipped=None,
     )
+
+
+def relink_completed_text_scans_for_events(session, event_ids) -> list[SimpleNamespace]:
+    event_ids = {str(event_id) for event_id in event_ids if event_id}
+    if not event_ids:
+        return []
+
+    results = []
+    usages_by_video_id = discover_livestream_usages(session)
+    scans = (
+        LivestreamFrameTextScan.query.filter_by(status="success")
+        .order_by(LivestreamFrameTextScan.created_at, LivestreamFrameTextScan.id)
+        .all()
+    )
+    for scan in scans:
+        archive = session.get(LivestreamFrameArchive, scan.archive_id)
+        if not archive:
+            continue
+        usage_event_ids = {
+            usage.stream.event_id
+            for usage in usages_by_video_id.get(archive.youtube_video_id, [])
+            if usage.stream.event_id
+        }
+        if event_ids.isdisjoint(usage_event_ids):
+            continue
+
+        summary = link_completed_text_scan(session, scan)
+        results.append(
+            SimpleNamespace(
+                scan_id=scan.id,
+                archive_id=archive.id,
+                linked=summary.linked,
+                windows=summary.windows,
+                candidates=summary.candidates,
+                skipped=summary.skipped,
+            )
+        )
+    return results

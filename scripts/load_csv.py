@@ -22,6 +22,7 @@ from constants import (
 from normalize import normalize
 from elo import match_didnt_happen
 from match_division_sizes import refresh_match_division_sizes
+from livestream_match_linking import relink_completed_text_scans_for_events
 from slug import generate_slug
 
 
@@ -178,6 +179,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                 earliest_date = None
                 has_gi = False
                 has_nogi = False
+                event_ids_to_relink = set()
 
                 with Bar(
                     f"Processing {csv_file_path}",
@@ -197,6 +199,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                         )
 
                         if not partial_tournament:
+                            event_ids_to_relink.add(tournament_id)
                             existing_event = get_event(
                                 db.session, tournament_id, tournament_name
                             )
@@ -411,6 +414,17 @@ def process_file(csv_file_path: str, no_scores: bool):
 
                         refresh_match_division_sizes(db.session, affected_event_ids)
 
+                db.session.flush()
+                relink_summaries = relink_completed_text_scans_for_events(
+                    db.session, event_ids_to_relink
+                )
+                for summary in relink_summaries:
+                    print(
+                        f"Relinked livestream archive {summary.archive_id}: "
+                        f"{summary.linked}/{summary.windows} OCR windows linked "
+                        f"from {summary.candidates} candidates."
+                    )
+
                 if has_gi and not no_scores:
                     recompute_all_ratings(
                         db,
@@ -440,6 +454,7 @@ def process_file(csv_file_path: str, no_scores: bool):
     except Exception as e:
         print(f"Error processing {csv_file_path}: {e}")
         traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":
