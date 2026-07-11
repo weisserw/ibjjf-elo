@@ -2168,6 +2168,29 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
             [5, 0, 0],
         )
 
+    def test_exact_timer_crops_read_all_digits(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.TimerDigitReader()
+        cases = (
+            ("timer_exact_running_618.jpg", "running", "6:18", [6, 1, 8]),
+            ("timer_exact_stopped_649.jpg", "stopped", "6:49", [6, 4, 9]),
+        )
+
+        for fixture_name, expected_state, expected_value, expected_digits in cases:
+            with self.subTest(fixture=fixture_name):
+                timer_path = os.path.join(self.fixture_dir, fixture_name)
+                with open(timer_path, "rb") as fileobj:
+                    image = text_ocr.Image.open(fileobj).convert("RGB")
+
+                reading = reader.read(image)
+
+                self.assertEqual(reading.state, expected_state)
+                self.assertEqual(reading.value, expected_value)
+                self.assertEqual(
+                    [prediction.digit for prediction in reading.predictions],
+                    expected_digits,
+                )
+
     def test_four_digit_timer_limits_minute_tens_to_ibjjf_match_maximum(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         timer_path = os.path.join(self.fixture_dir, "new_timer_1000.jpg")

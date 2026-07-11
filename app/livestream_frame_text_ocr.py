@@ -900,7 +900,11 @@ class TimerDigitReader:
         width, height = image.size
         display_left = int(width * 0.10)
         display_right = int(width * 0.88)
-        display_bottom = int(height * 0.80)
+        # Exact timer crops have much less padding than the larger scoreboard
+        # crops. Keep enough of their lower strokes for component detection.
+        display_bottom_ratio = 0.90 if height < 40 else 0.80
+        display_bottom = int(height * display_bottom_ratio)
+        min_component_height = min(20, int(height * 0.65))
         display_mask = full_threshold[:display_bottom, display_left:display_right]
         component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
             display_mask.astype("uint8"), 8
@@ -909,7 +913,11 @@ class TimerDigitReader:
         components = []
         for component_index in range(1, component_count):
             x, y, component_width, component_height, area = stats[component_index]
-            if area < 40 or component_height < 20 or component_width < 8:
+            if (
+                area < 40
+                or component_height < min_component_height
+                or component_width < 8
+            ):
                 continue
             if x == 0:
                 continue
