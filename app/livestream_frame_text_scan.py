@@ -216,6 +216,42 @@ def get_or_create_text_scan(
     return scan, True
 
 
+def create_missing_text_scan_segments(
+    session,
+    scan: LivestreamFrameTextScan,
+    archive: LivestreamFrameArchive,
+    status: str,
+) -> list[LivestreamFrameTextScanSegment]:
+    existing_capture_ids = {
+        segment.capture_segment_id
+        for segment in LivestreamFrameTextScanSegment.query.filter_by(scan_id=scan.id)
+    }
+    capture_segments = (
+        LivestreamFrameCaptureSegment.query.filter_by(
+            archive_id=archive.id, status="success"
+        )
+        .order_by(LivestreamFrameCaptureSegment.start_second)
+        .all()
+    )
+    created = []
+    for capture_segment in capture_segments:
+        if capture_segment.id in existing_capture_ids:
+            continue
+        segment = LivestreamFrameTextScanSegment(
+            scan_id=scan.id,
+            archive_id=archive.id,
+            capture_segment_id=capture_segment.id,
+            start_second=capture_segment.start_second,
+            end_second=capture_segment.end_second,
+            status=status,
+            attempt_count=0,
+            event_count=0,
+        )
+        session.add(segment)
+        created.append(segment)
+    return created
+
+
 def queue_text_scan(
     session,
     archive: LivestreamFrameArchive,
@@ -247,34 +283,7 @@ def queue_text_scan(
 
     clear_livestream_match_links(session, scan.archive_id)
 
-    existing_capture_ids = {
-        segment.capture_segment_id
-        for segment in LivestreamFrameTextScanSegment.query.filter_by(scan_id=scan.id)
-    }
-    capture_segments = (
-        LivestreamFrameCaptureSegment.query.filter_by(
-            archive_id=archive.id, status="success"
-        )
-        .order_by(LivestreamFrameCaptureSegment.start_second)
-        .all()
-    )
-    created = 0
-    for capture_segment in capture_segments:
-        if capture_segment.id in existing_capture_ids:
-            continue
-        session.add(
-            LivestreamFrameTextScanSegment(
-                scan_id=scan.id,
-                archive_id=archive.id,
-                capture_segment_id=capture_segment.id,
-                start_second=capture_segment.start_second,
-                end_second=capture_segment.end_second,
-                status="queued",
-                attempt_count=0,
-                event_count=0,
-            )
-        )
-        created += 1
+    created = create_missing_text_scan_segments(session, scan, archive, status="queued")
 
     requeued = (
         LivestreamFrameTextScanSegment.query.filter_by(scan_id=scan.id)
@@ -286,11 +295,10 @@ def queue_text_scan(
             synchronize_session=False,
         )
     )
-    scan.total_segment_count = len(capture_segments)
     recompute_text_scan_status(session, scan)
     if scan.status in ("pending", "partial"):
         scan.status = "queued"
-    return created + requeued
+    return len(created) + requeued
 
 
 def retry_failed_text_scan_segments(
@@ -384,6 +392,11 @@ def clear_text_scan_events(session, scan_ids: list | None = None) -> dict[str, i
         segment.finished_at = None
 
     for scan in scans:
+        reset_segments.extend(
+            create_missing_text_scan_segments(
+                session, scan, scan.archive, status="pending"
+            )
+        )
         recompute_text_scan_status(session, scan)
         if scan.status == "queued" and all(
             segment.status == "pending" for segment in scan.segments
@@ -461,6 +474,7 @@ def reset_text_scan_for_rescan(session, scan_id, background_task_id=None):
 
     clear_livestream_match_links(session, scan.archive_id)
     LivestreamFrameTextEvent.query.filter_by(scan_id=scan.id).delete()
+    create_missing_text_scan_segments(session, scan, scan.archive, status="queued")
     segments = LivestreamFrameTextScanSegment.query.filter_by(scan_id=scan.id).all()
     for segment in segments:
         segment.status = "queued"

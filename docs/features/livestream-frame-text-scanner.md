@@ -25,6 +25,10 @@ Admins can queue, retry, cancel, clear, inspect, and rescan text-scanning work f
 
 `queue_text_scan()` creates one `LivestreamFrameTextScan` per successful archive and creates scan segments that correspond to archive capture segments. Each queue request records its position, so admin bulk queue actions preserve the dashboard's current sort order (and selected rows preserve their submitted order). `claim_next_text_scan_segment()` uses that recorded queue order before marking the next queued segment as running and incrementing attempts. The worker then:
 
+Queueing, clearing, or resetting an existing text scan also creates scanner segments
+for any successful archive capture segments added since the scan was first created.
+This keeps the scanner synchronized after an incomplete archive is re-fetched.
+
 Archives marked `is_bad` for having no scoreboard data are excluded from this
 dashboard and rejected by queue, retry, reset, rescan, and worker claim paths.
 Toggling an archive to bad from the frame archive dashboard clears its match links
