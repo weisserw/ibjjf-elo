@@ -44,6 +44,10 @@ ranking boards.
 
 The helper creates these important temp tables:
 
+- `{name}_match_data`: the participant/match/division facts for the board date.
+  All match-derived stages reuse this indexed table so the full match history is
+  joined once. The previous-board snapshot is filtered from the current-board
+  snapshot instead of repeating the permanent-table joins.
 - `{name}_athlete_belts`: athlete/belt history from match divisions.
 - `{name}_promotion_belts`: manual promotions before the rating date.
 - `{name}_athlete_rating_belts`: belt/rating contexts from matches,
