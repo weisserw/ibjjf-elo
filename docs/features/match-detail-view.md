@@ -18,6 +18,10 @@ Users can reach it from:
 The bracket view opens `MatchDetailModal`. Database rows can open the modal or
 expand an inline `MatchDetailView`.
 
+On mobile, the Event column wraps within the available width in both the modal
+and the inline Database card so the score-detail table does not extend past the
+viewport.
+
 ## Main Code Paths
 
 Frontend:

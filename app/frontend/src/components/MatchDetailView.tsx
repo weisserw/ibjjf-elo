@@ -318,12 +318,12 @@ function MatchDetailView({ matchId, showTitle = false }: MatchDetailViewProps) {
       <table className="table is-fullwidth is-narrow match-detail-table">
         <thead>
           <tr>
-            <th>{t("Time")}</th>
+            <th className="match-detail-time">{t("Time")}</th>
             <th className="match-detail-video-heading">
               <i className="fas fa-video" aria-label={t("Video")} title={t("Video")} />
             </th>
-            <th>{t("Event")}</th>
-            <th>{t("Score")}</th>
+            <th className="match-detail-event">{t("Event")}</th>
+            <th className="match-detail-score">{t("Score")}</th>
           </tr>
         </thead>
         <tbody>
@@ -350,7 +350,7 @@ function MatchDetailView({ matchId, showTitle = false }: MatchDetailViewProps) {
                       </a>
                     )}
                   </td>
-                  <td>
+                  <td className="match-detail-event">
                     {eventText(event)}
                   </td>
                   <td className="match-detail-score">{scoreSummary(event.totals, winnerKey)}</td>

@@ -36,6 +36,12 @@
   white-space: nowrap;
 }
 
+.match-detail-event {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+}
+
 .match-detail-title {
   font-weight: 400;
   padding-right: 2rem;
@@ -131,12 +137,31 @@
 @media screen and (max-width: 768px) {
   .match-detail-table {
     font-size: 0.85rem;
-    min-width: 20rem;
+    min-width: 0;
+    table-layout: fixed;
+    width: 100%;
   }
 
   .match-detail-table th,
   .match-detail-table td {
-    padding: 0.45rem 0.5rem;
+    padding: 0.45rem 0.35rem;
+  }
+
+  .match-detail-time {
+    width: 18%;
+  }
+
+  .match-detail-video-heading,
+  .match-detail-video-cell {
+    width: 12%;
+  }
+
+  .match-detail-event {
+    width: 45%;
+  }
+
+  .match-detail-score {
+    width: 25%;
   }
 
   .match-detail-score-summary {
