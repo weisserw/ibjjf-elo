@@ -142,7 +142,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 Git history shows this area is sensitive to OCR edge cases and workflow/status handling. Before editing, check nearby commits and tests for regressions in these categories:
 
 - Score digit ambiguity: fixes include `1 -> 3`, `3 -> 8`, bad `2*`, double-digit scores, smaller two-digit scores, and adaptive scoreboard width.
-- Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter.
+- Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter. Green timer digits take precedence over adjacent white scoreboard text in mixed tight crops so active timers are not mistaken for stopped timers.
 - Name OCR: multiple commits fixed athlete/team line selection, multi-line names, Paddle result parsing, Paddle choosing team names, and clipped/trailing initials.
 - Scoreboard visibility: blank scoreboard handling and scoreboard detection have had regressions.
 - Worker/admin state: requeue/rescan buttons, clear behavior, missing OCR, Docker dependencies, automatic retry/backoff, error truncation, and livestream queue ordering have all been adjusted.

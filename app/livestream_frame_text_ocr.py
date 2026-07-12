@@ -835,6 +835,11 @@ class TimerDigitReader:
             return "stopped"
         if green_foreground > 0.03 and dark_background > 0.30:
             return "running"
+        # Some tight crops include white scoreboard labels beside a green
+        # timer. Prefer the timer's active digit color over that unrelated
+        # white text when both appear on a dark-blue background.
+        if green_foreground > 0.03 and dark_blue_background > 0.15:
+            return "running"
         if white_foreground > 0.03 and dark_blue_background > 0.15:
             return "stopped"
         if (
