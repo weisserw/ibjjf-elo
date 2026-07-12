@@ -65,8 +65,7 @@ Backend data shaping:
     `/api/brackets/competitors`.
   - Archive APIs are around `/api/brackets/archive/categories` and
     `/api/brackets/archive/competitors`.
-  - Bracket ordering helpers include `_canonical_position_from_seeds(...)`,
-    `_position_from_display_match_num(...)`, and
+  - Live bracket ordering is handled by `_position_from_match_num(...)` and
     `add_canonical_display_match_numbers(...)`.
 - `app/seeding.py`
   - `_bracket_slots(n)` returns canonical first-round seed pairs and bracket
@@ -115,9 +114,11 @@ Important match-level fields:
 
 - `id`: present for DB-backed live/archive matches; required to open match
   detail.
-- `match_num`: original match number from the source data.
-- `display_match_num`: optional canonical visual number from the backend.
-  `createTreeFromMatchNums` uses it before falling back to `match_num`.
+- `match_num`: original IBJJF tree position. Round ranges are consecutive, so
+  the number determines both the round and the match's parent/child subtree.
+- `display_match_num`: canonical visual number computed by the backend from the
+  `match_num` tree. `createTreeFromMatchNums` uses it before falling back to
+  `match_num`.
 - `final`: marks the bracket root/final.
 - `when`, `where`, `fight_num`, `video_link`,
   `video_start_offset_seconds`: scheduling and video metadata shown above each
@@ -163,6 +164,14 @@ Backend live/archive ordering is sensitive. If the source match numbers do not
 match the canonical visual bracket, update `add_canonical_display_match_numbers`
 or related helpers in `app/routes/brackets.py` rather than changing only the CSS
 or React map order.
+
+Live reordering treats `match_num` as the tree structure. It orders the raw
+first-round subtrees by the canonical seed slots from `_bracket_slots(...)`,
+then recursively swaps complete sibling subtrees and assigns every later
+`display_match_num` from that same permutation. It does not reconstruct
+dependencies from winner flags, athlete advancement, fight scheduling, or
+`*_next_description` text. Those fields may be incomplete while the numbered
+tree remains valid.
 
 ## Layout Notes
 
@@ -227,6 +236,10 @@ Git history shows several recurring risk areas:
   or ordering fixes. These touched `app/routes/brackets.py` and
   `app/tests/test_seeding.py`, so ordering regressions should usually be fixed
   and tested in backend canonical display-number logic.
+- On 2026-07-11, live ordering was simplified to derive the full tree directly
+  from `match_num`. The previous dependency reconstruction could leave later
+  completed matches without `display_match_num` when IBJJF winner markers were
+  incomplete, causing the frontend to fall back to noncanonical raw positions.
 - `0bbb94a` on 2026-07-04, "show scores in archive and live brackets": score
   display spans frontend rendering, `BracketUtils` typing, backend payload
   fields, and archive API tests.
@@ -237,8 +250,8 @@ Git history shows several recurring risk areas:
 When investigating a tree bug, first decide whether the failure is data order,
 tree construction, or CSS layout. The fastest checks are:
 
-- inspect the API payload for `match_num`, `display_match_num`, `final`, and
-  side `*_next_description` fields
+- inspect the API payload for complete, unique `match_num` and
+  `display_match_num` ranges
 - confirm the parent view passes the expected `matchCount` and `hasMatchNums`
 - compare the same category in `BracketTable`; if the table is correct but the
   tree is not, focus on `BracketUtils` or `BracketTree.css`

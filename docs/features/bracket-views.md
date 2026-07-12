@@ -61,6 +61,11 @@ match numbers, and may attach final score/video data from the local archive. The
 frontend renders `BracketTree` when `matches` are present and always renders the
 competitor list through `BracketTable`.
 
+Canonical live display numbers are derived from the tree positions encoded by
+IBJJF `match_num` values. The backend reorders first-round subtrees by canonical
+seed position and carries that permutation through every later round; winner
+markers and prospective-match descriptions are not required for ordering.
+
 ### Registrations
 
 `BracketRegistration.tsx` starts with `GET /api/brackets/registrations/links` for

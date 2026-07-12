@@ -2568,13 +2568,13 @@ class LiveBracketDisplayMatchNumberTestCase(unittest.TestCase):
 
     def test_completed_n8_bracket_gets_unique_canonical_display_numbers(self):
         matches = [
-            _live_match(40, 1, 8),
-            _live_match(10, 6, 4),
-            _live_match(70, 3, 5),
-            _live_match(20, 2, 7),
-            _live_match(50, 1, 4),
-            _live_match(60, 3, 2),
-            _live_match(30, 1, 2, final=True),
+            _live_match(1, 3, 5),
+            _live_match(2, 2, 7),
+            _live_match(3, 1, 8),
+            _live_match(4, 6, 4),
+            _live_match(5, 3, 2),
+            _live_match(6, 1, 6),
+            _live_match(7, 1, 3, final=True),
         ]
 
         add_canonical_display_match_numbers(matches, 8)
@@ -2585,13 +2585,13 @@ class LiveBracketDisplayMatchNumberTestCase(unittest.TestCase):
         self.assertEqual(
             display_by_match_num,
             {
-                40: 1,
-                10: 2,
-                70: 3,
-                20: 4,
-                50: 5,
-                60: 6,
-                30: 7,
+                1: 3,
+                2: 4,
+                3: 1,
+                4: 2,
+                5: 6,
+                6: 5,
+                7: 7,
             },
         )
         self.assertEqual(
@@ -2599,32 +2599,16 @@ class LiveBracketDisplayMatchNumberTestCase(unittest.TestCase):
             list(range(1, 8)),
         )
 
-    def test_n7_live_matches_line_up_with_dependency_graph(self):
-        fight5 = _live_match(5, 2, 7)
-        fight6 = _live_match(6, 4, 5)
-        fight8 = _live_match(8, 3, 6)
-        semifinal_a = _live_child_match(
-            9,
-            "Winner of Fight 5, Mat 1",
-            "Winner of Fight 6, Mat 1",
-        )
-        semifinal_b = {
-            **_live_child_match(
-                10,
-                "",
-                "Winner of Fight 8, Mat 1",
-            ),
-            "red_id": "athlete-1",
-            "red_seed": 1,
-            "red_next_description": None,
-        }
-        final = _live_child_match(
-            11,
-            "Winner of Fight 9, Mat 1",
-            "Winner of Fight 10, Mat 1",
-            final=True,
-        )
-        matches = [fight5, fight6, fight8, semifinal_a, semifinal_b, final]
+    def test_n7_match_nums_propagate_first_round_reordering(self):
+        matches = [
+            _live_match(1, 2, 7),
+            _live_match(2, 3, 5),
+            _live_match(3, 6, 4),
+            _live_bye_match(4, 1),
+            _live_match(5, 2, 3),
+            _live_match(6, 6, 1),
+            _live_match(7, 1, 2, final=True),
+        ]
 
         add_canonical_display_match_numbers(matches, 7)
 
@@ -2634,25 +2618,26 @@ class LiveBracketDisplayMatchNumberTestCase(unittest.TestCase):
         self.assertEqual(
             display_by_match_num,
             {
-                5: 4,
-                6: 3,
-                8: 2,
-                9: 6,
-                10: 5,
-                11: 7,
+                1: 4,
+                2: 3,
+                3: 2,
+                4: 1,
+                5: 6,
+                6: 5,
+                7: 7,
             },
         )
 
     def test_n11_first_round_live_matches_get_canonical_display_numbers(self):
         matches = [
             _live_match(1, 7, 10),
-            _live_match(2, 5, 9),
-            _live_match(3, 8, 11),
-            _live_bye_match(4, 1),
-            _live_bye_match(5, 2),
-            _live_bye_match(6, 3),
-            _live_bye_match(7, 4),
-            _live_bye_match(8, 6),
+            _live_bye_match(2, 2),
+            _live_match(3, 5, 9),
+            _live_bye_match(4, 3),
+            _live_bye_match(5, 4),
+            _live_bye_match(6, 6),
+            _live_match(7, 8, 11),
+            _live_bye_match(8, 1),
         ]
 
         add_canonical_display_match_numbers(matches, 11)
@@ -2671,6 +2656,86 @@ class LiveBracketDisplayMatchNumberTestCase(unittest.TestCase):
                 5: 6,
                 2: 7,
                 7: 8,
+            },
+        )
+
+    def test_n34_completed_matches_follow_match_num_tree_after_reordering(self):
+        first_round_pairs = [
+            (29, 34),
+            (4, None),
+            (13, None),
+            (22, None),
+            (6, None),
+            (26, None),
+            (10, None),
+            (17, None),
+            (1, None),
+            (32, None),
+            (16, None),
+            (24, None),
+            (8, None),
+            (28, None),
+            (12, None),
+            (20, None),
+            (30, 33),
+            (3, None),
+            (14, None),
+            (21, None),
+            (5, None),
+            (25, None),
+            (9, None),
+            (18, None),
+            (2, None),
+            (31, None),
+            (15, None),
+            (23, None),
+            (7, None),
+            (27, None),
+            (11, None),
+            (19, None),
+        ]
+        matches = [
+            (
+                _live_match(match_num, red_seed, blue_seed)
+                if blue_seed is not None
+                else _live_bye_match(match_num, red_seed)
+            )
+            for match_num, (red_seed, blue_seed) in enumerate(
+                first_round_pairs, start=1
+            )
+        ]
+        matches.extend(
+            _live_child_match(
+                match_num,
+                "",
+                "",
+                final=match_num == 63,
+            )
+            for match_num in range(33, 64)
+        )
+
+        matches_by_num = {match["match_num"]: match for match in matches}
+        matches_by_num[37] = _live_match(37, 1, 32)
+        matches_by_num[51] = _live_match(51, 1, 16)
+        matches_by_num[58] = _live_match(58, 1, 12)
+        matches_by_num[61] = _live_match(61, 4, 1)
+        matches = list(matches_by_num.values())
+
+        add_canonical_display_match_numbers(matches, 34)
+
+        self.assertTrue(all("display_match_num" in match for match in matches))
+        self.assertEqual(
+            {
+                match_num: matches_by_num[match_num]["display_match_num"]
+                for match_num in (9, 37, 51, 58, 61, 63)
+            },
+            {
+                9: 1,
+                37: 33,
+                51: 49,
+                58: 57,
+                61: 61,
+                63: 63,
             },
         )
 
