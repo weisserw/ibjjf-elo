@@ -132,15 +132,26 @@ const eventText = (event: MatchDetailEvent) => {
     return `${athleteName} ${t("won by")} ${endingMethodText(event)}`;
   }
 
+  const actions = event.actions ?? [];
+  const penaltyParticipants = new Set(
+    actions
+      .filter(action => action.kind !== 'retraction' && action.category === 'penalties')
+      .map(action => action.participantKey),
+  );
+  const isDoublePenalty = penaltyParticipants.size > 1;
+  const phrases = isDoublePenalty ? [t("Double penalties received")] : [];
   const groups = new Map<string, MatchDetailAction[]>();
-  event.actions?.forEach(action => {
+  actions.forEach(action => {
+    if (isDoublePenalty && action.kind !== 'retraction' && action.category === 'penalties') {
+      return;
+    }
     const key = `${action.participantKey}:${action.athleteName}`;
     groups.set(key, [...(groups.get(key) ?? []), action]);
   });
 
-  return Array.from(groups.values())
-    .map(actions => formatActionGroup(actions[0].athleteName, actions))
-    .join('. ');
+  phrases.push(...Array.from(groups.values())
+    .map(groupActions => formatActionGroup(groupActions[0].athleteName, groupActions)));
+  return phrases.join('. ');
 }
 
 const endingMethodText = (event: MatchDetailEvent) => {

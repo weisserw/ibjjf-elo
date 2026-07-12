@@ -212,6 +212,233 @@ class MatchDetailEventsTestCase(unittest.TestCase):
         self.assertEqual(payload["events"][0]["totals"]["red"]["points"], 2)
         self.assertEqual(payload["events"][0]["totals"]["red"]["advantages"], 1)
 
+    def test_nearby_scores_for_same_competitor_form_an_indefinite_chain(self):
+        payload = build_match_detail_payload(
+            match(
+                final_top_points=2,
+                final_top_advantages=1,
+                final_top_penalties=1,
+            ),
+            [
+                text_event(
+                    0,
+                    "5:00",
+                    timer_state="running",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                ),
+                text_event(10, "4:50", top_points=2),
+                text_event(16, "4:44", top_advantages=1),
+                text_event(22, "4:38", top_penalties=1),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 1)
+        self.assertEqual(score_events[0]["time"], "4:50")
+        self.assertEqual(score_events[0]["videoOffsetSeconds"], 10)
+        self.assertEqual(
+            [action["category"] for action in score_events[0]["actions"]],
+            ["points", "advantages", "penalties"],
+        )
+
+    def test_scores_more_than_six_seconds_apart_are_separate_events(self):
+        payload = build_match_detail_payload(
+            match(final_top_points=4),
+            [
+                text_event(0, "5:00", timer_state="running", top_points=0),
+                text_event(10, "4:50", top_points=2),
+                text_event(17, "4:43", top_points=4),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 2)
+
+    def test_same_frame_scores_for_different_competitors_are_separate_events(self):
+        payload = build_match_detail_payload(
+            match(final_top_points=2, final_bottom_points=2),
+            [
+                text_event(
+                    0,
+                    "5:00",
+                    timer_state="running",
+                    top_points=0,
+                    bottom_points=0,
+                ),
+                text_event(10, "4:50", top_points=2, bottom_points=2),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 2)
+        self.assertEqual(
+            [event["actions"][0]["participantKey"] for event in score_events],
+            ["red", "blue"],
+        )
+
+    def test_second_penalty_combines_with_opponent_advantage(self):
+        payload = build_match_detail_payload(
+            match(final_top_penalties=2, final_bottom_advantages=1),
+            [
+                text_event(
+                    0,
+                    "5:00",
+                    timer_state="running",
+                    top_penalties=1,
+                    bottom_advantages=0,
+                ),
+                text_event(10, "4:50", top_penalties=2),
+                text_event(14, "4:46", bottom_advantages=1),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 2)
+        penalty_event = score_events[-1]
+        self.assertEqual(penalty_event["time"], "4:50")
+        self.assertEqual(penalty_event["videoOffsetSeconds"], 10)
+        self.assertEqual(
+            [
+                (
+                    action["participantKey"],
+                    action["category"],
+                    action["delta"],
+                )
+                for action in penalty_event["actions"]
+            ],
+            [("red", "penalties", 1), ("blue", "advantages", 1)],
+        )
+
+    def test_third_penalty_combines_with_opponent_two_points(self):
+        payload = build_match_detail_payload(
+            match(final_top_penalties=3, final_bottom_points=2),
+            [
+                text_event(
+                    0,
+                    "5:00",
+                    timer_state="running",
+                    top_penalties=2,
+                    bottom_points=0,
+                ),
+                text_event(10, "4:50", top_penalties=3),
+                text_event(16, "4:44", bottom_points=2),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 2)
+        penalty_event = score_events[-1]
+        self.assertEqual(
+            [
+                (action["participantKey"], action["category"], action["delta"])
+                for action in penalty_event["actions"]
+            ],
+            [("red", "penalties", 1), ("blue", "points", 2)],
+        )
+
+    def test_nonqualifying_penalty_does_not_mix_competitor_events(self):
+        payload = build_match_detail_payload(
+            match(final_top_penalties=1, final_bottom_advantages=1),
+            [
+                text_event(
+                    0,
+                    "5:00",
+                    timer_state="running",
+                    top_penalties=0,
+                    bottom_advantages=0,
+                ),
+                text_event(10, "4:50", top_penalties=1),
+                text_event(14, "4:46", bottom_advantages=1),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 2)
+
+    def test_double_penalty_combines_both_automatic_awards(self):
+        payload = build_match_detail_payload(
+            match(
+                final_top_points=2,
+                final_top_penalties=2,
+                final_bottom_advantages=1,
+                final_bottom_penalties=3,
+            ),
+            [
+                text_event(
+                    0,
+                    "5:00",
+                    timer_state="running",
+                    top_points=0,
+                    top_penalties=1,
+                    bottom_advantages=0,
+                    bottom_penalties=2,
+                ),
+                text_event(10, "4:50", top_penalties=2),
+                text_event(13, "4:47", bottom_advantages=1),
+                text_event(16, "4:44", bottom_penalties=3),
+                text_event(22, "4:38", top_points=2),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 2)
+        double_penalty_event = score_events[-1]
+        self.assertEqual(double_penalty_event["time"], "4:50")
+        self.assertEqual(double_penalty_event["videoOffsetSeconds"], 10)
+        self.assertEqual(
+            [
+                (action["participantKey"], action["category"], action["delta"])
+                for action in double_penalty_event["actions"]
+            ],
+            [
+                ("red", "penalties", 1),
+                ("blue", "advantages", 1),
+                ("blue", "penalties", 1),
+                ("red", "points", 2),
+            ],
+        )
+
+    def test_double_penalty_combines_when_no_automatic_awards_are_due(self):
+        payload = build_match_detail_payload(
+            match(final_top_penalties=1, final_bottom_penalties=1),
+            [
+                text_event(
+                    0,
+                    "5:00",
+                    timer_state="running",
+                    top_penalties=0,
+                    bottom_penalties=0,
+                ),
+                text_event(10, "4:50", top_penalties=1),
+                text_event(15, "4:45", bottom_penalties=1),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 1)
+        self.assertEqual(
+            [action["participantKey"] for action in score_events[0]["actions"]],
+            ["red", "blue"],
+        )
+
     def test_event_time_uses_running_timer_anchor_and_frame_offset(self):
         payload = build_match_detail_payload(
             match(final_top_points=2),

@@ -15,6 +15,7 @@ const translations = {
     "Time": "Tempo",
     "scored": "marcou",
     "received": "recebeu",
+    "Double penalties received": "Penalidades duplas recebidas",
     "was awarded": "recebeu",
     "won by": "venceu por",
     "had": "teve",

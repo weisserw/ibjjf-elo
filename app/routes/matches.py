@@ -73,6 +73,7 @@ RATE_LIMIT_WINDOW = 10
 PENALTY_PERIOD = 60
 REVIEW_RETRACTION_SECONDS = 30
 MATCH_DETAIL_RESET_TIMER_SECONDS = 4 * 60
+MATCH_DETAIL_EVENT_COMBINE_SECONDS = 6
 SCORE_CATEGORIES = ("points", "advantages", "penalties")
 SCORE_POSITIONS = ("top", "bottom")
 DQ_TYPE_NOTES: dict[str, tuple[str, ...]] = {
@@ -272,6 +273,120 @@ def _cancel_prior_score_events(events, position, category, amount):
             event["cancelled"] = True
 
 
+def _match_detail_events_are_close(first_event, second_event):
+    return (
+        0
+        <= second_event["frameSecond"] - first_event["frameSecond"]
+        <= MATCH_DETAIL_EVENT_COMBINE_SECONDS
+    )
+
+
+def _is_penalty_event(event):
+    return (
+        event["kind"] == "score"
+        and event["category"] == "penalties"
+        and event["delta"] > 0
+    )
+
+
+def _automatic_penalty_award(penalty_event):
+    if not _is_penalty_event(penalty_event):
+        return None
+    if penalty_event["scoreTotal"] == 2:
+        return "advantages", 1
+    if penalty_event["scoreTotal"] == 3:
+        return "points", 2
+    return None
+
+
+def _is_automatic_penalty_award(penalty_event, award_event):
+    expected_award = _automatic_penalty_award(penalty_event)
+    return (
+        expected_award is not None
+        and _match_detail_events_are_close(penalty_event, award_event)
+        and award_event["kind"] == "score"
+        and award_event["participantKey"] != penalty_event["participantKey"]
+        and (award_event["category"], award_event["delta"]) == expected_award
+    )
+
+
+def _double_penalty_group_end(events, start):
+    first_penalty = events[start]
+    if not _is_penalty_event(first_penalty):
+        return None
+
+    second_penalty_index = start + 1
+    if second_penalty_index < len(events) and _is_automatic_penalty_award(
+        first_penalty, events[second_penalty_index]
+    ):
+        second_penalty_index += 1
+
+    if second_penalty_index >= len(events):
+        return None
+
+    second_penalty = events[second_penalty_index]
+    previous_event = events[second_penalty_index - 1]
+    if (
+        not _is_penalty_event(second_penalty)
+        or second_penalty["participantKey"] == first_penalty["participantKey"]
+        or not _match_detail_events_are_close(previous_event, second_penalty)
+    ):
+        return None
+
+    group_end = second_penalty_index + 1
+    if group_end < len(events) and _is_automatic_penalty_award(
+        second_penalty, events[group_end]
+    ):
+        group_end += 1
+    return group_end
+
+
+def _group_match_detail_semantic_events(semantic_events):
+    score_totals = defaultdict(int)
+    events = []
+    for event in semantic_events:
+        if event.get("cancelled"):
+            continue
+        score_total_key = (event["participantKey"], event["category"])
+        score_totals[score_total_key] += event["delta"]
+        event["scoreTotal"] = score_totals[score_total_key]
+        events.append(event)
+
+    event_groups = []
+    index = 0
+
+    while index < len(events):
+        special_group_end = _double_penalty_group_end(events, index)
+        if special_group_end is None and index + 1 < len(events):
+            if _is_automatic_penalty_award(events[index], events[index + 1]):
+                special_group_end = index + 2
+
+        if special_group_end is not None:
+            event_groups.append(events[index:special_group_end])
+            index = special_group_end
+            continue
+
+        event = events[index]
+        previous_group = event_groups[-1] if event_groups else None
+        previous_group_participants = (
+            {item["participantKey"] for item in previous_group}
+            if previous_group
+            else set()
+        )
+        if (
+            previous_group
+            and len(previous_group_participants) == 1
+            and event["participantKey"] in previous_group_participants
+            and _match_detail_events_are_close(previous_group[-1], event)
+        ):
+            previous_group.append(event)
+        else:
+            event_groups.append([event])
+        index += 1
+
+    return event_groups
+
+
 def _build_match_detail_score_events(raw_events, participants_by_position):
     score_state = {
         f"{position}_{category}": 0
@@ -366,35 +481,30 @@ def _build_match_detail_score_events(raw_events, participants_by_position):
 
     totals = _empty_totals()
     response_events = []
-    current_response_event = None
-    current_group_key = None
 
-    for event in semantic_events:
-        if event.get("cancelled"):
-            continue
-        totals[event["participantKey"]][event["category"]] += event["delta"]
-        group_key = (event["frameSecond"], event["time"])
-        if current_response_event is None or group_key != current_group_key:
-            current_response_event = {
-                "kind": "score",
-                "time": event["time"],
-                "videoOffsetSeconds": event["frameSecond"],
-                "actions": [],
-                "totals": _copy_totals(totals),
-            }
-            response_events.append(current_response_event)
-            current_group_key = group_key
-        current_response_event["actions"].append(
-            {
-                "kind": event["kind"],
-                "participantKey": event["participantKey"],
-                "athleteName": event["athleteName"],
-                "category": event["category"],
-                "delta": event["delta"],
-                "verb": event.get("verb"),
-            }
-        )
-        current_response_event["totals"] = _copy_totals(totals)
+    for event_group in _group_match_detail_semantic_events(semantic_events):
+        first_event = event_group[0]
+        response_event = {
+            "kind": "score",
+            "time": first_event["time"],
+            "videoOffsetSeconds": first_event["frameSecond"],
+            "actions": [],
+            "totals": _copy_totals(totals),
+        }
+        for event in event_group:
+            totals[event["participantKey"]][event["category"]] += event["delta"]
+            response_event["actions"].append(
+                {
+                    "kind": event["kind"],
+                    "participantKey": event["participantKey"],
+                    "athleteName": event["athleteName"],
+                    "category": event["category"],
+                    "delta": event["delta"],
+                    "verb": event.get("verb"),
+                }
+            )
+        response_event["totals"] = _copy_totals(totals)
+        response_events.append(response_event)
 
     return response_events, match_time
 
