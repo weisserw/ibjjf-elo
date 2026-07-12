@@ -75,6 +75,8 @@ The admin UI for this feature is server-rendered Flask. The templates submit nor
 Browser/admin routes:
 
 - `GET/POST /livestream_frame_archives`
+  - Event-date sorting uses descending maximum day number and then descending
+    maximum mat number within each event date.
   - `sync`: discover archive rows from livestreams.
   - `queue_missing`: queue every non-success archive.
   - `queue_selected`: queue checked YouTube IDs.

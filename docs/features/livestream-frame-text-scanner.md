@@ -49,6 +49,8 @@ The admin UI for this feature is server-rendered Flask. The templates submit nor
 Browser/admin routes:
 
 - `GET/POST /livestream_frame_text_scans`
+  - Event-date sorting uses descending maximum day number and then descending
+    maximum mat number within each event date.
   - `queue_ready`: queue successful archives that do not already have text scans.
   - `queue_selected`: queue checked archives.
   - `retry_failed`: requeue failed scan segments.

@@ -530,6 +530,14 @@ def _dashboard_row_event_date(usages: list[LivestreamUsage]) -> datetime | None:
     return min(dates)
 
 
+def _dashboard_row_max_day_number(usages: list[LivestreamUsage]) -> int:
+    return max((usage.stream.day_number for usage in usages), default=0)
+
+
+def _dashboard_row_max_mat_number(usages: list[LivestreamUsage]) -> int:
+    return max((usage.stream.mat_number for usage in usages), default=0)
+
+
 def get_archive_dashboard_rows(session, sort: str = "event_date_desc") -> list[dict]:
     usages = discover_livestream_usages(session)
     archives = {
@@ -552,12 +560,16 @@ def get_archive_dashboard_rows(session, sort: str = "event_date_desc") -> list[d
                 "archive": archive,
                 "usages": row_usages,
                 "event_date": _dashboard_row_event_date(row_usages),
+                "max_day_number": _dashboard_row_max_day_number(row_usages),
+                "max_mat_number": _dashboard_row_max_mat_number(row_usages),
             }
         )
     if sort == "youtube_id":
         rows.sort(key=lambda row: row["youtube_video_id"])
     elif sort == "event_date_asc":
         rows.sort(key=lambda row: row["youtube_video_id"])
+        rows.sort(key=lambda row: row["max_mat_number"], reverse=True)
+        rows.sort(key=lambda row: row["max_day_number"], reverse=True)
         rows.sort(
             key=lambda row: (
                 row["event_date"] is None,
@@ -566,6 +578,8 @@ def get_archive_dashboard_rows(session, sort: str = "event_date_desc") -> list[d
         )
     else:
         rows.sort(key=lambda row: row["youtube_video_id"])
+        rows.sort(key=lambda row: row["max_mat_number"], reverse=True)
+        rows.sort(key=lambda row: row["max_day_number"], reverse=True)
         rows.sort(
             key=lambda row: row["event_date"] or datetime.min,
             reverse=True,

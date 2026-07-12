@@ -955,6 +955,66 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
             ).delete(synchronize_session=False)
             db.session.commit()
 
+    def test_dashboard_event_date_sorts_by_max_day_then_max_mat_descending(self):
+        event_id = "day-mat-sort-event"
+        db.session.add(
+            RegistrationLink(
+                name="Day Mat Sort Registration Open",
+                event_id=event_id,
+                normalized_name="day mat sort registration open",
+                updated_at=datetime(2026, 1, 1),
+                link=(
+                    "https://www.ibjjfdb.com/ChampionshipResults/" "day-mat-sort-event"
+                ),
+                hidden=False,
+                event_start_date=datetime(2026, 4, 1),
+            )
+        )
+
+        def add_stream(youtube_video_id, day_number, mat_number):
+            db.session.add(
+                LiveStream(
+                    event_id=event_id,
+                    platform="youtube",
+                    mat_number=mat_number,
+                    day_number=day_number,
+                    start_hour=9,
+                    start_minute=30,
+                    start_seconds=0,
+                    end_hour=18,
+                    end_minute=0,
+                    drift_factor=1.0,
+                    hide_all=False,
+                    link=("https://www.youtube.com/watch?v=" f"{youtube_video_id}"),
+                )
+            )
+
+        add_stream("DayOneHighMat", day_number=1, mat_number=12)
+        add_stream("DayTwoLowMat", day_number=2, mat_number=1)
+        add_stream("DayTwoHighMat", day_number=2, mat_number=9)
+        add_stream("DayTwoHighMat", day_number=1, mat_number=15)
+        db.session.commit()
+
+        expected_ids = ["DayTwoHighMat", "DayTwoLowMat", "DayOneHighMat"]
+        try:
+            for sort in ("event_date_desc", "event_date_asc"):
+                rows = archive_lib.get_archive_dashboard_rows(db.session, sort=sort)
+                event_rows = [
+                    row
+                    for row in rows
+                    if any(usage.stream.event_id == event_id for usage in row["usages"])
+                ]
+
+                self.assertEqual(
+                    [row["youtube_video_id"] for row in event_rows], expected_ids
+                )
+                self.assertEqual(event_rows[0]["max_day_number"], 2)
+                self.assertEqual(event_rows[0]["max_mat_number"], 15)
+        finally:
+            LiveStream.query.filter_by(event_id=event_id).delete()
+            RegistrationLink.query.filter_by(event_id=event_id).delete()
+            db.session.commit()
+
     def test_dashboard_rows_can_sort_by_event_date_ascending_and_youtube_id(self):
         db.session.add(
             RegistrationLink(
