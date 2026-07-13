@@ -99,6 +99,30 @@ const amountText = (action: MatchDetailAction) => {
   return `${amount} ${t(label)}`;
 }
 
+const combineAdditiveActions = (actions: MatchDetailAction[]) => {
+  const combined: MatchDetailAction[] = [];
+  const additiveActions = new Map<ScoreCategory, MatchDetailAction>();
+
+  actions.forEach(action => {
+    if (action.category === 'points') {
+      combined.push(action);
+      return;
+    }
+
+    const existing = additiveActions.get(action.category);
+    if (existing) {
+      existing.delta += action.delta;
+      return;
+    }
+
+    const additiveAction = { ...action };
+    additiveActions.set(action.category, additiveAction);
+    combined.push(additiveAction);
+  });
+
+  return combined;
+}
+
 const formatActionGroup = (athleteName: string, actions: MatchDetailAction[]) => {
   const scored = actions.filter(action => action.kind !== 'retraction' && action.category !== 'penalties');
   const received = actions.filter(action => action.kind !== 'retraction' && action.category === 'penalties');
@@ -106,10 +130,10 @@ const formatActionGroup = (athleteName: string, actions: MatchDetailAction[]) =>
   const phrases: string[] = [];
 
   if (scored.length > 0) {
-    phrases.push(`${athleteName} ${t(scored[0].verb === 'awarded' ? "was awarded" : "scored")} ${joinAmounts(scored)}`);
+    phrases.push(`${athleteName} ${t(scored[0].verb === 'awarded' ? "was awarded" : "scored")} ${joinAmounts(combineAdditiveActions(scored))}`);
   }
   if (received.length > 0) {
-    phrases.push(`${athleteName} ${t("received")} ${joinAmounts(received)}`);
+    phrases.push(`${athleteName} ${t("received")} ${joinAmounts(combineAdditiveActions(received))}`);
   }
   retractions.forEach(action => {
     phrases.push(`${athleteName} ${t("had")} ${t(categoryLabels[action.category].plural)} ${t("retracted on review")}`);
