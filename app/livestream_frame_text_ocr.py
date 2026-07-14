@@ -36,7 +36,7 @@ SUPPORTED_NAME_ENGINES = ("none", "tesseract", "paddle")
 SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
 SCORE_THREE_EIGHT_SIMILARITY_MARGIN = 0.02
-SCORE_THREE_MIN_RIGHT_DENSITY = 0.58
+SCORE_THREE_MAX_BOTTOM_LEFT_DENSITY = 0.80
 SCORE_BORDER_COLUMN_MIN_DENSITY = 0.85
 OCR_FONT_DIR = Path(__file__).resolve().parent / "ocr_fonts"
 NAME_COLUMN_RIGHT_RATIO = 0.481
@@ -576,11 +576,11 @@ def _score_mask_looks_like_three(mask) -> bool:
     left_third = mask[:, : max(1, width // 3)]
     middle_left = left_third[height // 3 : (height * 2) // 3, :]
     lower_left = left_third[height // 2 :, :]
-    right_third = mask[:, width - max(1, width // 3) :]
+    bottom_left = left_third[(height * 5) // 6 :, :]
     return bool(
         middle_left.mean() < 0.08
         and lower_left.mean() > 0.30
-        and right_third.mean() > SCORE_THREE_MIN_RIGHT_DENSITY
+        and bottom_left.mean() < SCORE_THREE_MAX_BOTTOM_LEFT_DENSITY
     )
 
 
