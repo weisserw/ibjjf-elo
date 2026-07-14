@@ -9,6 +9,10 @@ combines raw OCR/livestream score changes into readable score actions, appends a
 final result row, and links each row to the best available YouTube offset when a
 video source is known.
 
+When a DQ result has no participant marked as the winner, the final row names
+both participants and says they were disqualified instead of rendering an empty
+winner name. A DQ with a marked winner retains the usual "won by DQ" wording.
+
 Users can reach it from:
 
 - bracket matches in `app/frontend/src/components/BracketTree.tsx`

@@ -150,8 +150,11 @@ const joinAmounts = (actions: MatchDetailAction[]) => {
   return `${amounts.slice(0, -1).join(', ')} ${t("and")} ${amounts[amounts.length - 1]}`;
 }
 
-const eventText = (event: MatchDetailEvent) => {
+const eventText = (event: MatchDetailEvent, participants: MatchDetailParticipant[]) => {
   if (event.kind === 'final') {
+    if (event.endingMethod === 'DQ' && !event.winnerKey && participants.length === 2) {
+      return `${participants[0].name} ${t("and")} ${participants[1].name} ${t("were disqualified")}`;
+    }
     const athleteName = event.athleteName ?? '';
     return `${athleteName} ${t("won by")} ${endingMethodText(event)}`;
   }
@@ -375,7 +378,7 @@ function MatchDetailView({ matchId, showTitle = false }: MatchDetailViewProps) {
                     )}
                   </td>
                   <td className="match-detail-event">
-                    {eventText(event)}
+                    {eventText(event, detail.participants)}
                   </td>
                   <td className="match-detail-score">{scoreSummary(event.totals, winnerKey)}</td>
                 </tr>
