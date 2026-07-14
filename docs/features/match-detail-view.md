@@ -161,6 +161,10 @@ interface MatchDetailAction {
 - Participant display maps scoreboard position to UI participant key
   (`red` / `blue`) through match participants.
 - Positive deltas become score events.
+- A score decrease that returns to at least its prior value within 6 frame
+  seconds is treated as a momentary scorekeeper mistake. The temporary lower
+  value is ignored, and any increase beyond the prior value is emitted as the
+  net positive delta from that prior value.
 - Negative deltas normally cancel prior score events. Long-delay negative deltas
   are treated as review retractions and leave the original award visible with a
   retraction event.
@@ -227,6 +231,11 @@ Focused test file:
   - `test_partial_correction_rewrites_previous_score_amount`
   - `test_correction_can_cancel_earlier_matching_score`
   - `test_review_retraction_keeps_award_and_adds_retraction`
+  - `test_momentary_score_dip_is_folded_into_restored_total`
+  - `test_momentary_score_dip_and_exact_restore_are_suppressed`
+  - `test_score_dip_recovery_outside_grace_period_remains_visible`
+  - `test_score_change_in_other_field_does_not_restore_dip`
+  - `test_partial_score_dip_recovery_is_not_suppressed`
   - `test_same_first_names_use_cleaned_full_names`
   - `test_same_timestamp_scores_are_combined_into_one_event`
   - `test_event_time_uses_running_timer_anchor_and_frame_offset`

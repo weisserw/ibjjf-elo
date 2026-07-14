@@ -74,6 +74,7 @@ PENALTY_PERIOD = 60
 REVIEW_RETRACTION_SECONDS = 30
 MATCH_DETAIL_RESET_TIMER_SECONDS = 4 * 60
 MATCH_DETAIL_EVENT_COMBINE_SECONDS = 6
+MATCH_DETAIL_TRANSIENT_SCORE_DIP_SECONDS = 6
 SCORE_CATEGORIES = ("points", "advantages", "penalties")
 SCORE_POSITIONS = ("top", "bottom")
 DQ_TYPE_NOTES: dict[str, tuple[str, ...]] = {
@@ -273,6 +274,27 @@ def _cancel_prior_score_events(events, position, category, amount):
             event["cancelled"] = True
 
 
+def _score_dip_recovers_quickly(
+    raw_events, event_index, field, prior_value, dipped_value
+):
+    """Return whether a lower reading is promptly restored for one score field."""
+    dip_event = raw_events[event_index]
+    for later_event in raw_events[event_index + 1 :]:
+        if (
+            later_event.frame_second - dip_event.frame_second
+            > MATCH_DETAIL_TRANSIENT_SCORE_DIP_SECONDS
+        ):
+            return False
+
+        later_value = getattr(later_event, field)
+        if later_value is None or later_value == dipped_value:
+            continue
+
+        return later_value >= prior_value
+
+    return False
+
+
 def _match_detail_events_are_close(first_event, second_event):
     return (
         0
@@ -399,7 +421,7 @@ def _build_match_detail_score_events(raw_events, participants_by_position):
     match_time = None
     last_score_change_frame = None
 
-    for raw_event in raw_events:
+    for raw_event_index, raw_event in enumerate(raw_events):
         timer_state = getattr(raw_event, "timer_state", None)
         if timer_state == "stopped":
             timer_anchor = None
@@ -426,9 +448,15 @@ def _build_match_detail_score_events(raw_events, participants_by_position):
 
                 old_value = score_state[field] or 0
                 delta = value - old_value
-                score_state[field] = value
                 if delta == 0:
                     continue
+
+                if delta < 0 and _score_dip_recovers_quickly(
+                    raw_events, raw_event_index, field, old_value, value
+                ):
+                    continue
+
+                score_state[field] = value
 
                 prior_event = _find_prior_score_event(
                     semantic_events, position, category

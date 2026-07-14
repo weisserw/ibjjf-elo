@@ -160,6 +160,133 @@ class MatchDetailEventsTestCase(unittest.TestCase):
         self.assertEqual(retraction_event["actions"][0]["delta"], -2)
         self.assertEqual(retraction_event["totals"]["red"]["points"], 0)
 
+    def test_momentary_score_dip_is_folded_into_restored_total(self):
+        payload = build_match_detail_payload(
+            match(final_top_points=0, final_top_advantages=3),
+            [
+                text_event(0, "10:00", timer_state="running", top_advantages=0),
+                text_event(28, top_advantages=1),
+                text_event(53, top_advantages=2),
+                text_event(122, top_advantages=1),
+                text_event(125, top_advantages=3),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 3)
+        self.assertEqual(
+            [event["actions"][0]["delta"] for event in score_events],
+            [1, 1, 1],
+        )
+        self.assertEqual(
+            [event["totals"]["red"]["advantages"] for event in score_events],
+            [1, 2, 3],
+        )
+        self.assertEqual(score_events[2]["videoOffsetSeconds"], 125)
+        self.assertTrue(
+            all(
+                action["kind"] != "retraction"
+                for event in score_events
+                for action in event["actions"]
+            )
+        )
+        self.assertTrue(
+            all(event["actions"][0]["verb"] is None for event in score_events)
+        )
+
+    def test_momentary_score_dip_and_exact_restore_are_suppressed(self):
+        payload = build_match_detail_payload(
+            match(final_top_points=2),
+            [
+                text_event(0, "5:00", timer_state="running", top_points=0),
+                text_event(10, top_points=2),
+                text_event(50, top_points=1),
+                text_event(52, top_points=1),
+                text_event(53, top_points=2),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 1)
+        self.assertEqual(score_events[0]["actions"][0]["delta"], 2)
+        self.assertIsNone(score_events[0]["actions"][0]["verb"])
+        self.assertEqual(score_events[0]["totals"]["red"]["points"], 2)
+
+    def test_score_dip_recovery_outside_grace_period_remains_visible(self):
+        payload = build_match_detail_payload(
+            match(final_top_points=3),
+            [
+                text_event(0, "5:00", timer_state="running", top_points=0),
+                text_event(10, top_points=2),
+                text_event(50, top_points=1),
+                text_event(57, top_points=3),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 3)
+        self.assertEqual(score_events[0]["actions"][0]["verb"], "awarded")
+        self.assertEqual(score_events[1]["actions"][0]["kind"], "retraction")
+        self.assertEqual(score_events[1]["actions"][0]["delta"], -1)
+        self.assertEqual(score_events[2]["actions"][0]["delta"], 2)
+
+    def test_score_change_in_other_field_does_not_restore_dip(self):
+        payload = build_match_detail_payload(
+            match(
+                final_top_points=1,
+                final_bottom_points=2,
+            ),
+            [
+                text_event(
+                    0,
+                    "5:00",
+                    timer_state="running",
+                    top_points=0,
+                    bottom_points=0,
+                ),
+                text_event(10, top_points=2),
+                text_event(50, top_points=1),
+                text_event(53, bottom_points=2),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 3)
+        self.assertEqual(score_events[0]["actions"][0]["verb"], "awarded")
+        self.assertEqual(score_events[1]["actions"][0]["kind"], "retraction")
+        self.assertEqual(score_events[1]["actions"][0]["delta"], -1)
+        self.assertEqual(score_events[2]["actions"][0]["participantKey"], "blue")
+
+    def test_partial_score_dip_recovery_is_not_suppressed(self):
+        payload = build_match_detail_payload(
+            match(final_top_points=2),
+            [
+                text_event(0, "5:00", timer_state="running", top_points=0),
+                text_event(10, top_points=3),
+                text_event(50, top_points=1),
+                text_event(53, top_points=2),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(len(score_events), 2)
+        self.assertEqual(score_events[0]["actions"][0]["verb"], "awarded")
+        self.assertEqual(
+            [action["delta"] for action in score_events[1]["actions"]],
+            [-2, 1],
+        )
+        self.assertEqual(score_events[1]["totals"]["red"]["points"], 2)
+
     def test_same_first_names_use_cleaned_full_names(self):
         payload = build_match_detail_payload(
             match(
