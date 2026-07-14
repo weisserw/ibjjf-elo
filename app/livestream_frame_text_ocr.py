@@ -802,6 +802,7 @@ class TimerDigitReader:
     MINUTE_TENS_DIGITS = frozenset((0, 1))
     SECOND_TENS_DIGITS = frozenset(range(6))
     MIN_DIGIT_COMPONENT_DENSITY = 0.30
+    MAX_DIGIT_ROW_DENSITY = 0.60
 
     def __init__(self, classifier: FixedDigitClassifier | None = None):
         self.classifier = classifier or FixedDigitClassifier(
@@ -919,7 +920,15 @@ class TimerDigitReader:
         display_bottom_ratio = 0.90 if height < 40 else 0.80
         display_bottom = int(height * display_bottom_ratio)
         min_component_height = min(20, int(height * 0.65))
-        display_mask = full_threshold[:display_bottom, display_left:display_right]
+        display_mask = full_threshold[
+            :display_bottom, display_left:display_right
+        ].copy()
+        # Horizontal video artifacts and timer-frame edges can bridge otherwise
+        # separate digits into one component. A real glyph row does not span
+        # most of the timer display, so discard only those unusually dense rows
+        # before finding components.
+        dense_rows = display_mask.mean(axis=1) > self.MAX_DIGIT_ROW_DENSITY
+        display_mask[dense_rows, :] = False
         component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
             display_mask.astype("uint8"), 8
         )
