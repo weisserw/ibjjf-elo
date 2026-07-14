@@ -15,6 +15,11 @@ winner name. The modal title falls back to red-versus-blue participant order in
 that case. A DQ with a marked winner retains the usual "won by DQ" wording and
 winner-first title order.
 
+When the final timer is missing, the result does not infer points or submission
+from the score alone. The API uses the generic `Final` method, which the UI
+renders as "<winner> won" when a winner is known. DQ notes continue to take
+precedence, and a positive final timer is classified as a submission.
+
 Users can reach it from:
 
 - bracket matches in `app/frontend/src/components/BracketTree.tsx`

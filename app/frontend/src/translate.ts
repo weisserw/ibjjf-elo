@@ -17,6 +17,7 @@ const translations = {
     "received": "recebeu",
     "Double penalties received": "Penalidades duplas recebidas",
     "was awarded": "recebeu",
+    "won": "venceu",
     "won by": "venceu por",
     "were disqualified": "foram desclassificados",
     "had": "teve",

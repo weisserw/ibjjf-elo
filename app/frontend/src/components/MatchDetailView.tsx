@@ -156,6 +156,9 @@ const eventText = (event: MatchDetailEvent, participants: MatchDetailParticipant
       return `${participants[0].name} ${t("and")} ${participants[1].name} ${t("were disqualified")}`;
     }
     const athleteName = event.athleteName ?? '';
+    if (event.endingMethod === 'Final') {
+      return athleteName ? `${athleteName} ${t("won")}` : t("Final");
+    }
     return `${athleteName} ${t("won by")} ${endingMethodText(event)}`;
   }
 

@@ -592,6 +592,17 @@ class MatchDetailEventsTestCase(unittest.TestCase):
         self.assertEqual(points_event["endingMethod"], "points")
         self.assertEqual(points_event["endingMethodAmount"], 2)
 
+        missing_timer_event = build_match_detail_payload(
+            match(
+                final_match_time_seconds=None,
+                final_top_points=4,
+                final_bottom_points=2,
+            ),
+            [],
+        )["events"][-1]
+        self.assertEqual(missing_timer_event["endingMethod"], "Final")
+        self.assertIsNone(missing_timer_event["endingMethodAmount"])
+
         advantage_event = build_match_detail_payload(
             match(
                 final_top_points=2,
