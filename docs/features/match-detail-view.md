@@ -11,7 +11,9 @@ video source is known.
 
 When a DQ result has no participant marked as the winner, the final row names
 both participants and says they were disqualified instead of rendering an empty
-winner name. A DQ with a marked winner retains the usual "won by DQ" wording.
+winner name. The modal title falls back to red-versus-blue participant order in
+that case. A DQ with a marked winner retains the usual "won by DQ" wording and
+winner-first title order.
 
 Users can reach it from:
 

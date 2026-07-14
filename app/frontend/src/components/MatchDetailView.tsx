@@ -329,7 +329,7 @@ function MatchDetailView({ matchId, showTitle = false }: MatchDetailViewProps) {
 
   const winnerKey = detail.events.find(event => event.kind === 'final')?.winnerKey ?? null;
   const titleFirstKey = winnerKey ?? 'red';
-  const titleSecondKey = winnerKey === 'red' ? 'blue' : 'red';
+  const titleSecondKey = titleFirstKey === 'red' ? 'blue' : 'red';
 
   return (
     <div className="match-detail-view">
