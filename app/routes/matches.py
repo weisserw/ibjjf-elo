@@ -849,6 +849,8 @@ def matches():
     mat_number = request.args.get("mat_number")
     dq_type_technical = request.args.get("dq_type_technical")
     dq_type_disciplinary = request.args.get("dq_type_disciplinary")
+    has_score = request.args.get("has_score")
+    submission = request.args.get("submission")
     rating_start = request.args.get("rating_start")
     rating_end = request.args.get("rating_end")
     elite_only = request.args.get("elite_only")
@@ -930,6 +932,8 @@ def matches():
         weight_open_class = weight_open_class.lower() == "true"
     dq_type_technical = (dq_type_technical or "").lower() == "true"
     dq_type_disciplinary = (dq_type_disciplinary or "").lower() == "true"
+    has_score = (has_score or "").lower() == "true"
+    submission = (submission or "").lower() == "true"
     if elite_only:
         elite_only = elite_only.lower() == "true"
 
@@ -1217,6 +1221,30 @@ def matches():
         )
         """
         params.update(dq_note_params)
+
+    if has_score:
+        filters += """AND (
+            m.final_top_points IS NOT NULL
+            OR m.final_top_advantages IS NOT NULL
+            OR m.final_top_penalties IS NOT NULL
+            OR m.final_bottom_points IS NOT NULL
+            OR m.final_bottom_advantages IS NOT NULL
+            OR m.final_bottom_penalties IS NOT NULL
+        )
+        """
+
+    if submission:
+        filters += """AND m.final_match_time_seconds > 0
+        AND NOT EXISTS (
+            SELECT 1
+            FROM match_participants mp
+            WHERE mp.match_id = m.id
+            AND (
+                LOWER(mp.note) LIKE '%disqualified%'
+                OR LOWER(mp.note) LIKE '%desqualificado%'
+            )
+        )
+        """
 
     if rating_start is not None:
         rating_start_int = int(rating_start)

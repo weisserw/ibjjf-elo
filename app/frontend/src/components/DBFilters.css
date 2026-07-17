@@ -95,6 +95,10 @@
   row-gap: 8px;
 }
 
+.score-type-filter {
+  margin-top: 12px;
+}
+
 .db-country-autosuggest .react-autosuggest__input {
   width: auto;
   flex: 1 1 auto;

@@ -630,6 +630,49 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_has_score(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        match = Match.query.filter_by(match_location="Mat 1").one()
+        match.final_top_points = 0
+        db.session.commit()
+
+        try:
+            response = self.client.get("/api/matches?gi=true&has_score=true")
+            data = response.get_json()
+        finally:
+            match.final_top_points = None
+            db.session.commit()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["matchLocation"], "Mat 1")
+        self.assertEqual(data["rows"][0]["finalTopPoints"], 0)
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_submission(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        submission_match = Match.query.filter_by(match_location="Mat 1").one()
+        dq_match = Match.query.filter_by(match_location="Mat 3").one()
+        submission_match.final_match_time_seconds = 120
+        dq_match.final_match_time_seconds = 120
+        db.session.commit()
+
+        try:
+            response = self.client.get("/api/matches?gi=true&submission=true")
+            data = response.get_json()
+        finally:
+            submission_match.final_match_time_seconds = None
+            dq_match.final_match_time_seconds = None
+            db.session.commit()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["matchLocation"], "Mat 1")
+        self.assertTrue(data["rows"][0]["submission"])
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
     def test_matches_juvenile_filter_includes_all_juvenile_variants(
         self, mock_livestreams, _mock_s3
     ):

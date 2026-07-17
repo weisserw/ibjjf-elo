@@ -107,8 +107,8 @@ Important query params accepted by `matches()`:
   `weight_middle`, `weight_medium_heavy`, `weight_heavy`,
   `weight_super_heavy`, `weight_ultra_heavy`, `weight_open_class`.
 - Other filters: `date_start`, `date_end`, `mat_number`,
-  `dq_type_technical`, `dq_type_disciplinary`, `rating_start`, `rating_end`,
-  `elite_only`, `page`.
+  `dq_type_technical`, `dq_type_disciplinary`, `has_score`, `submission`,
+  `rating_start`, `rating_end`, `elite_only`, `page`.
 
 Supporting frontend calls:
 
@@ -173,6 +173,9 @@ returned.
   shared filter.
 - DQ filters inspect participant notes and distinguish technical and
   disciplinary DQ note text.
+- `has_score` includes matches with at least one non-null final score field.
+- `submission` includes matches with a positive `final_match_time_seconds` and
+  excludes DQ notes, matching the visible Sub column.
 - `submission` is derived from `final_match_time_seconds`: `null` means the
   value is unknown, positive values render as submission, zero renders as not a
   submission. DQ notes suppress the visible submission checkbox/value.

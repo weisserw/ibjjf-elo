@@ -80,6 +80,8 @@ export interface FilterValues {
   mat_number?: number;
   dq_type_technical?: boolean;
   dq_type_disciplinary?: boolean;
+  has_score?: boolean;
+  submission?: boolean;
   rating_start?: number;
   rating_end?: number;
   elite_only?: boolean;
@@ -466,7 +468,9 @@ function DBFilters() {
                         !!filters.date_end ||
                         filters.mat_number !== undefined ||
                         !!filters.dq_type_technical ||
-                        !!filters.dq_type_disciplinary
+                        !!filters.dq_type_disciplinary ||
+                        !!filters.has_score ||
+                        !!filters.submission
                      }>
               <div className="field is-grouped">
                 <div className="control is-expanded">
@@ -549,6 +553,27 @@ function DBFilters() {
                 </label>
                 <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['dq_type_technical', 'dq_type_disciplinary'])}>
                   {(filters.dq_type_technical || filters.dq_type_disciplinary) ? t("Clear") : t("All")}
+                </button>
+              </div>
+              <div className="dq-type-filter score-type-filter checkbox-filters checkboxes">
+                <label className="checkbox checkbox-filter">
+                  <input
+                    type="checkbox"
+                    checked={!!filters.has_score}
+                    onChange={(e) => onChange('has_score', e.target.checked)}
+                  />
+                  {t("Has Score")}
+                </label>
+                <label className="checkbox checkbox-filter">
+                  <input
+                    type="checkbox"
+                    checked={!!filters.submission}
+                    onChange={(e) => onChange('submission', e.target.checked)}
+                  />
+                  {t("Submission")}
+                </label>
+                <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['has_score', 'submission'])}>
+                  {(filters.has_score || filters.submission) ? t("Clear") : t("All")}
                 </button>
               </div>
             </Section>

@@ -127,6 +127,7 @@ const translations = {
     "Tournament Name": "Nome do Torneio",
     "Technical DQ": "Desclassificação técnica",
     "Disciplinary DQ": "Desclassificação disciplinar",
+    "Has Score": "Com placar",
     "Search for any past tournament by name": "Pesquise por qualquer torneio passado pelo nome",
     "Division": "Divisão",
     "Winner": "Vencedor",
