@@ -1117,7 +1117,10 @@ def import_registration_link(link, background):
             log.debug(f"Invalid division name: {division_name_clean}")
             continue
 
-        total_competitors += len(entry["RegistrationCategories"])
+        # Open class entrants are already counted in their regular weight
+        # divisions and are not persisted by get_db_division().
+        if OPEN_CLASS not in divdata["weight"]:
+            total_competitors += len(entry["RegistrationCategories"])
 
     if background:
         division_set = set(rows)

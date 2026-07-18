@@ -2,6 +2,7 @@ import os
 import sys
 import unittest
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -12,6 +13,7 @@ from constants import JUVENILE, JUVENILE_1
 from models import Division, RegistrationLink, RegistrationLinkCompetitor
 from routes.brackets import (
     _registration_seeding_start_date,
+    import_registration_link,
     parse_registrations,
     save_competitors,
 )
@@ -200,6 +202,55 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(
             data[1]["RegistrationCategories"][0]["AthleteName"], "Example Athlete"
         )
+
+    def test_import_registration_link_excludes_open_class_from_total(self):
+        url = "https://www.ibjjfdb.com/ChampionshipResults/9998/PublicRegistrations"
+        html = """
+            <div id="registrations-by-category">
+              <section class="belt-group" data-belt-group="black">
+                <section class="category-set" data-gender="male">
+                  <h3 class="category-name">Adult / Male / Light</h3>
+                  <table class="registrations-table"><tbody>
+                    <tr><td class="team">Team A</td><td class="athlete">Athlete One</td></tr>
+                    <tr><td class="team">Team B</td><td class="athlete">Athlete Two</td></tr>
+                  </tbody></table>
+                </section>
+                <section class="category-set" data-gender="male">
+                  <h3 class="category-name">Adult / Male / Open Class</h3>
+                  <table class="registrations-table"><tbody>
+                    <tr><td class="team">Team A</td><td class="athlete">Athlete One</td></tr>
+                    <tr><td class="team">Team B</td><td class="athlete">Athlete Two</td></tr>
+                  </tbody></table>
+                </section>
+              </section>
+            </div>
+        """
+
+        with self.app_module.app.app_context():
+            link = RegistrationLink(
+                name="Registration Open 2026",
+                normalized_name="registration open 2026",
+                updated_at=datetime(2026, 5, 1),
+                link=f"{url}?lang=en-US",
+                hidden=False,
+                event_start_date=datetime(2026, 6, 13),
+                event_end_date=datetime(2026, 6, 14),
+            )
+            db.session.add(link)
+            db.session.commit()
+
+            with patch("routes.brackets.get_bracket_page", return_value=html):
+                result = import_registration_link(url, background=False)
+
+            persisted = (
+                db.session.query(RegistrationLinkCompetitor)
+                .filter(RegistrationLinkCompetitor.registration_link_id == link.id)
+                .all()
+            )
+
+        self.assertEqual(result["total_competitors"], 2)
+        self.assertEqual(len(result["categories"]), 2)
+        self.assertEqual(len(persisted), 2)
 
     def test_save_competitors_allows_same_athlete_in_overlapping_juvenile_divisions(
         self,
