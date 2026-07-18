@@ -9,12 +9,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from bs4 import BeautifulSoup
 
 from extensions import db
-from constants import JUVENILE, JUVENILE_1
+from constants import ADULT, BLACK, HEAVY, JUVENILE, JUVENILE_1, MALE
 from models import Division, RegistrationLink, RegistrationLinkCompetitor
 from routes.brackets import (
     _registration_seeding_start_date,
     import_registration_link,
     parse_registrations,
+    registration_competitor_count,
     save_competitors,
 )
 from test_db import TestDbMixin
@@ -203,7 +204,7 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
             data[1]["RegistrationCategories"][0]["AthleteName"], "Example Athlete"
         )
 
-    def test_import_registration_link_excludes_open_class_from_total(self):
+    def test_import_registration_link_uses_persisted_competitor_total(self):
         url = "https://www.ibjjfdb.com/ChampionshipResults/9998/PublicRegistrations"
         html = """
             <div id="registrations-by-category">
@@ -233,10 +234,35 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
                 updated_at=datetime(2026, 5, 1),
                 link=f"{url}?lang=en-US",
                 hidden=False,
+                event_id="9998",
                 event_start_date=datetime(2026, 6, 13),
                 event_end_date=datetime(2026, 6, 14),
             )
-            db.session.add(link)
+            stale_division = Division(
+                gi=True,
+                gender=MALE,
+                age=ADULT,
+                belt=BLACK,
+                weight=HEAVY,
+            )
+            db.session.add_all([link, stale_division])
+            db.session.flush()
+            db.session.add_all(
+                [
+                    RegistrationLinkCompetitor(
+                        registration_link_id=link.id,
+                        athlete_name="Athlete One",
+                        team_name="Former Team",
+                        division_id=stale_division.id,
+                    ),
+                    RegistrationLinkCompetitor(
+                        registration_link_id=link.id,
+                        athlete_name="Former Athlete",
+                        team_name="Former Team",
+                        division_id=stale_division.id,
+                    ),
+                ]
+            )
             db.session.commit()
 
             with patch("routes.brackets.get_bracket_page", return_value=html):
@@ -247,10 +273,14 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
                 .filter(RegistrationLinkCompetitor.registration_link_id == link.id)
                 .all()
             )
+            event_total = registration_competitor_count(event_id=link.event_id)
 
-        self.assertEqual(result["total_competitors"], 2)
+        self.assertEqual(result["total_competitors"], 3)
+        self.assertEqual(event_total, 3)
         self.assertEqual(len(result["categories"]), 2)
-        self.assertEqual(len(persisted), 2)
+        self.assertEqual(len(persisted), 4)
+        self.assertEqual(sum(row.athlete_name == "Athlete One" for row in persisted), 2)
+        self.assertIn("Former Athlete", {row.athlete_name for row in persisted})
 
     def test_save_competitors_allows_same_athlete_in_overlapping_juvenile_divisions(
         self,

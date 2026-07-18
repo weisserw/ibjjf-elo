@@ -95,6 +95,26 @@ def format_division(divdata):
     return f"{divdata['belt']} / {divdata['age']} / {divdata['gender']} / {divdata['weight']}"
 
 
+def registration_competitor_count(registration_link_id=None, event_id=None):
+    if (registration_link_id is None) == (event_id is None):
+        raise ValueError("Provide exactly one registration link ID or event ID")
+
+    query = db.session.query(
+        func.count(func.distinct(RegistrationLinkCompetitor.athlete_name))
+    ).select_from(RegistrationLinkCompetitor)
+
+    if registration_link_id is not None:
+        query = query.filter(
+            RegistrationLinkCompetitor.registration_link_id == registration_link_id
+        )
+    else:
+        query = query.join(RegistrationLink).filter(
+            RegistrationLink.event_id == event_id
+        )
+
+    return query.scalar() or 0
+
+
 def parse_division(name):
     name = weightre.sub("", name)
 
@@ -1095,7 +1115,6 @@ def import_registration_link(link, background):
         db.session.commit()
 
     rows = []
-    total_competitors = 0
     for entry in json_data:
         division_name = entry["FriendlyName"]
         division_name_clean = weightre.sub("", division_name)
@@ -1117,11 +1136,6 @@ def import_registration_link(link, background):
             log.debug(f"Invalid division name: {division_name_clean}")
             continue
 
-        # Open class entrants are already counted in their regular weight
-        # divisions and are not persisted by get_db_division().
-        if OPEN_CLASS not in divdata["weight"]:
-            total_competitors += len(entry["RegistrationCategories"])
-
     if background:
         division_set = set(rows)
         thread = threading.Thread(
@@ -1130,6 +1144,8 @@ def import_registration_link(link, background):
         thread.start()
     else:
         save_competitors(link.id, json_data, set(rows))
+
+    total_competitors = registration_competitor_count(registration_link_id=link.id)
 
     return {
         "categories": rows,
@@ -1178,11 +1194,7 @@ def internal_registration_categories(link):
             )
         )
 
-    total_competitors = (
-        db.session.query(RegistrationLinkCompetitor)
-        .filter(RegistrationLinkCompetitor.registration_link_id == db_link.id)
-        .count()
-    )
+    total_competitors = registration_competitor_count(registration_link_id=db_link.id)
 
     return {
         "categories": rows,
@@ -2914,12 +2926,7 @@ def categories(tournament_id):
         ),
     )
 
-    total_competitors = (
-        db.session.query(RegistrationLinkCompetitor.id)
-        .join(RegistrationLink)
-        .filter(RegistrationLink.event_id == tournament_id)
-        .count()
-    )
+    total_competitors = registration_competitor_count(event_id=tournament_id)
 
     return jsonify({"categories": results, "total": total_competitors})
 

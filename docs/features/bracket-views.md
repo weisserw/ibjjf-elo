@@ -239,10 +239,13 @@ Git history shows several recurring risk areas:
 - Registration source changes: `98daca7` on 2026-07-06 added support for the new
   IBJJF registration page. Treat external registration HTML as unstable and keep
   parsing changes covered by API tests.
-- Registration competitor totals must exclude open-class rows because those
-  athletes are already counted in their regular weight divisions. Open-class
-  categories remain available for bracket selection, while persistence and the
-  `total_competitors` response both exclude their duplicate registrations.
+- Registration competitor totals come from `registration_link_competitors`, not
+  directly from the latest registration-page HTML, and count distinct athlete
+  names rather than rows. This keeps views consistent when the persisted import
+  retains registrations from a division that later disappears, avoids counting
+  athletes twice when they switch divisions, and excludes open-class duplicates
+  because open classes are not persisted. Open-class categories remain available
+  for bracket selection.
 - Registration list ordering: `3270fc4` on 2026-07-03 pinned World Master to the
   top of the registration list. Be careful when changing `registration_links()`
   ordering or hidden/date filtering.
