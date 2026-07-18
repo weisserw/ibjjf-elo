@@ -57,6 +57,7 @@ from models import (
 )
 from livestream_frame_archive import (
     DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
+    DEFAULT_FRESH_SEGMENTS_PER_ERROR_RETRY,
     DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
     DEFAULT_SEGMENT_SECONDS,
     apply_probe_metadata,
@@ -1561,6 +1562,10 @@ def worker_claim_livestream_frame_segment():
         max_error_retry_backoff_seconds=data.get(
             "max_error_retry_backoff_seconds",
             DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
+        ),
+        fresh_segments_per_error_retry=data.get(
+            "fresh_segments_per_error_retry",
+            DEFAULT_FRESH_SEGMENTS_PER_ERROR_RETRY,
         ),
     )
     return jsonify({"segment": _segment_payload(segment)})

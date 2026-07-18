@@ -31,6 +31,7 @@ ARCHIVE_STATUSES = (
 )
 DEFAULT_ERROR_RETRY_BACKOFF_SECONDS = 300
 DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS = 1800
+DEFAULT_FRESH_SEGMENTS_PER_ERROR_RETRY = 3
 
 
 def error_retry_backoff_seconds(
@@ -386,6 +387,7 @@ def claim_next_segment(
     background_task_id=None,
     error_retry_backoff_seconds: int = DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
     max_error_retry_backoff_seconds: int = DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
+    fresh_segments_per_error_retry: int = DEFAULT_FRESH_SEGMENTS_PER_ERROR_RETRY,
 ) -> LivestreamFrameCaptureSegment | None:
     error_retry_backoff_seconds = (
         DEFAULT_ERROR_RETRY_BACKOFF_SECONDS
@@ -396,6 +398,11 @@ def claim_next_segment(
         DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS
         if max_error_retry_backoff_seconds is None
         else int(max_error_retry_backoff_seconds)
+    )
+    fresh_segments_per_error_retry = (
+        DEFAULT_FRESH_SEGMENTS_PER_ERROR_RETRY
+        if fresh_segments_per_error_retry is None
+        else max(int(fresh_segments_per_error_retry), 0)
     )
     base_query = (
         LivestreamFrameCaptureSegment.query.options(
@@ -423,45 +430,50 @@ def claim_next_segment(
         LivestreamFrameCaptureSegment.created_at,
     )
     now = datetime.utcnow()
-    segment = None
-    if max_error_retry_backoff_seconds > 0:
-        stale_error_cutoff = now - timedelta(seconds=max_error_retry_backoff_seconds)
-        segment = (
-            base_query.filter(LivestreamFrameCaptureSegment.status == "error")
-            .filter(LivestreamFrameCaptureSegment.finished_at.isnot(None))
-            .filter(LivestreamFrameCaptureSegment.finished_at <= stale_error_cutoff)
-            .order_by(*ordering)
-            .first()
+    fresh_segment = (
+        base_query.filter(
+            LivestreamFrameCaptureSegment.status.in_(["pending", "queued"])
         )
-
-    if not segment:
-        segment = (
-            base_query.filter(
-                LivestreamFrameCaptureSegment.status.in_(["pending", "queued"])
+        .order_by(*ordering)
+        .first()
+    )
+    error_segments = (
+        base_query.filter(LivestreamFrameCaptureSegment.status == "error")
+        .order_by(*ordering)
+        .all()
+    )
+    retry_segment = next(
+        (
+            error_segment
+            for error_segment in error_segments
+            if error_segment_retry_ready(
+                error_segment,
+                now=now,
+                base_seconds=error_retry_backoff_seconds,
+                max_seconds=max_error_retry_backoff_seconds,
             )
-            .order_by(*ordering)
-            .first()
-        )
+        ),
+        None,
+    )
 
-    if not segment:
-        error_segments = (
-            base_query.filter(LivestreamFrameCaptureSegment.status == "error")
-            .order_by(*ordering)
+    segment = fresh_segment or retry_segment
+    if fresh_segment and retry_segment:
+        # The persisted claim history is the scheduler state, so the retry share
+        # survives worker restarts without a queue-size- or time-based heuristic.
+        recent_claims = (
+            base_query.filter(LivestreamFrameCaptureSegment.started_at.isnot(None))
+            .order_by(
+                LivestreamFrameCaptureSegment.started_at.desc(),
+                LivestreamFrameCaptureSegment.created_at.desc(),
+            )
+            .limit(fresh_segments_per_error_retry)
             .all()
         )
-        segment = next(
-            (
-                error_segment
-                for error_segment in error_segments
-                if error_segment_retry_ready(
-                    error_segment,
-                    now=now,
-                    base_seconds=error_retry_backoff_seconds,
-                    max_seconds=max_error_retry_backoff_seconds,
-                )
-            ),
-            None,
+        retry_quota_ready = fresh_segments_per_error_retry == 0 or (
+            len(recent_claims) == fresh_segments_per_error_retry
+            and all((recent.attempt_count or 0) <= 1 for recent in recent_claims)
         )
+        segment = retry_segment if retry_quota_ready else fresh_segment
     if not segment:
         return None
 

@@ -74,6 +74,10 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
             runner.DEFAULT_FALLBACK_FORMAT_SELECTOR,
         )
         self.assertEqual(args.extractor_args, runner.DEFAULT_EXTRACTOR_ARGS)
+        self.assertEqual(
+            args.fresh_segments_per_error_retry,
+            archive_lib.DEFAULT_FRESH_SEGMENTS_PER_ERROR_RETRY,
+        )
         self.assertTrue(args.format.endswith("/best"))
         self.assertTrue(args.fallback_format.startswith("bv*"))
 
@@ -656,6 +660,10 @@ class ArchiveLivestreamFramesAdminApiStateTestCase(unittest.TestCase):
         )
         self.assertEqual(kwargs["headers"]["X-Admin-Password"], "secret")
         self.assertEqual(kwargs["json"]["youtube_video_id"], "HxZSos1k_MA")
+        self.assertEqual(
+            kwargs["json"]["fresh_segments_per_error_retry"],
+            archive_lib.DEFAULT_FRESH_SEGMENTS_PER_ERROR_RETRY,
+        )
 
     def test_mark_probe_complete_sends_sanitized_probe_fields_and_updates_archive(self):
         fake_session = self.FakeSession(
@@ -1622,7 +1630,7 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertIsNotNone(segment)
         self.assertEqual(segment.archive.youtube_video_id, "QueueFirst1")
 
-    def test_claim_next_segment_prioritizes_errors_after_max_backoff(self):
+    def test_claim_next_segment_does_not_let_max_backoff_bypass_fresh_quota(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
         db.session.flush()
         db.session.add_all(
@@ -1650,10 +1658,103 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         segment = archive_lib.claim_next_segment(db.session)
 
         self.assertIsNotNone(segment)
+        self.assertEqual(segment.start_second, 600)
+        self.assertEqual(segment.status, "running")
+        self.assertEqual(segment.attempt_count, 1)
+        self.assertIsNone(segment.last_error)
+
+    def test_claim_next_segment_retries_after_fresh_claim_quota(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        now = datetime.utcnow()
+        db.session.flush()
+        db.session.add_all(
+            [
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=0,
+                    end_second=600,
+                    status="error",
+                    attempt_count=5,
+                    last_error="temporary yt-dlp error",
+                    started_at=now - timedelta(minutes=32),
+                    finished_at=now - timedelta(minutes=31),
+                ),
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=600,
+                    end_second=1200,
+                    status="queued",
+                ),
+                *[
+                    LivestreamFrameCaptureSegment(
+                        archive_id=archive.id,
+                        start_second=start_second,
+                        end_second=start_second + 600,
+                        status="success",
+                        attempt_count=1,
+                        started_at=now - timedelta(minutes=minutes_ago),
+                        finished_at=now
+                        - timedelta(minutes=minutes_ago)
+                        + timedelta(seconds=1),
+                    )
+                    for start_second, minutes_ago in (
+                        (1200, 3),
+                        (1800, 2),
+                        (2400, 1),
+                    )
+                ],
+            ]
+        )
+        db.session.commit()
+
+        segment = archive_lib.claim_next_segment(db.session)
+
+        self.assertIsNotNone(segment)
         self.assertEqual(segment.start_second, 0)
         self.assertEqual(segment.status, "running")
         self.assertEqual(segment.attempt_count, 6)
-        self.assertIsNone(segment.last_error)
+
+    def test_claim_next_segment_resets_fresh_quota_after_retry(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        now = datetime.utcnow()
+        db.session.flush()
+        db.session.add_all(
+            [
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=0,
+                    end_second=600,
+                    status="error",
+                    attempt_count=5,
+                    last_error="temporary yt-dlp error",
+                    started_at=now - timedelta(minutes=32),
+                    finished_at=now - timedelta(minutes=31),
+                ),
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=600,
+                    end_second=1200,
+                    status="queued",
+                ),
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=1200,
+                    end_second=1800,
+                    status="success",
+                    attempt_count=2,
+                    started_at=now - timedelta(minutes=1),
+                    finished_at=now - timedelta(minutes=1) + timedelta(seconds=1),
+                ),
+            ]
+        )
+        db.session.commit()
+
+        segment = archive_lib.claim_next_segment(db.session)
+
+        self.assertIsNotNone(segment)
+        self.assertEqual(segment.start_second, 600)
+        self.assertEqual(segment.status, "running")
+        self.assertEqual(segment.attempt_count, 1)
 
     def test_claim_next_segment_skips_error_still_in_backoff(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")

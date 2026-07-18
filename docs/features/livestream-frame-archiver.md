@@ -205,7 +205,7 @@ Requeueing or clearing scanner work calls `clear_livestream_match_links()`, whic
 ## Operational Notes
 
 - `claim_next_segment()` orders archive capture work by `queue_requested_at`, archive creation time, then segment start. Admin `queue_missing` and `queue_selected` deliberately assign slightly offset `queue_requested_at` values so streams process in selected/dashboard order.
-- Failed capture segments are automatically claimable after exponential backoff. Defaults are 300 seconds base and 1800 seconds max.
+- Failed capture segments are automatically claimable after exponential backoff. Defaults are 300 seconds base and 1800 seconds max. When fresh and retry-eligible work coexist, claims reserve one retry after every three fresh segments by default; `--fresh-segments-per-error-retry` changes that ratio without tying retry progress to queue size or segment duration.
 - Text scan segments are claimed sequentially within a scan; a later segment is blocked until earlier segments are successful/skipped. This preserves correct `reconstruct_text_state()` behavior across segment boundaries.
 - `queue_text_scan()` requires a successful archive and clears existing match links for that archive.
 - Bad archives cannot be queued or claimed for capture or text scanning. They show
