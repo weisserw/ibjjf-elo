@@ -398,10 +398,7 @@ def clear_text_scan_events(session, scan_ids: list | None = None) -> dict[str, i
             )
         )
         recompute_text_scan_status(session, scan)
-        if scan.status == "queued" and all(
-            segment.status == "pending" for segment in scan.segments
-        ):
-            scan.status = "pending"
+        if scan.status == "pending":
             scan.started_at = None
             scan.completed_at = None
 
@@ -523,7 +520,7 @@ def claim_next_text_scan_segment(
         )
         .join(LivestreamFrameTextScan)
         .join(LivestreamFrameArchive)
-        .filter(LivestreamFrameTextScanSegment.status.in_(["pending", "queued"]))
+        .filter(LivestreamFrameTextScanSegment.status == "queued")
         .filter(LivestreamFrameArchive.is_bad.is_(False))
     )
     if scan_id:
@@ -638,8 +635,10 @@ def recompute_text_scan_status(session, scan: LivestreamFrameTextScan) -> None:
         scan.status = "running"
     elif "error" in statuses:
         scan.status = "partial" if has_success else "error"
-    elif statuses & {"queued", "pending"}:
+    elif "queued" in statuses:
         scan.status = "partial" if has_success else "queued"
+    elif "pending" in statuses:
+        scan.status = "partial" if has_success else "pending"
     elif statuses <= {"success", "skipped"}:
         scan.status = "success"
         scan.completed_at = scan.completed_at or datetime.utcnow()

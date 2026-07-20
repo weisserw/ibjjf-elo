@@ -887,6 +887,30 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(scan.total_segment_count, 2)
         self.assertEqual(scan.status, "pending")
 
+    def test_clear_text_scan_events_leaves_successful_scan_unclaimable(self):
+        archive, _ = self._archive_with_segments()
+        text_scan.queue_text_scan(db.session, archive, score_engine="none")
+        scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
+        segments = LivestreamFrameTextScanSegment.query.order_by(
+            LivestreamFrameTextScanSegment.start_second
+        ).all()
+        for segment in segments:
+            segment.status = "success"
+        text_scan.recompute_text_scan_status(db.session, scan)
+        db.session.commit()
+
+        text_scan.clear_text_scan_events(db.session, [scan.id])
+        db.session.commit()
+
+        self.assertEqual(
+            [segment.status for segment in segments], ["pending", "pending"]
+        )
+        self.assertEqual(scan.status, "pending")
+        self.assertIsNone(text_scan.claim_next_text_scan_segment(db.session))
+        self.assertEqual(
+            [segment.status for segment in segments], ["pending", "pending"]
+        )
+
     def test_s3_frame_batch_provider_reads_across_batches(self):
         archive, segments = self._archive_with_segments()
         fake_s3 = FakeS3(
