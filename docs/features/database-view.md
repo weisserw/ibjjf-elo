@@ -185,6 +185,9 @@ returned.
   events.
 - Video links prefer livestream links/offsets when link data is available and
   fall back to the match's stored `video_link`.
+- The homepage's cached YouTube-covered match count uses the same
+  `get_livestream_link()` resolver and also excludes no-match notes that suppress
+  Database video icons. See `docs/features/homepage-video-count.md`.
 
 ## Tests To Run
 

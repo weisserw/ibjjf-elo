@@ -15,6 +15,7 @@ from routes.brackets import brackets_route
 from routes.awards import awards_route
 from routes.news import news_route
 from routes.teams import teams_route
+from site_statistics import refresh_covered_match_count
 
 logger = logging.getLogger("ibjjf")
 log_level = logging.DEBUG if os.getenv("DEBUG") else logging.INFO
@@ -40,6 +41,13 @@ else:
 
 db.init_app(app)
 migrate.init_app(app, db)
+
+
+@app.cli.command("refresh-site-statistics")
+def refresh_site_statistics_command():
+    covered_count = refresh_covered_match_count(db.session)
+    db.session.commit()
+    print(f"Cached {covered_count:,} covered matches.")
 
 
 @app.route("/")

@@ -98,6 +98,7 @@ from livestream_frame_text_scan import (
     TextEventData,
 )
 from youtube_utils import canonical_youtube_url
+from site_statistics import refresh_covered_match_count
 from livestream_match_linking import link_completed_text_scan
 from normalize import normalize
 from elo import WINNER_NOT_RECORDED
@@ -1106,10 +1107,12 @@ def livestream_frame_archives():
         try:
             if action == "sync":
                 result = sync_archives_from_livestreams(db.session)
+                covered_count = refresh_covered_match_count(db.session)
                 db.session.commit()
                 message = (
                     f"Synced {result['discovered']} stream(s); "
-                    f"created {result['created']} archive row(s)."
+                    f"created {result['created']} archive row(s); "
+                    f"cached {covered_count:,} covered match(es)."
                 )
             elif action == "queue_missing":
                 sync_archives_from_livestreams(db.session)
@@ -2443,6 +2446,7 @@ def event_livestreams():
                 link=link,
             )
             db.session.add(new_stream)
+            refresh_covered_match_count(db.session)
             db.session.commit()
             return redirect(url_for("event_livestreams", id=event_id, name=name))
 
@@ -2459,12 +2463,14 @@ def event_livestreams():
                 stream.drift_factor = drift_factor
                 stream.hide_all = hide_all
                 stream.link = link
+                refresh_covered_match_count(db.session)
                 db.session.commit()
             return redirect(url_for("event_livestreams", id=event_id, name=name))
         elif action == "delete":
             stream = LiveStream.query.get(uuid.UUID(stream_id))
             if stream:
                 db.session.delete(stream)
+                refresh_covered_match_count(db.session)
                 db.session.commit()
             return redirect(url_for("event_livestreams", id=event_id, name=name))
         elif action == "update_flo_tag":
@@ -2489,6 +2495,7 @@ def event_livestreams():
                 if len(flo_event_tags) > 0:
                     for event_tag in flo_event_tags:
                         db.session.delete(event_tag)
+            refresh_covered_match_count(db.session)
             db.session.commit()
             return redirect(url_for("event_livestreams", id=event_id, name=name))
         elif action in (
@@ -2970,10 +2977,14 @@ def update_all_video_links():
             match_id = key[len("video_link_") :]
             match_video_links[match_id] = value.strip() if value else None
     # Update each match
+    updated = False
     for match_id, video_link in match_video_links.items():
         match = Match.query.get(uuid.UUID(match_id))
-        if match:
+        if match and match.video_link != video_link:
             match.video_link = video_link
+            updated = True
+    if updated:
+        refresh_covered_match_count(db.session)
     db.session.commit()
     return redirect(url_for("athlete_matches", id=athlete_id))
 

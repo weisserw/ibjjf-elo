@@ -201,26 +201,26 @@ body {
   font-family: 'Noto Sans', 'Helvetica Neue', 'Helvetica', sans-serif;
 }
 
-.site-disclaimer {
+.site-video-banner {
   margin: 0 1.25rem 1.25rem;
   font-size: 0.85rem;
+  font-weight: 600;
   line-height: 1.35;
   color: #4a4a4a;
   text-align: center;
 }
 
-.site-disclaimer a {
+.site-video-banner a {
   color: #3273dc;
-  font-weight: 600;
 }
 
-.site-disclaimer a:hover {
+.site-video-banner a:hover {
   color: #276cda;
   text-decoration: underline;
 }
 
 @media (max-width: 768px) {
-  .site-disclaimer {
+  .site-video-banner {
     margin-left: 0.9rem;
     margin-right: 0.9rem;
   }

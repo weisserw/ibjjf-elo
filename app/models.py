@@ -483,6 +483,14 @@ class LiveStream(db.Model):
     __table_args__ = (Index("ix_live_streams_event_id", "event_id"),)
 
 
+class SiteStatistic(db.Model):
+    __tablename__ = "site_statistics"
+
+    key = Column(String, primary_key=True)
+    value = Column(BigInteger, nullable=False)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
 class LivestreamFrameArchive(db.Model):
     __tablename__ = "livestream_frame_archives"
 

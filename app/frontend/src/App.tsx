@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Ratings from './components/Ratings';
@@ -48,9 +49,28 @@ function ScrollToHash() {
 }
 
 function AppShell() {
-  useAppContext();
+  const { language } = useAppContext();
   const location = useLocation();
-  const showDisclaimer = location.pathname !== '/about';
+  const showVideoBanner = location.pathname !== '/about';
+  const [coveredMatchCount, setCoveredMatchCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    axios.get<{ coveredMatchCount: number | null }>('/api/site-statistics')
+      .then(({ data }) => {
+        if (active) {
+          setCoveredMatchCount(data.coveredMatchCount);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setCoveredMatchCount(null);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -59,10 +79,12 @@ function AppShell() {
           <Navbar />
         </div>
       </header>
-      {showDisclaimer && (
-        <p className="site-disclaimer">
-          {t("This site is not affiliated, endorsed by, or associated with the International Brazilian Jiu-Jitsu Federation.")}{` `}
-          <Link to="/about#disclaimer">{t("More Info")}</Link>
+      {showVideoBanner && coveredMatchCount !== null && (
+        <p className="site-video-banner">
+          {coveredMatchCount.toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')}{` `}
+          {t("free IBJJF match videos and counting...")}{` `}
+          <span aria-hidden="true">·</span>{` `}
+          <Link to="/about#disclaimer">{t("See Disclaimer")}</Link>
         </p>
       )}
       <main style={{ flex: '1' }}>

@@ -31,6 +31,11 @@ This is the first part of the livestream match pipeline:
 
 `sync_archives_from_livestreams()` discovers YouTube IDs from `LiveStream.link` rows and creates one `LivestreamFrameArchive` per video ID. `queue_archive_capture()` creates missing `LivestreamFrameCaptureSegment` rows. If duration is unknown, the first queued segment is `0..DEFAULT_SEGMENT_SECONDS`; after probe completes, `create_missing_segments()` fills gaps across the discovered duration.
 
+The admin page's `sync` action also refreshes the cached homepage count of
+YouTube-covered matches. This provides the initial backfill after the
+`site_statistics` migration and keeps the counter aligned when operators sync
+newly configured streams.
+
 The capture worker can run in two modes:
 
 - Local DB mode: no `--admin-url`; imports the Flask app and writes through SQLAlchemy.

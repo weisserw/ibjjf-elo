@@ -11,6 +11,7 @@ from models import (
     RegistrationLink,
     Division,
 )
+from site_statistics import get_covered_match_count
 from photos import get_public_photo_url, get_s3_client
 from normalize import normalize
 from constants import (
@@ -39,6 +40,11 @@ YOUTH_AGE_DIVISIONS = {
 
 def _is_adult_or_master_age(age):
     return age == ADULT or age.startswith(MASTER_PREFIX)
+
+
+@top_route.route("/api/site-statistics")
+def site_statistics():
+    return jsonify({"coveredMatchCount": get_covered_match_count(db.session)})
 
 
 @top_route.route("/api/top")
