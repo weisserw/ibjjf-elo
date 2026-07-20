@@ -7,6 +7,7 @@ import re
 import shutil
 import unicodedata
 from dataclasses import dataclass
+from itertools import combinations
 from pathlib import Path
 
 from livestream_frame_text_scan import (
@@ -119,10 +120,21 @@ class ScoreDigitMask:
 
 
 @dataclass(frozen=True)
+class TimerLayout:
+    state: str
+    foreground: str
+    digit_boxes: tuple[tuple[int, int, int, int], ...]
+    display_box: tuple[int, int, int, int]
+    reference_digit_height: int
+    structural_confidence: float
+
+
+@dataclass(frozen=True)
 class TimerDigitReading:
     state: str | None
     value: str | None
     predictions: tuple[DigitPrediction, ...]
+    layout: TimerLayout | None = None
 
 
 @dataclass(frozen=True)
@@ -769,77 +781,265 @@ class ScoreboardDigitReader:
         )
 
 
+class TimerLocator:
+    """Locate timer digit runs from image structure instead of crop ratios."""
+
+    MIN_COMPONENT_AREA = 6
+    MIN_COMPONENT_HEIGHT = 8
+    MIN_COMPONENT_WIDTH = 3
+    MIN_COMPONENT_DENSITY = 0.25
+    MAX_COMPONENT_DENSITY = 0.90
+    MAX_COMPONENT_ASPECT_RATIO = 1.05
+    MAX_ARTIFACT_ROW_DENSITY = 0.55
+    MIN_LOCAL_BACKGROUND_DENSITY = 0.08
+    MIN_LOCAL_RED_BACKGROUND_DENSITY = 0.12
+
+    def _color_masks(self, image):
+        rgb = np.asarray(image.convert("RGB"))
+        red = rgb[:, :, 0]
+        green = rgb[:, :, 1]
+        blue = rgb[:, :, 2]
+        red_int = red.astype("int16")
+        green_int = green.astype("int16")
+        return {
+            "red_background": (red > 130) & (green < 100) & (blue < 120),
+            "black": (red < 70) & (green < 70) & (blue < 70),
+            "white": (red > 180) & (green > 180) & (blue > 180),
+            "running": (
+                (green > 110)
+                & (red < 120)
+                & (blue < 130)
+                & ((green_int - red_int) > 40)
+            )
+            | (
+                (red > 150)
+                & (green > 90)
+                & (green < 190)
+                & (blue < 120)
+                & ((red_int - green_int) > 20)
+            ),
+            "dark_background": (red < 60) & (green < 60) & (blue < 60),
+            "dark_blue_background": (blue > 60) & (red < 60) & (green < 80),
+        }
+
+    def _clean_foreground_mask(self, mask):
+        mask = mask.copy()
+        # A timer-frame edge can join several otherwise valid digits. Detect
+        # dense rows inside unusually wide connected components so padding or
+        # crop width cannot change whether the artifact is removed.
+        for _ in range(2):
+            component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
+                mask.astype("uint8"), 8
+            )
+            changed = False
+            for component_index in range(1, component_count):
+                x, y, width, height, _area = stats[component_index]
+                if width < height * 1.6:
+                    continue
+                component = labels[y : y + height, x : x + width] == component_index
+                dense_rows = component.mean(axis=1) > self.MAX_ARTIFACT_ROW_DENSITY
+                if not dense_rows.any():
+                    continue
+                row_indexes = np.where(dense_rows)[0] + y
+                mask[row_indexes, x : x + width] = False
+                changed = True
+            if not changed:
+                break
+        return mask
+
+    def foreground_mask(self, image, foreground: str):
+        masks = self._color_masks(image)
+        if foreground not in ("black", "white", "running"):
+            raise ValueError(f"unknown timer foreground: {foreground}")
+        return self._clean_foreground_mask(masks[foreground])
+
+    def _component_boxes(self, mask):
+        component_count, _, stats, _ = cv2.connectedComponentsWithStats(
+            mask.astype("uint8"), 8
+        )
+        boxes = []
+        for component_index in range(1, component_count):
+            x, y, width, height, area = stats[component_index]
+            if (
+                area < self.MIN_COMPONENT_AREA
+                or height < self.MIN_COMPONENT_HEIGHT
+                or width < self.MIN_COMPONENT_WIDTH
+                or area / (width * height) < self.MIN_COMPONENT_DENSITY
+                or area / (width * height) > self.MAX_COMPONENT_DENSITY
+                or width / height > self.MAX_COMPONENT_ASPECT_RATIO
+            ):
+                continue
+            boxes.append(
+                (
+                    int(x),
+                    int(y),
+                    int(x + width),
+                    int(y + height),
+                )
+            )
+        return tuple(sorted(boxes))
+
+    @staticmethod
+    def _candidate_geometry(boxes):
+        heights = [box[3] - box[1] for box in boxes]
+        reference_height = float(np.median(heights))
+        if (
+            min(heights) < reference_height * 0.68
+            or max(heights) > reference_height * 1.35
+        ):
+            return None
+
+        tops = [box[1] for box in boxes]
+        bottoms = [box[3] for box in boxes]
+        if (
+            max(tops) - min(tops) > reference_height * 0.35
+            or max(bottoms) - min(bottoms) > reference_height * 0.35
+        ):
+            return None
+
+        widths = [box[2] - box[0] for box in boxes]
+        if min(widths) < reference_height * 0.22 or max(widths) > reference_height:
+            return None
+
+        gaps = [
+            boxes[index + 1][0] - boxes[index][2] for index in range(len(boxes) - 1)
+        ]
+        if min(gaps) < -reference_height * 0.08 or max(gaps) > reference_height * 0.85:
+            return None
+
+        span = boxes[-1][2] - boxes[0][0]
+        max_span = reference_height * (4.4 if len(boxes) == 4 else 3.5)
+        if span > max_span:
+            return None
+
+        height_score = 1 - (max(heights) - min(heights)) / reference_height
+        alignment_score = 1 - (max(bottoms) - min(bottoms)) / reference_height
+        confidence = max(0.0, min(1.0, (height_score + alignment_score) / 2))
+        return int(round(reference_height)), confidence
+
+    @staticmethod
+    def _display_box(image_size, digit_boxes, reference_height):
+        width, height = image_size
+        padding = max(2, int(round(reference_height * 0.25)))
+        return (
+            max(0, min(box[0] for box in digit_boxes) - padding),
+            max(0, min(box[1] for box in digit_boxes) - padding),
+            min(width, max(box[2] for box in digit_boxes) + padding),
+            min(height, max(box[3] for box in digit_boxes) + padding),
+        )
+
+    def _has_local_background(self, masks, foreground, display_box):
+        left, top, right, bottom = display_box
+        if right <= left or bottom <= top:
+            return False
+        region = (slice(top, bottom), slice(left, right))
+        if foreground == "black":
+            return bool(
+                masks["red_background"][region].mean()
+                >= self.MIN_LOCAL_RED_BACKGROUND_DENSITY
+            )
+        if foreground == "white":
+            return bool(
+                masks["dark_blue_background"][region].mean()
+                >= self.MIN_LOCAL_BACKGROUND_DENSITY
+            )
+        local_dark_background = (
+            masks["dark_background"][region] | masks["dark_blue_background"][region]
+        )
+        return bool(local_dark_background.mean() >= self.MIN_LOCAL_BACKGROUND_DENSITY)
+
+    def _candidate_groups(self, component_boxes):
+        seen = set()
+        for first_index, first in enumerate(component_boxes):
+            first_height = first[3] - first[1]
+            compatible = [first]
+            for box in component_boxes[first_index + 1 :]:
+                if box[0] - first[0] > first_height * 4.5:
+                    break
+                height = box[3] - box[1]
+                if not first_height * 0.68 <= height <= first_height * 1.35:
+                    continue
+                if (
+                    abs(box[1] - first[1]) > first_height * 0.35
+                    or abs(box[3] - first[3]) > first_height * 0.35
+                ):
+                    continue
+                compatible.append(box)
+
+            for digit_count in (4, 3):
+                if len(compatible) < digit_count:
+                    continue
+                for tail in combinations(compatible[1:], digit_count - 1):
+                    boxes = (first, *tail)
+                    if boxes in seen:
+                        continue
+                    seen.add(boxes)
+                    geometry = self._candidate_geometry(boxes)
+                    if geometry is not None:
+                        yield boxes, geometry
+
+    def locate_candidates(self, image) -> tuple[TimerLayout, ...]:
+        if image is None:
+            return ()
+
+        masks = self._color_masks(image)
+        layouts = []
+        for foreground, state in (
+            ("black", "stopped"),
+            ("white", "stopped"),
+            ("running", "running"),
+        ):
+            foreground_mask = self._clean_foreground_mask(masks[foreground])
+            component_boxes = self._component_boxes(foreground_mask)
+            for digit_boxes, geometry in self._candidate_groups(component_boxes):
+                reference_height, structural_confidence = geometry
+                display_box = self._display_box(
+                    image.size, digit_boxes, reference_height
+                )
+                if not self._has_local_background(masks, foreground, display_box):
+                    continue
+                layouts.append(
+                    TimerLayout(
+                        state=state,
+                        foreground=foreground,
+                        digit_boxes=digit_boxes,
+                        display_box=display_box,
+                        reference_digit_height=reference_height,
+                        structural_confidence=structural_confidence,
+                    )
+                )
+        return tuple(layouts)
+
+    def locate(self, image) -> TimerLayout | None:
+        candidates = self.locate_candidates(image)
+        return max(
+            candidates,
+            key=lambda layout: (
+                len(layout.digit_boxes),
+                layout.structural_confidence,
+            ),
+            default=None,
+        )
+
+
 class TimerDigitReader:
     MINUTE_TENS_DIGITS = frozenset((0, 1))
     SECOND_TENS_DIGITS = frozenset(range(6))
-    MIN_DIGIT_COMPONENT_DENSITY = 0.30
-    MAX_DIGIT_ROW_DENSITY = 0.60
+    MIN_READING_CONFIDENCE = 0.65
+    MIN_FOUR_DIGIT_LEADING_CONFIDENCE = 0.65
 
-    def __init__(self, classifier: FixedDigitClassifier | None = None):
+    def __init__(
+        self,
+        classifier: FixedDigitClassifier | None = None,
+        locator: TimerLocator | None = None,
+    ):
         self.classifier = classifier or FixedDigitClassifier(
             TIMER_TEMPLATE_SIZE,
             range(44, 73, 4),
             "timer-font",
             include_top_crop_variants=True,
         )
-
-    def _state(self, image) -> str | None:
-        if image is None:
-            return None
-        rgb = np.asarray(image.convert("RGB"))
-        red = rgb[:, :, 0]
-        green = rgb[:, :, 1]
-        blue = rgb[:, :, 2]
-        red_background = ((red > 130) & (green < 100) & (blue < 120)).mean()
-        green_foreground = (
-            (green > 140) & (red < 120) & (blue < 140) & ((green - red) > 40)
-        ).mean()
-        orange_foreground = (
-            (red > 150)
-            & (green > 90)
-            & (green < 190)
-            & (blue < 120)
-            & ((red - green) > 20)
-        ).mean()
-        white_foreground = ((red > 180) & (green > 180) & (blue > 180)).mean()
-        dark_background = ((red < 60) & (green < 60) & (blue < 60)).mean()
-        dark_blue_background = ((blue > 60) & (red < 60) & (green < 80)).mean()
-        if red_background > 0.25:
-            return "stopped"
-        if green_foreground > 0.03 and dark_background > 0.30:
-            return "running"
-        # Some tight crops include white scoreboard labels beside a green
-        # timer. Prefer the timer's active digit color over that unrelated
-        # white text when both appear on a dark-blue background.
-        if green_foreground > 0.03 and dark_blue_background > 0.15:
-            return "running"
-        if white_foreground > 0.03 and dark_blue_background > 0.15:
-            return "stopped"
-        if (
-            green_foreground > 0.03 or orange_foreground > 0.03
-        ) and dark_blue_background > 0.15:
-            return "running"
-        return "blank"
-
-    def _threshold(self, image, state: str):
-        rgb = np.asarray(image.convert("RGB"))
-        red = rgb[:, :, 0]
-        green = rgb[:, :, 1]
-        blue = rgb[:, :, 2]
-        if state == "stopped":
-            red_background = ((red > 130) & (green < 100) & (blue < 120)).mean()
-            if red_background > 0.25:
-                return (red < 70) & (green < 70) & (blue < 70)
-            return (red > 180) & (green > 180) & (blue > 180)
-        green_digits = (green > 110) & (red < 120) & (blue < 130) & ((green - red) > 40)
-        orange_digits = (
-            (red > 150)
-            & (green > 90)
-            & (green < 190)
-            & (blue < 120)
-            & ((red - green) > 20)
-        )
-        return green_digits | orange_digits
+        self.locator = locator or TimerLocator()
 
     @staticmethod
     def _looks_like_timer_six(mask) -> bool:
@@ -878,77 +1078,65 @@ class TimerDigitReader:
         return allowed_digits
 
     def read(self, image) -> TimerDigitReading:
-        state = self._state(image)
-        if image is None or state in (None, "blank"):
-            return TimerDigitReading(state, None, ())
+        if image is None:
+            return TimerDigitReading(None, None, (), None)
 
-        full_threshold = self._threshold(image, state)
-        width, height = image.size
-        display_left = int(width * 0.10)
-        display_right = int(width * 0.88)
-        # Exact timer crops have much less padding than the larger scoreboard
-        # crops. Keep enough of their lower strokes for component detection.
-        display_bottom_ratio = 0.90 if height < 40 else 0.80
-        display_bottom = int(height * display_bottom_ratio)
-        min_component_height = min(20, int(height * 0.65))
-        display_mask = full_threshold[
-            :display_bottom, display_left:display_right
-        ].copy()
-        # Horizontal video artifacts and timer-frame edges can bridge otherwise
-        # separate digits into one component. A real glyph row does not span
-        # most of the timer display, so discard only those unusually dense rows
-        # before finding components.
-        dense_rows = display_mask.mean(axis=1) > self.MAX_DIGIT_ROW_DENSITY
-        display_mask[dense_rows, :] = False
-        component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
-            display_mask.astype("uint8"), 8
-        )
+        layouts = self.locator.locate_candidates(image)
+        four_digit_readings = [
+            self._read_layout(image, layout)
+            for layout in layouts
+            if len(layout.digit_boxes) == 4
+        ]
+        valid_four_digit_readings = [
+            reading
+            for reading in four_digit_readings
+            if reading.value is not None
+            and self._reading_confidence(reading) >= self.MIN_READING_CONFIDENCE
+            and reading.predictions[0].similarity
+            >= self.MIN_FOUR_DIGIT_LEADING_CONFIDENCE
+        ]
+        if valid_four_digit_readings:
+            return max(valid_four_digit_readings, key=self._reading_rank)
 
-        components = []
-        for component_index in range(1, component_count):
-            x, y, component_width, component_height, area = stats[component_index]
-            if (
-                area < 40
-                or component_height < min_component_height
-                or component_width < 8
-            ):
-                continue
-            if x == 0:
-                continue
-            if (
-                area / (component_width * component_height)
-                < self.MIN_DIGIT_COMPONENT_DENSITY
-            ):
-                continue
-            components.append(
-                (
-                    int(x + display_left),
-                    int(y),
-                    int(component_width),
-                    int(component_height),
-                    int(component_index),
-                )
+        three_digit_readings = [
+            self._read_layout(image, layout)
+            for layout in layouts
+            if len(layout.digit_boxes) == 3
+        ]
+        valid_readings = [
+            reading
+            for reading in three_digit_readings
+            if reading.value is not None
+            and self._reading_confidence(reading) >= self.MIN_READING_CONFIDENCE
+        ]
+        if valid_readings:
+            return max(valid_readings, key=self._reading_rank)
+        readings = four_digit_readings + three_digit_readings
+        if readings:
+            best_reading = max(readings, key=self._reading_rank)
+            return TimerDigitReading(
+                "blank",
+                None,
+                best_reading.predictions,
+                best_reading.layout,
             )
-        components.sort(key=lambda item: item[0])
+        return TimerDigitReading("blank", None, (), None)
 
+    def _read_layout(self, image, layout: TimerLayout) -> TimerDigitReading:
+        threshold = self.locator.foreground_mask(image, layout.foreground)
         masks = []
-        for x, y, component_width, component_height, component_index in components:
-            component_mask = (
-                labels[
-                    y : y + component_height,
-                    x - display_left : x - display_left + component_width,
-                ]
-                == component_index
-            )
-            masks.append(_normalize_mask(component_mask, TIMER_TEMPLATE_SIZE))
+        for left, top, right, bottom in layout.digit_boxes:
+            digit_region = threshold[top:bottom, left:right]
+            component = _largest_component(digit_region, min_area=1)
+            if component is None:
+                return TimerDigitReading("blank", None, (), layout)
+            masks.append(_normalize_mask(component, TIMER_TEMPLATE_SIZE))
 
         allowed_digits = self._allowed_digits_for_timer_masks(len(masks))
-
-        predictions = [
+        predictions = tuple(
             self._predict_digit(mask, allowed)
             for mask, allowed in zip(masks, allowed_digits)
-        ]
-
+        )
         digits = [prediction.digit for prediction in predictions]
         if len(digits) == 3 and all(digit is not None for digit in digits):
             value = f"{digits[0]}:{digits[1]}{digits[2]}"
@@ -956,10 +1144,26 @@ class TimerDigitReader:
             minutes = digits[0] * 10 + digits[1]
             value = f"{minutes}:{digits[2]}{digits[3]}"
         else:
-            return TimerDigitReading("blank", None, tuple(predictions))
-        if value == "0:00":
-            state = "stopped"
-        return TimerDigitReading(state, value, tuple(predictions))
+            return TimerDigitReading("blank", None, predictions, layout)
+
+        state = "stopped" if value == "0:00" else layout.state
+        return TimerDigitReading(state, value, predictions, layout)
+
+    @staticmethod
+    def _reading_confidence(reading: TimerDigitReading) -> float:
+        if not reading.predictions:
+            return 0.0
+        return float(
+            sum(prediction.similarity for prediction in reading.predictions)
+            / len(reading.predictions)
+        )
+
+    @classmethod
+    def _reading_rank(cls, reading: TimerDigitReading):
+        structural_confidence = (
+            reading.layout.structural_confidence if reading.layout is not None else 0.0
+        )
+        return cls._reading_confidence(reading), structural_confidence
 
 
 class FrameImageTextParser:

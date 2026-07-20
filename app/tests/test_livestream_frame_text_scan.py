@@ -2606,6 +2606,105 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     expected_digits,
                 )
 
+    def test_timer_layout_tracks_padding_position_and_scale(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.TimerDigitReader()
+        cases = (
+            ("timer_exact_running_618.jpg", "running", "6:18"),
+            ("timer_exact_stopped_649.jpg", "stopped", "6:49"),
+            ("new_timer_1000.jpg", "stopped", "10:00"),
+            ("timer_stopped_colors_346.jpg", "stopped", "3:46"),
+        )
+
+        for fixture_name, expected_state, expected_value in cases:
+            timer_path = os.path.join(self.fixture_dir, fixture_name)
+            with open(timer_path, "rb") as fileobj:
+                image = text_ocr.Image.open(fileobj).convert("RGB")
+
+            baseline = reader.read(image)
+            self.assertIsNotNone(baseline.layout)
+            rgb = text_ocr.np.asarray(image)
+            red = rgb[:, :, 0]
+            green = rgb[:, :, 1]
+            blue = rgb[:, :, 2]
+            if baseline.layout.foreground == "black":
+                background_mask = (red > 130) & (green < 100) & (blue < 120)
+            else:
+                background_mask = (blue > 60) & (red < 60) & (green < 80)
+                if not background_mask.any():
+                    background_mask = (red < 60) & (green < 60) & (blue < 60)
+            self.assertTrue(background_mask.any())
+            background = tuple(
+                int(channel)
+                for channel in text_ocr.np.median(rgb[background_mask], axis=0)
+            )
+
+            canvas_size = (image.width * 2, image.height * 2)
+            positions = (
+                (0, 0),
+                (
+                    (canvas_size[0] - image.width) // 2,
+                    (canvas_size[1] - image.height) // 2,
+                ),
+                (canvas_size[0] - image.width, canvas_size[1] - image.height),
+            )
+            for position in positions:
+                with self.subTest(fixture=fixture_name, position=position):
+                    variant = text_ocr.Image.new("RGB", canvas_size, background)
+                    variant.paste(image, position)
+
+                    reading = reader.read(variant)
+
+                    self.assertEqual(reading.state, expected_state)
+                    self.assertEqual(reading.value, expected_value)
+                    self.assertIsNotNone(reading.layout)
+                    self.assertGreaterEqual(
+                        min(box[0] for box in reading.layout.digit_boxes),
+                        position[0],
+                    )
+                    self.assertGreaterEqual(
+                        min(box[1] for box in reading.layout.digit_boxes),
+                        position[1],
+                    )
+
+            scaled = image.resize(
+                (
+                    max(1, int(round(image.width * 0.75))),
+                    max(1, int(round(image.height * 0.75))),
+                ),
+                text_ocr.Image.Resampling.LANCZOS,
+            )
+            scaled_variant = text_ocr.Image.new("RGB", image.size, background)
+            scaled_variant.paste(
+                scaled,
+                (
+                    (image.width - scaled.width) // 2,
+                    (image.height - scaled.height) // 2,
+                ),
+            )
+
+            with self.subTest(fixture=fixture_name, variant="scaled"):
+                reading = reader.read(scaled_variant)
+                self.assertEqual(reading.state, expected_state)
+                self.assertEqual(reading.value, expected_value)
+
+    def test_timer_locator_rejects_solid_non_digit_components(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        image = text_ocr.Image.new("RGB", (180, 70), (10, 10, 80))
+        draw = text_ocr.ImageDraw.Draw(image)
+        for left, width in ((25, 20), (60, 12), (105, 20)):
+            draw.rectangle(
+                (left, 15, left + width, 55),
+                fill=(20, 220, 40),
+            )
+
+        reader = text_ocr.TimerDigitReader()
+        reading = reader.read(image)
+
+        self.assertEqual(reader.locator.locate_candidates(image), ())
+        self.assertEqual(reading.state, "blank")
+        self.assertIsNone(reading.value)
+
     def test_running_timer_with_adjacent_white_text_prefers_green_digits(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         timer_path = os.path.join(self.fixture_dir, "timer_new_running_0642.jpg")

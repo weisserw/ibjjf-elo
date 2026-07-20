@@ -115,6 +115,15 @@ keeps scoreboard reading invariant to padding, scaling, and horizontal placement
 within an archived crop and prevents background pixels from being interpreted as
 digits through a misplaced fallback crop.
 
+Timer parsing similarly locates structurally coherent three- or four-digit runs
+across the complete timer crop. Candidate digits must have compatible height,
+baseline, width, spacing, local display background, and template confidence. The
+running/stopped interpretation comes from the foreground and background colors
+inside the located display rather than color ratios across the archive crop. The
+selected digit boxes are normalized before template classification, so padding,
+translation, and moderate scaling do not change the logical timer reading. Crops
+without a sufficiently confident timer candidate fail closed as blank.
+
 Ordinary athlete-name OCR reuses that exact detected grid. The name column ends at
 the left edge of the green score cells, and its top, bottom, row boundary, narrow
 line crops, and expanded retry crops are derived from the two detected cell rows.
@@ -156,8 +165,9 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `LivestreamFrameTextScanDbTestCase`: queue/claim/reset/retry/cancel/clear behavior and S3 frame-batch reading.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI/API worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  Its scoreboard coverage includes padding and scale invariance in addition to
-  the golden score/timer cases in `cases.json`.
+  Its scoreboard, name, and timer coverage includes padding and scale invariance
+  in addition to the golden score/timer cases in `cases.json`; timer coverage also
+  includes a non-digit structural negative case.
 - `LivestreamFrameTextScanAdminApiTestCase`: admin and worker JSON endpoint behavior.
 
 ## Known Historical Issues
@@ -165,7 +175,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 Git history shows this area is sensitive to OCR edge cases and workflow/status handling. Before editing, check nearby commits and tests for regressions in these categories:
 
 - Score digit ambiguity: fixes include `1 -> 3`, `3 -> 8` (including lightly rendered penalty-column `3`s), bad `2*`, double-digit scores, smaller two-digit scores, and adaptive scoreboard width.
-- Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter. Green timer digits take precedence over adjacent white scoreboard text in mixed tight crops so active timers are not mistaken for stopped timers. Dense horizontal foreground rows from video artifacts or timer-frame edges are removed before digit component detection so they cannot join otherwise separate stopped-timer digits.
+- Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter. Timer geometry is now detected from aligned digit candidates and locally coherent display colors rather than image-ratio search windows or whole-crop color density. Green timer digits take precedence over adjacent white scoreboard text in mixed tight crops so active timers are not mistaken for stopped timers. Dense horizontal foreground rows from video artifacts or timer-frame edges are removed within connected components before digit grouping so crop padding cannot change whether the artifact is recognized.
 - Name OCR: multiple commits fixed athlete/team line selection, multi-line names, Paddle result parsing, Paddle choosing team names, and clipped/trailing initials.
 - Scoreboard visibility: blank scoreboard handling and scoreboard detection have had regressions.
 - Worker/admin state: requeue/rescan buttons, clear behavior, missing OCR, Docker dependencies, automatic retry/backoff, error truncation, and livestream queue ordering have all been adjusted.
