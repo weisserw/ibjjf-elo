@@ -114,7 +114,11 @@ before reading its cells. It does not use image-ratio layouts; a crop without a
 structurally valid grid is treated as not containing a readable scoreboard. This
 keeps scoreboard reading invariant to padding, scaling, and horizontal placement
 within an archived crop and prevents background pixels from being interpreted as
-digits through a misplaced fallback crop.
+digits through a misplaced fallback crop. The reader selects between the known
+bright and muted scoreboard palettes, then extracts each white glyph relative to
+its green, yellow, or red cell background. The palette-relative mask is the score
+classifier input; the older color-neutral threshold remains available only to
+callers that do not have a detected scoreboard palette.
 
 Timer parsing similarly locates structurally coherent three- or four-digit runs
 across the complete timer crop. Candidate digits must have compatible height,
@@ -175,7 +179,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 
 Git history shows this area is sensitive to OCR edge cases and workflow/status handling. Before editing, check nearby commits and tests for regressions in these categories:
 
-- Score digit ambiguity: fixes include `1 -> 3`, `3 -> 8` (including lightly rendered penalty-column `3`s), compressed `0 -> 6/9` loop ties, bad `2*`, double-digit scores, smaller two-digit scores, and adaptive scoreboard width.
+- Score digit ambiguity: fixes include `1 -> 3`, `3 -> 8` (including lightly rendered penalty-column `3`s), compressed `0 -> 6/9` loop-shape errors, damaged zeroes that resemble an `8`, bad `2*`, double-digit scores, smaller two-digit scores, and adaptive scoreboard width. The score reader extracts white relative to six known role/palette background colors, uses enclosed-counter geometry to distinguish `0`, `6`, `8`, and `9`, and fails closed when a predicted `8` does not retain two counters.
 - Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter. Timer geometry is now detected from aligned digit candidates and locally coherent display colors rather than image-ratio search windows or whole-crop color density. Green timer digits take precedence over adjacent white scoreboard text in mixed tight crops so active timers are not mistaken for stopped timers. Dense horizontal foreground rows from video artifacts or timer-frame edges are removed within connected components before digit grouping so crop padding cannot change whether the artifact is recognized.
 - Name OCR: multiple commits fixed athlete/team line selection, multi-line names, Paddle result parsing, Paddle choosing team names, and clipped/trailing initials.
 - Scoreboard visibility: blank scoreboard handling and scoreboard detection have had regressions.

@@ -38,8 +38,22 @@ SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
 SCORE_THREE_EIGHT_SIMILARITY_MARGIN = 0.02
 SCORE_THREE_MAX_BOTTOM_LEFT_DENSITY = 0.80
-SCORE_ZERO_SIX_NINE_SIMILARITY_MARGIN = 0.01
+SCORE_ZERO_HOLE_MIN_CENTER_Y = 0.38
+SCORE_ZERO_HOLE_MAX_CENTER_Y = 0.60
 SCORE_BORDER_COLUMN_MIN_DENSITY = 0.85
+SCORE_MIN_WHITE_MIX = 0.28
+SCORE_BACKGROUND_PALETTES = (
+    {
+        "green": (49, 226, 81),
+        "yellow": (243, 183, 25),
+        "red": (199, 34, 54),
+    },
+    {
+        "green": (38, 143, 45),
+        "yellow": (158, 175, 33),
+        "red": (171, 30, 49),
+    },
+)
 OCR_FONT_DIR = Path(__file__).resolve().parent / "ocr_fonts"
 NAME_LINE_TOP_WITHIN_ROW_RATIO = 0.02
 NAME_LINE_BOTTOM_WITHIN_ROW_RATIO = 0.42
@@ -364,8 +378,34 @@ def _score_cell_has_background(image, role: str) -> bool:
     return bool(mask.mean() >= 0.12)
 
 
-def _score_digit_threshold(image):
+def _score_layout_background_palette(image, layout: ScoreLayout):
+    cell_samples = []
+    for box, role in zip(layout.cell_boxes, layout.background_roles):
+        cell = _inner_cell(image.crop(box))
+        rgb = np.asarray(cell.convert("RGB"), dtype="float32")
+        cell_samples.append((role, np.median(rgb.reshape(-1, 3), axis=0)))
+
+    return min(
+        SCORE_BACKGROUND_PALETTES,
+        key=lambda palette: sum(
+            float(np.linalg.norm(sample - np.asarray(palette[role])))
+            for role, sample in cell_samples
+        ),
+    )
+
+
+def _score_digit_threshold(image, background_rgb=None):
     rgb = np.asarray(image.convert("RGB"))
+    if background_rgb is not None:
+        rgb_float = rgb.astype("float32")
+        background = np.asarray(background_rgb, dtype="float32")
+        white_direction = 255.0 - background
+        white_mix = np.sum(
+            (rgb_float - background) * white_direction,
+            axis=2,
+        ) / float(np.sum(white_direction * white_direction))
+        return white_mix >= SCORE_MIN_WHITE_MIX
+
     red = rgb[:, :, 0]
     green = rgb[:, :, 1]
     blue = rgb[:, :, 2]
@@ -408,20 +448,22 @@ def _normalize_mask(mask, size: tuple[int, int]):
     return np.asarray(image.resize(size, Image.Resampling.NEAREST)) > 0
 
 
-def _score_digit_mask(image):
-    threshold = _score_digit_threshold(image)
+def _score_digit_mask(image, background_rgb=None):
+    threshold = _score_digit_threshold(image, background_rgb)
     component = _largest_component(threshold, min_area=20)
     if component is None:
         return None
     return _normalize_mask(component, SCORE_TEMPLATE_SIZE)
 
 
-def _score_digit_masks(image):
-    return tuple(entry.mask for entry in _score_digit_mask_entries(image))
+def _score_digit_masks(image, background_rgb=None):
+    return tuple(
+        entry.mask for entry in _score_digit_mask_entries(image, background_rgb)
+    )
 
 
-def _score_digit_mask_entries(image):
-    threshold = _score_digit_threshold(image)
+def _score_digit_mask_entries(image, background_rgb=None):
+    threshold = _score_digit_threshold(image, background_rgb)
     # Tight scoreboard crops can include a nearly solid vertical separator
     # connected to the final digit. Remove the separator without discarding
     # the digit component attached to it.
@@ -571,6 +613,23 @@ def _score_mask_looks_like_three(mask) -> bool:
     )
 
 
+def _score_mask_hole_center_ys(mask) -> tuple[float, ...]:
+    height, _ = mask.shape
+    background = (~mask).astype("uint8")
+    component_count, labels, _, centroids = cv2.connectedComponentsWithStats(
+        background, 4
+    )
+    border_labels = set(int(value) for value in labels[0, :])
+    border_labels.update(int(value) for value in labels[-1, :])
+    border_labels.update(int(value) for value in labels[:, 0])
+    border_labels.update(int(value) for value in labels[:, -1])
+    return tuple(
+        float(centroids[component_index][1] / height)
+        for component_index in range(1, component_count)
+        if component_index not in border_labels
+    )
+
+
 class FixedDigitClassifier:
     def __init__(
         self,
@@ -654,13 +713,15 @@ class ScoreboardDigitReader:
     def _read_layout(self, image, layout: ScoreLayout) -> ScoreboardDigitReading:
         predictions = []
         has_layout = True
+        background_palette = _score_layout_background_palette(image, layout)
         for box, role in zip(layout.cell_boxes, layout.background_roles):
             raw_cell = image.crop(box)
             cell = _inner_cell(raw_cell)
             if not _score_cell_has_background(cell, role):
                 has_layout = False
-            prediction = self._predict_score_cell(cell)
-            raw_prediction = self._predict_score_cell(raw_cell)
+            background_rgb = background_palette[role]
+            prediction = self._predict_score_cell(cell, background_rgb)
+            raw_prediction = self._predict_score_cell(raw_cell, background_rgb)
             if self._should_use_raw_score_prediction(prediction, raw_prediction):
                 prediction = raw_prediction
             if prediction.digit is None:
@@ -678,8 +739,22 @@ class ScoreboardDigitReader:
             layout,
         )
 
-    def _predict_score_cell(self, cell) -> DigitPrediction:
-        mask_entries = _score_digit_mask_entries(cell)
+    def _predict_score_cell(self, cell, background_rgb=None) -> DigitPrediction:
+        prediction = self._predict_score_cell_from_mask(
+            cell, background_rgb=background_rgb
+        )
+        if background_rgb is None:
+            return prediction
+        return DigitPrediction(
+            prediction.digit,
+            prediction.similarity,
+            f"{prediction.source}:score-palette-background",
+        )
+
+    def _predict_score_cell_from_mask(
+        self, cell, background_rgb=None
+    ) -> DigitPrediction:
+        mask_entries = _score_digit_mask_entries(cell, background_rgb)
         if not mask_entries:
             return DigitPrediction(None, 0.0, "none")
         digit_predictions = [
@@ -757,23 +832,22 @@ class ScoreboardDigitReader:
     def _predict_score_digit(self, mask) -> DigitPrediction:
         prediction = self.classifier.predict(mask)
         if prediction.digit in (6, 9):
-            # Small, JPEG-compressed zeroes can acquire enough uneven stroke
-            # weight to match a 6 or 9 by a fraction of a percent. Those
-            # digits all have one enclosed counter, so prefer zero only when
-            # its template is effectively tied; clear 6/9 shapes retain their
-            # substantially stronger match.
-            zero_prediction = self.classifier.predict(
-                mask, allowed_digits=frozenset((0,))
-            )
-            if (
-                zero_prediction.digit == 0
-                and zero_prediction.similarity
-                >= prediction.similarity - SCORE_ZERO_SIX_NINE_SIMILARITY_MARGIN
+            hole_center_ys = _score_mask_hole_center_ys(mask)
+            if len(hole_center_ys) == 1 and (
+                SCORE_ZERO_HOLE_MIN_CENTER_Y
+                <= hole_center_ys[0]
+                <= SCORE_ZERO_HOLE_MAX_CENTER_Y
             ):
+                # A zero has one vertically centered counter. JPEG ringing can
+                # unevenly thicken either end until a font template strongly
+                # prefers 6 or 9, while their counters remain clearly offset.
+                zero_prediction = self.classifier.predict(
+                    mask, allowed_digits=frozenset((0,))
+                )
                 return DigitPrediction(
                     0,
                     zero_prediction.similarity,
-                    f"{zero_prediction.source}:score-zero-loop-tie",
+                    f"{zero_prediction.source}:score-zero-hole-geometry",
                 )
         if prediction.digit == 8 and _score_mask_looks_like_three(mask):
             three_prediction = self.classifier.predict(
@@ -789,6 +863,16 @@ class ScoreboardDigitReader:
                     three_prediction.similarity,
                     f"{three_prediction.source}:score-three-shape",
                 )
+        if prediction.digit == 8 and len(_score_mask_hole_center_ys(mask)) != 2:
+            # An eight must retain two enclosed counters. At these tiny crop
+            # sizes a damaged zero can otherwise normalize into a solid,
+            # deceptively template-like eight. Treat that frame as unreadable
+            # so it cannot create a phantom score event.
+            return DigitPrediction(
+                None,
+                prediction.similarity,
+                f"{prediction.source}:score-eight-missing-holes",
+            )
         return prediction
 
     @staticmethod
