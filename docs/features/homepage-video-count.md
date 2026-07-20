@@ -47,7 +47,14 @@ expensive coverage scan from a public request.
 ## Refresh Paths
 
 `refresh_covered_match_count()` recalculates the total in Python and updates the
-cached row in the caller's transaction. It is called after:
+cached row in the caller's transaction. Because the production scan is too long
+for an HTTP request, admin mutations start an untracked background thread with a
+fresh Flask app context, following the registration-import pattern. Refresh
+requests within one web process are coalesced, and a change made during an
+active scan causes one follow-up scan. A PostgreSQL advisory lock prevents scans
+from overlapping across web workers.
+
+A background refresh is queued after:
 
 - adding, editing, or deleting a livestream or changing its event's Flo tag in
   the admin event page;
@@ -55,8 +62,9 @@ cached row in the caller's transaction. It is called after:
 - saving individual match video links from the athlete matches page; and
 - importing individual videos from the YouTube match scanner.
 
-After deploying the migration, populate the row once with either the archive
-page's Sync action or:
+After deploying the migration, populate the row once with the archive page's
+Sync action. Sync returns immediately while the count runs in the background;
+it does not create a tracked admin task. The direct shell equivalent is:
 
 ```bash
 cd app
@@ -70,8 +78,8 @@ No scheduled process is required after that initial refresh.
 - `app/site_statistics.py` computes and persists the count.
 - `app/models.py` defines `SiteStatistic`.
 - `app/routes/top.py` serves `GET /api/site-statistics`.
-- `admin/app.py` refreshes after manual livestream and match-link changes.
-- `scripts/youtube_match_import_lib.py` refreshes after YouTube imports.
+- `admin/app.py` starts untracked refresh threads after livestream and
+  match-link changes, including YouTube match imports.
 - `app/frontend/src/App.tsx` loads and renders the banner.
 - `app/frontend/src/global.css` styles the banner.
 - `app/tests/test_site_statistics.py` covers the count and API.

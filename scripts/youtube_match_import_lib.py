@@ -15,7 +15,6 @@ from sqlalchemy.orm import selectinload
 
 from constants import ADULT, FEMALE, MALE, translate_belt, translate_weight
 from models import Athlete, Event, Match, MatchParticipant, YoutubeMatchVideo
-from site_statistics import refresh_covered_match_count
 
 import medal_import_lib
 import match_youtube_events
@@ -910,7 +909,5 @@ def import_youtube_match_video_links(
         video.ignored = False
         imported += 1
 
-    if imported:
-        refresh_covered_match_count(session)
     session.commit()
     return imported, skipped, errors

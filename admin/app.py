@@ -140,6 +140,9 @@ MEDIA_COVERAGE_TYPES = (
 MAX_MEDIA_TITLE_SCAN_BYTES = 4 * 1024 * 1024
 MAX_LIVESTREAM_PREVIEW_BYTES = 8 * 1024 * 1024
 WORKER_API_PREFIX = "/api/livestream_frame_archives/worker/"
+_site_statistics_refresh_lock = threading.Lock()
+_site_statistics_refresh_running = False
+_site_statistics_refresh_requested = False
 
 
 def _append_task_log(task, text):
@@ -844,6 +847,53 @@ def _run_update_youtube_match_videos_task(task_id, args):
             db.session.commit()
 
 
+def _refresh_site_statistics_thread(reason):
+    global _site_statistics_refresh_running
+    global _site_statistics_refresh_requested
+
+    while True:
+        with app.app_context():
+            try:
+                covered_count = refresh_covered_match_count(db.session)
+                db.session.commit()
+                app.logger.info(
+                    "Cached %s covered matches after %s.",
+                    f"{covered_count:,}",
+                    reason,
+                )
+            except Exception:
+                db.session.rollback()
+                app.logger.exception(
+                    "Failed to refresh covered-match count after %s.", reason
+                )
+
+        with _site_statistics_refresh_lock:
+            if _site_statistics_refresh_requested:
+                _site_statistics_refresh_requested = False
+                reason = "changes made during the previous statistics refresh"
+                continue
+            _site_statistics_refresh_running = False
+            return
+
+
+def _queue_site_statistics_refresh(reason):
+    global _site_statistics_refresh_running
+    global _site_statistics_refresh_requested
+
+    with _site_statistics_refresh_lock:
+        if _site_statistics_refresh_running:
+            _site_statistics_refresh_requested = True
+            return
+        _site_statistics_refresh_running = True
+
+    thread = threading.Thread(
+        target=_refresh_site_statistics_thread,
+        args=(reason,),
+        daemon=True,
+    )
+    thread.start()
+
+
 # Simple authentication
 @app.before_request
 def require_login():
@@ -1107,12 +1157,15 @@ def livestream_frame_archives():
         try:
             if action == "sync":
                 result = sync_archives_from_livestreams(db.session)
-                covered_count = refresh_covered_match_count(db.session)
                 db.session.commit()
+                _queue_site_statistics_refresh(
+                    "livestream archive sync: "
+                    f"{result['discovered']} discovered, {result['created']} created"
+                )
                 message = (
                     f"Synced {result['discovered']} stream(s); "
                     f"created {result['created']} archive row(s); "
-                    f"cached {covered_count:,} covered match(es)."
+                    "refreshing covered-match count in the background."
                 )
             elif action == "queue_missing":
                 sync_archives_from_livestreams(db.session)
@@ -2446,8 +2499,8 @@ def event_livestreams():
                 link=link,
             )
             db.session.add(new_stream)
-            refresh_covered_match_count(db.session)
             db.session.commit()
+            _queue_site_statistics_refresh("livestream added")
             return redirect(url_for("event_livestreams", id=event_id, name=name))
 
         elif action == "edit":
@@ -2463,15 +2516,15 @@ def event_livestreams():
                 stream.drift_factor = drift_factor
                 stream.hide_all = hide_all
                 stream.link = link
-                refresh_covered_match_count(db.session)
                 db.session.commit()
+                _queue_site_statistics_refresh("livestream edited")
             return redirect(url_for("event_livestreams", id=event_id, name=name))
         elif action == "delete":
             stream = LiveStream.query.get(uuid.UUID(stream_id))
             if stream:
                 db.session.delete(stream)
-                refresh_covered_match_count(db.session)
                 db.session.commit()
+                _queue_site_statistics_refresh("livestream deleted")
             return redirect(url_for("event_livestreams", id=event_id, name=name))
         elif action == "update_flo_tag":
             flo_tag = request.form.get("flo_tag", "").strip()
@@ -2495,8 +2548,8 @@ def event_livestreams():
                 if len(flo_event_tags) > 0:
                     for event_tag in flo_event_tags:
                         db.session.delete(event_tag)
-            refresh_covered_match_count(db.session)
             db.session.commit()
+            _queue_site_statistics_refresh("Flo event tag changed")
             return redirect(url_for("event_livestreams", id=event_id, name=name))
         elif action in (
             "add_flo_mat_link",
@@ -2983,9 +3036,9 @@ def update_all_video_links():
         if match and match.video_link != video_link:
             match.video_link = video_link
             updated = True
-    if updated:
-        refresh_covered_match_count(db.session)
     db.session.commit()
+    if updated:
+        _queue_site_statistics_refresh("individual match video links changed")
     return redirect(url_for("athlete_matches", id=athlete_id))
 
 
@@ -3531,12 +3584,16 @@ def youtube_match_videos_scan_import():
             )
         )
         errors.extend(import_errors)
+        if imported:
+            _queue_site_statistics_refresh("YouTube match videos imported")
 
     flash_msg = f"Imported {imported} video link(s)"
     if skipped:
         flash_msg += f"; skipped {skipped}"
     if errors:
         flash_msg += f"; {len(errors)} error(s): " + "; ".join(errors[:3])
+    if imported:
+        flash_msg += "; covered-match count refresh scheduled"
     session["youtube_scan_flash"] = flash_msg
 
     return redirect(

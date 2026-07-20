@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 
 from livestreams import get_livestream_link, load_livestream_links
 from models import (
@@ -26,6 +26,7 @@ NO_MATCH_NOTES = {
     "desqualificado por retirada",
 }
 EVENT_ID_BATCH_SIZE = 500
+POSTGRES_REFRESH_LOCK_ID = 1784258214
 
 
 def _empty_livestream_data():
@@ -174,6 +175,11 @@ def calculate_covered_match_count(session):
 
 def refresh_covered_match_count(session):
     session.flush()
+    if session.get_bind().dialect.name == "postgresql":
+        session.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_id)"),
+            {"lock_id": POSTGRES_REFRESH_LOCK_ID},
+        )
     covered_count = calculate_covered_match_count(session)
     statistic = session.get(SiteStatistic, COVERED_MATCH_COUNT_KEY)
     if statistic is None:
