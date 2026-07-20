@@ -115,6 +115,18 @@ keeps scoreboard reading invariant to padding, scaling, and horizontal placement
 within an archived crop and prevents background pixels from being interpreted as
 digits through a misplaced fallback crop.
 
+Ordinary athlete-name OCR reuses that exact detected grid. The name column ends at
+the left edge of the green score cells, and its top, bottom, row boundary, narrow
+line crops, and expanded retry crops are derived from the two detected cell rows.
+Padding or offsets therefore move the coordinates without changing their logical
+relationship to the scoreboard, while scaling changes retry selection according
+to detected row height rather than the full archive crop size. A crop without a
+structurally valid grid produces a blank scoreboard and no ordinary athlete or
+team names. Victory screens are the narrow exception: one no-layout OCR pass is
+accepted only when it contains the expected `Victory` or cropped `ictory` marker.
+The retained `score_malformed.jpg` fixture is a malformed pre-match operator layout
+and is the negative regression case for this fail-closed behavior.
+
 ## Worker CLI
 
 Use `scripts/scan_livestream_frame_text.py` for local or containerized processing.

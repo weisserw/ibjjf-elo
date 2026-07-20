@@ -921,6 +921,106 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser.name_engine = name_engine
         return parser
 
+    @staticmethod
+    def _name_layout(image_size=(320, 140)):
+        width, height = image_size
+        grid_left = max(1, width // 2)
+        row_height = max(1, int(height * 0.4))
+        gap = max(1, int(height * 0.03))
+        bottom_top = min(height - 1, row_height + gap)
+        bottom_bottom = min(height, bottom_top + row_height)
+        cell_width = max(1, (width - grid_left) // 3)
+        boxes = tuple(
+            (
+                grid_left + column * cell_width,
+                row_top,
+                min(width, grid_left + (column + 1) * cell_width),
+                row_bottom,
+            )
+            for row_top, row_bottom in (
+                (0, row_height),
+                (bottom_top, bottom_bottom),
+            )
+            for column in range(3)
+        )
+        return text_ocr._name_regions_from_score_layout(
+            image_size,
+            text_ocr.ScoreLayout(
+                "test",
+                boxes,
+                ("green", "yellow", "red") * 2,
+            ),
+        )
+
+    def test_name_regions_derive_from_detected_score_rows(self):
+        layout = text_ocr.ScoreLayout(
+            "synthetic",
+            (
+                (60, -2, 70, 28),
+                (70, 0, 80, 30),
+                (80, 1, 90, 29),
+                (59, 34, 69, 84),
+                (69, 35, 79, 82),
+                (79, 36, 89, 83),
+            ),
+            ("green", "yellow", "red") * 2,
+        )
+
+        name_layout = text_ocr._name_regions_from_score_layout((100, 80), layout)
+
+        self.assertEqual(name_layout.column_box, (0, 0, 59, 80))
+        self.assertEqual(name_layout.row_boundary, 32)
+        self.assertEqual(name_layout.reference_row_height, 46)
+        self.assertFalse(name_layout.use_scaled_retry)
+        for box in (
+            name_layout.column_box,
+            *name_layout.line_boxes,
+            *name_layout.expanded_row_boxes,
+        ):
+            self.assertGreater(box[2], box[0])
+            self.assertGreater(box[3], box[1])
+            self.assertGreaterEqual(box[0], 0)
+            self.assertGreaterEqual(box[1], 0)
+            self.assertLessEqual(box[2], 100)
+            self.assertLessEqual(box[3], 80)
+
+    def test_name_region_compactness_uses_detected_row_height(self):
+        def layout_with_height(row_height):
+            boxes = tuple(
+                (60 + column * 10, top, 70 + column * 10, top + row_height)
+                for top in (0, row_height + 2)
+                for column in range(3)
+            )
+            return text_ocr._name_regions_from_score_layout(
+                (120, row_height * 2 + 4),
+                text_ocr.ScoreLayout(
+                    "synthetic",
+                    boxes,
+                    ("green", "yellow", "red") * 2,
+                ),
+            )
+
+        self.assertTrue(
+            layout_with_height(
+                text_ocr.PADDLE_SCALED_RETRY_MAX_ROW_HEIGHT
+            ).use_scaled_retry
+        )
+        self.assertFalse(
+            layout_with_height(
+                text_ocr.PADDLE_SCALED_RETRY_MAX_ROW_HEIGHT + 1
+            ).use_scaled_retry
+        )
+
+    def test_name_regions_reject_invalid_cell_count(self):
+        layout = text_ocr.ScoreLayout(
+            "invalid",
+            ((10, 10, 20, 20),),
+            ("green",),
+        )
+
+        with self.assertRaisesRegex(ValueError, "exactly six"):
+            text_ocr._name_regions_from_score_layout((100, 80), layout)
+
     def test_parse_args_defaults_name_engine_to_paddle(self):
         args = runner.parse_args([])
 
@@ -1297,7 +1397,9 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         )
         score_image = FakeScoreImage()
 
-        scoreboard_text, fields = parser._ocr_name_fields(score_image)
+        scoreboard_text, fields = parser._ocr_name_fields(
+            score_image, self._name_layout(score_image.size)
+        )
 
         self.assertEqual(
             fields,
@@ -1307,7 +1409,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
         self.assertIn("TEST ATHLETE GAMMA-RAY", scoreboard_text)
-        self.assertEqual(score_image.boxes[0], (0, 0, 153, 120))
+        self.assertEqual(score_image.boxes[0], (0, 0, 160, 116))
         self.assertEqual(len(score_image.boxes), 3)
         parser._ocr.assert_has_calls(
             [
@@ -1341,7 +1443,9 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         )
         score_image = FakeScoreImage()
 
-        scoreboard_text, fields = parser._ocr_name_fields(score_image)
+        scoreboard_text, fields = parser._ocr_name_fields(
+            score_image, self._name_layout(score_image.size)
+        )
 
         self.assertEqual(
             fields,
@@ -1371,7 +1475,9 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         )
         score_image = FakeScoreImage()
 
-        _, fields = parser._ocr_name_fields(score_image)
+        _, fields = parser._ocr_name_fields(
+            score_image, self._name_layout(score_image.size)
+        )
 
         self.assertEqual(
             fields,
@@ -1381,7 +1487,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             },
         )
         self.assertEqual(len(score_image.boxes), 3)
-        self.assertLessEqual(max(box[2] for box in score_image.boxes), 154)
+        self.assertLessEqual(max(box[2] for box in score_image.boxes), 160)
         self.assertLess(score_image.boxes[1][3], score_image.boxes[2][1])
         parser._ocr.assert_has_calls(
             [
@@ -1402,7 +1508,10 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser._prepare_name_ocr_image = lambda image: image
         parser._ocr = mock.Mock(side_effect=["", "TEST ATHLETE GAMMA-RAY", "", "", ""])
 
-        _, fields = parser._ocr_name_fields(FakeScoreImage())
+        score_image = FakeScoreImage()
+        _, fields = parser._ocr_name_fields(
+            score_image, self._name_layout(score_image.size)
+        )
 
         self.assertEqual(fields, {})
 
@@ -1466,7 +1575,10 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             }
         )
 
-        _, fields = parser._ocr_name_fields(FakeScoreImage())
+        score_image = FakeScoreImage()
+        _, fields = parser._ocr_name_fields(
+            score_image, self._name_layout(score_image.size)
+        )
 
         self.assertEqual(
             fields,
@@ -1564,7 +1676,10 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             return_value="TEST ATHLETE ALPHA\n0 0 0\nTEST ATHLETE BETA\n2 0 0"
         )
 
-        _, fields = parser._ocr_name_fields(FakeScoreImage())
+        score_image = FakeScoreImage()
+        _, fields = parser._ocr_name_fields(
+            score_image, self._name_layout(score_image.size)
+        )
 
         self.assertEqual(
             fields,
@@ -1602,9 +1717,20 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         parser = self._name_parser(name_engine="paddle")
         parser._paddle_ocr = FakePaddleReader()
+        parser._paddle_row_name_fields = mock.Mock(
+            return_value=(
+                "TEST ATHLETE ALPHA\nTEST ATHLETE BETA",
+                {
+                    "top_athlete_name": "TEST ATHLETE ALPHA",
+                    "bottom_athlete_name": "TEST ATHLETE BETA",
+                },
+            )
+        )
         score_image = text_ocr.Image.new("RGB", (172, 78), "white")
 
-        _, fields = parser._ocr_name_fields(score_image)
+        _, fields = parser._ocr_name_fields(
+            score_image, self._name_layout(score_image.size)
+        )
 
         self.assertEqual(
             fields,
@@ -1613,7 +1739,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                 "bottom_athlete_name": "TEST ATHLETE BETA",
             },
         )
-        self.assertEqual(len(parser._paddle_ocr.calls), 2)
+        self.assertEqual(len(parser._paddle_ocr.calls), 1)
+        parser._paddle_row_name_fields.assert_called_once()
 
     def test_paddle_row_parser_skips_scaled_retries_when_base_results_agree(self):
         class FakeScoreImage:
@@ -1636,7 +1763,10 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             ]
         )
 
-        _, fields = parser._paddle_row_name_fields(FakeScoreImage())
+        score_image = FakeScoreImage()
+        _, fields = parser._paddle_row_name_fields(
+            score_image, self._name_layout(score_image.size)
+        )
 
         self.assertEqual(
             fields,
@@ -1670,7 +1800,10 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             ]
         )
 
-        _, fields = parser._paddle_row_name_fields(FakeScoreImage())
+        score_image = FakeScoreImage()
+        _, fields = parser._paddle_row_name_fields(
+            score_image, self._name_layout(score_image.size)
+        )
 
         self.assertEqual(
             fields,
@@ -1704,8 +1837,9 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             paddlex_pipeline=types.SimpleNamespace(text_rec_model=recognize)
         )
         score_image = text_ocr.Image.new("RGB", (172, 78), "white")
+        name_layout = self._name_layout(score_image.size)
 
-        _, fields = parser._paddle_direct_row_name_fields(score_image)
+        _, fields = parser._paddle_direct_row_name_fields(score_image, name_layout)
 
         self.assertEqual(
             fields,
@@ -1716,6 +1850,16 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         )
         self.assertEqual(len(recognition_calls), 1)
         self.assertEqual(len(recognition_calls[0]), 7)
+        expanded_bottom = name_layout.expanded_row_boxes[1]
+        self.assertEqual(
+            recognition_calls[0][5].shape[:2],
+            (
+                (expanded_bottom[3] - expanded_bottom[1])
+                * text_ocr.PADDLE_ROW_NAME_RETRY_SCALE,
+                (expanded_bottom[2] - expanded_bottom[0])
+                * text_ocr.PADDLE_ROW_NAME_RETRY_SCALE,
+            ),
+        )
 
     def test_paddle_direct_row_parser_falls_back_without_recognition_model(self):
         parser = self._name_parser(name_engine="paddle")
@@ -1733,8 +1877,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         _, fields = parser._paddle_name_fields(
             score_image,
-            text_ocr._name_column_boxes(score_image.size),
-            compact_name_column=True,
+            self._name_layout(score_image.size),
         )
 
         self.assertEqual(
@@ -1762,18 +1905,41 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         score_only_change = first_image.copy()
         score_only_change.putpixel((160, 60), (0, 0, 0))
 
-        parser._cached_name_fields(b"frame-1", first_image)
-        parser._cached_name_fields(b"frame-2", score_only_change)
+        name_layout = self._name_layout(first_image.size)
+        parser._cached_name_fields(b"frame-1", first_image, name_layout)
+        parser._cached_name_fields(b"frame-2", score_only_change, name_layout)
 
         parser._ocr_name_fields.assert_called_once()
 
         name_change = score_only_change.copy()
         name_change.putpixel((10, 10), (0, 0, 0))
-        parser._cached_name_fields(b"frame-3", name_change)
+        parser._cached_name_fields(b"frame-3", name_change, name_layout)
 
         self.assertEqual(parser._ocr_name_fields.call_count, 2)
 
-    def test_paddle_parser_retries_incomplete_name_column_with_alternate_crop(self):
+        shifted_layout = text_ocr.NameRegionLayout(
+            column_box=(
+                name_layout.column_box[0],
+                name_layout.column_box[1],
+                name_layout.column_box[2] - 1,
+                name_layout.column_box[3],
+            ),
+            line_boxes=tuple(
+                (box[0], box[1], box[2] - 1, box[3]) for box in name_layout.line_boxes
+            ),
+            expanded_row_boxes=tuple(
+                (box[0], box[1], box[2] - 1, box[3])
+                for box in name_layout.expanded_row_boxes
+            ),
+            row_boundary=name_layout.row_boundary,
+            reference_row_height=name_layout.reference_row_height,
+            use_scaled_retry=name_layout.use_scaled_retry,
+        )
+        parser._cached_name_fields(b"frame-4", name_change, shifted_layout)
+
+        self.assertEqual(parser._ocr_name_fields.call_count, 3)
+
+    def test_paddle_parser_retries_incomplete_name_column_with_preprocessing(self):
         class FakeScoreImage:
             size = (500, 140)
 
@@ -1782,6 +1948,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         parser = self._name_parser(name_engine="paddle")
         parser._paddle_box_name_fields = mock.Mock(return_value=("", {}))
+        parser._prepare_paddle_retry_image = lambda image: ("retry", image)
         parser._ocr = mock.Mock(
             side_effect=[
                 "TEST ATHLETE ALPHA",
@@ -1789,7 +1956,10 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             ]
         )
 
-        _, fields = parser._ocr_name_fields(FakeScoreImage())
+        score_image = FakeScoreImage()
+        _, fields = parser._ocr_name_fields(
+            score_image, self._name_layout(score_image.size)
+        )
 
         self.assertEqual(
             fields,
@@ -1817,14 +1987,15 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                 "MATEUS VICTOR OLIVE..\n"
                 "RYAN GRACIE TEAM",
                 "",
-                "",
-                "",
                 "CHRISTIAN MACEDO V. ..",
                 "MATEUS VICTOR OLIVE..",
             ]
         )
 
-        _, fields = parser._ocr_name_fields(FakeScoreImage())
+        score_image = FakeScoreImage()
+        _, fields = parser._ocr_name_fields(
+            score_image, self._name_layout(score_image.size)
+        )
 
         self.assertEqual(
             fields,
@@ -1862,17 +2033,85 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser.score_reader = None
         parser.timer_reader = None
         parser._image_from_bytes = lambda image_bytes: image_bytes
-        parser._ocr = lambda image, config="": (
-            "TEST ATHLETE ALPHA\nSAMPLE TEAM ONE\n0 0 0\n"
-            "TEST ATHLETE BETA\nSAMPLE TEAM TWO\n2 1 0"
+        score_image = text_ocr.Image.new("RGB", (320, 140), "white")
+        score_layout = text_ocr.ScoreLayout(
+            "test",
+            tuple(
+                (160 + column * 40, row_top, 200 + column * 40, row_top + 56)
+                for row_top in (0, 60)
+                for column in range(3)
+            ),
+            ("green", "yellow", "red") * 2,
+        )
+        parser.scoreboard_locator = mock.Mock()
+        parser.scoreboard_locator.locate.return_value = score_layout
+        parser._cached_name_fields = mock.Mock(
+            return_value=(
+                "TEST ATHLETE ALPHA\nTEST ATHLETE BETA",
+                {
+                    "top_athlete_name": "TEST ATHLETE ALPHA",
+                    "bottom_athlete_name": "TEST ATHLETE BETA",
+                },
+            )
         )
 
-        reading = parser.parse(12, b"score", b"timer")
+        reading = parser.parse(12, score_image, b"timer")
 
         self.assertEqual(reading.top_athlete_name, "TEST ATHLETE ALPHA")
         self.assertEqual(reading.bottom_athlete_name, "TEST ATHLETE BETA")
         self.assertIsNone(reading.top_points)
         self.assertIsNone(reading.timer_state)
+        parser.scoreboard_locator.locate.assert_called_once_with(score_image)
+
+    def test_frame_image_parser_rejects_ordinary_names_without_layout(self):
+        parser = self._name_parser(name_engine="paddle")
+        parser.parser_profile = "auto"
+        parser.score_engine = "fixed_digit"
+        parser._image_from_bytes = lambda image_bytes: image_bytes
+        parser.score_reader = mock.Mock()
+        parser.score_reader.read.return_value = text_ocr.ScoreboardDigitReading(
+            None,
+            tuple(text_ocr.DigitPrediction(None, 0.0, "none") for _ in range(6)),
+            False,
+        )
+        parser.timer_reader = None
+        parser.scoreboard_locator = mock.Mock()
+        parser._ocr_name_fields = mock.Mock(
+            side_effect=AssertionError("ordinary name OCR must be skipped")
+        )
+        parser._ocr = mock.Mock(return_value="TEST ATHLETE ALPHA\nTEST ATHLETE BETA")
+        score_image = text_ocr.Image.new("RGB", (320, 140), "white")
+
+        reading = parser.parse(12, score_image, None)
+
+        self.assertEqual(reading.scoreboard_state, text_scan.SCOREBOARD_STATE_BLANK)
+        self.assertIsNone(reading.top_athlete_name)
+        self.assertIsNone(reading.bottom_athlete_name)
+        parser._ocr_name_fields.assert_not_called()
+        parser._ocr.assert_called_once_with(score_image, "--psm 6")
+        parser.scoreboard_locator.locate.assert_not_called()
+
+    def test_frame_image_parser_accepts_only_victory_names_without_layout(self):
+        parser = self._name_parser(name_engine="paddle")
+        parser.parser_profile = "auto"
+        parser.score_engine = "none"
+        parser._image_from_bytes = lambda image_bytes: image_bytes
+        parser.score_reader = None
+        parser.timer_reader = None
+        parser.scoreboard_locator = mock.Mock()
+        parser.scoreboard_locator.locate.return_value = None
+        parser._ocr = mock.Mock(
+            return_value="Victory\nTEST ATHLETE WINNER\nSAMPLE TEAM BJJ"
+        )
+        score_image = text_ocr.Image.new("RGB", (320, 140), "white")
+
+        reading = parser.parse(12, score_image, None)
+
+        self.assertEqual(reading.top_athlete_name, "Victory")
+        self.assertEqual(reading.bottom_athlete_name, "TEST ATHLETE WINNER")
+        self.assertEqual(reading.bottom_team_name, "SAMPLE TEAM BJJ")
+        self.assertIsNone(reading.scoreboard_state)
+        parser._ocr.assert_called_once_with(score_image, "--psm 6")
 
     def test_frame_image_parser_uses_fixed_digit_readers_for_score_and_timer(self):
         parser = self._name_parser(name_engine="paddle")
@@ -1920,6 +2159,17 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser.parser_profile = "auto"
         parser.score_engine = "fixed_digit"
         parser._image_from_bytes = lambda image_bytes: image_bytes
+        parser.scoreboard_locator = mock.Mock()
+        score_image = text_ocr.Image.new("RGB", (320, 140), "white")
+        score_layout = text_ocr.ScoreLayout(
+            "selected",
+            tuple(
+                (160 + column * 40, row_top, 200 + column * 40, row_top + 56)
+                for row_top in (0, 60)
+                for column in range(3)
+            ),
+            ("green", "yellow", "red") * 2,
+        )
         parser.score_reader = mock.Mock()
         parser.score_reader.read.return_value = text_ocr.ScoreboardDigitReading(
             (0, 0, 0, 2, 1, 0),
@@ -1932,6 +2182,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                 text_ocr.DigitPrediction(0, 0.9, "test"),
             ),
             True,
+            score_layout,
         )
         parser.timer_reader = mock.Mock()
         parser.timer_reader.read.return_value = text_ocr.TimerDigitReading(
@@ -1943,19 +2194,29 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
                 text_ocr.DigitPrediction(0, 0.9, "test"),
             ),
         )
-        parser._ocr = mock.Mock(
-            return_value="\n".join(["TEST ATHLETE ALPHA", "TEST ATHLETE BETA"])
+        parser._ocr_name_fields = mock.Mock(
+            return_value=(
+                "TEST ATHLETE ALPHA\nTEST ATHLETE BETA",
+                {
+                    "top_athlete_name": "TEST ATHLETE ALPHA",
+                    "bottom_athlete_name": "TEST ATHLETE BETA",
+                },
+            )
         )
 
-        parser.parse_score_timer(12, b"score", b"timer")
-        first_full = parser.parse(12, b"score", b"timer")
-        second_full = parser.parse(13, b"score", b"timer")
+        parser.parse_score_timer(12, score_image, b"timer")
+        first_full = parser.parse(12, score_image, b"timer")
+        second_full = parser.parse(13, score_image, b"timer")
 
         self.assertEqual(first_full.top_athlete_name, "TEST ATHLETE ALPHA")
         self.assertEqual(second_full.bottom_athlete_name, "TEST ATHLETE BETA")
-        parser.score_reader.read.assert_called_once_with(b"score")
+        parser.score_reader.read.assert_called_once_with(score_image)
         parser.timer_reader.read.assert_called_once_with(b"timer")
-        parser._ocr.assert_called_once_with(b"score", "--psm 6")
+        parser._ocr_name_fields.assert_called_once_with(
+            score_image,
+            text_ocr._name_regions_from_score_layout(score_image.size, score_layout),
+        )
+        parser.scoreboard_locator.locate.assert_not_called()
 
     def test_scoreboard_digit_reader_accepts_rendered_layout(self):
         if (
@@ -2010,6 +2271,8 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         self.assertTrue(reading.has_layout)
         self.assertEqual(reading.digits, (0, 0, 0, 0, 0, 0))
+        self.assertIsNotNone(reading.layout)
+        self.assertEqual(len(reading.layout.cell_boxes), 6)
 
     def test_scoreboard_digit_reader_detects_offset_rendered_layout(self):
         if (
@@ -2050,6 +2313,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
 
         self.assertTrue(reading.has_layout)
         self.assertEqual(reading.digits, (0, 0, 0, 0, 0, 0))
+        self.assertIsNotNone(reading.layout)
 
     def test_score_fields_from_reading_marks_missing_layout_as_blank(self):
         reading = text_ocr.ScoreboardDigitReading(
@@ -2095,6 +2359,19 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             with mock.patch("shutil.which", return_value=None):
                 with self.assertRaisesRegex(RuntimeError, "tesseract binary"):
                     text_ocr.validate_ocr_engines("none", "tesseract")
+
+    def test_validate_name_engines_require_opencv_for_scoreboard_location(self):
+        with mock.patch.object(text_ocr, "cv2", None), mock.patch.dict(
+            sys.modules,
+            {
+                "pytesseract": mock.Mock(),
+                "paddleocr": mock.Mock(),
+            },
+        ), mock.patch("shutil.which", return_value="/usr/bin/tesseract"):
+            with self.assertRaisesRegex(RuntimeError, "opencv-python"):
+                text_ocr.validate_ocr_engines("none", "tesseract")
+            with self.assertRaisesRegex(RuntimeError, "opencv-python"):
+                text_ocr.validate_ocr_engines("none", "paddle")
 
 
 class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
@@ -2144,24 +2421,65 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         with open(score_path, "rb") as fileobj:
             image = text_ocr.Image.open(fileobj).convert("RGB")
 
+        horizontal_offset = text_ocr.Image.new(
+            "RGB", (image.width + 80, image.height), (12, 12, 12)
+        )
+        horizontal_offset.paste(image, (55, 0))
         variants = {
             "padding": text_ocr.ImageOps.expand(
                 image,
                 border=(37, 11, 53, 7),
                 fill=(12, 12, 12),
             ),
+            "horizontal_offset": horizontal_offset,
             "scaled_down": image.resize((184, 83), text_ocr.Image.Resampling.LANCZOS),
             "scaled_up": image.resize((345, 156), text_ocr.Image.Resampling.LANCZOS),
         }
         locator = text_ocr.ScoreboardLocator()
         reader = text_ocr.ScoreboardDigitReader()
+        base_layout = locator.locate(image)
+        base_name_layout = text_ocr._name_regions_from_score_layout(
+            image.size, base_layout
+        )
 
         for variant_name, variant in variants.items():
             with self.subTest(variant=variant_name):
                 layout = locator.locate(variant)
                 self.assertIsNotNone(layout)
                 self.assertEqual(len(layout.cell_boxes), 6)
+                name_layout = text_ocr._name_regions_from_score_layout(
+                    variant.size, layout
+                )
+                grid_left = min(layout.cell_boxes[0][0], layout.cell_boxes[3][0])
+                self.assertEqual(name_layout.column_box[2], grid_left)
+                self.assertTrue(
+                    all(box[2] == grid_left for box in name_layout.line_boxes)
+                )
+                for row_cells, line_box in zip(
+                    (layout.cell_boxes[:3], layout.cell_boxes[3:]),
+                    name_layout.line_boxes,
+                ):
+                    row_top = min(box[1] for box in row_cells)
+                    row_bottom = max(box[3] for box in row_cells)
+                    self.assertGreaterEqual(line_box[1], row_top)
+                    self.assertLessEqual(line_box[3], row_bottom)
+                if variant_name in ("padding", "horizontal_offset"):
+                    self.assertEqual(
+                        name_layout.use_scaled_retry,
+                        base_name_layout.use_scaled_retry,
+                    )
                 self.assertEqual(reader.read(variant).digits, (0, 1, 2, 0, 1, 2))
+
+        self.assertNotEqual(
+            text_ocr._name_regions_from_score_layout(
+                variants["scaled_down"].size,
+                locator.locate(variants["scaled_down"]),
+            ).use_scaled_retry,
+            text_ocr._name_regions_from_score_layout(
+                variants["scaled_up"].size,
+                locator.locate(variants["scaled_up"]),
+            ).use_scaled_retry,
+        )
 
     def test_score_and_timer_fixture_cases(self):
         cases_path = os.path.join(self.fixture_dir, "cases.json")
@@ -2412,7 +2730,6 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
             "new_score_names4.jpg",
             "new_score_names5.jpg",
             "new_score_multi.jpg",
-            "score_names.jpg",
             "score_names2.jpg",
             "score_names3.jpg",
             "score_names4.jpg",
@@ -2439,6 +2756,36 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 self.assertTrue(reading.top_athlete_name)
                 self.assertTrue(reading.bottom_athlete_name)
 
+    def test_malformed_scoreboard_abandons_scores_and_names(self):
+        try:
+            text_ocr.validate_ocr_engines("fixed_digit", "paddle")
+        except RuntimeError as exc:
+            self.skipTest(str(exc))
+
+        parser = text_ocr.FrameImageTextParser("auto", "fixed_digit", "paddle")
+        score_path = os.path.join(self.fixture_dir, "score_malformed.jpg")
+        self.assertTrue(
+            os.path.exists(score_path),
+            "missing malformed livestream OCR fixture: score_malformed.jpg",
+        )
+        with open(score_path, "rb") as fileobj:
+            reading = parser.parse(0, fileobj.read(), None)
+
+        self.assertEqual(reading.scoreboard_state, text_scan.SCOREBOARD_STATE_BLANK)
+        for field_name in (
+            "top_points",
+            "top_advantages",
+            "top_penalties",
+            "bottom_points",
+            "bottom_advantages",
+            "bottom_penalties",
+            "top_athlete_name",
+            "top_team_name",
+            "bottom_athlete_name",
+            "bottom_team_name",
+        ):
+            self.assertIsNone(getattr(reading, field_name), field_name)
+
     def test_paddle_name_fixture_names(self):
         try:
             text_ocr.validate_ocr_engines("none", "paddle")
@@ -2449,13 +2796,13 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         cases = [
             (
                 "paddle_names.jpg",
-                "VITOR CABRIEL NASCL",
+                "VITOR GABRIEL NASCL",
                 "GUSTAVO HENRIQUE B",
             ),
             (
                 "paddle_names2.jpg",
-                "VITOR GABRIEL NASCL",
-                "GUISTAVO HENRIQUE B",
+                "VITOR CABRIEL NASCL",
+                "GUSTAVO HENRIQUE B",
             ),
             (
                 "paddle_names3.jpg",

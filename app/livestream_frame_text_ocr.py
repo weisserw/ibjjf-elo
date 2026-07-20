@@ -39,15 +39,12 @@ SCORE_THREE_EIGHT_SIMILARITY_MARGIN = 0.02
 SCORE_THREE_MAX_BOTTOM_LEFT_DENSITY = 0.80
 SCORE_BORDER_COLUMN_MIN_DENSITY = 0.85
 OCR_FONT_DIR = Path(__file__).resolve().parent / "ocr_fonts"
-NAME_COLUMN_RIGHT_RATIO = 0.481
-NAME_RENDERED_COLUMN_RIGHT_RATIO = 0.52
-NAME_ROW_Y_EDGES = (0.0, 0.431, 0.861)
-NAME_LINE_TOP_RATIO = 0.02
-NAME_LINE_BOTTOM_RATIO = 0.42
+NAME_LINE_TOP_WITHIN_ROW_RATIO = 0.02
+NAME_LINE_BOTTOM_WITHIN_ROW_RATIO = 0.42
+NAME_EXPANDED_BOTTOM_WITHIN_ROW_RATIO = 0.65
 NAME_OCR_SCALE = 3
 PADDLE_ROW_NAME_RETRY_SCALE = 4
-PADDLE_DIRECT_ROW_MIN_WIDTH = 170
-PADDLE_DIRECT_ROW_MAX_HEIGHT = 100
+PADDLE_SCALED_RETRY_MAX_ROW_HEIGHT = 40
 
 
 def _configure_paddle_runtime():
@@ -90,10 +87,27 @@ class ScoreLayout:
 
 
 @dataclass(frozen=True)
+class NameRegionLayout:
+    column_box: tuple[int, int, int, int]
+    line_boxes: tuple[
+        tuple[int, int, int, int],
+        tuple[int, int, int, int],
+    ]
+    expanded_row_boxes: tuple[
+        tuple[int, int, int, int],
+        tuple[int, int, int, int],
+    ]
+    row_boundary: float
+    reference_row_height: int
+    use_scaled_retry: bool
+
+
+@dataclass(frozen=True)
 class ScoreboardDigitReading:
     digits: tuple[int, int, int, int, int, int] | None
     predictions: tuple[DigitPrediction, ...]
     has_layout: bool
+    layout: ScoreLayout | None = None
 
 
 @dataclass(frozen=True)
@@ -253,48 +267,67 @@ class ScoreboardLocator:
         return candidates[0] if candidates else None
 
 
-def _name_line_boxes(
-    image_size: tuple[int, int]
-) -> tuple[tuple[int, int, int, int], ...]:
+def _name_regions_from_score_layout(
+    image_size: tuple[int, int], layout: ScoreLayout
+) -> NameRegionLayout:
+    if len(layout.cell_boxes) != 6:
+        raise ValueError("name region layout requires exactly six score cells")
+
     width, height = image_size
-    right = int(width * NAME_COLUMN_RIGHT_RATIO)
-    boxes = []
-    for row in range(2):
-        row_top = int(height * NAME_ROW_Y_EDGES[row])
-        row_bottom = int(height * NAME_ROW_Y_EDGES[row + 1])
+    if width <= 0 or height <= 0:
+        raise ValueError("name region layout requires positive image dimensions")
+
+    def clamp(value: int, lower: int, upper: int) -> int:
+        return max(lower, min(upper, int(value)))
+
+    row_spans = []
+    for cells in (layout.cell_boxes[:3], layout.cell_boxes[3:]):
+        row_top = clamp(min(cell[1] for cell in cells), 0, height - 1)
+        row_bottom = clamp(max(cell[3] for cell in cells), row_top + 1, height)
+        row_spans.append((row_top, row_bottom))
+
+    grid_left = clamp(min(layout.cell_boxes[0][0], layout.cell_boxes[3][0]), 1, width)
+    top_span, bottom_span = row_spans
+    if top_span[1] < bottom_span[0]:
+        row_boundary = (top_span[1] + bottom_span[0]) / 2
+    else:
+        top_center = (top_span[0] + top_span[1]) / 2
+        bottom_center = (bottom_span[0] + bottom_span[1]) / 2
+        row_boundary = (top_center + bottom_center) / 2
+
+    line_boxes = []
+    expanded_row_boxes = []
+    for row_top, row_bottom in row_spans:
         row_height = row_bottom - row_top
-        top = row_top + int(row_height * NAME_LINE_TOP_RATIO)
-        bottom = row_top + int(row_height * NAME_LINE_BOTTOM_RATIO)
-        boxes.append((0, top, right, max(top + 1, bottom)))
-    return tuple(boxes)
-
-
-def _name_column_box(image_size: tuple[int, int]) -> tuple[int, int, int, int]:
-    width, height = image_size
-    return (
-        0,
-        0,
-        int(width * NAME_COLUMN_RIGHT_RATIO),
-        int(height * NAME_ROW_Y_EDGES[-1]),
-    )
-
-
-def _name_column_boxes(
-    image_size: tuple[int, int]
-) -> tuple[tuple[int, int, int, int], ...]:
-    width, height = image_size
-    boxes = [_name_column_box(image_size)]
-    if width >= 400 or width < 240:
-        boxes.insert(
-            0,
-            (
-                0,
-                0,
-                int(width * NAME_RENDERED_COLUMN_RIGHT_RATIO),
-                int(height * NAME_ROW_Y_EDGES[-1]),
-            ),
+        line_top = clamp(
+            row_top + int(row_height * NAME_LINE_TOP_WITHIN_ROW_RATIO),
+            row_top,
+            row_bottom - 1,
         )
-    return tuple(boxes)
+        line_bottom = clamp(
+            row_top + int(row_height * NAME_LINE_BOTTOM_WITHIN_ROW_RATIO),
+            line_top + 1,
+            row_bottom,
+        )
+        expanded_bottom = clamp(
+            row_top + int(row_height * NAME_EXPANDED_BOTTOM_WITHIN_ROW_RATIO),
+            line_bottom,
+            row_bottom,
+        )
+        line_boxes.append((0, line_top, grid_left, line_bottom))
+        expanded_row_boxes.append((0, row_top, grid_left, expanded_bottom))
+
+    reference_row_height = max(bottom - top for top, bottom in row_spans)
+    column_top = top_span[0]
+    column_bottom = clamp(bottom_span[1], column_top + 1, height)
+    return NameRegionLayout(
+        column_box=(0, column_top, grid_left, column_bottom),
+        line_boxes=(line_boxes[0], line_boxes[1]),
+        expanded_row_boxes=(expanded_row_boxes[0], expanded_row_boxes[1]),
+        row_boundary=row_boundary,
+        reference_row_height=reference_row_height,
+        use_scaled_retry=(reference_row_height <= PADDLE_SCALED_RETRY_MAX_ROW_HEIGHT),
+    )
 
 
 def _inner_cell(image):
@@ -573,7 +606,7 @@ class ScoreboardDigitReader:
 
     def read(self, image) -> ScoreboardDigitReading:
         if image is None:
-            return ScoreboardDigitReading(None, (), False)
+            return ScoreboardDigitReading(None, (), False, None)
 
         # The scoreboard can occupy very different fractions of otherwise valid
         # archive crops, so only read grids discovered in the image itself.
@@ -602,6 +635,7 @@ class ScoreboardDigitReader:
             None,
             tuple(DigitPrediction(None, 0.0, "none") for _ in range(6)),
             False,
+            None,
         )
 
     def _read_layout(self, image, layout: ScoreLayout) -> ScoreboardDigitReading:
@@ -623,11 +657,12 @@ class ScoreboardDigitReader:
         if not has_layout or any(
             prediction.digit is None for prediction in predictions
         ):
-            return ScoreboardDigitReading(None, tuple(predictions), has_layout)
+            return ScoreboardDigitReading(None, tuple(predictions), has_layout, layout)
         return ScoreboardDigitReading(
             tuple(prediction.digit for prediction in predictions),
             tuple(predictions),
             True,
+            layout,
         )
 
     def _predict_score_cell(self, cell) -> DigitPrediction:
@@ -937,7 +972,12 @@ class FrameImageTextParser:
         self._paddle_ocr = None
         self._paddle_result_cache = None
         score_enabled = score_engine not in (None, "none")
-        self.score_reader = ScoreboardDigitReader() if score_enabled else None
+        self.scoreboard_locator = ScoreboardLocator()
+        self.score_reader = (
+            ScoreboardDigitReader(locator=self.scoreboard_locator)
+            if score_enabled
+            else None
+        )
         self.timer_reader = TimerDigitReader() if score_enabled else None
         if name_engine == "tesseract":
             import pytesseract  # noqa: F401
@@ -1055,63 +1095,58 @@ class FrameImageTextParser:
             if text.strip()
         ).strip()
 
-    def _paddle_name_texts(self, score_image, column_boxes):
+    def _paddle_name_texts(self, score_image, name_layout: NameRegionLayout):
         if score_image is None or not hasattr(score_image, "crop"):
-            yield self._ocr(score_image)
             return
 
-        boxes = [column_boxes[0]]
-        for box in column_boxes[1:]:
-            if box not in boxes:
-                boxes.append(box)
+        crop = score_image.crop(name_layout.column_box)
+        yield self._ocr(crop)
+        prepared = self._prepare_paddle_retry_image(crop)
+        if prepared is not None:
+            yield self._ocr(prepared)
 
-        crops = [score_image.crop(box) for box in boxes]
-        for crop in crops:
-            yield self._ocr(crop)
-
-        for crop in crops:
-            prepared = self._prepare_paddle_retry_image(crop)
-            if prepared is not None:
-                yield self._ocr(prepared)
-
-    def _paddle_name_fields(self, score_image, column_boxes, *, compact_name_column):
-        direct_text, direct_fields = self._paddle_direct_row_name_fields(score_image)
+    def _paddle_name_fields(
+        self, score_image, name_layout: NameRegionLayout
+    ) -> tuple[str, dict]:
+        direct_text, direct_fields = self._paddle_direct_row_name_fields(
+            score_image, name_layout
+        )
         if direct_fields:
             return direct_text, direct_fields
 
-        box_text, box_fields = self._paddle_box_name_fields(
-            score_image, column_boxes[0]
-        )
+        box_text, box_fields = self._paddle_box_name_fields(score_image, name_layout)
         if box_fields:
             return box_text, box_fields
 
         first_text = ""
         compact_top_name = None
-        for text in self._paddle_name_texts(score_image, column_boxes):
+        for text in self._paddle_name_texts(score_image, name_layout):
             if not first_text:
                 first_text = text
-            victory_fields = self._complete_athlete_name_fields(
-                self._parse_victory_names(text)
-            )
-            if victory_fields:
-                return text, victory_fields
             fields = self._complete_athlete_name_fields(
                 self._parse_names(
                     text,
-                    allow_two_line_fallback=compact_name_column,
-                    reject_lowercase_artifacts=compact_name_column,
+                    allow_two_line_fallback=name_layout.use_scaled_retry,
+                    reject_lowercase_artifacts=name_layout.use_scaled_retry,
+                    allow_victory=False,
                 )
             )
             if fields:
                 return text, fields
-            if compact_name_column:
-                parsed_names = self._parse_names(text, allow_two_line_fallback=False)
+            if name_layout.use_scaled_retry:
+                parsed_names = self._parse_names(
+                    text,
+                    allow_two_line_fallback=False,
+                    allow_victory=False,
+                )
                 if parsed_names.get("top_athlete_name") and not parsed_names.get(
                     "bottom_athlete_name"
                 ):
                     compact_top_name = parsed_names["top_athlete_name"]
         row_text, row_fields = self._paddle_row_name_fields(
-            score_image, top_name_fallback=compact_top_name
+            score_image,
+            name_layout,
+            top_name_fallback=compact_top_name,
         )
         if row_fields:
             return (
@@ -1154,27 +1189,17 @@ class FrameImageTextParser:
             texts.append(str(text or "").strip())
         return texts
 
-    def _paddle_direct_row_name_fields(self, score_image) -> tuple[str, dict]:
+    def _paddle_direct_row_name_fields(
+        self, score_image, name_layout: NameRegionLayout
+    ) -> tuple[str, dict]:
         if score_image is None or not hasattr(score_image, "crop"):
             return "", {}
-        width, height = score_image.size
-        if not (
-            PADDLE_DIRECT_ROW_MIN_WIDTH <= width < 240
-            and height <= PADDLE_DIRECT_ROW_MAX_HEIGHT
-        ):
+        if not name_layout.use_scaled_retry:
             return "", {}
 
-        base_boxes = _name_line_boxes(score_image.size)
-        top_crop = score_image.crop(base_boxes[0])
-        bottom_crop = score_image.crop(base_boxes[1])
-        alternate_bottom_crop = score_image.crop(
-            (
-                0,
-                int(height * 0.40),
-                int(width * 0.55),
-                int(height * 0.65),
-            )
-        )
+        top_crop = score_image.crop(name_layout.line_boxes[0])
+        bottom_crop = score_image.crop(name_layout.line_boxes[1])
+        expanded_bottom_crop = score_image.crop(name_layout.expanded_row_boxes[1])
         image_groups = (
             (
                 "top_athlete_name",
@@ -1189,7 +1214,7 @@ class FrameImageTextParser:
                 [
                     bottom_crop,
                     self._prepare_paddle_retry_image(bottom_crop),
-                    self._prepare_paddle_scaled_retry_image(alternate_bottom_crop),
+                    self._prepare_paddle_scaled_retry_image(expanded_bottom_crop),
                     self._prepare_paddle_scaled_retry_image(bottom_crop),
                 ],
             ),
@@ -1204,45 +1229,48 @@ class FrameImageTextParser:
         for field_name, group in image_groups:
             candidates = []
             for text in texts[offset : offset + len(group)]:
-                candidate = self._name_from_row_text(text)
-                if not candidate and field_name == "bottom_athlete_name":
-                    candidate = self._name_from_paddle_item_text(
+                row_candidate = self._name_from_row_text(text)
+                if row_candidate:
+                    candidates.append(row_candidate)
+                if field_name == "bottom_athlete_name":
+                    item_candidate = self._name_from_paddle_item_text(
                         " ".join(text.splitlines())
                     )
-                if candidate:
-                    candidates.append(candidate)
+                    if item_candidate:
+                        candidates.append(item_candidate)
             offset += len(group)
             if candidates:
-                fields[field_name] = max(candidates, key=self._name_candidate_score)
+                fields[field_name] = max(
+                    candidates,
+                    key=lambda candidate: (
+                        self._name_candidate_score(candidate),
+                        len(candidate),
+                    ),
+                )
 
         return "\n".join(
             text for text in texts if text
         ), self._complete_athlete_name_fields(fields)
 
     def _paddle_row_name_fields(
-        self, score_image, *, top_name_fallback: str | None = None
+        self,
+        score_image,
+        name_layout: NameRegionLayout,
+        *,
+        top_name_fallback: str | None = None,
     ) -> tuple[str, dict]:
         if score_image is None or not hasattr(score_image, "crop"):
             return "", {}
 
         row_fields = {}
         row_texts = []
-        use_scaled_retry = score_image.size[0] < 240
-        base_boxes = _name_line_boxes(score_image.size)
+        use_scaled_retry = name_layout.use_scaled_retry
         row_box_groups = [
-            ("top_athlete_name", [base_boxes[0]]),
-            ("bottom_athlete_name", [base_boxes[1]]),
+            ("top_athlete_name", [name_layout.line_boxes[0]]),
+            ("bottom_athlete_name", [name_layout.line_boxes[1]]),
         ]
         if use_scaled_retry:
-            width, height = score_image.size
-            row_box_groups[1][1].append(
-                (
-                    0,
-                    int(height * 0.40),
-                    int(width * 0.55),
-                    int(height * 0.65),
-                )
-            )
+            row_box_groups[1][1].append(name_layout.expanded_row_boxes[1])
 
         for field_name, boxes in row_box_groups:
             name_candidates = []
@@ -1296,11 +1324,13 @@ class FrameImageTextParser:
 
         return "\n".join(row_texts), self._complete_athlete_name_fields(row_fields)
 
-    def _paddle_box_name_fields(self, score_image, column_box) -> tuple[str, dict]:
+    def _paddle_box_name_fields(
+        self, score_image, name_layout: NameRegionLayout
+    ) -> tuple[str, dict]:
         if score_image is None or not hasattr(score_image, "crop"):
             return "", {}
 
-        crop = score_image.crop(column_box)
+        crop = score_image.crop(name_layout.column_box)
         result = self._paddle_ocr_result(crop)
         items = [
             item
@@ -1316,11 +1346,10 @@ class FrameImageTextParser:
             "top_athlete_name": [],
             "bottom_athlete_name": [],
         }
-        row_boundary = score_image.size[1] * NAME_ROW_Y_EDGES[1]
-        column_top = column_box[1]
+        column_top = name_layout.column_box[1]
         for item in items:
             y_center = column_top + (item.box[1] + item.box[3]) / 2
-            if y_center < row_boundary:
+            if y_center < name_layout.row_boundary:
                 row_items["top_athlete_name"].append(item)
             else:
                 row_items["bottom_athlete_name"].append(item)
@@ -1596,94 +1625,69 @@ class FrameImageTextParser:
             }
         return {}
 
-    def _ocr_name_fields(self, score_image) -> tuple[str, dict]:
-        if score_image is None:
+    def _ocr_name_fields(
+        self, score_image, name_layout: NameRegionLayout
+    ) -> tuple[str, dict]:
+        if (
+            score_image is None
+            or not hasattr(score_image, "crop")
+            or not hasattr(score_image, "size")
+        ):
             return "", {}
-        if not hasattr(score_image, "crop") or not hasattr(score_image, "size"):
-            text = self._ocr(score_image, "--psm 6")
-            return text, self._complete_athlete_name_fields(self._parse_names(text))
 
         column_text = ""
         column_fields = {}
-        column_boxes = _name_column_boxes(score_image.size)
-        compact_name_column = score_image.size[0] < 240 and len(column_boxes) > 1
+        compact_name_column = name_layout.use_scaled_retry
         if self.name_engine == "paddle":
             previous_result_cache = getattr(self, "_paddle_result_cache", None)
             self._paddle_result_cache = {}
             try:
-                return self._paddle_name_fields(
-                    score_image,
-                    column_boxes,
-                    compact_name_column=compact_name_column,
-                )
+                return self._paddle_name_fields(score_image, name_layout)
             finally:
                 self._paddle_result_cache = previous_result_cache
 
         compact_top_name = None
-        for index, box in enumerate(column_boxes):
-            column_image = self._prepare_name_ocr_image(score_image.crop(box))
-            column_text = self._ocr(column_image, "--psm 6")
-            victory_fields = self._complete_athlete_name_fields(
-                self._parse_victory_names(column_text)
-            )
-            if victory_fields:
-                return column_text, victory_fields
-
-            parsed_names = self._parse_names(
-                column_text,
-                allow_two_line_fallback=compact_name_column,
-                reject_lowercase_artifacts=compact_name_column,
-            )
-            if (
-                compact_name_column
-                and parsed_names.get("top_athlete_name")
-                and parsed_names.get("top_athlete_name")
-                == parsed_names.get("bottom_athlete_name")
-            ):
-                parsed_names.pop("bottom_athlete_name", None)
-            if (
-                compact_name_column
-                and parsed_names.get("top_athlete_name")
-                and not parsed_names.get("bottom_athlete_name")
-            ):
-                if compact_top_name is None or self._name_candidate_score(
-                    parsed_names["top_athlete_name"]
-                ) > self._name_candidate_score(compact_top_name):
-                    compact_top_name = parsed_names["top_athlete_name"]
-
-            parsed_column_fields = self._complete_athlete_name_fields(parsed_names)
-            if (
-                parsed_column_fields
-                and compact_top_name
-                and self._name_candidate_score(compact_top_name)
-                > self._name_candidate_score(parsed_column_fields["top_athlete_name"])
-            ):
-                parsed_column_fields = {
-                    **parsed_column_fields,
-                    "top_athlete_name": compact_top_name,
-                }
-            if parsed_column_fields and len(column_boxes) > 1 and index == 0:
-                return column_text, parsed_column_fields
-            if parsed_column_fields:
-                column_fields = parsed_column_fields
+        column_image = self._prepare_name_ocr_image(
+            score_image.crop(name_layout.column_box)
+        )
+        column_text = self._ocr(column_image, "--psm 6")
+        parsed_names = self._parse_names(
+            column_text,
+            allow_two_line_fallback=compact_name_column,
+            reject_lowercase_artifacts=compact_name_column,
+            allow_victory=False,
+        )
+        if (
+            compact_name_column
+            and parsed_names.get("top_athlete_name")
+            and parsed_names.get("top_athlete_name")
+            == parsed_names.get("bottom_athlete_name")
+        ):
+            parsed_names.pop("bottom_athlete_name", None)
+        if (
+            compact_name_column
+            and parsed_names.get("top_athlete_name")
+            and not parsed_names.get("bottom_athlete_name")
+        ):
+            compact_top_name = parsed_names["top_athlete_name"]
+        column_fields = self._complete_athlete_name_fields(parsed_names)
 
         if compact_name_column:
             if column_fields:
                 return column_text, column_fields
             compact_row_fields = self._compact_row_name_fields(
-                score_image, top_name_fallback=compact_top_name
+                score_image,
+                name_layout,
+                top_name_fallback=compact_top_name,
             )
             if compact_row_fields:
                 return column_text, compact_row_fields
-
-        if column_fields and len(column_boxes) > 1:
-            return column_text, column_fields
 
         row_fields = {}
         row_texts = []
         for field_name, box in zip(
             ("top_athlete_name", "bottom_athlete_name"),
-            _name_line_boxes(score_image.size),
+            name_layout.line_boxes,
         ):
             name_image = self._prepare_name_ocr_image(score_image.crop(box))
             row_text_parts = []
@@ -1718,6 +1722,13 @@ class FrameImageTextParser:
             return text, fields
 
         return text, column_fields
+
+    def _ocr_victory_fields(self, score_image) -> tuple[str, dict]:
+        if score_image is None:
+            return "", {}
+        text = self._ocr(score_image, "--psm 6")
+        fields = self._complete_athlete_name_fields(self._parse_victory_names(text))
+        return text, fields
 
     def _clean_text_line(self, line: str) -> str | None:
         line = re.sub(r"[|_]+", " ", line)
@@ -1913,22 +1924,23 @@ class FrameImageTextParser:
         return None
 
     def _compact_row_name_fields(
-        self, score_image, *, top_name_fallback: str | None = None
+        self,
+        score_image,
+        name_layout: NameRegionLayout,
+        *,
+        top_name_fallback: str | None = None,
     ) -> dict:
         if score_image is None or not hasattr(score_image, "crop"):
             return {}
 
-        width, _ = score_image.size
-        top_right_edges = (0.52, 0.535, NAME_COLUMN_RIGHT_RATIO)
-        bottom_right_edges = (NAME_COLUMN_RIGHT_RATIO, 0.52, 0.535)
-        top_boxes = [
-            (0, 0, int(width * right_edge), 13) for right_edge in top_right_edges
-        ]
-        bottom_boxes = [
-            (0, top, int(width * right_edge), bottom)
-            for top, bottom in ((39, 55), (38, 54), (36, 52))
-            for right_edge in bottom_right_edges
-        ]
+        top_boxes = (
+            name_layout.line_boxes[0],
+            name_layout.expanded_row_boxes[0],
+        )
+        bottom_boxes = (
+            name_layout.line_boxes[1],
+            name_layout.expanded_row_boxes[1],
+        )
         top_name = self._first_compact_row_name(score_image, top_boxes)
         if not top_name:
             top_name = top_name_fallback
@@ -2023,13 +2035,15 @@ class FrameImageTextParser:
         *,
         allow_two_line_fallback: bool = True,
         reject_lowercase_artifacts: bool = False,
+        allow_victory: bool = True,
     ) -> dict:
         if self.name_engine in (None, "none"):
             return {}
 
-        victory_fields = self._parse_victory_names(text)
-        if victory_fields:
-            return victory_fields
+        if allow_victory:
+            victory_fields = self._parse_victory_names(text)
+            if victory_fields:
+                return victory_fields
 
         score_row_pattern = re.compile(r"\b\d{1,2}\s+\d{1,2}\s+\d{1,2}\b")
         blocks = []
@@ -2108,39 +2122,50 @@ class FrameImageTextParser:
         return result
 
     @classmethod
-    def _name_region_cache_key(cls, score_image, score):
+    def _name_region_cache_key(
+        cls,
+        score_image,
+        score,
+        name_layout: NameRegionLayout,
+    ):
         if score is None or not hasattr(score, "crop") or not hasattr(score, "size"):
-            return cls._image_cache_key(score_image)
+            return (name_layout, cls._image_cache_key(score_image))
 
-        boxes = [*_name_column_boxes(score.size), *_name_line_boxes(score.size)]
-        if score.size[0] < 240:
-            width, height = score.size
-            boxes.append(
-                (
-                    0,
-                    int(height * 0.40),
-                    int(width * 0.55),
-                    int(height * 0.65),
-                )
-            )
-        right = max(box[2] for box in boxes)
-        bottom = max(box[3] for box in boxes)
-        name_region = score.crop((0, 0, right, bottom)).convert("RGB")
+        boxes = (
+            name_layout.column_box,
+            *name_layout.line_boxes,
+            *name_layout.expanded_row_boxes,
+        )
+        bounds = (
+            min(box[0] for box in boxes),
+            min(box[1] for box in boxes),
+            max(box[2] for box in boxes),
+            max(box[3] for box in boxes),
+        )
+        name_region = score.crop(bounds).convert("RGB")
         return (
             score.size,
-            (right, bottom),
+            name_layout,
             hashlib.blake2b(name_region.tobytes(), digest_size=16).digest(),
         )
 
-    def _cached_name_fields(self, score_image, score):
+    def _cached_name_fields(
+        self,
+        score_image,
+        score,
+        name_layout: NameRegionLayout,
+    ):
         name_enabled = self.name_engine not in (None, "none")
         if not name_enabled:
             return "", {}
 
         cache = self._cache_attr("_name_cache")
-        cache_key = (self.name_engine, self._name_region_cache_key(score_image, score))
+        cache_key = (
+            self.name_engine,
+            self._name_region_cache_key(score_image, score, name_layout),
+        )
         if cache_key not in cache:
-            cache[cache_key] = self._ocr_name_fields(score)
+            cache[cache_key] = self._ocr_name_fields(score, name_layout)
         return cache[cache_key]
 
     def parse_score_timer(
@@ -2161,10 +2186,6 @@ class FrameImageTextParser:
     ) -> FrameReading:
         score = self._image_from_bytes(score_image)
         timer = self._image_from_bytes(timer_image)
-        if include_names:
-            scoreboard_text, name_fields = self._cached_name_fields(score_image, score)
-        else:
-            scoreboard_text, name_fields = "", {}
         (
             score_reading,
             timer_reading,
@@ -2172,6 +2193,20 @@ class FrameImageTextParser:
             timer_state,
             timer_value,
         ) = self._score_timer_readings(score_image, timer_image, score, timer)
+        scoreboard_text, name_fields = "", {}
+        name_enabled = include_names and self.name_engine not in (None, "none")
+        if name_enabled:
+            score_enabled = self.score_engine not in (None, "none")
+            score_layout = score_reading.layout if score_reading is not None else None
+            if score_layout is None and not score_enabled:
+                score_layout = self.scoreboard_locator.locate(score)
+            if score_layout is not None:
+                name_layout = _name_regions_from_score_layout(score.size, score_layout)
+                scoreboard_text, name_fields = self._cached_name_fields(
+                    score_image, score, name_layout
+                )
+            else:
+                scoreboard_text, name_fields = self._ocr_victory_fields(score)
         return FrameReading(
             frame_second=frame_second,
             **score_fields,
@@ -2245,8 +2280,11 @@ def validate_ocr_engines(score_engine: str, name_engine: str | None):
             raise RuntimeError(
                 "tesseract name engine requires pytesseract and pillow"
             ) from exc
-        if Image is None:
-            raise RuntimeError("tesseract name engine requires pytesseract and pillow")
+        if Image is None or np is None or cv2 is None:
+            raise RuntimeError(
+                "tesseract name engine requires pytesseract, pillow, numpy, and "
+                "opencv-python for scoreboard location"
+            )
         if not shutil.which("tesseract"):
             raise RuntimeError("tesseract name engine requires the tesseract binary")
     elif name_engine == "paddle":
@@ -2257,9 +2295,10 @@ def validate_ocr_engines(score_engine: str, name_engine: str | None):
             raise RuntimeError(
                 "paddle name engine requires paddleocr and paddlepaddle"
             ) from exc
-        if Image is None or np is None:
+        if Image is None or np is None or cv2 is None:
             raise RuntimeError(
-                "paddle name engine requires paddleocr, numpy, and pillow"
+                "paddle name engine requires paddleocr, numpy, pillow, and "
+                "opencv-python for scoreboard location"
             )
 
 
