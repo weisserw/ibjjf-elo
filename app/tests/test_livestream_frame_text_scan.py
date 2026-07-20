@@ -3037,6 +3037,17 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 },
             ),
             (
+                "new_score_000_000_4.jpg",
+                {
+                    "top_points": 0,
+                    "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
                 "new_score_011_001.jpg",
                 {
                     "top_points": 0,
@@ -3045,6 +3056,17 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     "bottom_points": 0,
                     "bottom_advantages": 0,
                     "bottom_penalties": 1,
+                },
+            ),
+            (
+                "new_score_1020_000.jpg",
+                {
+                    "top_points": 10,
+                    "top_advantages": 2,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
                 },
             ),
             (

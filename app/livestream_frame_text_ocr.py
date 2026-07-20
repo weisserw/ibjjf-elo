@@ -404,7 +404,15 @@ def _score_digit_threshold(image, background_rgb=None):
             (rgb_float - background) * white_direction,
             axis=2,
         ) / float(np.sum(white_direction * white_direction))
-        return white_mix >= SCORE_MIN_WHITE_MIX
+        white_mix_uint8 = np.clip(white_mix * 255.0, 0, 255).astype("uint8")
+        otsu_threshold, _ = cv2.threshold(
+            white_mix_uint8,
+            0,
+            255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+        )
+        cell_white_mix = max(SCORE_MIN_WHITE_MIX, float(otsu_threshold) / 255.0)
+        return white_mix >= cell_white_mix
 
     red = rgb[:, :, 0]
     green = rgb[:, :, 1]
@@ -474,19 +482,58 @@ def _score_digit_mask_entries(image, background_rgb=None):
     min_width = max(4, int(image.width * 0.12))
     candidates = []
     for x, y, width, height, component_index in components:
-        if height < min_height or width < min_width:
+        narrow_leading_candidate = bool(
+            x == 0 and width < min_width and height >= min_height
+        )
+        if height < min_height or (width < min_width and not narrow_leading_candidate):
             continue
         # JPEG resampling can leave a one-pixel gap between a crop-boundary
         # stripe and the actual image edge.
         touches_edge = x == 0 or x + width >= image.width - 1
-        candidates.append((x, y, width, height, component_index, touches_edge))
+        candidates.append(
+            (
+                x,
+                y,
+                width,
+                height,
+                component_index,
+                touches_edge,
+                narrow_leading_candidate,
+            )
+        )
 
-    has_interior_candidate = any(not candidate[-1] for candidate in candidates)
+    interior_candidates = [candidate for candidate in candidates if not candidate[-2]]
     masks = []
-    for x, y, width, height, component_index, touches_edge in candidates:
+    for (
+        x,
+        y,
+        width,
+        height,
+        component_index,
+        touches_edge,
+        narrow_leading_candidate,
+    ) in candidates:
         if touches_edge:
-            if not has_interior_candidate:
+            if not interior_candidates:
                 continue
+            if narrow_leading_candidate:
+                max_gap = max(4, int(image.width * 0.30))
+                is_aligned_leading_digit = any(
+                    (min(y + height, other_y + other_height) - max(y, other_y))
+                    >= min(height, other_height) * 0.60
+                    and 0 <= other_x - (x + width) <= max_gap
+                    for (
+                        other_x,
+                        other_y,
+                        _,
+                        other_height,
+                        _,
+                        _,
+                        _,
+                    ) in interior_candidates
+                )
+                if not is_aligned_leading_digit:
+                    continue
             if height >= int(image.height * 0.85) or width >= int(image.width * 0.55):
                 continue
         component_mask = labels[y : y + height, x : x + width] == component_index
