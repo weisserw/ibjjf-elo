@@ -38,6 +38,7 @@ SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
 SCORE_THREE_EIGHT_SIMILARITY_MARGIN = 0.02
 SCORE_THREE_MAX_BOTTOM_LEFT_DENSITY = 0.80
+SCORE_ZERO_SIX_NINE_SIMILARITY_MARGIN = 0.01
 SCORE_BORDER_COLUMN_MIN_DENSITY = 0.85
 OCR_FONT_DIR = Path(__file__).resolve().parent / "ocr_fonts"
 NAME_LINE_TOP_WITHIN_ROW_RATIO = 0.02
@@ -755,6 +756,25 @@ class ScoreboardDigitReader:
 
     def _predict_score_digit(self, mask) -> DigitPrediction:
         prediction = self.classifier.predict(mask)
+        if prediction.digit in (6, 9):
+            # Small, JPEG-compressed zeroes can acquire enough uneven stroke
+            # weight to match a 6 or 9 by a fraction of a percent. Those
+            # digits all have one enclosed counter, so prefer zero only when
+            # its template is effectively tied; clear 6/9 shapes retain their
+            # substantially stronger match.
+            zero_prediction = self.classifier.predict(
+                mask, allowed_digits=frozenset((0,))
+            )
+            if (
+                zero_prediction.digit == 0
+                and zero_prediction.similarity
+                >= prediction.similarity - SCORE_ZERO_SIX_NINE_SIMILARITY_MARGIN
+            ):
+                return DigitPrediction(
+                    0,
+                    zero_prediction.similarity,
+                    f"{zero_prediction.source}:score-zero-loop-tie",
+                )
         if prediction.digit == 8 and _score_mask_looks_like_three(mask):
             three_prediction = self.classifier.predict(
                 mask, allowed_digits=frozenset((3,))
