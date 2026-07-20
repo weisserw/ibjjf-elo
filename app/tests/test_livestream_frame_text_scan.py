@@ -1977,7 +1977,27 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             "yellow": (190, 160, 50),
             "red": (180, 40, 50),
         }
-        layout = text_ocr._score_layouts(image.size)[1]
+        cell_width = 100
+        cell_height = 64
+        cell_gap = 4
+        left = 570
+        row_tops = (15, 90)
+        roles = ("green", "yellow", "red")
+        boxes = tuple(
+            (
+                left + column * (cell_width + cell_gap),
+                row_top,
+                left + column * (cell_width + cell_gap) + cell_width,
+                row_top + cell_height,
+            )
+            for row_top in row_tops
+            for column in range(3)
+        )
+        layout = text_ocr.ScoreLayout(
+            "synthetic_rendered",
+            boxes,
+            roles * 2,
+        )
         for box, role in zip(layout.cell_boxes, layout.background_roles):
             draw.rectangle(box, fill=colors[role])
             x1, y1, _, y2 = box
@@ -2112,6 +2132,36 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         reading = reader.read(image)
 
         self.assertEqual(reading.digits, (0, 0, 0, 0, 0, 0))
+
+    def test_scoreboard_locator_is_invariant_to_padding_and_scale(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        score_path = os.path.join(self.fixture_dir, "score_012_012.jpg")
+        self.assertTrue(
+            os.path.exists(score_path),
+            "missing livestream OCR score fixture: score_012_012.jpg",
+        )
+
+        with open(score_path, "rb") as fileobj:
+            image = text_ocr.Image.open(fileobj).convert("RGB")
+
+        variants = {
+            "padding": text_ocr.ImageOps.expand(
+                image,
+                border=(37, 11, 53, 7),
+                fill=(12, 12, 12),
+            ),
+            "scaled_down": image.resize((184, 83), text_ocr.Image.Resampling.LANCZOS),
+            "scaled_up": image.resize((345, 156), text_ocr.Image.Resampling.LANCZOS),
+        }
+        locator = text_ocr.ScoreboardLocator()
+        reader = text_ocr.ScoreboardDigitReader()
+
+        for variant_name, variant in variants.items():
+            with self.subTest(variant=variant_name):
+                layout = locator.locate(variant)
+                self.assertIsNotNone(layout)
+                self.assertEqual(len(layout.cell_boxes), 6)
+                self.assertEqual(reader.read(variant).digits, (0, 1, 2, 0, 1, 2))
 
     def test_score_and_timer_fixture_cases(self):
         cases_path = os.path.join(self.fixture_dir, "cases.json")

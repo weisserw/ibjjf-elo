@@ -108,6 +108,13 @@ Worker API routes share `WORKER_API_PREFIX = /api/livestream_frame_archives/work
 
 Default parser settings are `parser_profile="auto"`, `score_engine="fixed_digit"`, and `name_engine="paddle"`. Supported score engines are `none` and `fixed_digit`; supported name engines are `none`, `tesseract`, and `paddle`.
 
+Scoreboard digit parsing localizes the rendered two-row, three-column colored grid
+before reading its cells. It does not use image-ratio layouts; a crop without a
+structurally valid grid is treated as not containing a readable scoreboard. This
+keeps scoreboard reading invariant to padding, scaling, and horizontal placement
+within an archived crop and prevents background pixels from being interpreted as
+digits through a misplaced fallback crop.
+
 ## Worker CLI
 
 Use `scripts/scan_livestream_frame_text.py` for local or containerized processing.
@@ -137,6 +144,8 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `LivestreamFrameTextScanDbTestCase`: queue/claim/reset/retry/cancel/clear behavior and S3 frame-batch reading.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI/API worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
+  Its scoreboard coverage includes padding and scale invariance in addition to
+  the golden score/timer cases in `cases.json`.
 - `LivestreamFrameTextScanAdminApiTestCase`: admin and worker JSON endpoint behavior.
 
 ## Known Historical Issues

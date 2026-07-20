@@ -132,60 +132,6 @@ def _require_fixed_digit_dependencies():
         raise RuntimeError(message)
 
 
-def _score_cell_boxes(
-    image_size: tuple[int, int]
-) -> tuple[tuple[int, int, int, int], ...]:
-    width, height = image_size
-    x_edges = (0.481, 0.638, 0.791, 0.919)
-    y_edges = (0.0, 0.431, 0.861)
-    return tuple(
-        (
-            int(width * x_edges[col]),
-            int(height * y_edges[row]),
-            int(width * x_edges[col + 1]),
-            int(height * y_edges[row + 1]),
-        )
-        for row in range(2)
-        for col in range(3)
-    )
-
-
-def _rendered_score_cell_boxes(
-    image_size: tuple[int, int]
-) -> tuple[tuple[int, int, int, int], ...]:
-    width, height = image_size
-    x_ranges = ((0.568, 0.671), (0.675, 0.777), (0.779, 0.883))
-    y_ranges = ((0.074, 0.403), (0.440, 0.773))
-    return tuple(
-        (
-            int(width * x_start),
-            int(height * y_start),
-            int(width * x_end),
-            int(height * y_end),
-        )
-        for y_start, y_end in y_ranges
-        for x_start, x_end in x_ranges
-    )
-
-
-def _compact_rendered_score_cell_boxes(
-    image_size: tuple[int, int]
-) -> tuple[tuple[int, int, int, int], ...]:
-    width, height = image_size
-    x_ranges = ((0.541, 0.709), (0.709, 0.884), (0.884, 1.0))
-    y_ranges = ((0.0, 0.436), (0.487, 0.923))
-    return tuple(
-        (
-            int(width * x_start),
-            int(height * y_start),
-            int(width * x_end),
-            int(height * y_end),
-        )
-        for y_start, y_end in y_ranges
-        for x_start, x_end in x_ranges
-    )
-
-
 def _score_role_component_boxes(image, role: str):
     rgb = np.asarray(image.convert("RGB"))
     red = rgb[:, :, 0]
@@ -288,28 +234,23 @@ def _detected_rendered_score_cell_boxes(image):
     return tuple(boxes)
 
 
-def _score_layouts(image_size: tuple[int, int]) -> tuple[ScoreLayout, ...]:
-    layouts = [
-        ScoreLayout(
-            "legacy",
-            _score_cell_boxes(image_size),
-            ("green", "green", "red", "green", "green", "red"),
-        ),
-        ScoreLayout(
-            "rendered",
-            _rendered_score_cell_boxes(image_size),
-            ("green", "yellow", "red", "green", "yellow", "red"),
-        ),
-    ]
-    if image_size[0] < 240:
-        layouts.append(
-            ScoreLayout(
-                "compact_rendered",
-                _compact_rendered_score_cell_boxes(image_size),
-                ("green", "yellow", "red", "green", "yellow", "red"),
-            )
-        )
-    return tuple(layouts)
+class ScoreboardLocator:
+    """Locate scoreboard cells from their rendered grid instead of crop ratios."""
+
+    BACKGROUND_ROLES = ("green", "yellow", "red", "green", "yellow", "red")
+
+    def locate_candidates(self, image) -> tuple[ScoreLayout, ...]:
+        if image is None:
+            return ()
+
+        boxes = _detected_rendered_score_cell_boxes(image)
+        if len(boxes) != len(self.BACKGROUND_ROLES):
+            return ()
+        return (ScoreLayout("detected_rendered", boxes, self.BACKGROUND_ROLES),)
+
+    def locate(self, image) -> ScoreLayout | None:
+        candidates = self.locate_candidates(image)
+        return candidates[0] if candidates else None
 
 
 def _name_line_boxes(
@@ -620,53 +561,48 @@ class FixedDigitClassifier:
 
 
 class ScoreboardDigitReader:
-    def __init__(self, classifier: FixedDigitClassifier | None = None):
+    def __init__(
+        self,
+        classifier: FixedDigitClassifier | None = None,
+        locator: ScoreboardLocator | None = None,
+    ):
         self.classifier = classifier or FixedDigitClassifier(
             SCORE_TEMPLATE_SIZE, range(28, 50, 4), "score-font"
         )
+        self.locator = locator or ScoreboardLocator()
 
     def read(self, image) -> ScoreboardDigitReading:
         if image is None:
             return ScoreboardDigitReading(None, (), False)
 
-        layout_readings = [
-            (layout, self._read_layout(image, layout))
-            for layout in _score_layouts(image.size)
+        # The scoreboard can occupy very different fractions of otherwise valid
+        # archive crops, so only read grids discovered in the image itself.
+        detected_readings = [
+            self._read_layout(image, layout)
+            for layout in self.locator.locate_candidates(image)
         ]
-        if image.size[0] < 240:
-            for layout, reading in layout_readings:
-                if (
-                    layout.name == "compact_rendered"
-                    and reading.has_layout
-                    and reading.digits
-                ):
-                    return reading
-
-        readings = [reading for _, reading in layout_readings]
-        readings_with_digits = [
-            reading for reading in readings if reading.has_layout and reading.digits
+        detected_readings_with_digits = [
+            reading
+            for reading in detected_readings
+            if reading.has_layout and reading.digits
         ]
-        if readings_with_digits:
-            return max(readings_with_digits, key=self._reading_confidence)
+        if detected_readings_with_digits:
+            return max(detected_readings_with_digits, key=self._reading_confidence)
 
-        detected_boxes = _detected_rendered_score_cell_boxes(image)
-        if detected_boxes:
-            detected_reading = self._read_layout(
-                image,
-                ScoreLayout(
-                    "detected_rendered",
-                    detected_boxes,
-                    ("green", "yellow", "red", "green", "yellow", "red"),
-                ),
-            )
-            if detected_reading.has_layout and detected_reading.digits:
-                return detected_reading
+        detected_readings_with_layout = [
+            reading for reading in detected_readings if reading.has_layout
+        ]
+        if detected_readings_with_layout:
+            return max(detected_readings_with_layout, key=self._reading_confidence)
 
-        readings_with_layout = [reading for reading in readings if reading.has_layout]
-        if readings_with_layout:
-            return max(readings_with_layout, key=self._reading_confidence)
+        if detected_readings:
+            return max(detected_readings, key=self._reading_confidence)
 
-        return readings[0]
+        return ScoreboardDigitReading(
+            None,
+            tuple(DigitPrediction(None, 0.0, "none") for _ in range(6)),
+            False,
+        )
 
     def _read_layout(self, image, layout: ScoreLayout) -> ScoreboardDigitReading:
         predictions = []
