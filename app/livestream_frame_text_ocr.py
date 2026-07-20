@@ -36,6 +36,7 @@ SUPPORTED_SCORE_ENGINES = ("none", "fixed_digit")
 SUPPORTED_NAME_ENGINES = ("none", "tesseract", "paddle")
 SCORE_TEMPLATE_SIZE = (24, 36)
 TIMER_TEMPLATE_SIZE = (28, 48)
+SCORE_FIVE_SIX_SIMILARITY_MARGIN = 0.02
 SCORE_THREE_EIGHT_SIMILARITY_MARGIN = 0.02
 SCORE_THREE_MAX_BOTTOM_LEFT_DENSITY = 0.80
 SCORE_ZERO_HOLE_MIN_CENTER_Y = 0.38
@@ -647,7 +648,7 @@ def _score_mask_looks_like_one(mask) -> bool:
     left_third = mask[:, : max(1, width // 3)]
     lower_left = left_third[height // 2 :, :]
     right_third = mask[:, width - max(1, width // 3) :]
-    return bool(lower_left.mean() < 0.05 and right_third.mean() > 0.55)
+    return bool(lower_left.mean() < 0.05 and right_third.mean() > 0.40)
 
 
 def _score_digit_entry_looks_like_one(entry: ScoreDigitMask) -> bool:
@@ -854,11 +855,14 @@ class ScoreboardDigitReader:
             return True
         if not cls._prediction_has_leading_one_geometry(raw_prediction):
             return False
-        if cls._prediction_has_leading_one_geometry(prediction):
+        prediction_digit_count = cls._prediction_digit_count(prediction)
+        raw_prediction_digit_count = cls._prediction_digit_count(raw_prediction)
+        if (
+            cls._prediction_has_leading_one_geometry(prediction)
+            and raw_prediction_digit_count <= prediction_digit_count
+        ):
             return False
-        return cls._prediction_digit_count(
-            raw_prediction
-        ) >= cls._prediction_digit_count(prediction)
+        return raw_prediction_digit_count >= prediction_digit_count
 
     def _predict_score_digit_entry(
         self, entry: ScoreDigitMask, mask_count: int
@@ -906,6 +910,25 @@ class ScoreboardDigitReader:
                     zero_prediction.similarity,
                     f"{zero_prediction.source}:score-zero-hole-geometry",
                 )
+            if prediction.digit == 6 and not hole_center_ys:
+                # A six retains an enclosed lower counter, while a five is
+                # open on its upper-right and lower-left sides. At tiny crop
+                # sizes their templates can be nearly tied, so prefer five
+                # when the predicted six has no counter and the five template
+                # remains comparably strong.
+                five_prediction = self.classifier.predict(
+                    mask, allowed_digits=frozenset((5,))
+                )
+                if (
+                    five_prediction.digit == 5
+                    and five_prediction.similarity
+                    >= prediction.similarity - SCORE_FIVE_SIX_SIMILARITY_MARGIN
+                ):
+                    return DigitPrediction(
+                        5,
+                        five_prediction.similarity,
+                        f"{five_prediction.source}:score-five-open-geometry",
+                    )
         if prediction.digit == 8 and _score_mask_looks_like_three(mask):
             three_prediction = self.classifier.predict(
                 mask, allowed_digits=frozenset((3,))
