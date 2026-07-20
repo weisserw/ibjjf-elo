@@ -42,6 +42,7 @@ SCORE_ZERO_HOLE_MIN_CENTER_Y = 0.38
 SCORE_ZERO_HOLE_MAX_CENTER_Y = 0.60
 SCORE_BORDER_COLUMN_MIN_DENSITY = 0.85
 SCORE_MIN_WHITE_MIX = 0.28
+SCORE_WHITE_MIX_OTSU_MARGIN = 0.07
 SCORE_BACKGROUND_PALETTES = (
     {
         "green": (49, 226, 81),
@@ -411,7 +412,16 @@ def _score_digit_threshold(image, background_rgb=None):
             255,
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
-        cell_white_mix = max(SCORE_MIN_WHITE_MIX, float(otsu_threshold) / 255.0)
+        # Otsu separates the cell's background and glyph clusters, but JPEG
+        # transition pixels can sit immediately above that boundary. Treating
+        # those pixels as white thickens a zero until its lower counter closes
+        # and the normalized glyph resembles a nine. Move a small distance
+        # into the foreground cluster so the mask represents the white stroke,
+        # rather than the compression fringe around it.
+        cell_white_mix = max(
+            SCORE_MIN_WHITE_MIX,
+            float(otsu_threshold) / 255.0 + SCORE_WHITE_MIX_OTSU_MARGIN,
+        )
         return white_mix >= cell_white_mix
 
     red = rgb[:, :, 0]

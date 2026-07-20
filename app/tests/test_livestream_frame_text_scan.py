@@ -3048,6 +3048,17 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 },
             ),
             (
+                "new_score_000_000_5.jpg",
+                {
+                    "top_points": 0,
+                    "top_advantages": 0,
+                    "top_penalties": 0,
+                    "bottom_points": 0,
+                    "bottom_advantages": 0,
+                    "bottom_penalties": 0,
+                },
+            ),
+            (
                 "new_score_011_001.jpg",
                 {
                     "top_points": 0,
