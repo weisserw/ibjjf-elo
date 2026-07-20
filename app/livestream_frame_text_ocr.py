@@ -1038,7 +1038,41 @@ class TimerLocator:
                     int(y + height),
                 )
             )
-        return tuple(sorted(boxes))
+        return self._merge_horizontal_fragments(tuple(sorted(boxes)))
+
+    @staticmethod
+    def _merge_horizontal_fragments(boxes):
+        """Join digit halves split by a narrow JPEG/color-threshold seam."""
+        merged = []
+        for box in boxes:
+            if not merged:
+                merged.append(box)
+                continue
+
+            previous = merged[-1]
+            previous_height = previous[3] - previous[1]
+            height = box[3] - box[1]
+            vertical_overlap = min(previous[3], box[3]) - max(previous[1], box[1])
+            horizontal_gap = box[0] - previous[2]
+            combined_width = max(previous[2], box[2]) - min(previous[0], box[0])
+            reference_height = max(previous_height, height)
+            max_seam_width = max(1, int(round(min(previous_height, height) * 0.05)))
+
+            if (
+                horizontal_gap <= max_seam_width
+                and vertical_overlap >= min(previous_height, height) * 0.80
+                and combined_width
+                <= reference_height * TimerLocator.MAX_COMPONENT_ASPECT_RATIO
+            ):
+                merged[-1] = (
+                    min(previous[0], box[0]),
+                    min(previous[1], box[1]),
+                    max(previous[2], box[2]),
+                    max(previous[3], box[3]),
+                )
+            else:
+                merged.append(box)
+        return tuple(merged)
 
     @staticmethod
     def _candidate_geometry(boxes):
@@ -1288,7 +1322,7 @@ class TimerDigitReader:
         masks = []
         for left, top, right, bottom in layout.digit_boxes:
             digit_region = threshold[top:bottom, left:right]
-            component = _largest_component(digit_region, min_area=1)
+            component = self._digit_component(digit_region)
             if component is None:
                 return TimerDigitReading("blank", None, (), layout)
             masks.append(_normalize_mask(component, TIMER_TEMPLATE_SIZE))
@@ -1309,6 +1343,21 @@ class TimerDigitReader:
 
         state = "stopped" if value == "0:00" else layout.state
         return TimerDigitReading(state, value, predictions, layout)
+
+    @staticmethod
+    def _digit_component(digit_region):
+        component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
+            digit_region.astype("uint8"), 8
+        )
+        region_height = digit_region.shape[0]
+        full_height_components = [
+            component_index
+            for component_index in range(1, component_count)
+            if stats[component_index, cv2.CC_STAT_HEIGHT] >= region_height * 0.80
+        ]
+        if len(full_height_components) > 1:
+            return np.isin(labels, full_height_components)
+        return _largest_component(digit_region, min_area=1)
 
     @staticmethod
     def _reading_confidence(reading: TimerDigitReading) -> float:

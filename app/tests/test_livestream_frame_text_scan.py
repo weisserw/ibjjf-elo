@@ -2562,16 +2562,27 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
 
     def test_new_timer_0000_reads_as_stopped(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
-        timer_path = os.path.join(self.fixture_dir, "new_timer_0000.jpg")
         reader = text_ocr.TimerDigitReader()
+        fixture_names = (
+            "new_timer_0000.jpg",
+            "new_timer_0000_2.jpg",
+            "new_timer_0000_3.jpg",
+        )
 
-        with open(timer_path, "rb") as fileobj:
-            image = text_ocr.Image.open(fileobj).convert("RGB")
+        for fixture_name in fixture_names:
+            with self.subTest(fixture=fixture_name):
+                timer_path = os.path.join(self.fixture_dir, fixture_name)
+                with open(timer_path, "rb") as fileobj:
+                    image = text_ocr.Image.open(fileobj).convert("RGB")
 
-        reading = reader.read(image)
+                reading = reader.read(image)
 
-        self.assertEqual(reading.state, "stopped")
-        self.assertEqual(reading.value, "0:00")
+                self.assertEqual(reading.state, "stopped")
+                self.assertEqual(reading.value, "0:00")
+                self.assertEqual(
+                    [prediction.digit for prediction in reading.predictions],
+                    [0, 0, 0, 0],
+                )
 
     def test_old_stopped_timer_600_ignores_scoreboard_frame(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
