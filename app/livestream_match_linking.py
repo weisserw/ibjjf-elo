@@ -38,6 +38,7 @@ NO_FIGHT_NOTE_PARTS = (
     "acima do peso",
 )
 MIN_NAME_SCORE = 78.0
+MIN_SEQUENTIAL_NAME_SCORE = 75.0
 MIN_SCORE_MARGIN = 8.0
 MIN_NON_CURSOR_SIDE_NAME_SCORE = 60.0
 MIN_RESET_NAME_CONFIDENCE = 0.9
@@ -45,6 +46,7 @@ MIN_CONTINUATION_NAME_SCORE = 82.0
 LOOKAHEAD_MATCHES = 8
 TIME_MATCH_WINDOW_SECONDS = 20 * 60
 CONTINUATION_TIME_WINDOW_SECONDS = 3 * 60
+SEQUENTIAL_TIME_WINDOW_SECONDS = 3 * 60
 SPECULATIVE_FORWARD_RELEASE_GAP = 2
 STARTING_TIMER_RESET_SECONDS = 4 * 60
 
@@ -514,11 +516,9 @@ def _choice_for_candidate(window: MatchWindow, candidate: Candidate) -> MatchCho
     return MatchChoice(candidate, raw_score, *orientation, raw_score)
 
 
-def _has_non_cursor_name_evidence(
-    window: MatchWindow, choice: MatchChoice, cursor: int
+def _has_two_sided_name_evidence(
+    window: MatchWindow, choice: MatchChoice
 ) -> bool:
-    if choice.candidate.order_index == cursor:
-        return True
     if not window.top_names or not window.bottom_names:
         return False
     top_score, bottom_score = _oriented_name_scores(
@@ -527,6 +527,64 @@ def _has_non_cursor_name_evidence(
     return (
         top_score >= MIN_NON_CURSOR_SIDE_NAME_SCORE
         and bottom_score >= MIN_NON_CURSOR_SIDE_NAME_SCORE
+    )
+
+
+def _has_non_cursor_name_evidence(
+    window: MatchWindow, choice: MatchChoice, cursor: int
+) -> bool:
+    if choice.candidate.order_index == cursor:
+        return True
+    return _has_two_sided_name_evidence(window, choice)
+
+
+def _has_confirmed_sequential_predecessor(
+    choice: MatchChoice,
+    candidates: list[Candidate],
+    cursor: int,
+    used_match_ids: set,
+    speculative_match_ids: set,
+) -> bool:
+    if cursor <= 0 or choice.candidate.order_index != cursor:
+        return False
+    predecessor = next(
+        (
+            candidate
+            for candidate in candidates
+            if candidate.order_index == cursor - 1
+        ),
+        None,
+    )
+    if predecessor is None:
+        return False
+    predecessor_id = predecessor.match.id
+    return (
+        predecessor_id in used_match_ids
+        and predecessor_id not in speculative_match_ids
+    )
+
+
+def _is_confident_sequential_choice(
+    window: MatchWindow,
+    choice: MatchChoice,
+    candidates: list[Candidate],
+    cursor: int,
+    used_match_ids: set,
+    speculative_match_ids: set,
+) -> bool:
+    time_delta = choice.time_delta_seconds
+    return (
+        choice.raw_score >= MIN_SEQUENTIAL_NAME_SCORE
+        and time_delta is not None
+        and abs(time_delta) <= SEQUENTIAL_TIME_WINDOW_SECONDS
+        and _has_two_sided_name_evidence(window, choice)
+        and _has_confirmed_sequential_predecessor(
+            choice,
+            candidates,
+            cursor,
+            used_match_ids,
+            speculative_match_ids,
+        )
     )
 
 
@@ -585,15 +643,25 @@ def choose_match_for_window(
     candidates: list[Candidate],
     cursor: int,
     used_match_ids: set | None = None,
+    speculative_match_ids: set | None = None,
 ) -> MatchChoice | None:
     if not window.has_running_timer:
         return None
+    used_match_ids = used_match_ids or set()
+    speculative_match_ids = speculative_match_ids or set()
     choices = _candidate_choices(window, candidates, cursor, used_match_ids)
     if not choices:
         return None
     best = choices[0]
     second_score = choices[1].score if len(choices) > 1 else 0.0
-    if best.score < MIN_NAME_SCORE:
+    if best.score < MIN_NAME_SCORE and not _is_confident_sequential_choice(
+        window,
+        best,
+        candidates,
+        cursor,
+        used_match_ids,
+        speculative_match_ids,
+    ):
         return None
     if second_score and best.score - second_score < MIN_SCORE_MARGIN:
         choice = _sequential_choice_for_ambiguous_window(window, choices, cursor)
@@ -1293,7 +1361,13 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
         choice = choose_active_continuation_for_window(window, active_candidate)
         continuation = choice is not None
         if not choice:
-            choice = choose_match_for_window(window, candidates, cursor, used_match_ids)
+            choice = choose_match_for_window(
+                window,
+                candidates,
+                cursor,
+                used_match_ids,
+                set(speculative_forward_links),
+            )
         if not choice:
             choice = choose_continuation_for_window(
                 window, candidates, cursor, used_match_ids, closed_match_ids
@@ -1442,7 +1516,13 @@ def link_completed_text_scan(
         choice = choose_active_continuation_for_window(window, active_candidate)
         continuation = choice is not None
         if not choice:
-            choice = choose_match_for_window(window, candidates, cursor, used_match_ids)
+            choice = choose_match_for_window(
+                window,
+                candidates,
+                cursor,
+                used_match_ids,
+                set(speculative_forward_links),
+            )
         if not choice:
             choice = choose_continuation_for_window(
                 window, candidates, cursor, used_match_ids, closed_match_ids

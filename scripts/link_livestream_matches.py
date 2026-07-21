@@ -15,6 +15,7 @@ from extensions import db  # noqa: E402
 from livestream_match_linking import (  # noqa: E402
     LOOKAHEAD_MATCHES,
     MIN_NAME_SCORE,
+    MIN_SEQUENTIAL_NAME_SCORE,
     MIN_SCORE_MARGIN,
     TIME_MATCH_WINDOW_SECONDS,
     _candidate_time_delta,
@@ -206,6 +207,7 @@ def _print_skipped_choice_debug(
             "  skip-choice-debug "
             f"window={index} reason={decision['rejection_reason']} "
             f"cursor={cursor} min_name_score={MIN_NAME_SCORE} "
+            f"min_sequential_name_score={MIN_SEQUENTIAL_NAME_SCORE} "
             f"min_margin={MIN_SCORE_MARGIN} "
             f"loaded_candidates={len(candidates)}"
         )

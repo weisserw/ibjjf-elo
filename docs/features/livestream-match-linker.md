@@ -160,6 +160,14 @@ Useful flags:
 - `top_participant` and `bottom_participant`.
 - `score`, `raw_score`, and `time_delta_seconds`.
 
+New matches normally require an adjusted name score of at least `78`. A
+candidate exactly at the cursor may use the guarded sequential threshold of
+`75` when its immediately preceding candidate was already linked
+non-speculatively, both scoreboard sides independently score at least `60`,
+and its expected start is within three minutes. The usual eight-point margin
+over the next candidate still applies. This lets mat order contribute evidence
+without allowing a speculative forward match or one-sided OCR hit to cascade.
+
 Persistent match outputs live on `Match` and `MatchParticipant`:
 
 - `Match.video_start_offset_seconds`.
@@ -196,8 +204,9 @@ app/tests/fixtures/livestream_match_linking/
 
 Existing real-world fixtures cover stopped score updates, linking until blank
 windows, and repeated athlete names split by blank resets. Synthetic
-regressions also cover a pre-start top/bottom correction and reject later
-continuation-window OCR swaps after positions have been locked.
+regressions also cover a pre-start top/bottom correction, reject later
+continuation-window OCR swaps after positions have been locked, and allow a
+slightly degraded exact-next match only after a confirmed predecessor.
 
 ## Previously Surfaced Issues From Git History
 

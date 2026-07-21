@@ -749,6 +749,149 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             db.session.get(Match, matches[1].id).video_start_offset_seconds
         )
 
+    def test_confirmed_next_match_uses_guarded_lower_name_threshold(self):
+        matches = self._match_setup(
+            pairs=[
+                ("WILLIAM DWAYNE BURT JR.", "TIMOTHY JESSE KNEISLEI REDFORD"),
+                ("FRANKLIN ARMANDO LOPEZ CHAVEZ", "ROBERT WILSON PETERS"),
+                ("LISA ANN STRAND", "LAUREN DEETTE NOLL"),
+            ],
+            match_offsets=[20, 180, 300],
+        )
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    0,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="WILLIAM DWAYNE BURT JR.",
+                    bottom_athlete_name="TIMOTHY JESSE KNEISLEI REDFORD",
+                ),
+                self._event_data(20, timer_state="running", timer_value="4:40"),
+                self._event_data(80, timer_state="stopped", timer_value="0:00"),
+                self._event_data(
+                    100,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="Eexaklin Armande Leaas Chyras",
+                    bottom_athlete_name="Robert Wilson Peters",
+                ),
+                self._event_data(
+                    125,
+                    timer_state="running",
+                    timer_value="4:35",
+                    top_athlete_name="Eexaklin Armande Leaas Chyras",
+                    bottom_athlete_name="Robert Wilson Peters",
+                ),
+                self._event_data(200, timer_state="stopped", timer_value="0:00"),
+                self._event_data(
+                    250,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="LISA ANN STRAND",
+                    bottom_athlete_name="LAUREN DEETTE NOLL",
+                ),
+                self._event_data(300, timer_state="running", timer_value="4:10"),
+            ]
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        self.assertEqual(summary.linked, 3)
+        target_match = db.session.get(Match, matches[1].id)
+        self.assertEqual(target_match.video_start_offset_seconds, 125)
+        self.assertEqual(self._linked_seconds(target_match), [100, 125, 200])
+        self.assertEqual(
+            db.session.get(Match, matches[2].id).video_start_offset_seconds,
+            300,
+        )
+
+    def test_speculative_predecessor_does_not_lower_next_match_threshold(self):
+        matches = self._match_setup(
+            pairs=[
+                ("UNUSED TOP ONE", "UNUSED BOTTOM ONE"),
+                ("UNUSED TOP TWO", "UNUSED BOTTOM TWO"),
+                ("CONFIDENT TOP", "CONFIDENT BOTTOM"),
+                ("FRANKLIN ARMANDO LOPEZ CHAVEZ", "ROBERT WILSON PETERS"),
+            ],
+            match_offsets=[0, 60, 120, 280],
+        )
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    100,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="CONFIDENT TOP",
+                    bottom_athlete_name="CONFIDENT BOTTOM",
+                ),
+                self._event_data(120, timer_state="running", timer_value="4:40"),
+                self._event_data(180, timer_state="stopped", timer_value="0:00"),
+                self._event_data(
+                    200,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="Eexaklin Armande Leaas Chyras",
+                    bottom_athlete_name="Robert Wilson Peters",
+                ),
+                self._event_data(
+                    225,
+                    timer_state="running",
+                    timer_value="4:35",
+                    top_athlete_name="Eexaklin Armande Leaas Chyras",
+                    bottom_athlete_name="Robert Wilson Peters",
+                ),
+            ]
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        self.assertEqual(summary.linked, 1)
+        self.assertEqual(
+            db.session.get(Match, matches[2].id).video_start_offset_seconds,
+            120,
+        )
+        self.assertIsNone(
+            db.session.get(Match, matches[3].id).video_start_offset_seconds
+        )
+
     def test_completed_scan_links_match_score_timer_positions_and_events(self):
         matches = self._match_setup()
         _, scan = self._stored_events(
