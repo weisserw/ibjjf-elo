@@ -81,10 +81,10 @@ function AppShell() {
       </header>
       {showVideoBanner && coveredMatchCount !== null && (
         <p className="site-video-banner">
-          {coveredMatchCount.toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')}{` `}
-          {t("free IBJJF match videos and counting...")}{` `}
+          <b>{coveredMatchCount.toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')}</b>{` `}
+          <b>{t("free IBJJF match videos and counting...")}</b>{` `}
           <span aria-hidden="true">·</span>{` `}
-          <Link to="/about#disclaimer">{t("See Disclaimer")}</Link>
+          <Link to="/about#disclaimer">{t("See disclaimer")}</Link>
         </p>
       )}
       <main style={{ flex: '1' }}>
