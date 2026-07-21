@@ -947,6 +947,7 @@ class TimerLocator:
         blue = rgb[:, :, 2]
         red_int = red.astype("int16")
         green_int = green.astype("int16")
+        blue_int = blue.astype("int16")
         return {
             "red_background": (red > 130) & (green < 100) & (blue < 120),
             "black": (red < 70) & (green < 70) & (blue < 70),
@@ -956,13 +957,14 @@ class TimerLocator:
                 & (red < 120)
                 & (blue < 130)
                 & ((green_int - red_int) > 40)
-            )
-            | (
-                (red > 150)
-                & (green > 90)
-                & (green < 190)
-                & (blue < 120)
-                & ((red_int - green_int) > 20)
+            ),
+            "warm": (
+                (red > 130)
+                & (green > 80)
+                & (blue < 150)
+                & ((red_int - green_int) > 10)
+                & ((red_int - blue_int) > 60)
+                & ((green_int - blue_int) > 40)
             ),
             "dark_background": (red < 60) & (green < 60) & (blue < 60),
             "dark_blue_background": (blue > 60) & (red < 60) & (green < 80),
@@ -995,7 +997,7 @@ class TimerLocator:
 
     def foreground_mask(self, image, foreground: str):
         masks = self._color_masks(image)
-        if foreground not in ("black", "white", "running"):
+        if foreground not in ("black", "white", "running", "warm"):
             raise ValueError(f"unknown timer foreground: {foreground}")
         return self._clean_foreground_mask(masks[foreground])
 
@@ -1168,6 +1170,7 @@ class TimerLocator:
             ("black", "stopped"),
             ("white", "stopped"),
             ("running", "running"),
+            ("warm", "running"),
         ):
             foreground_mask = self._clean_foreground_mask(masks[foreground])
             component_boxes = self._component_boxes(foreground_mask)

@@ -2937,6 +2937,23 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     [0, 0, 0, 0],
                 )
 
+    def test_yellow_running_timer_reads_all_digits(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        timer_path = os.path.join(self.fixture_dir, "new_timer_0058.jpg")
+        reader = text_ocr.TimerDigitReader()
+
+        with open(timer_path, "rb") as fileobj:
+            image = text_ocr.Image.open(fileobj).convert("RGB")
+
+        reading = reader.read(image)
+
+        self.assertEqual(reading.state, "running")
+        self.assertEqual(reading.value, "0:58")
+        self.assertEqual(
+            [prediction.digit for prediction in reading.predictions],
+            [0, 0, 5, 8],
+        )
+
     def test_old_stopped_timer_600_ignores_scoreboard_frame(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         timer_path = os.path.join(self.fixture_dir, "timer_stopped_600.jpg")
