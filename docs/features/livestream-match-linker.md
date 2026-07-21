@@ -146,6 +146,13 @@ Useful flags:
   choose the first confident orientation.
 - `final_state`, `final_timer_seconds`, and `has_running_timer`.
 
+Final timer selection follows timer transitions rather than carried state. A
+stopped event becomes the candidate final clock, but a later running event
+clears it. This excludes the pre-match stopped starting value and ordinary
+pauses that resume. A final uninterrupted direct or motion-inferred stopped
+event supplies the submission clock, while starting/reset clock values remain
+excluded.
+
 `Candidate` is an in-memory scheduled match:
 
 - `match`.

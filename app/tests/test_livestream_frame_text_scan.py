@@ -404,6 +404,160 @@ class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
             [(0, "running", "1:37")],
         )
 
+    def test_stationary_under_one_minute_timer_emits_inferred_stop(self):
+        provider = DictFrameProvider()
+
+        class TimerParser:
+            def parse(self, frame_second, score_image, timer_image):
+                remaining = 47 - frame_second if frame_second < 2 else 45
+                return text_scan.FrameReading(
+                    frame_second=frame_second,
+                    timer_state="running",
+                    timer_value=f"0:{remaining:02d}",
+                )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            TimerParser(),
+            0,
+            6,
+        )
+
+        self.assertEqual(
+            [
+                (event.frame_second, event.timer_state, event.timer_value)
+                for event in events
+            ],
+            [(0, "running", "0:47"), (4, "stopped", "0:45")],
+        )
+        self.assertEqual(
+            events[-1].evidence["timer_state_inference"]["method"],
+            "stationary_timer_digits",
+        )
+        self.assertEqual(
+            events[-1].evidence["timer_state_inference"][
+                "first_stationary_frame_second"
+            ],
+            2,
+        )
+
+    def test_stationary_under_one_minute_timer_emits_resume_when_digits_move(self):
+        provider = DictFrameProvider()
+
+        class TimerParser:
+            def parse(self, frame_second, score_image, timer_image):
+                remaining_by_second = [48, 47, 46, 46, 46, 45, 44, 43]
+                return text_scan.FrameReading(
+                    frame_second=frame_second,
+                    timer_state="running",
+                    timer_value=f"0:{remaining_by_second[frame_second]:02d}",
+                )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            TimerParser(),
+            0,
+            8,
+        )
+
+        self.assertEqual(
+            [
+                (event.frame_second, event.timer_state, event.timer_value)
+                for event in events
+            ],
+            [
+                (0, "running", "0:48"),
+                (4, "stopped", "0:46"),
+                (5, "running", "0:45"),
+            ],
+        )
+        self.assertEqual(
+            events[-1].evidence["timer_state_inference"]["method"],
+            "stationary_timer_digits_resumed",
+        )
+
+    def test_blank_boundary_estimates_stop_from_last_under_one_minute_reading(self):
+        provider = DictFrameProvider()
+
+        class TimerParser:
+            def parse(self, frame_second, score_image, timer_image):
+                if frame_second == 2:
+                    return text_scan.FrameReading(
+                        frame_second=frame_second,
+                        scoreboard_state=text_scan.SCOREBOARD_STATE_BLANK,
+                    )
+                return text_scan.FrameReading(
+                    frame_second=frame_second,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="running",
+                    timer_value=f"0:{47 - frame_second:02d}",
+                )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            TimerParser(),
+            0,
+            3,
+        )
+
+        self.assertEqual(
+            [
+                (
+                    event.frame_second,
+                    event.scoreboard_state,
+                    event.timer_state,
+                    event.timer_value,
+                )
+                for event in events
+            ],
+            [
+                (0, "visible", "running", "0:47"),
+                (2, "blank", "stopped", "0:46"),
+            ],
+        )
+        self.assertEqual(
+            events[-1].evidence["timer_state_inference"]["method"],
+            "terminal_boundary_extrapolation",
+        )
+
+    def test_blank_boundary_keeps_direct_stopped_zero_timer(self):
+        provider = DictFrameProvider()
+
+        class TimerParser:
+            def parse(self, frame_second, score_image, timer_image):
+                if frame_second == 1:
+                    return text_scan.FrameReading(
+                        frame_second=frame_second,
+                        scoreboard_state=text_scan.SCOREBOARD_STATE_BLANK,
+                        timer_state="stopped",
+                        timer_value="0:00",
+                    )
+                return text_scan.FrameReading(
+                    frame_second=frame_second,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="running",
+                    timer_value="0:01",
+                )
+
+        events = text_scan.scan_frame_text_segment(
+            provider,
+            TimerParser(),
+            0,
+            2,
+        )
+
+        self.assertEqual(
+            [
+                (event.frame_second, event.timer_state, event.timer_value)
+                for event in events
+            ],
+            [(0, "running", "0:01"), (1, "stopped", "0:00")],
+        )
+        self.assertNotIn(
+            "timer_state_inference",
+            events[-1].evidence or {},
+        )
+
     def test_running_timer_ocr_noise_does_not_emit_timer_only_events(self):
         provider = DictFrameProvider()
         noisy_values = {

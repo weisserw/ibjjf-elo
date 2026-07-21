@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import json
 import tarfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from typing import Callable, Protocol
 
@@ -58,6 +58,9 @@ NAME_FIELDS = (
     "bottom_athlete_name",
     "bottom_team_name",
 )
+INFERRED_TIMER_MAX_SECONDS = 59
+STATIONARY_TIMER_MIN_OBSERVATIONS = 3
+TERMINAL_TIMER_MAX_GAP_SECONDS = 3
 DebugCallback = Callable[[str], None]
 
 
@@ -126,6 +129,24 @@ class FrameReading:
     name_engine: str | None = None
     confidence: float | None = None
     evidence: dict | None = None
+
+
+@dataclass
+class TimerMotionTracker:
+    last_seconds: int | None = None
+    last_frame_second: int | None = None
+    stationary_seconds: int | None = None
+    stationary_start_second: int | None = None
+    stationary_observations: int = 0
+    inferred_stopped: bool = False
+
+    def reset(self) -> None:
+        self.last_seconds = None
+        self.last_frame_second = None
+        self.stationary_seconds = None
+        self.stationary_start_second = None
+        self.stationary_observations = 0
+        self.inferred_stopped = False
 
 
 class FrameTextParser(Protocol):
@@ -738,6 +759,150 @@ def event_from_reading(reading: FrameReading, changes: dict) -> TextEventData:
     return TextEventData(**event_kwargs)
 
 
+def _parse_timer_seconds(value: str | None) -> int | None:
+    if not value:
+        return None
+    parts = value.strip().split(":")
+    if len(parts) != 2:
+        return None
+    try:
+        minutes, seconds = (int(part) for part in parts)
+    except ValueError:
+        return None
+    if minutes < 0 or seconds < 0 or seconds > 59:
+        return None
+    return minutes * 60 + seconds
+
+
+def _timer_inference(
+    timer_state: str,
+    timer_value: str,
+    method: str,
+    **details,
+) -> dict:
+    return {
+        "timer_state": timer_state,
+        "timer_value": timer_value,
+        "evidence": {
+            "method": method,
+            **details,
+        },
+    }
+
+
+def _reading_with_timer_inference(
+    reading: FrameReading, inference: dict | None
+) -> FrameReading:
+    if inference is None:
+        return reading
+    evidence = dict(reading.evidence or {})
+    evidence["timer_state_inference"] = inference["evidence"]
+    return replace(
+        reading,
+        timer_state=inference["timer_state"],
+        timer_value=inference["timer_value"],
+        evidence=evidence,
+    )
+
+
+def _infer_timer_motion(
+    reading: FrameReading,
+    tracker: TimerMotionTracker,
+    previous_scoreboard_state: str | None,
+) -> dict | None:
+    if (
+        reading.scoreboard_state == SCOREBOARD_STATE_BLANK
+        and previous_scoreboard_state != SCOREBOARD_STATE_BLANK
+        and reading.timer_state != "stopped"
+        and not tracker.inferred_stopped
+        and tracker.last_seconds is not None
+        and tracker.last_frame_second is not None
+    ):
+        gap_seconds = reading.frame_second - tracker.last_frame_second
+        if 0 < gap_seconds <= TERMINAL_TIMER_MAX_GAP_SECONDS:
+            estimated_seconds = max(
+                0,
+                tracker.last_seconds - max(0, gap_seconds - 1),
+            )
+            if estimated_seconds <= INFERRED_TIMER_MAX_SECONDS:
+                timer_value = f"{estimated_seconds // 60}:{estimated_seconds % 60:02d}"
+                inference = _timer_inference(
+                    "stopped",
+                    timer_value,
+                    "terminal_boundary_extrapolation",
+                    last_observed_frame_second=tracker.last_frame_second,
+                    last_observed_timer_seconds=tracker.last_seconds,
+                    terminal_frame_second=reading.frame_second,
+                )
+                tracker.reset()
+                return inference
+
+    timer_seconds = _parse_timer_seconds(reading.timer_value)
+    if (
+        reading.timer_state != "running"
+        or timer_seconds is None
+        or not 0 < timer_seconds <= INFERRED_TIMER_MAX_SECONDS
+    ):
+        if reading.timer_state is not None:
+            tracker.reset()
+        return None
+
+    consecutive = (
+        tracker.last_frame_second is not None
+        and reading.frame_second == tracker.last_frame_second + 1
+    )
+    same_value = consecutive and tracker.last_seconds == timer_seconds
+
+    if tracker.inferred_stopped and tracker.stationary_seconds == timer_seconds:
+        tracker.last_frame_second = reading.frame_second
+        return _timer_inference(
+            "stopped",
+            reading.timer_value,
+            "stationary_timer_digits",
+            first_stationary_frame_second=tracker.stationary_start_second,
+            confirmation_frame_second=reading.frame_second,
+            observations=tracker.stationary_observations,
+        )
+
+    if tracker.inferred_stopped:
+        previous_seconds = tracker.stationary_seconds
+        tracker.inferred_stopped = False
+        tracker.stationary_seconds = timer_seconds
+        tracker.stationary_start_second = reading.frame_second
+        tracker.stationary_observations = 1
+        tracker.last_seconds = timer_seconds
+        tracker.last_frame_second = reading.frame_second
+        return _timer_inference(
+            "running",
+            reading.timer_value,
+            "stationary_timer_digits_resumed",
+            previous_timer_seconds=previous_seconds,
+            resumed_frame_second=reading.frame_second,
+        )
+
+    if same_value:
+        tracker.stationary_observations += 1
+    else:
+        tracker.stationary_seconds = timer_seconds
+        tracker.stationary_start_second = reading.frame_second
+        tracker.stationary_observations = 1
+
+    tracker.last_seconds = timer_seconds
+    tracker.last_frame_second = reading.frame_second
+    if tracker.stationary_observations < STATIONARY_TIMER_MIN_OBSERVATIONS:
+        return None
+
+    tracker.inferred_stopped = True
+    return _timer_inference(
+        "stopped",
+        reading.timer_value,
+        "stationary_timer_digits",
+        first_stationary_frame_second=tracker.stationary_start_second,
+        confirmation_frame_second=reading.frame_second,
+        observations=tracker.stationary_observations,
+    )
+
+
 def _format_change_fields(changes: dict) -> str:
     return ",".join(sorted(changes)) if changes else "none"
 
@@ -840,6 +1005,7 @@ def scan_frame_text_segment(
     state = initial_state.copy() if initial_state else TextState()
     events: list[TextEventData] = []
     read_cache: dict[tuple[int, bool], FrameReading] = {}
+    timer_motion = TimerMotionTracker()
     if debug_callback:
         debug_callback(
             f"frame scan start={start_second} end={end_second} "
@@ -853,6 +1019,12 @@ def scan_frame_text_segment(
             include_names=False,
             read_cache=read_cache,
         )
+        timer_inference = _infer_timer_motion(
+            reading,
+            timer_motion,
+            state.scoreboard_state,
+        )
+        reading = _reading_with_timer_inference(reading, timer_inference)
         changes = reading_changes(state, reading)
         scan_changes = _precise_scan_changes(changes)
         if debug_callback:
@@ -870,6 +1042,10 @@ def scan_frame_text_segment(
             second,
             include_names=True,
             read_cache=read_cache,
+        )
+        event_reading = _reading_with_timer_inference(
+            event_reading,
+            timer_inference,
         )
         event_changes = {
             **scan_changes,

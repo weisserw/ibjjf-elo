@@ -337,17 +337,20 @@ def _final_timer_seconds_from_window(points: list[TimelinePoint]) -> int | None:
     min_timer_seconds = min(timer_values) if timer_values else None
 
     for point in points:
-        timer_seconds = parse_timer_seconds(point.state.timer_value)
-        if (
-            point.state.timer_state == "stopped"
-            and timer_seconds is not None
-            and not (
-                min_timer_seconds is not None
-                and timer_seconds > min_timer_seconds
-                and _looks_like_starting_timer_seconds(timer_seconds)
-            )
+        if point.event.timer_state == "running":
+            final_timer_seconds = None
+            continue
+        if point.event.timer_state != "stopped":
+            continue
+
+        timer_seconds = parse_timer_seconds(point.event.timer_value)
+        if timer_seconds is None or (
+            min_timer_seconds is not None
+            and timer_seconds > min_timer_seconds
+            and _looks_like_starting_timer_seconds(timer_seconds)
         ):
-            final_timer_seconds = timer_seconds
+            continue
+        final_timer_seconds = timer_seconds
 
     return final_timer_seconds
 
@@ -516,9 +519,7 @@ def _choice_for_candidate(window: MatchWindow, candidate: Candidate) -> MatchCho
     return MatchChoice(candidate, raw_score, *orientation, raw_score)
 
 
-def _has_two_sided_name_evidence(
-    window: MatchWindow, choice: MatchChoice
-) -> bool:
+def _has_two_sided_name_evidence(window: MatchWindow, choice: MatchChoice) -> bool:
     if not window.top_names or not window.bottom_names:
         return False
     top_score, bottom_score = _oriented_name_scores(
@@ -548,19 +549,14 @@ def _has_confirmed_sequential_predecessor(
     if cursor <= 0 or choice.candidate.order_index != cursor:
         return False
     predecessor = next(
-        (
-            candidate
-            for candidate in candidates
-            if candidate.order_index == cursor - 1
-        ),
+        (candidate for candidate in candidates if candidate.order_index == cursor - 1),
         None,
     )
     if predecessor is None:
         return False
     predecessor_id = predecessor.match.id
     return (
-        predecessor_id in used_match_ids
-        and predecessor_id not in speculative_match_ids
+        predecessor_id in used_match_ids and predecessor_id not in speculative_match_ids
     )
 
 

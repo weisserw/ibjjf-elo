@@ -101,6 +101,8 @@ Worker API routes share `WORKER_API_PREFIX = /api/livestream_frame_archives/work
   - State fields: `scoreboard_state`, `timer_state`, `timer_value`, `frame_second`.
   - Name fields: `top_athlete_name`, `top_team_name`, `bottom_athlete_name`, `bottom_team_name`.
   - Provenance fields: `profile_id`, `score_engine`, `name_engine`, `confidence`, `evidence_json`.
+  - Timer events inferred from digit motion record their method and source-frame
+    details under `evidence_json.timer_state_inference`.
   - Downstream linking uses `match_id`; clearing text events must also clear match links.
 - In-memory scan dataclasses in `app/livestream_frame_text_scan.py`
   - `FrameReading`: raw parser output for one frame.
@@ -108,6 +110,17 @@ Worker API routes share `WORKER_API_PREFIX = /api/livestream_frame_archives/work
   - `TextEventData`: sparse event payload before database persistence.
 
 Default parser settings are `parser_profile="auto"`, `score_engine="fixed_digit"`, and `name_engine="paddle"`. Supported score engines are `none` and `fixed_digit`; supported name engines are `none`, `tesseract`, and `paddle`.
+
+Running countdown ticks remain intentionally sparse: the scanner reads every
+archived second but does not persist an event for each decrement. Below one
+minute, it uses those per-second readings to compensate for warm/yellow timer
+styles that do not visually distinguish running from stopped. Three consecutive
+identical readings emit an inferred `stopped` event; a later decrement emits a
+`running` event so an ordinary pause is not treated as the match finish. If the
+scoreboard becomes blank before three stationary readings are available, a
+boundary no more than three seconds after the last valid under-one-minute value
+emits a lower-confidence extrapolated stop. Direct stopped readings, including
+`0:00`, always take precedence.
 
 Scoreboard digit parsing localizes the rendered two-row, three-column colored grid
 before reading its cells. It does not use image-ratio layouts; a crop without a
@@ -210,7 +223,7 @@ Git history shows this area is sensitive to OCR edge cases and workflow/status h
   regressions in `scoreboard_cases.json`.
 - Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter. Timer geometry is now detected from aligned digit candidates and locally coherent display colors rather than image-ratio search windows or whole-crop color density. Green timer digits take precedence over adjacent white scoreboard text in mixed tight crops so active timers are not mistaken for stopped timers. Dense horizontal foreground rows from video artifacts or timer-frame edges are removed within connected components before digit grouping so crop padding cannot change whether the artifact is recognized.
   Full-height digit fragments separated by a one-pixel JPEG/color-threshold seam are merged before grouping and retained together during classification, preventing clipped zeroes in small timer crops from being interpreted as extra digits.
-  Orange and yellow timer digits use one complete warm foreground mask, preventing bright yellow digit sections from being clipped into a low-confidence blank reading. Warm timers are treated as running because the display has no stopped indicator once it turns yellow; the existing `0:00` value override is still treated as stopped.
+  Orange and yellow timer digits use one complete warm foreground mask, preventing bright yellow digit sections from being clipped into a low-confidence blank reading. Raw warm timer readings are treated as running because the display has no stopped indicator once it turns yellow; the text scanner then infers stops and resumes from stationary or changing under-one-minute digits. The existing direct `0:00` value override is still treated as stopped and takes precedence over inference.
 - Name OCR: multiple commits fixed athlete/team line selection, multi-line names, Paddle result parsing, Paddle choosing team names, and clipped/trailing initials.
 - Scoreboard visibility: blank scoreboard handling and scoreboard detection have had regressions.
 - Worker/admin state: requeue/rescan buttons, clear behavior, missing OCR, Docker dependencies, automatic retry/backoff, error truncation, and livestream queue ordering have all been adjusted.
