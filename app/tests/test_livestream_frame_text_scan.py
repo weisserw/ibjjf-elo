@@ -2480,6 +2480,330 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
 
                 self.assertEqual(reading.digits, expected_digits)
 
+    def test_score_component_ownership_uses_recognized_role_pixels(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        colors = {
+            "green": (40, 150, 60),
+            "yellow": (190, 160, 50),
+            "red": (180, 40, 50),
+        }
+        component_box = (8, 8, 23, 23)
+        component_mask = text_ocr.np.ones((15, 15), dtype=bool)
+
+        def ownership(background, *, transition=None):
+            image = text_ocr.Image.new("RGB", (31, 31), background)
+            draw = text_ocr.ImageDraw.Draw(image)
+            if transition is not None:
+                draw.rectangle((7, 7, 23, 23), fill=transition)
+            draw.rectangle(component_box, fill=(245, 245, 245))
+            context = text_ocr._score_ownership_context(image, colors)
+            return text_ocr._score_component_ownership(
+                component_mask,
+                component_box,
+                context,
+                "yellow",
+            )
+
+        expected = ownership(colors["yellow"])
+        competing = ownership(colors["green"])
+        blended = ownership(colors["yellow"], transition=(180, 180, 105))
+        ambiguous = ownership((8, 8, 12))
+
+        self.assertTrue(expected.is_sufficient)
+        self.assertEqual(expected.expected_share, 1.0)
+        self.assertFalse(text_ocr._score_component_has_competing_ownership(expected))
+        self.assertTrue(competing.is_sufficient)
+        self.assertEqual(competing.expected_share, 0.0)
+        self.assertEqual(competing.competing_role, "green")
+        self.assertTrue(text_ocr._score_component_has_competing_ownership(competing))
+        self.assertTrue(blended.is_sufficient)
+        self.assertEqual(blended.expected_share, 1.0)
+        self.assertGreater(blended.recognized_pixel_count, 0)
+        self.assertFalse(ambiguous.is_sufficient)
+        self.assertEqual(ambiguous.recognized_pixel_count, 0)
+        self.assertEqual(ambiguous.expected_share, 0.0)
+        self.assertIsNone(ambiguous.competing_role)
+
+    def test_score_component_ownership_excludes_unknown_pixels_from_share(self):
+        colors = {
+            "green": (40, 150, 60),
+            "yellow": (190, 160, 50),
+            "red": (180, 40, 50),
+        }
+        image = text_ocr.Image.new("RGB", (31, 31), (8, 8, 12))
+        draw = text_ocr.ImageDraw.Draw(image)
+        draw.rectangle((16, 0, 30, 30), fill=colors["yellow"])
+        component_box = (8, 8, 23, 23)
+        draw.rectangle(component_box, fill=(245, 245, 245))
+        context = text_ocr._score_ownership_context(image, colors)
+
+        ownership = text_ocr._score_component_ownership(
+            text_ocr.np.ones((15, 15), dtype=bool),
+            component_box,
+            context,
+            "yellow",
+        )
+
+        self.assertTrue(ownership.is_sufficient)
+        self.assertEqual(ownership.expected_share, 1.0)
+        self.assertLess(ownership.recognized_pixel_count, 100)
+
+    def test_score_edge_component_requires_expected_role_ownership(self):
+        colors = {
+            "green": (40, 150, 60),
+            "yellow": (190, 160, 50),
+            "red": (180, 40, 50),
+        }
+        cell_box = (10, 0, 50, 30)
+
+        def entries(fragment_background):
+            image = text_ocr.Image.new("RGB", (60, 30), colors["yellow"])
+            draw = text_ocr.ImageDraw.Draw(image)
+            draw.rectangle((0, 0, 15, 29), fill=fragment_background)
+            draw.rectangle((10, 5, 12, 24), fill=(245, 245, 245))
+            draw.rectangle((25, 5, 31, 24), fill=(245, 245, 245))
+            context = text_ocr._score_ownership_context(image, colors)
+            return text_ocr._score_digit_mask_entries(
+                image.crop(cell_box),
+                colors["yellow"],
+                score_context=context,
+                cell_box=cell_box,
+                expected_role="yellow",
+                include_rejected=True,
+            )
+
+        owned_entries = entries(colors["yellow"])
+        competing_entries = entries(colors["green"])
+        owned_edge = next(entry for entry in owned_entries if entry.x == 0)
+        competing_edge = next(entry for entry in competing_entries if entry.x == 0)
+
+        self.assertTrue(owned_edge.is_edge_leading)
+        self.assertTrue(owned_edge.is_accepted)
+        self.assertTrue(
+            text_ocr._score_edge_component_has_expected_ownership(owned_edge.ownership)
+        )
+        self.assertFalse(competing_edge.is_accepted)
+        self.assertEqual(competing_edge.rejection_reason, "score-role-edge")
+        self.assertTrue(
+            text_ocr._score_component_has_competing_ownership(competing_edge.ownership)
+        )
+        self.assertEqual(
+            [entry.x for entry in competing_entries if entry.is_accepted],
+            [15],
+        )
+
+    def test_ambiguous_score_edge_cannot_create_a_leading_one_by_itself(self):
+        ambiguous_edge = text_ocr.DigitPrediction(
+            10,
+            0.90,
+            "test:score-leading-one-edge:score-role-ambiguous",
+        )
+        missing_inner = text_ocr.DigitPrediction(None, 0.0, "none")
+        strong_inner = text_ocr.DigitPrediction(0, 0.91, "test")
+
+        self.assertFalse(
+            text_ocr.ScoreboardDigitReader._should_use_raw_score_prediction(
+                missing_inner, ambiguous_edge
+            )
+        )
+        self.assertTrue(
+            text_ocr.ScoreboardDigitReader._should_use_raw_score_prediction(
+                strong_inner, ambiguous_edge
+            )
+        )
+
+    def test_clipped_two_digit_score_values_remain_explicitly_covered(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.ScoreboardDigitReader()
+        cases = (
+            ("new_score_1020_000.jpg", (10, 2, 0, 0, 0, 0)),
+            ("new_score_1110_000.jpg", (11, 1, 0, 0, 0, 0)),
+            ("score_smaller_1210_010.jpg", (12, 1, 0, 0, 1, 0)),
+            ("new_score_010_1730.jpg", (0, 1, 0, 17, 3, 0)),
+            ("new_score_010_1820.jpg", (0, 1, 0, 18, 2, 0)),
+            ("score_smaller_1930_000.jpg", (19, 3, 0, 0, 0, 0)),
+            ("score_2430_000.jpg", (24, 3, 0, 0, 0, 0)),
+        )
+
+        for fixture_name, expected_digits in cases:
+            with self.subTest(fixture=fixture_name):
+                image = text_ocr.Image.open(
+                    os.path.join(self.fixture_dir, fixture_name)
+                ).convert("RGB")
+                self.assertEqual(reader.read(image).digits, expected_digits)
+
+    def test_score_ownership_survives_crop_and_encoding_perturbations(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+
+        class InjectedLocator:
+            def __init__(self, layout):
+                self.layout = layout
+
+            def locate_candidates(self, image):
+                return (self.layout,)
+
+        cases = (
+            ("new_score_010_1820.jpg", (0, 1, 0, 18, 2, 0)),
+            ("score_2430_000.jpg", (24, 3, 0, 0, 0, 0)),
+        )
+        for fixture_name, expected_digits in cases:
+            with self.subTest(fixture=fixture_name):
+                image = text_ocr.Image.open(
+                    os.path.join(self.fixture_dir, fixture_name)
+                ).convert("RGB")
+                base_layout = text_ocr.ScoreboardLocator().locate(image)
+                reader = text_ocr.ScoreboardDigitReader()
+
+                for left_delta in range(-2, 3):
+                    for right_delta in range(-2, 3):
+                        boxes = tuple(
+                            (
+                                max(0, x1 + left_delta),
+                                y1,
+                                min(image.width, x2 + right_delta),
+                                y2,
+                            )
+                            for x1, y1, x2, y2 in base_layout.cell_boxes
+                        )
+                        reader.locator = InjectedLocator(
+                            text_ocr.ScoreLayout(
+                                base_layout.name,
+                                boxes,
+                                base_layout.background_roles,
+                            )
+                        )
+                        self.assertEqual(
+                            reader.read(image).digits,
+                            expected_digits,
+                            (left_delta, right_delta),
+                        )
+
+                variants = {
+                    "padding": text_ocr.ImageOps.expand(
+                        image,
+                        border=(13, 5, 17, 3),
+                        fill=(12, 12, 12),
+                    ),
+                    "scaled_down": image.resize(
+                        (
+                            round(image.width * 0.85),
+                            round(image.height * 0.85),
+                        ),
+                        text_ocr.Image.Resampling.LANCZOS,
+                    ),
+                    "scaled_up": image.resize(
+                        (
+                            round(image.width * 1.15),
+                            round(image.height * 1.15),
+                        ),
+                        text_ocr.Image.Resampling.LANCZOS,
+                    ),
+                }
+                translated = text_ocr.Image.new(
+                    "RGB", (image.width + 30, image.height), (12, 12, 12)
+                )
+                translated.paste(image, (19, 0))
+                variants["translation"] = translated
+                for quality in (70, 85, 95):
+                    encoded = io.BytesIO()
+                    image.save(encoded, "JPEG", quality=quality)
+                    encoded.seek(0)
+                    variants[f"jpeg_{quality}"] = text_ocr.Image.open(encoded).convert(
+                        "RGB"
+                    )
+
+                reader = text_ocr.ScoreboardDigitReader()
+                for variant_name, variant in variants.items():
+                    with self.subTest(variant=variant_name):
+                        self.assertEqual(reader.read(variant).digits, expected_digits)
+
+    def test_score_ownership_diagnostics_cover_fixture_corpus(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.ScoreboardDigitReader()
+        fixture_names = sorted(
+            name
+            for name in os.listdir(self.fixture_dir)
+            if name.endswith(".jpg") and "score" in name
+        )
+        diagnostics = []
+        fixtures_without_layout = []
+        for fixture_name in fixture_names:
+            image = text_ocr.Image.open(
+                os.path.join(self.fixture_dir, fixture_name)
+            ).convert("RGB")
+            layout = reader.locator.locate(image)
+            if layout is None:
+                fixtures_without_layout.append(fixture_name)
+                continue
+            palette = text_ocr._score_layout_background_palette(image, layout)
+            context = text_ocr._score_ownership_context(image, palette)
+            for cell_index, (box, role) in enumerate(
+                zip(layout.cell_boxes, layout.background_roles)
+            ):
+                entries = text_ocr._score_digit_mask_entries(
+                    image.crop(box),
+                    palette[role],
+                    score_context=context,
+                    cell_box=box,
+                    expected_role=role,
+                    include_rejected=True,
+                )
+                for entry_index, entry in enumerate(entries):
+                    prediction = reader._predict_score_digit_entry(
+                        entry, len([item for item in entries if item.is_accepted])
+                    )
+                    diagnostics.append(
+                        {
+                            "fixture": fixture_name,
+                            "cell_index": cell_index,
+                            "role": role,
+                            "bounds": (entry.x, entry.y, entry.width, entry.height),
+                            "touches_edge": entry.touches_edge,
+                            "ownership": entry.ownership,
+                            "template_digit": prediction.digit,
+                            "similarity": prediction.similarity,
+                            "participates": entry.is_accepted and entry_index < 2,
+                            "rejection_reason": entry.rejection_reason,
+                        }
+                    )
+
+        self.assertTrue(diagnostics)
+        self.assertEqual(
+            {diagnostic["role"] for diagnostic in diagnostics},
+            {"green", "yellow", "red"},
+        )
+        self.assertTrue(fixtures_without_layout)
+        self.assertTrue(
+            all(diagnostic["ownership"] is not None for diagnostic in diagnostics)
+        )
+        rejected = [
+            diagnostic
+            for diagnostic in diagnostics
+            if diagnostic["rejection_reason"] is not None
+        ]
+        self.assertTrue(rejected)
+        self.assertTrue(
+            all(
+                diagnostic["rejection_reason"].startswith("score-role-")
+                for diagnostic in rejected
+            )
+        )
+        for fixture_name in (
+            "new_score_1110_010.jpg",
+            "new_score_1110_010_2.jpg",
+            "new_score_010_1730.jpg",
+        ):
+            self.assertTrue(
+                any(
+                    diagnostic["fixture"] == fixture_name
+                    and diagnostic["cell_index"] == 1
+                    and diagnostic["bounds"][0] == 0
+                    and diagnostic["rejection_reason"] == "score-role-edge"
+                    for diagnostic in diagnostics
+                ),
+                fixture_name,
+            )
+
     def test_scoreboard_locator_is_invariant_to_padding_and_scale(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         score_path = os.path.join(self.fixture_dir, "score_012_012.jpg")

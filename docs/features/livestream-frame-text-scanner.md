@@ -123,6 +123,18 @@ transition pixels from the white stroke. The palette-relative mask is the score 
 input; the older color-neutral threshold remains available only to callers that
 do not have a detected scoreboard palette.
 
+Connected score components are also checked against a scale-relative ring in
+the original scoreboard image. Full-image green, yellow, red, white, and unknown
+pixel masks are built once per detected layout, and only recognized role pixels
+contribute to ownership shares. Ordinary components remain eligible when the
+ring is ambiguous, but clear support for a competing role rejects them before
+template classification. A crop-edge component that could introduce a leading
+`1` needs stronger support from the expected cell role; ambiguous edge fragments
+also need strong template evidence and confirmation from the inner/raw prediction
+pair. Role-owned edge components no longer need the older broad similarity-margin
+guard. This preserves genuinely clipped two-digit values while preventing a
+slightly wider crop from borrowing a neighboring cell's glyph.
+
 Timer parsing similarly locates structurally coherent three- or four-digit runs
 across the complete timer crop. Candidate digits must have compatible height,
 baseline, width, spacing, local display background, and template confidence. The
@@ -182,7 +194,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 
 Git history shows this area is sensitive to OCR edge cases and workflow/status handling. Before editing, check nearby commits and tests for regressions in these categories:
 
-- Score digit ambiguity: fixes include `1 -> 3/7`, `3 -> 8` (including lightly rendered penalty-column `3`s), `5 -> 6`, compressed `0 -> 6/9` loop-shape errors, damaged zeroes that resemble an `8`, bad `2*`, edge-clipped leading `1`s, double-digit scores, smaller two-digit scores, and adaptive scoreboard width. The score reader extracts white relative to six known role/palette background colors, rejects the JPEG transition fringe around those strokes, preserves narrow leading `1`s at a cell edge, and uses enclosed-counter geometry to distinguish open `5`s from `6`s and to distinguish `0`, `6`, `8`, and `9`. It fails closed when a predicted `8` does not retain two counters. Wider fallback crops must remain close in confidence to a clean inner-cell reading before adding an edge-clipped leading `1`, preventing fragments from the neighboring green cell from turning a yellow-cell `1` into a false two-digit value.
+- Score digit ambiguity: fixes include `1 -> 3/7`, `3 -> 8` (including lightly rendered penalty-column `3`s), `5 -> 6`, compressed `0 -> 6/9` loop-shape errors, damaged zeroes that resemble an `8`, bad `2*`, edge-clipped leading `1`s, double-digit scores, smaller two-digit scores, and adaptive scoreboard width. The score reader extracts white relative to six known role/palette background colors, rejects the JPEG transition fringe around those strokes, checks each component's original-image background ring for ownership by the expected green/yellow/red role, preserves role-owned leading `1`s at a cell edge, and uses enclosed-counter geometry to distinguish open `5`s from `6`s and to distinguish `0`, `6`, `8`, and `9`. It fails closed when a predicted `8` does not retain two counters. The ownership check rejects mixed or competing-role edge fragments before classification, replacing the older edge-alignment/full-size exclusions and broad inner/raw similarity-margin guard. Ambiguous edge fragments still require strong template evidence and confirmation from both crop readings.
 - Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter. Timer geometry is now detected from aligned digit candidates and locally coherent display colors rather than image-ratio search windows or whole-crop color density. Green timer digits take precedence over adjacent white scoreboard text in mixed tight crops so active timers are not mistaken for stopped timers. Dense horizontal foreground rows from video artifacts or timer-frame edges are removed within connected components before digit grouping so crop padding cannot change whether the artifact is recognized.
   Full-height digit fragments separated by a one-pixel JPEG/color-threshold seam are merged before grouping and retained together during classification, preventing clipped zeroes in small timer crops from being interpreted as extra digits.
 - Name OCR: multiple commits fixed athlete/team line selection, multi-line names, Paddle result parsing, Paddle choosing team names, and clipped/trailing initials.

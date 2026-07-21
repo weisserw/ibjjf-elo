@@ -239,9 +239,7 @@ def _running_timer_starts_prestart_window(
     if candidate_timer == 0 or candidate_timer != start_timer:
         return False
 
-    saw_running_timer = any(
-        point.state.timer_state == "running" for point in points
-    )
+    saw_running_timer = any(point.state.timer_state == "running" for point in points)
     return candidate.state.timer_state == "running" and not saw_running_timer
 
 

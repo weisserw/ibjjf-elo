@@ -45,6 +45,12 @@ SCORE_BORDER_COLUMN_MIN_DENSITY = 0.85
 SCORE_MIN_WHITE_MIX = 0.28
 SCORE_WHITE_MIX_OTSU_MARGIN = 0.07
 SCORE_RAW_LEADING_ONE_SIMILARITY_MARGIN = 0.02
+SCORE_OWNERSHIP_MIN_RECOGNIZED_PIXELS = 8
+SCORE_OWNERSHIP_MIN_WINNING_SHARE = 0.50
+SCORE_OWNERSHIP_MIN_MARGIN = 0.12
+SCORE_OWNERSHIP_EDGE_MIN_WINNING_SHARE = 0.80
+SCORE_OWNERSHIP_EDGE_MIN_MARGIN = 0.35
+SCORE_OWNERSHIP_AMBIGUOUS_EDGE_ONE_MIN_SIMILARITY = 0.55
 SCORE_BACKGROUND_PALETTES = (
     {
         "green": (49, 226, 81),
@@ -135,6 +141,24 @@ class ScoreDigitMask:
     x: int
     width: int
     image_width: int
+    y: int = 0
+    height: int = 0
+    image_height: int = 0
+    touches_edge: bool = False
+    is_edge_leading: bool = False
+    ownership: ScoreComponentOwnership | None = None
+    is_accepted: bool = True
+    rejection_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class ScoreComponentOwnership:
+    expected_role: str
+    expected_share: float
+    competing_role: str | None
+    competing_share: float
+    recognized_pixel_count: int
+    is_sufficient: bool
 
 
 @dataclass(frozen=True)
@@ -176,17 +200,23 @@ def _require_fixed_digit_dependencies():
         raise RuntimeError(message)
 
 
-def _score_role_component_boxes(image, role: str):
-    rgb = np.asarray(image.convert("RGB"))
+def _score_role_masks_from_rgb(rgb):
     red = rgb[:, :, 0]
     green = rgb[:, :, 1]
     blue = rgb[:, :, 2]
-    if role == "red":
-        mask = (red > 120) & (green < 110) & (blue < 130)
-    elif role == "yellow":
-        mask = (red > 150) & (green > 110) & (blue < 120)
-    else:
-        mask = (green > 100) & (blue < 150) & (red < 190)
+    return {
+        "green": (green > 100) & (blue < 150) & (red < 190),
+        "yellow": (red > 150) & (green > 110) & (blue < 120),
+        "red": (red > 120) & (green < 110) & (blue < 130),
+    }
+
+
+def _score_role_masks(image):
+    return _score_role_masks_from_rgb(np.asarray(image.convert("RGB")))
+
+
+def _score_role_component_boxes(image, role: str):
+    mask = _score_role_masks(image)[role]
 
     component_count, _, stats, _ = cv2.connectedComponentsWithStats(
         mask.astype("uint8"), 8
@@ -368,17 +398,7 @@ def _inner_cell(image):
 
 
 def _score_cell_has_background(image, role: str) -> bool:
-    rgb = np.asarray(image.convert("RGB"))
-    red = rgb[:, :, 0]
-    green = rgb[:, :, 1]
-    blue = rgb[:, :, 2]
-    if role == "red":
-        mask = (red > 120) & (green < 110) & (blue < 130)
-    elif role == "yellow":
-        mask = (red > 150) & (green > 110) & (blue < 120)
-    else:
-        mask = (green > 100) & (blue < 150) & (red < 190)
-    return bool(mask.mean() >= 0.12)
+    return bool(_score_role_masks(image)[role].mean() >= 0.12)
 
 
 def _score_layout_background_palette(image, layout: ScoreLayout):
@@ -394,6 +414,139 @@ def _score_layout_background_palette(image, layout: ScoreLayout):
             float(np.linalg.norm(sample - np.asarray(palette[role])))
             for role, sample in cell_samples
         ),
+    )
+
+
+def _score_ownership_context(image, background_palette, cell_boxes=None):
+    origin = (0, 0)
+    context_image = image
+    if cell_boxes:
+        padding = 4
+        left = max(0, min(box[0] for box in cell_boxes) - padding)
+        top = max(0, min(box[1] for box in cell_boxes) - padding)
+        right = min(image.width, max(box[2] for box in cell_boxes) + padding)
+        bottom = min(image.height, max(box[3] for box in cell_boxes) + padding)
+        origin = (left, top)
+        context_image = image.crop((left, top, right, bottom))
+
+    rgb = np.asarray(context_image.convert("RGB"))
+    role_masks = _score_role_masks_from_rgb(rgb)
+    role_names = ("green", "yellow", "red")
+    candidates = np.logical_or.reduce(tuple(role_masks.values()))
+    resolved_roles = {
+        role: np.zeros(candidates.shape, dtype=bool) for role in role_names
+    }
+    if np.any(candidates):
+        candidate_pixels = rgb[candidates].astype("float32")
+        palette = np.asarray(
+            [background_palette[role] for role in role_names], dtype="float32"
+        )
+        distances = np.sum(
+            (candidate_pixels[:, np.newaxis, :] - palette[np.newaxis, :, :]) ** 2,
+            axis=2,
+        )
+        nearest_roles = np.argmin(distances, axis=1)
+        for role_index, role in enumerate(role_names):
+            resolved_roles[role][candidates] = role_masks[role][candidates] & (
+                nearest_roles == role_index
+            )
+    red = rgb[:, :, 0]
+    green = rgb[:, :, 1]
+    blue = rgb[:, :, 2]
+    spread = np.maximum.reduce([red, green, blue]) - np.minimum.reduce(
+        [red, green, blue]
+    )
+    foreground = (red > 165) & (green > 165) & (blue > 145) & (spread < 90)
+    recognized = np.logical_or.reduce(tuple(resolved_roles.values()))
+    return {
+        **resolved_roles,
+        "foreground": foreground,
+        "unknown": ~(recognized | foreground),
+        "origin": origin,
+    }
+
+
+def _score_component_ownership(
+    component_mask,
+    component_box,
+    score_context,
+    expected_role: str,
+) -> ScoreComponentOwnership:
+    x1, y1, x2, y2 = component_box
+    origin_x, origin_y = score_context.get("origin", (0, 0))
+    x1 -= origin_x
+    x2 -= origin_x
+    y1 -= origin_y
+    y2 -= origin_y
+    component_height, component_width = component_mask.shape
+    radius = max(1, min(4, int(round(min(component_width, component_height) * 0.12))))
+    image_height, image_width = score_context["foreground"].shape
+    ring_x1 = max(0, x1 - radius)
+    ring_y1 = max(0, y1 - radius)
+    ring_x2 = min(image_width, x2 + radius)
+    ring_y2 = min(image_height, y2 + radius)
+
+    local_component = np.zeros((ring_y2 - ring_y1, ring_x2 - ring_x1), dtype="uint8")
+    local_x = x1 - ring_x1
+    local_y = y1 - ring_y1
+    local_component[
+        local_y : local_y + component_height,
+        local_x : local_x + component_width,
+    ] = component_mask.astype("uint8")
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE, (radius * 2 + 1, radius * 2 + 1)
+    )
+    ring = cv2.dilate(local_component, kernel).astype(bool)
+    ring &= ~local_component.astype(bool)
+    ring &= ~score_context["foreground"][ring_y1:ring_y2, ring_x1:ring_x2]
+
+    counts = {
+        role: int(
+            np.count_nonzero(
+                ring & score_context[role][ring_y1:ring_y2, ring_x1:ring_x2]
+            )
+        )
+        for role in ("green", "yellow", "red")
+    }
+    recognized_pixel_count = sum(counts.values())
+    competing_role = max(
+        (role for role in counts if role != expected_role),
+        key=counts.get,
+    )
+    denominator = max(1, recognized_pixel_count)
+    return ScoreComponentOwnership(
+        expected_role=expected_role,
+        expected_share=counts[expected_role] / denominator,
+        competing_role=competing_role if counts[competing_role] else None,
+        competing_share=counts[competing_role] / denominator,
+        recognized_pixel_count=recognized_pixel_count,
+        is_sufficient=(recognized_pixel_count >= SCORE_OWNERSHIP_MIN_RECOGNIZED_PIXELS),
+    )
+
+
+def _score_component_has_competing_ownership(
+    ownership: ScoreComponentOwnership | None,
+) -> bool:
+    return bool(
+        ownership is not None
+        and ownership.is_sufficient
+        and ownership.competing_share >= SCORE_OWNERSHIP_MIN_WINNING_SHARE
+        and ownership.competing_share - ownership.expected_share
+        >= SCORE_OWNERSHIP_MIN_MARGIN
+    )
+
+
+def _score_edge_component_has_expected_ownership(
+    ownership: ScoreComponentOwnership | None,
+) -> bool:
+    return bool(
+        ownership is None
+        or (
+            ownership.is_sufficient
+            and ownership.expected_share >= SCORE_OWNERSHIP_EDGE_MIN_WINNING_SHARE
+            and ownership.expected_share - ownership.competing_share
+            >= SCORE_OWNERSHIP_EDGE_MIN_MARGIN
+        )
     )
 
 
@@ -482,7 +635,15 @@ def _score_digit_masks(image, background_rgb=None):
     )
 
 
-def _score_digit_mask_entries(image, background_rgb=None):
+def _score_digit_mask_entries(
+    image,
+    background_rgb=None,
+    *,
+    score_context=None,
+    cell_box=None,
+    expected_role=None,
+    include_rejected=False,
+):
     threshold = _score_digit_threshold(image, background_rgb)
     # Tight scoreboard crops can include a nearly solid vertical separator
     # connected to the final digit. Remove the separator without discarding
@@ -510,11 +671,9 @@ def _score_digit_mask_entries(image, background_rgb=None):
                 height,
                 component_index,
                 touches_edge,
-                narrow_leading_candidate,
             )
         )
 
-    interior_candidates = [candidate for candidate in candidates if not candidate[-2]]
     masks = []
     for (
         x,
@@ -523,40 +682,48 @@ def _score_digit_mask_entries(image, background_rgb=None):
         height,
         component_index,
         touches_edge,
-        narrow_leading_candidate,
     ) in candidates:
-        if touches_edge:
-            if not interior_candidates:
-                continue
-            if narrow_leading_candidate:
-                max_gap = max(4, int(image.width * 0.30))
-                is_aligned_leading_digit = any(
-                    (min(y + height, other_y + other_height) - max(y, other_y))
-                    >= min(height, other_height) * 0.60
-                    and 0 <= other_x - (x + width) <= max_gap
-                    for (
-                        other_x,
-                        other_y,
-                        _,
-                        other_height,
-                        _,
-                        _,
-                        _,
-                    ) in interior_candidates
-                )
-                if not is_aligned_leading_digit:
-                    continue
-            if height >= int(image.height * 0.85) or width >= int(image.width * 0.55):
-                continue
+        is_edge_leading = bool(x == 0 and width <= int(image.width * 0.42))
         component_mask = labels[y : y + height, x : x + width] == component_index
-        masks.append(
-            ScoreDigitMask(
-                _normalize_mask(component_mask, SCORE_TEMPLATE_SIZE),
-                x,
-                width,
-                image.width,
+        ownership = None
+        is_accepted = True
+        rejection_reason = None
+        if score_context is not None and cell_box is not None and expected_role:
+            component_box = (
+                cell_box[0] + x,
+                cell_box[1] + y,
+                cell_box[0] + x + width,
+                cell_box[1] + y + height,
             )
+            ownership = _score_component_ownership(
+                component_mask,
+                component_box,
+                score_context,
+                expected_role,
+            )
+            if _score_component_has_competing_ownership(ownership):
+                is_accepted = False
+                rejection_reason = "score-role-competing"
+            if is_edge_leading and ownership.is_sufficient:
+                if not _score_edge_component_has_expected_ownership(ownership):
+                    is_accepted = False
+                    rejection_reason = "score-role-edge"
+        entry = ScoreDigitMask(
+            _normalize_mask(component_mask, SCORE_TEMPLATE_SIZE),
+            x,
+            width,
+            image.width,
+            y,
+            height,
+            image.height,
+            touches_edge,
+            is_edge_leading,
+            ownership,
+            is_accepted,
+            rejection_reason,
         )
+        if is_accepted or include_rejected:
+            masks.append(entry)
     return tuple(masks)
 
 
@@ -773,16 +940,50 @@ class ScoreboardDigitReader:
         predictions = []
         has_layout = True
         background_palette = _score_layout_background_palette(image, layout)
+        score_context = _score_ownership_context(
+            image, background_palette, layout.cell_boxes
+        )
         for box, role in zip(layout.cell_boxes, layout.background_roles):
             raw_cell = image.crop(box)
             cell = _inner_cell(raw_cell)
+            margin_x = (raw_cell.width - cell.width) // 2
+            margin_y = (raw_cell.height - cell.height) // 2
+            inner_box = (
+                box[0] + margin_x,
+                box[1] + margin_y,
+                box[2] - margin_x,
+                box[3] - margin_y,
+            )
             if not _score_cell_has_background(cell, role):
                 has_layout = False
             background_rgb = background_palette[role]
-            prediction = self._predict_score_cell(cell, background_rgb)
-            raw_prediction = self._predict_score_cell(raw_cell, background_rgb)
+            prediction = self._predict_score_cell(
+                cell,
+                background_rgb,
+                score_context=score_context,
+                cell_box=inner_box,
+                expected_role=role,
+            )
+            raw_prediction = self._predict_score_cell(
+                raw_cell,
+                background_rgb,
+                score_context=score_context,
+                cell_box=box,
+                expected_role=role,
+            )
             if self._should_use_raw_score_prediction(prediction, raw_prediction):
                 prediction = raw_prediction
+            elif self._prediction_has_ambiguous_edge(prediction) and not (
+                raw_prediction.digit == prediction.digit
+                and self._prediction_has_leading_one_geometry(raw_prediction)
+                and raw_prediction.similarity
+                >= prediction.similarity - SCORE_RAW_LEADING_ONE_SIMILARITY_MARGIN
+            ):
+                prediction = DigitPrediction(
+                    None,
+                    prediction.similarity,
+                    f"{prediction.source}:score-role-ambiguous-edge-unconfirmed",
+                )
             if prediction.digit is None:
                 predictions.append(DigitPrediction(None, 0.0, "none"))
             else:
@@ -798,9 +999,21 @@ class ScoreboardDigitReader:
             layout,
         )
 
-    def _predict_score_cell(self, cell, background_rgb=None) -> DigitPrediction:
+    def _predict_score_cell(
+        self,
+        cell,
+        background_rgb=None,
+        *,
+        score_context=None,
+        cell_box=None,
+        expected_role=None,
+    ) -> DigitPrediction:
         prediction = self._predict_score_cell_from_mask(
-            cell, background_rgb=background_rgb
+            cell,
+            background_rgb=background_rgb,
+            score_context=score_context,
+            cell_box=cell_box,
+            expected_role=expected_role,
         )
         if background_rgb is None:
             return prediction
@@ -811,9 +1024,21 @@ class ScoreboardDigitReader:
         )
 
     def _predict_score_cell_from_mask(
-        self, cell, background_rgb=None
+        self,
+        cell,
+        background_rgb=None,
+        *,
+        score_context=None,
+        cell_box=None,
+        expected_role=None,
     ) -> DigitPrediction:
-        mask_entries = _score_digit_mask_entries(cell, background_rgb)
+        mask_entries = _score_digit_mask_entries(
+            cell,
+            background_rgb,
+            score_context=score_context,
+            cell_box=cell_box,
+            expected_role=expected_role,
+        )
         if not mask_entries:
             return DigitPrediction(None, 0.0, "none")
         digit_predictions = [
@@ -847,13 +1072,20 @@ class ScoreboardDigitReader:
         )
 
     @classmethod
+    def _prediction_has_ambiguous_edge(cls, prediction: DigitPrediction) -> bool:
+        return bool(
+            cls._prediction_has_leading_one_geometry(prediction)
+            and ":score-role-ambiguous" in prediction.source
+        )
+
+    @classmethod
     def _should_use_raw_score_prediction(
         cls, prediction: DigitPrediction, raw_prediction: DigitPrediction
     ) -> bool:
         if raw_prediction.digit is None:
             return False
         if prediction.digit is None:
-            return True
+            return not cls._prediction_has_ambiguous_edge(raw_prediction)
         if not cls._prediction_has_leading_one_geometry(raw_prediction):
             return False
         prediction_digit_count = cls._prediction_digit_count(prediction)
@@ -863,30 +1095,37 @@ class ScoreboardDigitReader:
             and raw_prediction_digit_count <= prediction_digit_count
         ):
             return False
-        if (
-            raw_prediction_digit_count > prediction_digit_count
-            and raw_prediction.similarity
-            < prediction.similarity - SCORE_RAW_LEADING_ONE_SIMILARITY_MARGIN
-        ):
-            # The outer crop can include a narrow white fragment from the cell
-            # to its left. That fragment resembles an edge-clipped leading one,
-            # but the resulting two-digit prediction is much weaker than the
-            # clean inner-cell glyph. Keep the inner reading in that case while
-            # still allowing comparably strong clipped two-digit recoveries.
-            return False
         return raw_prediction_digit_count >= prediction_digit_count
 
     def _predict_score_digit_entry(
         self, entry: ScoreDigitMask, mask_count: int
     ) -> DigitPrediction:
+        ownership_source = ""
+        if entry.ownership is not None:
+            if _score_edge_component_has_expected_ownership(entry.ownership):
+                ownership_source = ":score-role-owned"
+            elif not entry.ownership.is_sufficient:
+                ownership_source = ":score-role-ambiguous"
         if _score_digit_entry_looks_like_one(entry):
             one_prediction = self.classifier.predict(
                 entry.mask, allowed_digits=frozenset((1,))
             )
+            if (
+                entry.is_edge_leading
+                and entry.ownership is not None
+                and not entry.ownership.is_sufficient
+                and one_prediction.similarity
+                < SCORE_OWNERSHIP_AMBIGUOUS_EDGE_ONE_MIN_SIMILARITY
+            ):
+                return DigitPrediction(
+                    None,
+                    one_prediction.similarity,
+                    f"{one_prediction.source}:score-role-ambiguous-edge-rejected",
+                )
             return DigitPrediction(
                 1,
                 one_prediction.similarity,
-                f"{one_prediction.source}:score-one-geometry",
+                f"{one_prediction.source}:score-one-geometry{ownership_source}",
             )
 
         prediction = self._predict_score_digit(entry.mask)
@@ -898,7 +1137,13 @@ class ScoreboardDigitReader:
             return DigitPrediction(
                 1,
                 prediction.similarity,
-                f"{prediction.source}:score-leading-one-edge",
+                f"{prediction.source}:score-leading-one-edge{ownership_source}",
+            )
+        if ownership_source:
+            return DigitPrediction(
+                prediction.digit,
+                prediction.similarity,
+                f"{prediction.source}{ownership_source}",
             )
         return prediction
 
