@@ -2480,6 +2480,26 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
 
                 self.assertEqual(reading.digits, expected_digits)
 
+    def test_yellow_column_one_ignores_blue_background_at_rounded_cell_edge(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.ScoreboardDigitReader()
+        cases = (
+            ("new_score_010_420.jpg", (0, 1, 0, 4, 2, 0)),
+            ("new_score_010_420_2.jpg", (0, 1, 0, 4, 2, 0)),
+        )
+
+        for fixture_name, expected_digits in cases:
+            with self.subTest(fixture=fixture_name):
+                score_path = os.path.join(self.fixture_dir, fixture_name)
+                self.assertTrue(
+                    os.path.exists(score_path),
+                    f"missing livestream OCR score fixture: {fixture_name}",
+                )
+                with open(score_path, "rb") as fileobj:
+                    image = text_ocr.Image.open(fileobj).convert("RGB")
+
+                self.assertEqual(reader.read(image).digits, expected_digits)
+
     def test_score_component_ownership_uses_recognized_role_pixels(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         colors = {
@@ -2631,6 +2651,20 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     os.path.join(self.fixture_dir, fixture_name)
                 ).convert("RGB")
                 self.assertEqual(reader.read(image).digits, expected_digits)
+
+    def test_clipped_repeated_two_score_keeps_both_digits(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.ScoreboardDigitReader()
+        fixture_name = "new_score_210_2200.jpg"
+        score_path = os.path.join(self.fixture_dir, fixture_name)
+        self.assertTrue(
+            os.path.exists(score_path),
+            f"missing livestream OCR score fixture: {fixture_name}",
+        )
+
+        image = text_ocr.Image.open(score_path).convert("RGB")
+
+        self.assertEqual(reader.read(image).digits, (2, 1, 0, 22, 0, 0))
 
     def test_score_ownership_survives_crop_and_encoding_perturbations(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
