@@ -44,6 +44,7 @@ SCORE_ZERO_HOLE_MAX_CENTER_Y = 0.60
 SCORE_BORDER_COLUMN_MIN_DENSITY = 0.85
 SCORE_MIN_WHITE_MIX = 0.28
 SCORE_WHITE_MIX_OTSU_MARGIN = 0.07
+SCORE_RAW_LEADING_ONE_SIMILARITY_MARGIN = 0.02
 SCORE_BACKGROUND_PALETTES = (
     {
         "green": (49, 226, 81),
@@ -861,6 +862,17 @@ class ScoreboardDigitReader:
             cls._prediction_has_leading_one_geometry(prediction)
             and raw_prediction_digit_count <= prediction_digit_count
         ):
+            return False
+        if (
+            raw_prediction_digit_count > prediction_digit_count
+            and raw_prediction.similarity
+            < prediction.similarity - SCORE_RAW_LEADING_ONE_SIMILARITY_MARGIN
+        ):
+            # The outer crop can include a narrow white fragment from the cell
+            # to its left. That fragment resembles an edge-clipped leading one,
+            # but the resulting two-digit prediction is much weaker than the
+            # clean inner-cell glyph. Keep the inner reading in that case while
+            # still allowing comparably strong clipped two-digit recoveries.
             return False
         return raw_prediction_digit_count >= prediction_digit_count
 

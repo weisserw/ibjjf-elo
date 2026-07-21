@@ -2457,6 +2457,29 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
 
                 self.assertEqual(reading.digits, expected_digits)
 
+    def test_yellow_column_one_ignores_neighboring_cell_fragments(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.ScoreboardDigitReader()
+        cases = (
+            ("new_score_1110_010.jpg", (11, 1, 0, 0, 1, 0)),
+            ("new_score_1110_010_2.jpg", (11, 1, 0, 0, 1, 0)),
+            ("new_score_010_1730.jpg", (0, 1, 0, 17, 3, 0)),
+        )
+
+        for fixture_name, expected_digits in cases:
+            with self.subTest(fixture=fixture_name):
+                score_path = os.path.join(self.fixture_dir, fixture_name)
+                self.assertTrue(
+                    os.path.exists(score_path),
+                    f"missing livestream OCR score fixture: {fixture_name}",
+                )
+                with open(score_path, "rb") as fileobj:
+                    image = text_ocr.Image.open(fileobj).convert("RGB")
+
+                reading = reader.read(image)
+
+                self.assertEqual(reading.digits, expected_digits)
+
     def test_scoreboard_locator_is_invariant_to_padding_and_scale(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         score_path = os.path.join(self.fixture_dir, "score_012_012.jpg")
