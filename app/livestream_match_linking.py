@@ -63,6 +63,7 @@ class MatchWindow:
     events: list[LivestreamFrameTextEvent]
     top_names: list[str]
     bottom_names: list[str]
+    position_name_pairs: list[tuple[str | None, str | None]]
     final_state: TextState
     final_timer_seconds: int | None
     has_running_timer: bool
@@ -276,6 +277,31 @@ def _score_state_from_window(points: list[TimelinePoint]) -> TextState:
     return score_state
 
 
+def _position_name_pairs_from_window(
+    points: list[TimelinePoint],
+) -> list[tuple[str | None, str | None]]:
+    pairs = []
+    timer_started = False
+    for point in points:
+        if not timer_started:
+            timer_started = (
+                point.event.timer_state == "running"
+                and parse_timer_seconds(point.event.timer_value) is not None
+            )
+            if not timer_started:
+                continue
+        if not _event_has_any_name(point.event):
+            continue
+
+        top_name = point.state.top_athlete_name
+        if top_name == "Victory":
+            top_name = None
+        pair = (top_name, point.state.bottom_athlete_name)
+        if pair != (None, None) and pair not in pairs:
+            pairs.append(pair)
+    return pairs
+
+
 def _is_stopped_zero_score(point: TimelinePoint) -> bool:
     return (
         point.event.timer_state == "stopped"
@@ -383,6 +409,7 @@ def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchW
                 events=[point.event for point in points],
                 top_names=_dedupe(names_top),
                 bottom_names=_dedupe(names_bottom),
+                position_name_pairs=_position_name_pairs_from_window(points),
                 final_state=final_state,
                 final_timer_seconds=final_timer_seconds,
                 has_running_timer=running_timer_start_second is not None,
@@ -443,13 +470,48 @@ def _oriented_name_scores(
     )
 
 
+def _locked_participant_orientation(
+    window: MatchWindow,
+    first: MatchParticipant,
+    second: MatchParticipant,
+) -> tuple[MatchParticipant, MatchParticipant] | None:
+    for top_name, bottom_name in window.position_name_pairs:
+        if not top_name or not bottom_name:
+            continue
+
+        first_top_scores = (
+            _best_name_score([top_name], first.athlete.name),
+            _best_name_score([bottom_name], second.athlete.name),
+        )
+        second_top_scores = (
+            _best_name_score([top_name], second.athlete.name),
+            _best_name_score([bottom_name], first.athlete.name),
+        )
+        first_top_score = first_top_scores[0] * 0.7 + first_top_scores[1] * 0.3
+        second_top_score = second_top_scores[0] * 0.7 + second_top_scores[1] * 0.3
+
+        best_side_score = max(min(first_top_scores), min(second_top_scores))
+        if best_side_score < MIN_NON_CURSOR_SIDE_NAME_SCORE:
+            continue
+        if abs(first_top_score - second_top_score) < MIN_SCORE_MARGIN:
+            continue
+        if first_top_score > second_top_score:
+            return first, second
+        return second, first
+    return None
+
+
 def _choice_for_candidate(window: MatchWindow, candidate: Candidate) -> MatchChoice:
     first, second = candidate.participants
     first_top_score = _orientation_score(window, first, second)
     second_top_score = _orientation_score(window, second, first)
-    if first_top_score >= second_top_score:
-        return MatchChoice(candidate, first_top_score, first, second, first_top_score)
-    return MatchChoice(candidate, second_top_score, second, first, second_top_score)
+    raw_score = max(first_top_score, second_top_score)
+    orientation = _locked_participant_orientation(window, first, second)
+    if orientation is None:
+        orientation = (
+            (first, second) if first_top_score >= second_top_score else (second, first)
+        )
+    return MatchChoice(candidate, raw_score, *orientation, raw_score)
 
 
 def _has_non_cursor_name_evidence(
@@ -1286,6 +1348,7 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
                 "video_start_offset_seconds": window.video_start_offset_seconds,
                 "top_names": window.top_names,
                 "bottom_names": window.bottom_names,
+                "position_name_pairs": window.position_name_pairs,
                 "final_timer_seconds": window.final_timer_seconds,
                 "has_running_timer": window.has_running_timer,
                 "final_score": _final_score_dict(window.final_state),
@@ -1338,8 +1401,9 @@ def _store_choice(
             match.final_bottom_advantages = window.final_state.bottom_advantages
             match.final_bottom_penalties = window.final_state.bottom_penalties
 
-    choice.top_participant.scoreboard_position = "top"
-    choice.bottom_participant.scoreboard_position = "bottom"
+    if update_start_offset:
+        choice.top_participant.scoreboard_position = "top"
+        choice.bottom_participant.scoreboard_position = "bottom"
     for event in window.events:
         event.match_id = match.id
 

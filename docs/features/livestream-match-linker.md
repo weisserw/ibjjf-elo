@@ -12,6 +12,13 @@ windows, chooses the most likely scheduled match for each window, and stores:
 - `Match.final_top_*` and `Match.final_bottom_*` score fields.
 - `MatchParticipant.scoreboard_position` as `top` or `bottom`.
 
+Participant positions are inferred from the first sufficiently confident pair
+of names OCR observes after the timer starts. Pre-start name history remains
+available for identifying the scheduled match, but it cannot override a
+scoreboard-side correction made before the clock begins. Once the initial
+window stores the positions, continuation windows do not rewrite them from
+later OCR noise.
+
 It can run automatically as the final step of the livestream archive pipeline,
 or manually through the admin detail page or CLI.
 
@@ -61,8 +68,9 @@ Automatic pipeline flow:
    scoreboards, victory screens, stopped timers, and score changes.
 5. Clears prior links for the archive unless running in dry-run mode.
 6. Loads candidate matches for the archive's livestream rows.
-7. Scores name orientation and time alignment, tracks used/closed matches, and
-   applies continuation fallback for split windows.
+7. Scores name history and time alignment to identify the match, locks athlete
+   orientation from confident post-start name pairs, tracks used/closed
+   matches, and applies continuation fallback for split windows.
 8. Writes event links and match summary fields, then returns a summary with
    `linked`, `windows`, `candidates`, and optional `skipped`.
 
@@ -134,6 +142,8 @@ Useful flags:
 - `start_second`, `end_second`, and `video_start_offset_seconds`.
 - `events`.
 - Deduped `top_names` and `bottom_names`.
+- Chronological `position_name_pairs` observed after the timer starts, used to
+  choose the first confident orientation.
 - `final_state`, `final_timer_seconds`, and `has_running_timer`.
 
 `Candidate` is an in-memory scheduled match:
@@ -185,7 +195,9 @@ app/tests/fixtures/livestream_match_linking/
 ```
 
 Existing real-world fixtures cover stopped score updates, linking until blank
-windows, and repeated athlete names split by blank resets.
+windows, and repeated athlete names split by blank resets. Synthetic
+regressions also cover a pre-start top/bottom correction and reject later
+continuation-window OCR swaps after positions have been locked.
 
 ## Previously Surfaced Issues From Git History
 

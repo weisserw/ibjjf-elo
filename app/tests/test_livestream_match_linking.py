@@ -588,6 +588,61 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(linked_match.video_start_offset_seconds, 31)
         self.assertEqual(self._linked_seconds(linked_match), [10, 31, 81])
 
+    def test_positions_lock_from_names_observed_when_timer_starts(self):
+        matches = self._match_setup(
+            pairs=[("Robert Wilson Peters", "Franklin Armando Lopez Chavez")],
+            match_offsets=[30],
+        )
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="Robert Wilsen Peters",
+                    bottom_athlete_name="Fracklin Armando Lcoez Chazer",
+                ),
+                self._event_data(
+                    31,
+                    timer_state="running",
+                    timer_value="5:00",
+                    top_athlete_name="Eraaklia Armunde Leaes Charas",
+                    bottom_athlete_name="Robert Wilann Peters",
+                ),
+                self._event_data(
+                    130,
+                    timer_state="stopped",
+                    timer_value="3:21",
+                    top_advantages=1,
+                    top_athlete_name="Frapklin Armando Lonez Chacez",
+                    bottom_athlete_name="Robert Wilson Prters",
+                ),
+            ]
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        linked_match = db.session.get(Match, matches[0].id)
+        positions = {
+            participant.athlete.name: participant.scoreboard_position
+            for participant in MatchParticipant.query.filter_by(
+                match_id=linked_match.id
+            ).all()
+        }
+        self.assertEqual(summary.linked, 1)
+        self.assertEqual(linked_match.video_start_offset_seconds, 31)
+        self.assertEqual(linked_match.final_top_advantages, 1)
+        self.assertEqual(positions["Franklin Armando Lopez Chavez"], "top")
+        self.assertEqual(positions["Robert Wilson Peters"], "bottom")
+
     def test_ambiguous_repeated_athlete_without_bottom_name_is_not_linked(self):
         matches = self._match_setup()
         _, scan = self._stored_events(
@@ -825,6 +880,66 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             .all()
         ]
         self.assertEqual(linked_seconds, [10, 20, 70, 100, 110, 120, 150, 160])
+
+    def test_continuation_ocr_swap_does_not_change_locked_positions(self):
+        matches = self._match_setup(pairs=[("JOHNATHAN ALPHA", "MICHAEL BETA")])
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="JOHNATHAN ALPHA",
+                    bottom_athlete_name="MICHAEL BETA",
+                ),
+                self._event_data(
+                    20,
+                    timer_state="running",
+                    timer_value="4:50",
+                    top_athlete_name="JOHNATHAN ALPHA",
+                    bottom_athlete_name="MICHAEL BETA",
+                ),
+                self._event_data(70, top_points=2),
+                self._event_data(100, timer_state="stopped", timer_value="1:26"),
+                self._event_data(
+                    110,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="4:55",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="MICHAEL BETA",
+                    bottom_athlete_name="JOHNATHAN ALPHA",
+                ),
+                self._event_data(120, timer_state="running", timer_value="4:40"),
+                self._event_data(150, top_points=2),
+            ]
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        linked_match = db.session.get(Match, matches[0].id)
+        positions = {
+            participant.athlete.name: participant.scoreboard_position
+            for participant in MatchParticipant.query.filter_by(
+                match_id=linked_match.id
+            ).all()
+        }
+        self.assertEqual(summary.linked, 2)
+        self.assertEqual(positions["JOHNATHAN ALPHA"], "top")
+        self.assertEqual(positions["MICHAEL BETA"], "bottom")
 
     def test_duplicate_name_rematch_does_not_steal_active_continuation(self):
         matches = self._match_setup(
