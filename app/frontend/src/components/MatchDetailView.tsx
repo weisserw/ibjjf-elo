@@ -104,7 +104,8 @@ const combineAdditiveActions = (actions: MatchDetailAction[]) => {
   const additiveActions = new Map<ScoreCategory, MatchDetailAction>();
 
   actions.forEach(action => {
-    if (action.category === 'points') {
+    const isAdditiveOnePointScore = action.category === 'points' && action.delta === 1;
+    if (action.category === 'points' && !isAdditiveOnePointScore) {
       combined.push(action);
       return;
     }
