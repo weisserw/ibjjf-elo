@@ -222,6 +222,29 @@ def _continuation_start_matches_active_window(
     )
 
 
+def _running_timer_starts_prestart_window(
+    timeline: list[TimelinePoint], start_index: int, candidate_index: int
+) -> bool:
+    points = timeline[start_index:candidate_index]
+    if not points or _has_terminal_boundary(points):
+        return False
+    if any(_has_non_zero_score(point.state) for point in points):
+        return False
+
+    start_timer = parse_timer_seconds(points[0].state.timer_value)
+    candidate = timeline[candidate_index]
+    candidate_timer = parse_timer_seconds(candidate.state.timer_value)
+    if start_timer is None or candidate_timer is None:
+        return False
+    if candidate_timer == 0 or candidate_timer != start_timer:
+        return False
+
+    saw_running_timer = any(
+        point.state.timer_state == "running" for point in points
+    )
+    return candidate.state.timer_state == "running" and not saw_running_timer
+
+
 def _event_confidently_matches_names(
     event: LivestreamFrameTextEvent, state: TextState
 ) -> bool:
@@ -315,6 +338,10 @@ def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchW
         if not _is_start_point(point):
             continue
         if starts and _continuation_start_matches_active_window(
+            timeline, starts[-1], index
+        ):
+            continue
+        if starts and _running_timer_starts_prestart_window(
             timeline, starts[-1], index
         ):
             continue

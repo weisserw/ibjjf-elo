@@ -542,6 +542,52 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(len(windows), 1)
         self.assertEqual(windows[0].final_timer_seconds, 240)
 
+    def test_prestart_names_survive_noisy_early_timer_events(self):
+        matches = self._match_setup(
+            pairs=[("Kristi Ann Lough", "Beatrice Z Jin")],
+            match_offsets=[30],
+        )
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="10:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="Wristi Agn L gurh",
+                    bottom_athlete_name="Beatrice Z Jin",
+                ),
+                self._event_data(
+                    31,
+                    timer_state="running",
+                    timer_value="10:00",
+                    top_athlete_name="Deutrire Z Jin",
+                    bottom_athlete_name="Keisti tes Lauph",
+                ),
+                self._event_data(
+                    81,
+                    timer_state="stopped",
+                    timer_value="9:10",
+                    top_athlete_name="Daatrine Z Jin",
+                    bottom_athlete_name="Keisti Agn Louph",
+                ),
+            ]
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        linked_match = db.session.get(Match, matches[0].id)
+        self.assertEqual(summary.linked, 2)
+        self.assertEqual(linked_match.video_start_offset_seconds, 31)
+        self.assertEqual(self._linked_seconds(linked_match), [10, 31, 81])
+
     def test_ambiguous_repeated_athlete_without_bottom_name_is_not_linked(self):
         matches = self._match_setup()
         _, scan = self._stored_events(

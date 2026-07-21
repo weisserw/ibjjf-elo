@@ -234,6 +234,10 @@ Current regression tests show the main risk areas:
   - `test_extract_match_windows_tracks_final_score_and_submission_timer`
   - `test_zero_score_reset_after_blank_does_not_overwrite_nonzero_final_score`
   - `test_zero_score_correction_without_stopped_timer_does_not_end_window`
+  - `test_prestart_names_survive_noisy_early_timer_events`
+    - A stopped pre-start row and the first running row with the same opening
+      timer stay in one window, preserving stronger names loaded before the
+      clock starts even when the running row's OCR is noisy.
 - Candidate choice:
   - `test_ambiguous_repeated_athlete_without_bottom_name_is_not_linked`
   - `test_forward_match_with_weak_opponent_side_waits_for_both_names`
