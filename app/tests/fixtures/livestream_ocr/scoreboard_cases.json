@@ -1,0 +1,1376 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "fixture": "new_score_000_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_000_000_2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_000_000_3.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_000_000_4.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_000_000_5.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_010_1020.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        0,
+        10,
+        2,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "new_score_010_1730.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        0,
+        17,
+        3,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "new_score_010_1820.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        0,
+        18,
+        2,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "new_score_010_420.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        0,
+        4,
+        2,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "starting_regression"
+      ]
+    },
+    {
+      "fixture": "new_score_010_420_2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        0,
+        4,
+        2,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "starting_regression"
+      ]
+    },
+    {
+      "fixture": "new_score_011_001.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        1,
+        0,
+        0,
+        1
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_1020_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        10,
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "new_score_1110_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        11,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "new_score_1110_000_2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        11,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "new_score_1110_010.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        11,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "new_score_1110_010_2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        11,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "new_score_200_010.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_210_2200.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        1,
+        0,
+        22,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "two_digit",
+        "starting_regression"
+      ]
+    },
+    {
+      "fixture": "new_score_230_230.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        3,
+        0,
+        2,
+        3,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_230_431.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        3,
+        0,
+        4,
+        3,
+        1
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_230_431_2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        3,
+        0,
+        4,
+        3,
+        1
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_510_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        5,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_930_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        9,
+        3,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_multi.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "new_score_names.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "new_score_names2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        1,
+        0,
+        0,
+        2,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "new_score_names3.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        7,
+        0,
+        0,
+        2,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "new_score_names4.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "new_score_names5.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "new_score_names6.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "new_score_names7.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "paddle_names.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "paddle_capture",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "paddle_names2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        1,
+        0,
+        0,
+        2,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "paddle_capture",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "paddle_names3.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "paddle_capture",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "paddle_names4.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "paddle_capture",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "paddle_names5.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "paddle_capture",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "paddle_names6.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "paddle_capture",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_000_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_000_1100.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        11,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_000_2420.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        24,
+        2,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_001_1601.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        1,
+        16,
+        0,
+        1
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_010_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_010_1010.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        0,
+        10,
+        1,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_010_220.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        0,
+        2,
+        2,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_012_012.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        2,
+        0,
+        1,
+        2
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_012_012_2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        1,
+        2,
+        0,
+        1,
+        2
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_213_213.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        1,
+        3,
+        2,
+        1,
+        3
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_213_213_2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        1,
+        3,
+        2,
+        1,
+        3
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_2430_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        24,
+        3,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_2630_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        26,
+        3,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_2640_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        26,
+        4,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_2650_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        26,
+        5,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_810_400.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        8,
+        1,
+        0,
+        4,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_error.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_exact_000_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_exact_000_000_2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_exact_811_210.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        8,
+        1,
+        1,
+        2,
+        1,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_malformed.jpg",
+      "expect_layout": false,
+      "reason": "malformed operator layout does not contain two coherent green-yellow-red rows",
+      "palette_family": null,
+      "layout_family": "malformed",
+      "purposes": [
+        "negative",
+        "fail_closed"
+      ]
+    },
+    {
+      "fixture": "score_names2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_names3.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_names4.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_names5.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        6,
+        1,
+        0,
+        3,
+        2,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_names6.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_names7.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        2,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_names8.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_names9.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        3,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_small_000_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_small_000_900.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        9,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_small_names.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_small_names2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_small_names3.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr"
+      ]
+    },
+    {
+      "fixture": "score_smaller_000_011.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        1
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden"
+      ]
+    },
+    {
+      "fixture": "score_smaller_1210_010.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        12,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_smaller_1210_010_2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        12,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_smaller_1210_010_3.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        12,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_smaller_1930_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        19,
+        3,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_smaller_210_1020.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        1,
+        0,
+        10,
+        2,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "two_digit"
+      ]
+    },
+    {
+      "fixture": "score_smaller_names.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        1,
+        0,
+        10,
+        2,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "name_ocr",
+        "two_digit"
+      ]
+    }
+  ]
+}

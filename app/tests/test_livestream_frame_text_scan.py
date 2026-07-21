@@ -90,6 +90,28 @@ def make_tgz(files):
     return buffer.getvalue()
 
 
+def make_score_layout(name, boxes, roles=("green", "yellow", "red") * 2):
+    colors = {
+        "green": (38, 143, 45),
+        "yellow": (158, 175, 33),
+        "red": (171, 30, 49),
+    }
+    return text_ocr.ScoreLayout(
+        name,
+        tuple(
+            text_ocr.ScoreCellRegion(
+                row=index // 3,
+                column=index % 3,
+                role=role,
+                bounds=box,
+                region_mask=None,
+                background_rgb=colors[role],
+            )
+            for index, (box, role) in enumerate(zip(boxes, roles))
+        ),
+    )
+
+
 class LivestreamFrameTextScanAlgorithmTestCase(unittest.TestCase):
     def test_blank_scoreboard_event_clears_carried_names(self):
         state = text_scan.TextState(
@@ -969,7 +991,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         )
         return text_ocr._name_regions_from_score_layout(
             image_size,
-            text_ocr.ScoreLayout(
+            make_score_layout(
                 "test",
                 boxes,
                 ("green", "yellow", "red") * 2,
@@ -977,7 +999,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         )
 
     def test_name_regions_derive_from_detected_score_rows(self):
-        layout = text_ocr.ScoreLayout(
+        layout = make_score_layout(
             "synthetic",
             (
                 (60, -2, 70, 28),
@@ -1017,7 +1039,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             )
             return text_ocr._name_regions_from_score_layout(
                 (120, row_height * 2 + 4),
-                text_ocr.ScoreLayout(
+                make_score_layout(
                     "synthetic",
                     boxes,
                     ("green", "yellow", "red") * 2,
@@ -1036,7 +1058,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         )
 
     def test_name_regions_reject_invalid_cell_count(self):
-        layout = text_ocr.ScoreLayout(
+        layout = make_score_layout(
             "invalid",
             ((10, 10, 20, 20),),
             ("green",),
@@ -2058,7 +2080,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser.timer_reader = None
         parser._image_from_bytes = lambda image_bytes: image_bytes
         score_image = text_ocr.Image.new("RGB", (320, 140), "white")
-        score_layout = text_ocr.ScoreLayout(
+        score_layout = make_score_layout(
             "test",
             tuple(
                 (160 + column * 40, row_top, 200 + column * 40, row_top + 56)
@@ -2185,7 +2207,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
         parser._image_from_bytes = lambda image_bytes: image_bytes
         parser.scoreboard_locator = mock.Mock()
         score_image = text_ocr.Image.new("RGB", (320, 140), "white")
-        score_layout = text_ocr.ScoreLayout(
+        score_layout = make_score_layout(
             "selected",
             tuple(
                 (160 + column * 40, row_top, 200 + column * 40, row_top + 56)
@@ -2252,7 +2274,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             self.skipTest("fixed digit OCR dependencies are unavailable")
 
         class ConstantClassifier:
-            def predict(self, mask):
+            def predict(self, mask, allowed_digits=None):
                 return text_ocr.DigitPrediction(0, 0.99, "test")
 
         image = text_ocr.Image.new("RGB", (1000, 200), (0, 0, 0))
@@ -2278,7 +2300,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             for row_top in row_tops
             for column in range(3)
         )
-        layout = text_ocr.ScoreLayout(
+        layout = make_score_layout(
             "synthetic_rendered",
             boxes,
             roles * 2,
@@ -2308,7 +2330,7 @@ class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
             self.skipTest("fixed digit OCR dependencies are unavailable")
 
         class ConstantClassifier:
-            def predict(self, mask):
+            def predict(self, mask, allowed_digits=None):
                 return text_ocr.DigitPrediction(0, 0.99, "test")
 
         image = text_ocr.Image.new("RGB", (360, 180), (0, 0, 0))
@@ -2414,429 +2436,321 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         self.assertIn("DejaVuSans-Bold.ttf", template_source_text)
         self.assertIn("Roboto-wdth-wght.ttf", template_source_text)
 
-    def test_score_error_fixture_detects_aligned_score_cells(self):
-        text_ocr.validate_ocr_engines("fixed_digit", "none")
-        score_path = os.path.join(self.fixture_dir, "score_error.jpg")
-        self.assertTrue(
-            os.path.exists(score_path),
-            "missing livestream OCR score fixture: score_error.jpg",
-        )
+    def _scoreboard_manifest(self):
+        manifest_path = os.path.join(self.fixture_dir, "scoreboard_cases.json")
+        with open(manifest_path) as fileobj:
+            return json.load(fileobj)
 
-        with open(score_path, "rb") as fileobj:
-            image = text_ocr.Image.open(fileobj).convert("RGB")
+    def _scoreboard_image(self, fixture_name):
+        return text_ocr.Image.open(
+            os.path.join(self.fixture_dir, fixture_name)
+        ).convert("RGB")
 
-        boxes = text_ocr._detected_rendered_score_cell_boxes(image)
-        self.assertEqual(len(boxes), 6)
-        self.assertTrue(all(box[2] - box[0] > 1 for box in boxes))
-
-        reader = text_ocr.ScoreboardDigitReader()
-        reading = reader.read(image)
-
-        self.assertEqual(reading.digits, (0, 0, 0, 0, 0, 0))
-
-    def test_points_column_digit_regression_fixtures(self):
-        text_ocr.validate_ocr_engines("fixed_digit", "none")
-        reader = text_ocr.ScoreboardDigitReader()
-        cases = (
-            ("new_score_1110_000.jpg", (11, 1, 0, 0, 0, 0)),
-            ("new_score_1110_000_2.jpg", (11, 1, 0, 0, 0, 0)),
-            ("new_score_510_000.jpg", (5, 1, 0, 0, 0, 0)),
-        )
-
-        for fixture_name, expected_digits in cases:
-            with self.subTest(fixture=fixture_name):
-                score_path = os.path.join(self.fixture_dir, fixture_name)
-                self.assertTrue(
-                    os.path.exists(score_path),
-                    f"missing livestream OCR score fixture: {fixture_name}",
-                )
-                with open(score_path, "rb") as fileobj:
-                    image = text_ocr.Image.open(fileobj).convert("RGB")
-
-                reading = reader.read(image)
-
-                self.assertEqual(reading.digits, expected_digits)
-
-    def test_yellow_column_one_ignores_neighboring_cell_fragments(self):
-        text_ocr.validate_ocr_engines("fixed_digit", "none")
-        reader = text_ocr.ScoreboardDigitReader()
-        cases = (
-            ("new_score_1110_010.jpg", (11, 1, 0, 0, 1, 0)),
-            ("new_score_1110_010_2.jpg", (11, 1, 0, 0, 1, 0)),
-            ("new_score_010_1730.jpg", (0, 1, 0, 17, 3, 0)),
-        )
-
-        for fixture_name, expected_digits in cases:
-            with self.subTest(fixture=fixture_name):
-                score_path = os.path.join(self.fixture_dir, fixture_name)
-                self.assertTrue(
-                    os.path.exists(score_path),
-                    f"missing livestream OCR score fixture: {fixture_name}",
-                )
-                with open(score_path, "rb") as fileobj:
-                    image = text_ocr.Image.open(fileobj).convert("RGB")
-
-                reading = reader.read(image)
-
-                self.assertEqual(reading.digits, expected_digits)
-
-    def test_yellow_column_one_ignores_blue_background_at_rounded_cell_edge(self):
-        text_ocr.validate_ocr_engines("fixed_digit", "none")
-        reader = text_ocr.ScoreboardDigitReader()
-        cases = (
-            ("new_score_010_420.jpg", (0, 1, 0, 4, 2, 0)),
-            ("new_score_010_420_2.jpg", (0, 1, 0, 4, 2, 0)),
-        )
-
-        for fixture_name, expected_digits in cases:
-            with self.subTest(fixture=fixture_name):
-                score_path = os.path.join(self.fixture_dir, fixture_name)
-                self.assertTrue(
-                    os.path.exists(score_path),
-                    f"missing livestream OCR score fixture: {fixture_name}",
-                )
-                with open(score_path, "rb") as fileobj:
-                    image = text_ocr.Image.open(fileobj).convert("RGB")
-
-                self.assertEqual(reader.read(image).digits, expected_digits)
-
-    def test_score_component_ownership_uses_recognized_role_pixels(self):
-        text_ocr.validate_ocr_engines("fixed_digit", "none")
-        colors = {
-            "green": (40, 150, 60),
-            "yellow": (190, 160, 50),
-            "red": (180, 40, 50),
-        }
-        component_box = (8, 8, 23, 23)
-        component_mask = text_ocr.np.ones((15, 15), dtype=bool)
-
-        def ownership(background, *, transition=None):
-            image = text_ocr.Image.new("RGB", (31, 31), background)
-            draw = text_ocr.ImageDraw.Draw(image)
-            if transition is not None:
-                draw.rectangle((7, 7, 23, 23), fill=transition)
-            draw.rectangle(component_box, fill=(245, 245, 245))
-            context = text_ocr._score_ownership_context(image, colors)
-            return text_ocr._score_component_ownership(
-                component_mask,
-                component_box,
-                context,
-                "yellow",
-            )
-
-        expected = ownership(colors["yellow"])
-        competing = ownership(colors["green"])
-        blended = ownership(colors["yellow"], transition=(180, 180, 105))
-        ambiguous = ownership((8, 8, 12))
-
-        self.assertTrue(expected.is_sufficient)
-        self.assertEqual(expected.expected_share, 1.0)
-        self.assertFalse(text_ocr._score_component_has_competing_ownership(expected))
-        self.assertTrue(competing.is_sufficient)
-        self.assertEqual(competing.expected_share, 0.0)
-        self.assertEqual(competing.competing_role, "green")
-        self.assertTrue(text_ocr._score_component_has_competing_ownership(competing))
-        self.assertTrue(blended.is_sufficient)
-        self.assertEqual(blended.expected_share, 1.0)
-        self.assertGreater(blended.recognized_pixel_count, 0)
-        self.assertFalse(ambiguous.is_sufficient)
-        self.assertEqual(ambiguous.recognized_pixel_count, 0)
-        self.assertEqual(ambiguous.expected_share, 0.0)
-        self.assertIsNone(ambiguous.competing_role)
-
-    def test_score_component_ownership_excludes_unknown_pixels_from_share(self):
-        colors = {
-            "green": (40, 150, 60),
-            "yellow": (190, 160, 50),
-            "red": (180, 40, 50),
-        }
-        image = text_ocr.Image.new("RGB", (31, 31), (8, 8, 12))
-        draw = text_ocr.ImageDraw.Draw(image)
-        draw.rectangle((16, 0, 30, 30), fill=colors["yellow"])
-        component_box = (8, 8, 23, 23)
-        draw.rectangle(component_box, fill=(245, 245, 245))
-        context = text_ocr._score_ownership_context(image, colors)
-
-        ownership = text_ocr._score_component_ownership(
-            text_ocr.np.ones((15, 15), dtype=bool),
-            component_box,
-            context,
-            "yellow",
-        )
-
-        self.assertTrue(ownership.is_sufficient)
-        self.assertEqual(ownership.expected_share, 1.0)
-        self.assertLess(ownership.recognized_pixel_count, 100)
-
-    def test_score_edge_component_requires_expected_role_ownership(self):
-        colors = {
-            "green": (40, 150, 60),
-            "yellow": (190, 160, 50),
-            "red": (180, 40, 50),
-        }
-        cell_box = (10, 0, 50, 30)
-
-        def entries(fragment_background):
-            image = text_ocr.Image.new("RGB", (60, 30), colors["yellow"])
-            draw = text_ocr.ImageDraw.Draw(image)
-            draw.rectangle((0, 0, 15, 29), fill=fragment_background)
-            draw.rectangle((10, 5, 12, 24), fill=(245, 245, 245))
-            draw.rectangle((25, 5, 31, 24), fill=(245, 245, 245))
-            context = text_ocr._score_ownership_context(image, colors)
-            return text_ocr._score_digit_mask_entries(
-                image.crop(cell_box),
-                colors["yellow"],
-                score_context=context,
-                cell_box=cell_box,
-                expected_role="yellow",
-                include_rejected=True,
-            )
-
-        owned_entries = entries(colors["yellow"])
-        competing_entries = entries(colors["green"])
-        owned_edge = next(entry for entry in owned_entries if entry.x == 0)
-        competing_edge = next(entry for entry in competing_entries if entry.x == 0)
-
-        self.assertTrue(owned_edge.is_edge_leading)
-        self.assertTrue(owned_edge.is_accepted)
-        self.assertTrue(
-            text_ocr._score_edge_component_has_expected_ownership(owned_edge.ownership)
-        )
-        self.assertFalse(competing_edge.is_accepted)
-        self.assertEqual(competing_edge.rejection_reason, "score-role-edge")
-        self.assertTrue(
-            text_ocr._score_component_has_competing_ownership(competing_edge.ownership)
-        )
-        self.assertEqual(
-            [entry.x for entry in competing_entries if entry.is_accepted],
-            [15],
-        )
-
-    def test_ambiguous_score_edge_cannot_create_a_leading_one_by_itself(self):
-        ambiguous_edge = text_ocr.DigitPrediction(
-            10,
-            0.90,
-            "test:score-leading-one-edge:score-role-ambiguous",
-        )
-        missing_inner = text_ocr.DigitPrediction(None, 0.0, "none")
-        strong_inner = text_ocr.DigitPrediction(0, 0.91, "test")
-
-        self.assertFalse(
-            text_ocr.ScoreboardDigitReader._should_use_raw_score_prediction(
-                missing_inner, ambiguous_edge
-            )
-        )
-        self.assertTrue(
-            text_ocr.ScoreboardDigitReader._should_use_raw_score_prediction(
-                strong_inner, ambiguous_edge
-            )
-        )
-
-    def test_clipped_two_digit_score_values_remain_explicitly_covered(self):
-        text_ocr.validate_ocr_engines("fixed_digit", "none")
-        reader = text_ocr.ScoreboardDigitReader()
-        cases = (
-            ("new_score_1020_000.jpg", (10, 2, 0, 0, 0, 0)),
-            ("new_score_1110_000.jpg", (11, 1, 0, 0, 0, 0)),
-            ("score_smaller_1210_010.jpg", (12, 1, 0, 0, 1, 0)),
-            ("new_score_010_1730.jpg", (0, 1, 0, 17, 3, 0)),
-            ("new_score_010_1820.jpg", (0, 1, 0, 18, 2, 0)),
-            ("score_smaller_1930_000.jpg", (19, 3, 0, 0, 0, 0)),
-            ("score_2430_000.jpg", (24, 3, 0, 0, 0, 0)),
-        )
-
-        for fixture_name, expected_digits in cases:
-            with self.subTest(fixture=fixture_name):
-                image = text_ocr.Image.open(
-                    os.path.join(self.fixture_dir, fixture_name)
-                ).convert("RGB")
-                self.assertEqual(reader.read(image).digits, expected_digits)
-
-    def test_clipped_repeated_two_score_keeps_both_digits(self):
-        text_ocr.validate_ocr_engines("fixed_digit", "none")
-        reader = text_ocr.ScoreboardDigitReader()
-        fixture_name = "new_score_210_2200.jpg"
-        score_path = os.path.join(self.fixture_dir, fixture_name)
-        self.assertTrue(
-            os.path.exists(score_path),
-            f"missing livestream OCR score fixture: {fixture_name}",
-        )
-
-        image = text_ocr.Image.open(score_path).convert("RGB")
-
-        self.assertEqual(reader.read(image).digits, (2, 1, 0, 22, 0, 0))
-
-    def test_score_ownership_survives_crop_and_encoding_perturbations(self):
-        text_ocr.validate_ocr_engines("fixed_digit", "none")
-
-        class InjectedLocator:
-            def __init__(self, layout):
-                self.layout = layout
-
-            def locate_candidates(self, image):
-                return (self.layout,)
-
-        cases = (
-            ("new_score_010_1820.jpg", (0, 1, 0, 18, 2, 0)),
-            ("score_2430_000.jpg", (24, 3, 0, 0, 0, 0)),
-        )
-        for fixture_name, expected_digits in cases:
-            with self.subTest(fixture=fixture_name):
-                image = text_ocr.Image.open(
-                    os.path.join(self.fixture_dir, fixture_name)
-                ).convert("RGB")
-                base_layout = text_ocr.ScoreboardLocator().locate(image)
-                reader = text_ocr.ScoreboardDigitReader()
-
-                for left_delta in range(-2, 3):
-                    for right_delta in range(-2, 3):
-                        boxes = tuple(
-                            (
-                                max(0, x1 + left_delta),
-                                y1,
-                                min(image.width, x2 + right_delta),
-                                y2,
-                            )
-                            for x1, y1, x2, y2 in base_layout.cell_boxes
-                        )
-                        reader.locator = InjectedLocator(
-                            text_ocr.ScoreLayout(
-                                base_layout.name,
-                                boxes,
-                                base_layout.background_roles,
-                            )
-                        )
-                        self.assertEqual(
-                            reader.read(image).digits,
-                            expected_digits,
-                            (left_delta, right_delta),
-                        )
-
-                variants = {
-                    "padding": text_ocr.ImageOps.expand(
-                        image,
-                        border=(13, 5, 17, 3),
-                        fill=(12, 12, 12),
-                    ),
-                    "scaled_down": image.resize(
-                        (
-                            round(image.width * 0.85),
-                            round(image.height * 0.85),
-                        ),
-                        text_ocr.Image.Resampling.LANCZOS,
-                    ),
-                    "scaled_up": image.resize(
-                        (
-                            round(image.width * 1.15),
-                            round(image.height * 1.15),
-                        ),
-                        text_ocr.Image.Resampling.LANCZOS,
-                    ),
-                }
-                translated = text_ocr.Image.new(
-                    "RGB", (image.width + 30, image.height), (12, 12, 12)
-                )
-                translated.paste(image, (19, 0))
-                variants["translation"] = translated
-                for quality in (70, 85, 95):
-                    encoded = io.BytesIO()
-                    image.save(encoded, "JPEG", quality=quality)
-                    encoded.seek(0)
-                    variants[f"jpeg_{quality}"] = text_ocr.Image.open(encoded).convert(
-                        "RGB"
-                    )
-
-                reader = text_ocr.ScoreboardDigitReader()
-                for variant_name, variant in variants.items():
-                    with self.subTest(variant=variant_name):
-                        self.assertEqual(reader.read(variant).digits, expected_digits)
-
-    def test_score_ownership_diagnostics_cover_fixture_corpus(self):
-        text_ocr.validate_ocr_engines("fixed_digit", "none")
-        reader = text_ocr.ScoreboardDigitReader()
-        fixture_names = sorted(
+    def test_scoreboard_manifest_matches_fixture_filesystem(self):
+        manifest = self._scoreboard_manifest()
+        manifest_names = {case["fixture"] for case in manifest["cases"]}
+        fixture_names = {
             name
             for name in os.listdir(self.fixture_dir)
-            if name.endswith(".jpg") and "score" in name
-        )
-        diagnostics = []
-        fixtures_without_layout = []
-        for fixture_name in fixture_names:
-            image = text_ocr.Image.open(
-                os.path.join(self.fixture_dir, fixture_name)
-            ).convert("RGB")
-            layout = reader.locator.locate(image)
-            if layout is None:
-                fixtures_without_layout.append(fixture_name)
-                continue
-            palette = text_ocr._score_layout_background_palette(image, layout)
-            context = text_ocr._score_ownership_context(image, palette)
-            for cell_index, (box, role) in enumerate(
-                zip(layout.cell_boxes, layout.background_roles)
-            ):
-                entries = text_ocr._score_digit_mask_entries(
-                    image.crop(box),
-                    palette[role],
-                    score_context=context,
-                    cell_box=box,
-                    expected_role=role,
-                    include_rejected=True,
-                )
-                for entry_index, entry in enumerate(entries):
-                    prediction = reader._predict_score_digit_entry(
-                        entry, len([item for item in entries if item.is_accepted])
+            if name.endswith(".jpg")
+            and name.startswith(("score", "new_score", "paddle_names"))
+        }
+
+        self.assertEqual(manifest["version"], 1)
+        self.assertEqual(len(manifest_names), 78)
+        self.assertEqual(manifest_names, fixture_names)
+        self.assertEqual(len(manifest_names), len(manifest["cases"]))
+
+    def test_scoreboard_fixture_manifest_is_corpus_wide_golden(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.ScoreboardDigitReader()
+
+        for case in self._scoreboard_manifest()["cases"]:
+            with self.subTest(fixture=case["fixture"]):
+                reading = reader.read(self._scoreboard_image(case["fixture"]))
+                self.assertEqual(reading.has_layout, case["expect_layout"])
+                if case["expect_layout"]:
+                    self.assertEqual(
+                        reading.digits,
+                        tuple(case["expected_digits"]),
                     )
-                    diagnostics.append(
-                        {
-                            "fixture": fixture_name,
-                            "cell_index": cell_index,
-                            "role": role,
-                            "bounds": (entry.x, entry.y, entry.width, entry.height),
-                            "touches_edge": entry.touches_edge,
-                            "ownership": entry.ownership,
-                            "template_digit": prediction.digit,
-                            "similarity": prediction.similarity,
-                            "participates": entry.is_accepted and entry_index < 2,
-                            "rejection_reason": entry.rejection_reason,
-                        }
+                    self.assertEqual(len(reading.layout.cells), 6)
+                else:
+                    self.assertIsNone(reading.digits)
+                    self.assertIsNone(reading.layout)
+                    self.assertTrue(case["reason"])
+
+    def test_combined_parser_cases_agree_with_scoreboard_manifest(self):
+        manifest_cases = {
+            case["fixture"]: tuple(case["expected_digits"])
+            for case in self._scoreboard_manifest()["cases"]
+            if case["expect_layout"]
+        }
+        with open(os.path.join(self.fixture_dir, "cases.json")) as fileobj:
+            parser_cases = json.load(fileobj)
+        score_fields = (
+            "top_points",
+            "top_advantages",
+            "top_penalties",
+            "bottom_points",
+            "bottom_advantages",
+            "bottom_penalties",
+        )
+
+        for case in parser_cases:
+            expected = case["expected"]
+            if all(field in expected for field in score_fields):
+                self.assertEqual(
+                    tuple(expected[field] for field in score_fields),
+                    manifest_cases[case["score_image"]],
+                    case["id"],
+                )
+
+    def test_scoreboard_layout_invariants_hold_across_fixture_corpus(self):
+        locator = text_ocr.ScoreboardLocator()
+        nonrectangular_regions = 0
+        for case in self._scoreboard_manifest()["cases"]:
+            image = self._scoreboard_image(case["fixture"])
+            layout = locator.locate(image)
+            if not case["expect_layout"]:
+                self.assertIsNone(layout, case["fixture"])
+                continue
+
+            with self.subTest(fixture=case["fixture"]):
+                self.assertIsNotNone(layout)
+                self.assertEqual(
+                    tuple(cell.role for cell in layout.cells),
+                    ("green", "yellow", "red") * 2,
+                )
+                self.assertEqual(
+                    tuple((cell.row, cell.column) for cell in layout.cells),
+                    tuple((index // 3, index % 3) for index in range(6)),
+                )
+                for cell in layout.cells:
+                    x1, y1, x2, y2 = cell.bounds
+                    self.assertEqual(
+                        cell.region_mask.shape,
+                        (y2 - y1, x2 - x1),
+                    )
+                    self.assertTrue(cell.region_mask.any())
+                    if not cell.region_mask.all():
+                        nonrectangular_regions += 1
+                for first_index, first in enumerate(layout.cells):
+                    for second in layout.cells[first_index + 1 :]:
+                        x_overlap = max(
+                            0,
+                            min(first.bounds[2], second.bounds[2])
+                            - max(first.bounds[0], second.bounds[0]),
+                        )
+                        y_overlap = max(
+                            0,
+                            min(first.bounds[3], second.bounds[3])
+                            - max(first.bounds[1], second.bounds[1]),
+                        )
+                        self.assertEqual(x_overlap * y_overlap, 0)
+
+        self.assertGreater(nonrectangular_regions, 0)
+
+    def test_manually_reviewed_scoreboard_layout_annotations(self):
+        reviewed_bounds = {
+            "new_score_010_420.jpg": (
+                (122, 8, 142, 39),
+                (148, 8, 167, 38),
+                (174, 8, 194, 39),
+                (122, 48, 142, 79),
+                (148, 48, 168, 79),
+                (174, 48, 194, 79),
+            ),
+            "new_score_010_420_2.jpg": (
+                (122, 8, 142, 39),
+                (148, 8, 167, 38),
+                (174, 8, 194, 38),
+                (122, 48, 142, 79),
+                (148, 48, 168, 79),
+                (174, 48, 194, 79),
+            ),
+            "new_score_210_2200.jpg": (
+                (92, 6, 106, 27),
+                (110, 6, 122, 27),
+                (126, 6, 140, 27),
+                (88, 33, 106, 55),
+                (109, 33, 123, 54),
+                (126, 33, 140, 55),
+            ),
+            "score_012_012.jpg": (
+                (103, 0, 135, 38),
+                (137, 0, 168, 38),
+                (170, 0, 192, 38),
+                (103, 43, 136, 80),
+                (137, 43, 168, 80),
+                (171, 43, 192, 80),
+            ),
+            "score_smaller_1210_010.jpg": (
+                (77, 0, 102, 29),
+                (102, 0, 126, 28),
+                (128, 0, 143, 28),
+                (77, 32, 101, 60),
+                (102, 32, 126, 60),
+                (127, 32, 143, 60),
+            ),
+            "paddle_names3.jpg": (
+                (232, 0, 304, 87),
+                (307, 0, 377, 86),
+                (382, 0, 430, 86),
+                (232, 95, 303, 182),
+                (307, 95, 377, 182),
+                (382, 95, 430, 182),
+            ),
+        }
+        locator = text_ocr.ScoreboardLocator()
+
+        for fixture_name, expected_bounds in reviewed_bounds.items():
+            with self.subTest(fixture=fixture_name):
+                layout = locator.locate(self._scoreboard_image(fixture_name))
+                self.assertEqual(layout.cell_boxes, expected_bounds)
+
+    def test_score_role_segmentation_is_disjoint_and_palette_tolerant(self):
+        for palette in text_ocr.SCORE_BACKGROUND_PALETTES:
+            for role_index, role in enumerate(("green", "yellow", "red")):
+                color = text_ocr.np.asarray(palette[role], dtype="int16")
+                for delta in ((0, 0, 0), (8, -7, 6), (-6, 7, -5)):
+                    rgb = text_ocr.np.clip(color + delta, 0, 255).astype("uint8")
+                    masks = text_ocr._score_role_masks_from_rgb(rgb.reshape(1, 1, 3))
+                    self.assertTrue(masks[role][0, 0])
+                    self.assertEqual(
+                        sum(bool(mask[0, 0]) for mask in masks.values()),
+                        1,
+                        (role_index, delta),
                     )
 
-        self.assertTrue(diagnostics)
+    def test_score_glyph_mask_is_contained_by_cell_region(self):
+        background = (243, 183, 25)
+        image = text_ocr.Image.new("RGB", (15, 15), (10, 80, 160))
+        draw = text_ocr.ImageDraw.Draw(image)
+        draw.rectangle((3, 3, 11, 11), fill=background)
+        draw.rectangle((7, 5, 8, 9), fill=(250, 250, 250))
+        draw.rectangle((0, 11, 2, 14), fill=(250, 250, 250))
+        region_mask = text_ocr.np.zeros((15, 15), dtype=bool)
+        region_mask[3:12, 3:12] = True
+
+        glyph = text_ocr._score_digit_threshold(
+            image,
+            background,
+            region_mask,
+        )
+
+        self.assertTrue(glyph[6, 7])
+        self.assertFalse(glyph[1, 1])
+        self.assertFalse(glyph[12, 1])
+        self.assertFalse(glyph[~region_mask].any())
+
+    def test_score_glyph_mixture_rejects_saturated_off_line_color(self):
+        background = (243, 183, 25)
+        image = text_ocr.Image.new("RGB", (12, 12), background)
+        draw = text_ocr.ImageDraw.Draw(image)
+        draw.rectangle((4, 3, 7, 8), fill=(250, 250, 250))
+        draw.point((2, 2), fill=(255, 80, 255))
+        region_mask = text_ocr.np.ones((12, 12), dtype=bool)
+
+        glyph = text_ocr._score_digit_threshold(image, background, region_mask)
+
+        self.assertTrue(glyph[4, 5])
+        self.assertFalse(glyph[2, 2])
+
+    def test_local_role_seam_closure_does_not_join_neighboring_cells(self):
+        mask = text_ocr.np.zeros((14, 24), dtype=bool)
+        mask[2:12, 1:10] = True
+        mask[2:12, 14:23] = True
+        mask[2:12, 5] = False
+
+        closed = text_ocr._close_score_role_mask(mask)
+        component_count, _, _, _ = text_ocr.cv2.connectedComponentsWithStats(
+            closed.astype("uint8"),
+            8,
+        )
+
+        self.assertTrue(closed[6, 5])
+        self.assertEqual(component_count - 1, 2)
+
+    def test_cell_region_fills_digit_hole_but_excludes_rounded_corners(self):
+        image = text_ocr.Image.new("RGB", (40, 30), (8, 60, 130))
+        draw = text_ocr.ImageDraw.Draw(image)
+        draw.rounded_rectangle((5, 4, 34, 25), radius=5, fill=(49, 226, 81))
+        draw.rectangle((18, 9, 21, 20), fill=(250, 250, 250))
+
+        components = text_ocr._score_role_components(image, "green")
+
+        self.assertEqual(len(components), 1)
+        cell = components[0]
+        self.assertTrue(cell.region_mask[12, 14])
+        self.assertFalse(cell.region_mask[0, 0])
+
+    def test_scoreboard_locator_rejects_incomplete_and_ambiguous_grids(self):
+        colors = {
+            "green": (49, 226, 81),
+            "yellow": (243, 183, 25),
+            "red": (199, 34, 54),
+        }
+
+        def draw_grid(image, left, top, include_last=True):
+            draw = text_ocr.ImageDraw.Draw(image)
+            for row in range(2):
+                for column, role in enumerate(("green", "yellow", "red")):
+                    if not include_last and row == 1 and column == 2:
+                        continue
+                    x1 = left + column * 24
+                    y1 = top + row * 26
+                    draw.rounded_rectangle(
+                        (x1, y1, x1 + 20, y1 + 20),
+                        radius=3,
+                        fill=colors[role],
+                    )
+
+        incomplete = text_ocr.Image.new("RGB", (180, 90), (8, 60, 130))
+        draw_grid(incomplete, 10, 8, include_last=False)
+        self.assertIsNone(text_ocr.ScoreboardLocator().locate(incomplete))
+
+        ambiguous = text_ocr.Image.new("RGB", (240, 90), (8, 60, 130))
+        draw_grid(ambiguous, 10, 8)
+        draw_grid(ambiguous, 130, 8)
+        self.assertIsNone(text_ocr.ScoreboardLocator().locate(ambiguous))
+
+    def test_scoreboard_manifest_covers_every_digit_and_starting_regression(self):
+        manifest = self._scoreboard_manifest()
+        digit_characters = {
+            character
+            for case in manifest["cases"]
+            for value in case.get("expected_digits", [])
+            for character in str(value)
+        }
+        regression_cases = {
+            case["fixture"]: tuple(case["expected_digits"])
+            for case in manifest["cases"]
+            if "starting_regression" in case["purposes"]
+        }
+
+        self.assertEqual(digit_characters, set("0123456789"))
         self.assertEqual(
-            {diagnostic["role"] for diagnostic in diagnostics},
-            {"green", "yellow", "red"},
+            regression_cases,
+            {
+                "new_score_010_420.jpg": (0, 1, 0, 4, 2, 0),
+                "new_score_010_420_2.jpg": (0, 1, 0, 4, 2, 0),
+                "new_score_210_2200.jpg": (2, 1, 0, 22, 0, 0),
+            },
         )
-        self.assertTrue(fixtures_without_layout)
-        self.assertTrue(
-            all(diagnostic["ownership"] is not None for diagnostic in diagnostics)
+
+    def test_obsolete_score_architecture_is_absent(self):
+        obsolete_symbols = (
+            "_inner_cell",
+            "_should_use_raw_score_prediction",
+            "_prediction_has_leading_one_geometry",
+            "_prediction_has_ambiguous_edge",
+            "_score_ownership_context",
+            "_score_component_ownership",
+            "ScoreComponentOwnership",
         )
-        rejected = [
-            diagnostic
-            for diagnostic in diagnostics
-            if diagnostic["rejection_reason"] is not None
-        ]
-        self.assertTrue(rejected)
-        self.assertTrue(
-            all(
-                diagnostic["rejection_reason"].startswith("score-role-")
-                for diagnostic in rejected
-            )
-        )
-        for fixture_name in (
-            "new_score_1110_010.jpg",
-            "new_score_1110_010_2.jpg",
-            "new_score_010_1730.jpg",
-        ):
-            self.assertTrue(
-                any(
-                    diagnostic["fixture"] == fixture_name
-                    and diagnostic["cell_index"] == 1
-                    and diagnostic["bounds"][0] == 0
-                    and diagnostic["rejection_reason"] == "score-role-edge"
-                    for diagnostic in diagnostics
-                ),
-                fixture_name,
-            )
+        for symbol in obsolete_symbols:
+            self.assertFalse(hasattr(text_ocr, symbol), symbol)
 
     def test_scoreboard_locator_is_invariant_to_padding_and_scale(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
@@ -2908,6 +2822,41 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                 locator.locate(variants["scaled_up"]),
             ).use_scaled_retry,
         )
+
+    def test_scoreboard_manifest_is_context_invariant(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.ScoreboardDigitReader()
+
+        for case in self._scoreboard_manifest()["cases"]:
+            if not case["expect_layout"]:
+                continue
+            image = self._scoreboard_image(case["fixture"])
+            expected_digits = tuple(case["expected_digits"])
+            translated = text_ocr.Image.new(
+                "RGB", (image.width + 30, image.height), (12, 12, 12)
+            )
+            translated.paste(image, (19, 0))
+            encoded = io.BytesIO()
+            image.save(encoded, "JPEG", quality=95)
+            encoded.seek(0)
+            variants = {
+                "padding": text_ocr.ImageOps.expand(
+                    image, border=(13, 5, 17, 3), fill=(12, 12, 12)
+                ),
+                "translation": translated,
+                "scaled_down": image.resize(
+                    (round(image.width * 0.90), round(image.height * 0.90)),
+                    text_ocr.Image.Resampling.LANCZOS,
+                ),
+                "scaled_up": image.resize(
+                    (round(image.width * 1.15), round(image.height * 1.15)),
+                    text_ocr.Image.Resampling.LANCZOS,
+                ),
+                "jpeg": text_ocr.Image.open(encoded).convert("RGB"),
+            }
+            for variant_name, variant in variants.items():
+                with self.subTest(fixture=case["fixture"], variant=variant_name):
+                    self.assertEqual(reader.read(variant).digits, expected_digits)
 
     def test_score_and_timer_fixture_cases(self):
         cases_path = os.path.join(self.fixture_dir, "cases.json")
@@ -3391,348 +3340,6 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
 
                 self.assertEqual(reading.top_athlete_name, top_name)
                 self.assertEqual(reading.bottom_athlete_name, bottom_name)
-
-    def test_new_score_fixture_scores(self):
-        text_ocr.validate_ocr_engines("fixed_digit", "none")
-        parser = text_ocr.FrameImageTextParser("auto", "fixed_digit", "none")
-        cases = [
-            (
-                "new_score_200_010.jpg",
-                {
-                    "top_points": 2,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 1,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "new_score_930_000.jpg",
-                {
-                    "top_points": 9,
-                    "top_advantages": 3,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "new_score_000_000.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "new_score_000_000_2.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "new_score_000_000_3.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "new_score_000_000_4.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "new_score_000_000_5.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "new_score_011_001.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 1,
-                    "top_penalties": 1,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 1,
-                },
-            ),
-            (
-                "new_score_1020_000.jpg",
-                {
-                    "top_points": 10,
-                    "top_advantages": 2,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "new_score_010_1020.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 1,
-                    "top_penalties": 0,
-                    "bottom_points": 10,
-                    "bottom_advantages": 2,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "new_score_010_1820.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 1,
-                    "top_penalties": 0,
-                    "bottom_points": 18,
-                    "bottom_advantages": 2,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "new_score_230_230.jpg",
-                {
-                    "top_points": 2,
-                    "top_advantages": 3,
-                    "top_penalties": 0,
-                    "bottom_points": 2,
-                    "bottom_advantages": 3,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "new_score_230_431.jpg",
-                {
-                    "top_points": 2,
-                    "top_advantages": 3,
-                    "top_penalties": 0,
-                    "bottom_points": 4,
-                    "bottom_advantages": 3,
-                    "bottom_penalties": 1,
-                },
-            ),
-            (
-                "new_score_230_431_2.jpg",
-                {
-                    "top_points": 2,
-                    "top_advantages": 3,
-                    "top_penalties": 0,
-                    "bottom_points": 4,
-                    "bottom_advantages": 3,
-                    "bottom_penalties": 1,
-                },
-            ),
-            (
-                "score_small_000_000.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "score_000_000.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "score_010_000.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 1,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "score_010_1010.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 1,
-                    "top_penalties": 0,
-                    "bottom_points": 10,
-                    "bottom_advantages": 1,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "score_810_400.jpg",
-                {
-                    "top_points": 8,
-                    "top_advantages": 1,
-                    "top_penalties": 0,
-                    "bottom_points": 4,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "score_213_213.jpg",
-                {
-                    "top_points": 2,
-                    "top_advantages": 1,
-                    "top_penalties": 3,
-                    "bottom_points": 2,
-                    "bottom_advantages": 1,
-                    "bottom_penalties": 3,
-                },
-            ),
-            (
-                "score_213_213_2.jpg",
-                {
-                    "top_points": 2,
-                    "top_advantages": 1,
-                    "top_penalties": 3,
-                    "bottom_points": 2,
-                    "bottom_advantages": 1,
-                    "bottom_penalties": 3,
-                },
-            ),
-            (
-                "score_small_000_900.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 9,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "score_smaller_000_011.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 1,
-                    "bottom_penalties": 1,
-                },
-            ),
-            (
-                "score_000_1100.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 11,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "score_exact_000_000.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "score_exact_000_000_2.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 0,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "score_exact_811_210.jpg",
-                {
-                    "top_points": 8,
-                    "top_advantages": 1,
-                    "top_penalties": 1,
-                    "bottom_points": 2,
-                    "bottom_advantages": 1,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "score_000_2420.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 0,
-                    "bottom_points": 24,
-                    "bottom_advantages": 2,
-                    "bottom_penalties": 0,
-                },
-            ),
-            (
-                "score_001_1601.jpg",
-                {
-                    "top_points": 0,
-                    "top_advantages": 0,
-                    "top_penalties": 1,
-                    "bottom_points": 16,
-                    "bottom_advantages": 0,
-                    "bottom_penalties": 1,
-                },
-            ),
-        ]
-
-        for score_image, expected_fields in cases:
-            with self.subTest(score_image=score_image):
-                score_path = os.path.join(self.fixture_dir, score_image)
-                self.assertTrue(
-                    os.path.exists(score_path),
-                    f"missing livestream OCR score fixture: {score_image}",
-                )
-                with open(score_path, "rb") as fileobj:
-                    reading = parser.parse(0, fileobj.read(), None)
-
-                self.assertEqual(
-                    reading.scoreboard_state,
-                    text_scan.SCOREBOARD_STATE_VISIBLE,
-                )
-                for field_name, expected_value in expected_fields.items():
-                    self.assertEqual(getattr(reading, field_name), expected_value)
 
 
 class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):

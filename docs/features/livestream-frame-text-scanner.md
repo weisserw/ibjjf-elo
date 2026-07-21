@@ -114,26 +114,27 @@ before reading its cells. It does not use image-ratio layouts; a crop without a
 structurally valid grid is treated as not containing a readable scoreboard. This
 keeps scoreboard reading invariant to padding, scaling, and horizontal placement
 within an archived crop and prevents background pixels from being interpreted as
-digits through a misplaced fallback crop. The reader selects between the known
-bright and muted scoreboard palettes, then extracts each white glyph relative to
-its green, yellow, or red cell background. Each cell adaptively separates its
-background-to-white mixture into background and glyph pixels, with a conservative
-minimum foreground threshold and a foreground-side margin that excludes JPEG
-transition pixels from the white stroke. The palette-relative mask is the score classifier
-input; the older color-neutral threshold remains available only to callers that
-do not have a detected scoreboard palette.
+digits through a misplaced fallback crop.
 
-Connected score components are also checked against a scale-relative ring in
-the original scoreboard image. Full-image green, yellow, red, white, and unknown
-pixel masks are built once per detected layout, and only recognized role pixels
-contribute to ownership shares. Ordinary components remain eligible when the
-ring is ambiguous, but clear support for a competing role rejects them before
-template classification. A crop-edge component that could introduce a leading
-`1` needs stronger support from the expected cell role; ambiguous edge fragments
-also need strong template evidence and confirmation from the inner/raw prediction
-pair. Role-owned edge components no longer need the older broad similarity-margin
-guard. This preserves genuinely clipped two-digit values while preventing a
-slightly wider crop from borrowing a neighboring cell's glyph.
+Role segmentation compares every pixel to both known bright/muted green, yellow,
+and red palettes and assigns a qualifying pixel to exactly one closest role.
+Small pieces separated by a one- or two-pixel vertical JPEG seam are rejoined
+locally without closing the gap between rows. Green, yellow, and red components
+are then detected independently: no cell edge is inferred from a neighbor and
+cell widths do not have to match. A layout is accepted only when the components
+form one unambiguous pair of non-overlapping `green, yellow, red` row triples with
+compatible spans, gaps, scale, and placement.
+
+Each accepted `ScoreCellRegion` keeps its measured bounds, median background
+color, and a filled convex contour mask of the colored cell. Filling the contour
+includes white digit holes while excluding rounded exterior corners and gaps.
+Digit extraction has one path for both single- and double-digit values: estimate
+the pixel's position on the cell-background-to-white line, require a conservative
+foreground-side threshold and bounded residual from that line, force every pixel
+outside the region mask to background, and classify one or two contained
+components. The reader returns no layout, a visible-but-unreadable layout, or six
+complete values as distinct public states; it never repairs a cell with exterior
+pixels or a second crop.
 
 Timer parsing similarly locates structurally coherent three- or four-digit runs
 across the complete timer crop. Candidate digits must have compatible height,
@@ -185,24 +186,28 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `LivestreamFrameTextScanDbTestCase`: queue/claim/reset/retry/cancel/clear behavior and S3 frame-batch reading.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI/API worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  Its scoreboard, name, and timer coverage includes padding and scale invariance
-  in addition to the golden score/timer cases in `cases.json`; timer coverage also
-  includes a non-digit structural negative case.
+  `scoreboard_cases.json` explicitly golden-tests all 78 scoreboard/name fixtures
+  and is set-equal to the fixture globs. Its coverage includes reviewed cell
+  annotations, layout/segmentation contracts, every decimal digit, the malformed
+  fail-closed case, and corpus-wide padding, translation, scaling, and JPEG
+  invariance. `cases.json` remains the combined parser integration manifest and is
+  checked against the score-only manifest. Timer coverage includes a non-digit
+  structural negative case.
 - `LivestreamFrameTextScanAdminApiTestCase`: admin and worker JSON endpoint behavior.
 
 ## Known Historical Issues
 
 Git history shows this area is sensitive to OCR edge cases and workflow/status handling. Before editing, check nearby commits and tests for regressions in these categories:
 
-- Score digit ambiguity: fixes include `1 -> 3/7`, `3 -> 8` (including lightly rendered penalty-column `3`s), `5 -> 6`, compressed `0 -> 6/9` loop-shape errors, damaged zeroes that resemble an `8`, bad `2*`, edge-clipped leading `1`s, double-digit scores, smaller two-digit scores, and adaptive scoreboard width. The score reader extracts white relative to six known role/palette background colors, rejects the JPEG transition fringe around those strokes, checks each component's original-image background ring for ownership by the expected green/yellow/red role, preserves role-owned leading `1`s at a cell edge, and uses enclosed-counter geometry to distinguish open `5`s from `6`s and to distinguish `0`, `6`, `8`, and `9`. It fails closed when a predicted `8` does not retain two counters. The ownership check rejects mixed or competing-role edge fragments before classification, replacing the older edge-alignment/full-size exclusions and broad inner/raw similarity-margin guard. Ambiguous edge fragments still require strong template evidence and confirmation from both crop readings.
-  `new_score_210_2200.jpg` captures a remaining regression: the first, edge-clipped
-  `2` in `22` is role-owned but resembles an `8` without two retained counters,
-  so the raw two-component prediction is discarded and the inner crop yields `2`.
-  `new_score_010_420.jpg` and `new_score_010_420_2.jpg` capture the complementary
-  raw-crop failure: the palette-relative mask maps blue background at the rounded
-  right edge of the yellow cell to glyph foreground. Ownership treats that
-  component as inconclusive, so it is accepted and appended as `7` or `1` even
-  though the inner yellow cell correctly reads `1`.
+- Score digit ambiguity: historical fixes include `1 -> 3/7`, `3 -> 8`, `5 -> 6`,
+  compressed `0 -> 6/9` loop-shape errors, damaged zeroes that resemble an `8`,
+  edge-clipped digits, and small two-digit scores. Enclosed-counter and shape
+  checks remain part of digit classification. Layout and foreground containment
+  now resolve boundary failures structurally: `new_score_210_2200.jpg` retains
+  the independently wider bottom green cell containing `22`, while
+  `new_score_010_420.jpg` and `new_score_010_420_2.jpg` exclude blue exterior
+  pixels at the rounded yellow-cell edge. These three cases are explicit golden
+  regressions in `scoreboard_cases.json`.
 - Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter. Timer geometry is now detected from aligned digit candidates and locally coherent display colors rather than image-ratio search windows or whole-crop color density. Green timer digits take precedence over adjacent white scoreboard text in mixed tight crops so active timers are not mistaken for stopped timers. Dense horizontal foreground rows from video artifacts or timer-frame edges are removed within connected components before digit grouping so crop padding cannot change whether the artifact is recognized.
   Full-height digit fragments separated by a one-pixel JPEG/color-threshold seam are merged before grouping and retained together during classification, preventing clipped zeroes in small timer crops from being interpreted as extra digits.
 - Name OCR: multiple commits fixed athlete/team line selection, multi-line names, Paddle result parsing, Paddle choosing team names, and clipped/trailing initials.

@@ -41,16 +41,10 @@ SCORE_THREE_EIGHT_SIMILARITY_MARGIN = 0.02
 SCORE_THREE_MAX_BOTTOM_LEFT_DENSITY = 0.80
 SCORE_ZERO_HOLE_MIN_CENTER_Y = 0.38
 SCORE_ZERO_HOLE_MAX_CENTER_Y = 0.60
-SCORE_BORDER_COLUMN_MIN_DENSITY = 0.85
 SCORE_MIN_WHITE_MIX = 0.28
 SCORE_WHITE_MIX_OTSU_MARGIN = 0.07
-SCORE_RAW_LEADING_ONE_SIMILARITY_MARGIN = 0.02
-SCORE_OWNERSHIP_MIN_RECOGNIZED_PIXELS = 8
-SCORE_OWNERSHIP_MIN_WINNING_SHARE = 0.50
-SCORE_OWNERSHIP_MIN_MARGIN = 0.12
-SCORE_OWNERSHIP_EDGE_MIN_WINNING_SHARE = 0.80
-SCORE_OWNERSHIP_EDGE_MIN_MARGIN = 0.35
-SCORE_OWNERSHIP_AMBIGUOUS_EDGE_ONE_MIN_SIMILARITY = 0.55
+SCORE_ROLE_MAX_DISTANCE = 45.0
+SCORE_WHITE_MIX_MAX_RESIDUAL = 55.0
 SCORE_BACKGROUND_PALETTES = (
     {
         "green": (49, 226, 81),
@@ -105,10 +99,27 @@ class DigitPrediction:
 
 
 @dataclass(frozen=True)
+class ScoreCellRegion:
+    row: int
+    column: int
+    role: str
+    bounds: tuple[int, int, int, int]
+    region_mask: object
+    background_rgb: tuple[int, int, int]
+
+
+@dataclass(frozen=True)
 class ScoreLayout:
     name: str
-    cell_boxes: tuple[tuple[int, int, int, int], ...]
-    background_roles: tuple[str, ...]
+    cells: tuple[ScoreCellRegion, ...]
+
+    @property
+    def cell_boxes(self) -> tuple[tuple[int, int, int, int], ...]:
+        return tuple(cell.bounds for cell in self.cells)
+
+    @property
+    def background_roles(self) -> tuple[str, ...]:
+        return tuple(cell.role for cell in self.cells)
 
 
 @dataclass(frozen=True)
@@ -144,21 +155,6 @@ class ScoreDigitMask:
     y: int = 0
     height: int = 0
     image_height: int = 0
-    touches_edge: bool = False
-    is_edge_leading: bool = False
-    ownership: ScoreComponentOwnership | None = None
-    is_accepted: bool = True
-    rejection_reason: str | None = None
-
-
-@dataclass(frozen=True)
-class ScoreComponentOwnership:
-    expected_role: str
-    expected_share: float
-    competing_role: str | None
-    competing_share: float
-    recognized_pixel_count: int
-    is_sufficient: bool
 
 
 @dataclass(frozen=True)
@@ -201,13 +197,25 @@ def _require_fixed_digit_dependencies():
 
 
 def _score_role_masks_from_rgb(rgb):
-    red = rgb[:, :, 0]
-    green = rgb[:, :, 1]
-    blue = rgb[:, :, 2]
+    """Assign every scoreboard-colored pixel to one and only one role."""
+    rgb_float = rgb.astype("float32")
+    roles = ("green", "yellow", "red")
+    distances = []
+    for role in roles:
+        palette_distances = [
+            np.linalg.norm(
+                rgb_float - np.asarray(palette[role], dtype="float32"), axis=2
+            )
+            for palette in SCORE_BACKGROUND_PALETTES
+        ]
+        distances.append(np.minimum.reduce(palette_distances))
+    role_distances = np.stack(distances, axis=2)
+    closest_role = np.argmin(role_distances, axis=2)
+    closest_distance = np.min(role_distances, axis=2)
     return {
-        "green": (green > 100) & (blue < 150) & (red < 190),
-        "yellow": (red > 150) & (green > 110) & (blue < 120),
-        "red": (red > 120) & (green < 110) & (blue < 130),
+        role: (closest_role == role_index)
+        & (closest_distance <= SCORE_ROLE_MAX_DISTANCE)
+        for role_index, role in enumerate(roles)
     }
 
 
@@ -215,25 +223,114 @@ def _score_role_masks(image):
     return _score_role_masks_from_rgb(np.asarray(image.convert("RGB")))
 
 
-def _score_role_component_boxes(image, role: str):
-    mask = _score_role_masks(image)[role]
+def _close_score_role_mask(mask):
+    """Close one-pixel JPEG seams without bridging normal inter-cell gaps."""
+    kernel = np.ones((2, 2), dtype="uint8")
+    return cv2.morphologyEx(mask.astype("uint8"), cv2.MORPH_CLOSE, kernel).astype(bool)
 
-    component_count, _, stats, _ = cv2.connectedComponentsWithStats(
+
+def _score_role_components(image, role: str, role_mask=None):
+    if role_mask is None:
+        role_mask = _score_role_masks(image)[role]
+    mask = np.asarray(role_mask, dtype=bool)
+    component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
         mask.astype("uint8"), 8
     )
-    min_area = max(80, int(image.width * image.height * 0.008))
-    boxes = []
+    parents = list(range(component_count))
+
+    def find(component_index):
+        while parents[component_index] != component_index:
+            parents[component_index] = parents[parents[component_index]]
+            component_index = parents[component_index]
+        return component_index
+
+    def union(first_index, second_index):
+        first_root = find(first_index)
+        second_root = find(second_index)
+        if first_root != second_root:
+            parents[second_root] = first_root
+
+    # A white stroke or JPEG seam can split a cell's colored background into
+    # nearby pieces. Rejoin only pieces separated by at most two pixels and
+    # sharing most of an axis; the normal gap between rows remains untouched.
+    for first_index in range(1, component_count):
+        first_x, first_y, first_width, first_height, _ = (
+            int(value) for value in stats[first_index]
+        )
+        for second_index in range(first_index + 1, component_count):
+            second_x, second_y, second_width, second_height, _ = (
+                int(value) for value in stats[second_index]
+            )
+            horizontal_overlap = max(
+                0,
+                min(first_x + first_width, second_x + second_width)
+                - max(first_x, second_x),
+            )
+            vertical_gap = max(
+                0,
+                first_y - (second_y + second_height),
+                second_y - (first_y + first_height),
+            )
+            shares_horizontal_span = horizontal_overlap >= 0.45 * min(
+                first_width, second_width
+            )
+            if vertical_gap <= 2 and shares_horizontal_span:
+                union(first_index, second_index)
+
+    clusters = {}
     for component_index in range(1, component_count):
-        x, y, width, height, area = stats[component_index]
-        if int(area) < min_area:
+        clusters.setdefault(find(component_index), []).append(component_index)
+    min_area = max(20, int(image.width * image.height * 0.003))
+    min_height = max(8, int(image.height * 0.08))
+    min_width = max(4, int(image.width * 0.015))
+    rgb = np.asarray(image.convert("RGB"))
+    components = []
+    for component_indexes in clusters.values():
+        component = np.isin(labels, component_indexes)
+        component_y, component_x = np.where(component)
+        x = int(component_x.min())
+        y = int(component_y.min())
+        width = int(component_x.max() - x + 1)
+        height = int(component_y.max() - y + 1)
+        area = int(component.sum())
+        if area < min_area or height < min_height or width < min_width:
             continue
-        boxes.append((int(x), int(y), int(x + width), int(y + height), int(area)))
-    return tuple(boxes)
+        component_mask = component[y : y + height, x : x + width]
+        component_mask = _close_score_role_mask(component_mask)
+        if float(component_mask.mean()) < 0.25:
+            continue
+        points = np.column_stack(np.where(component_mask))[:, ::-1].astype("int32")
+        if len(points) < 3:
+            continue
+        contour = cv2.convexHull(points)
+        region_mask = np.zeros(component_mask.shape, dtype="uint8")
+        cv2.drawContours(region_mask, [contour], -1, 1, cv2.FILLED)
+        colored_pixels = rgb[y : y + height, x : x + width][component_mask]
+        background_rgb = tuple(
+            int(round(value)) for value in np.median(colored_pixels, axis=0)
+        )
+        components.append(
+            ScoreCellRegion(
+                row=-1,
+                column=-1,
+                role=role,
+                bounds=(x, y, x + width, y + height),
+                region_mask=region_mask.astype(bool),
+                background_rgb=background_rgb,
+            )
+        )
+    return tuple(components)
 
 
-def _component_vertical_overlap(first, second) -> float:
-    overlap = max(0, min(first[3], second[3]) - max(first[1], second[1]))
-    min_height = max(1, min(first[3] - first[1], second[3] - second[1]))
+def _component_vertical_overlap(
+    first: ScoreCellRegion, second: ScoreCellRegion
+) -> float:
+    first_box = first.bounds
+    second_box = second.bounds
+    overlap = max(
+        0, min(first_box[3], second_box[3]) - max(first_box[1], second_box[1])
+    )
+    min_height = max(1, min(first_box[3] - first_box[1], second_box[3] - second_box[1]))
     return overlap / min_height
 
 
@@ -243,84 +340,96 @@ def _row_vertical_overlap(first, second) -> float:
     return overlap / min_height
 
 
-def _row_x_edge_delta(first, second) -> int:
-    return max(
-        abs(first_edge - second_edge)
-        for first_edge, second_edge in zip(first[2], second[2])
-    )
+def _score_row_candidates(role_components):
+    rows = []
+    for green in role_components["green"]:
+        for yellow in role_components["yellow"]:
+            for red in role_components["red"]:
+                cells = (green, yellow, red)
+                boxes = tuple(cell.bounds for cell in cells)
+                if not (boxes[0][0] < boxes[1][0] < boxes[2][0]):
+                    continue
+                heights = tuple(box[3] - box[1] for box in boxes)
+                if max(heights) > min(heights) * 1.35:
+                    continue
+                if (
+                    min(
+                        _component_vertical_overlap(first, second)
+                        for first, second in combinations(cells, 2)
+                    )
+                    < 0.65
+                ):
+                    continue
+                max_gap = max(6, int(np.median(heights) * 0.40))
+                gaps = (boxes[1][0] - boxes[0][2], boxes[2][0] - boxes[1][2])
+                if any(gap < -2 or gap > max_gap for gap in gaps):
+                    continue
+                row_top = min(box[1] for box in boxes)
+                row_bottom = max(box[3] for box in boxes)
+                score = sum(int(cell.region_mask.sum()) for cell in cells) - sum(
+                    abs(gap) for gap in gaps
+                )
+                rows.append((row_top, row_bottom, cells, score))
+    return tuple(rows)
 
 
-def _detected_rendered_score_cell_boxes(image):
-    yellow_boxes = _score_role_component_boxes(image, "yellow")
-    red_boxes = _score_role_component_boxes(image, "red")
-    row_pairs = []
-    for yellow_box in yellow_boxes:
-        candidates = []
-        for red_box in red_boxes:
-            overlap = _component_vertical_overlap(yellow_box, red_box)
-            column_width = red_box[0] - yellow_box[0]
-            edge_gap = red_box[0] - yellow_box[2]
-            if overlap < 0.45 or column_width <= 0 or not -6 <= edge_gap <= 10:
+def _detected_rendered_score_cells(image):
+    role_masks = _score_role_masks(image)
+    role_components = {
+        role: _score_role_components(image, role, role_masks[role])
+        for role in ("green", "yellow", "red")
+    }
+    rows = _score_row_candidates(role_components)
+    layouts = []
+    for first_index, first in enumerate(rows):
+        for second in rows[first_index + 1 :]:
+            top, bottom = sorted((first, second), key=lambda item: item[0])
+            if _row_vertical_overlap(top, bottom) > 0.10:
                 continue
-            candidates.append((overlap, -abs(edge_gap), red_box))
-        if not candidates:
-            continue
-        _, _, red_box = max(candidates)
-        column_width = red_box[0] - yellow_box[0]
-        x_edges = (
-            max(0, yellow_box[0] - column_width),
-            yellow_box[0],
-            red_box[0],
-            red_box[2],
-        )
-        y_start = min(yellow_box[1], red_box[1])
-        y_end = max(yellow_box[3], red_box[3])
-        area = yellow_box[4] + red_box[4]
-        row_pairs.append((y_start, y_end, x_edges, area))
-
-    max_x_edge_delta = max(8, int(image.width * 0.05))
-    best_rows = None
-    best_score = None
-    for first_index, first in enumerate(row_pairs):
-        for second in row_pairs[first_index + 1 :]:
-            if _row_vertical_overlap(first, second) > 0.45:
+            row_height = np.median((top[1] - top[0], bottom[1] - bottom[0]))
+            row_gap = bottom[0] - top[1]
+            if row_gap < -row_height * 0.10 or row_gap > row_height * 0.65:
                 continue
-            x_edge_delta = _row_x_edge_delta(first, second)
-            if x_edge_delta > max_x_edge_delta:
+            max_position_delta = max(6, int(row_height * 0.35))
+            if any(
+                abs(top_cell.bounds[0] - bottom_cell.bounds[0]) > max_position_delta
+                for top_cell, bottom_cell in zip(top[2], bottom[2])
+            ):
                 continue
-            score = first[3] + second[3] - x_edge_delta
-            if best_score is None or score > best_score:
-                best_rows = (first, second)
-                best_score = score
-    if best_rows is None:
+            selected = top[2] + bottom[2]
+            if len({id(cell) for cell in selected}) != 6:
+                continue
+            cells = tuple(
+                ScoreCellRegion(
+                    row=index // 3,
+                    column=index % 3,
+                    role=cell.role,
+                    bounds=cell.bounds,
+                    region_mask=cell.region_mask,
+                    background_rgb=cell.background_rgb,
+                )
+                for index, cell in enumerate(selected)
+            )
+            layouts.append((top[3] + bottom[3], cells))
+    if not layouts:
         return ()
-
-    boxes = []
-    min_cell_width = max(4, int(image.width * 0.02))
-    min_cell_height = max(4, int(image.height * 0.08))
-    for y_start, y_end, x_edges, _ in sorted(best_rows, key=lambda item: item[0]):
-        if y_end - y_start < min_cell_height:
-            return ()
-        for col in range(3):
-            if x_edges[col + 1] - x_edges[col] < min_cell_width:
-                return ()
-            boxes.append((x_edges[col], y_start, x_edges[col + 1], y_end))
-    return tuple(boxes)
+    layouts.sort(key=lambda item: item[0], reverse=True)
+    if len(layouts) > 1 and layouts[0][0] == layouts[1][0]:
+        return ()
+    return layouts[0][1]
 
 
 class ScoreboardLocator:
     """Locate scoreboard cells from their rendered grid instead of crop ratios."""
 
-    BACKGROUND_ROLES = ("green", "yellow", "red", "green", "yellow", "red")
-
     def locate_candidates(self, image) -> tuple[ScoreLayout, ...]:
         if image is None:
             return ()
 
-        boxes = _detected_rendered_score_cell_boxes(image)
-        if len(boxes) != len(self.BACKGROUND_ROLES):
+        cells = _detected_rendered_score_cells(image)
+        if len(cells) != 6:
             return ()
-        return (ScoreLayout("detected_rendered", boxes, self.BACKGROUND_ROLES),)
+        return (ScoreLayout("detected_rendered", cells),)
 
     def locate(self, image) -> ScoreLayout | None:
         candidates = self.locate_candidates(image)
@@ -330,7 +439,7 @@ class ScoreboardLocator:
 def _name_regions_from_score_layout(
     image_size: tuple[int, int], layout: ScoreLayout
 ) -> NameRegionLayout:
-    if len(layout.cell_boxes) != 6:
+    if len(layout.cells) != 6:
         raise ValueError("name region layout requires exactly six score cells")
 
     width, height = image_size
@@ -341,12 +450,14 @@ def _name_regions_from_score_layout(
         return max(lower, min(upper, int(value)))
 
     row_spans = []
-    for cells in (layout.cell_boxes[:3], layout.cell_boxes[3:]):
-        row_top = clamp(min(cell[1] for cell in cells), 0, height - 1)
-        row_bottom = clamp(max(cell[3] for cell in cells), row_top + 1, height)
+    for cells in (layout.cells[:3], layout.cells[3:]):
+        row_top = clamp(min(cell.bounds[1] for cell in cells), 0, height - 1)
+        row_bottom = clamp(max(cell.bounds[3] for cell in cells), row_top + 1, height)
         row_spans.append((row_top, row_bottom))
 
-    grid_left = clamp(min(layout.cell_boxes[0][0], layout.cell_boxes[3][0]), 1, width)
+    grid_left = clamp(
+        min(layout.cells[0].bounds[0], layout.cells[3].bounds[0]), 1, width
+    )
     top_span, bottom_span = row_spans
     if top_span[1] < bottom_span[0]:
         row_boundary = (top_span[1] + bottom_span[0]) / 2
@@ -390,179 +501,36 @@ def _name_regions_from_score_layout(
     )
 
 
-def _inner_cell(image):
-    margin = max(2, min(image.size) // 12)
-    if image.width <= margin * 2 or image.height <= margin * 2:
-        return image
-    return image.crop((margin, margin, image.width - margin, image.height - margin))
-
-
-def _score_cell_has_background(image, role: str) -> bool:
-    return bool(_score_role_masks(image)[role].mean() >= 0.12)
-
-
-def _score_layout_background_palette(image, layout: ScoreLayout):
-    cell_samples = []
-    for box, role in zip(layout.cell_boxes, layout.background_roles):
-        cell = _inner_cell(image.crop(box))
-        rgb = np.asarray(cell.convert("RGB"), dtype="float32")
-        cell_samples.append((role, np.median(rgb.reshape(-1, 3), axis=0)))
-
-    return min(
-        SCORE_BACKGROUND_PALETTES,
-        key=lambda palette: sum(
-            float(np.linalg.norm(sample - np.asarray(palette[role])))
-            for role, sample in cell_samples
-        ),
-    )
-
-
-def _score_ownership_context(image, background_palette, cell_boxes=None):
-    origin = (0, 0)
-    context_image = image
-    if cell_boxes:
-        padding = 4
-        left = max(0, min(box[0] for box in cell_boxes) - padding)
-        top = max(0, min(box[1] for box in cell_boxes) - padding)
-        right = min(image.width, max(box[2] for box in cell_boxes) + padding)
-        bottom = min(image.height, max(box[3] for box in cell_boxes) + padding)
-        origin = (left, top)
-        context_image = image.crop((left, top, right, bottom))
-
-    rgb = np.asarray(context_image.convert("RGB"))
-    role_masks = _score_role_masks_from_rgb(rgb)
-    role_names = ("green", "yellow", "red")
-    candidates = np.logical_or.reduce(tuple(role_masks.values()))
-    resolved_roles = {
-        role: np.zeros(candidates.shape, dtype=bool) for role in role_names
-    }
-    if np.any(candidates):
-        candidate_pixels = rgb[candidates].astype("float32")
-        palette = np.asarray(
-            [background_palette[role] for role in role_names], dtype="float32"
-        )
-        distances = np.sum(
-            (candidate_pixels[:, np.newaxis, :] - palette[np.newaxis, :, :]) ** 2,
-            axis=2,
-        )
-        nearest_roles = np.argmin(distances, axis=1)
-        for role_index, role in enumerate(role_names):
-            resolved_roles[role][candidates] = role_masks[role][candidates] & (
-                nearest_roles == role_index
-            )
-    red = rgb[:, :, 0]
-    green = rgb[:, :, 1]
-    blue = rgb[:, :, 2]
-    spread = np.maximum.reduce([red, green, blue]) - np.minimum.reduce(
-        [red, green, blue]
-    )
-    foreground = (red > 165) & (green > 165) & (blue > 145) & (spread < 90)
-    recognized = np.logical_or.reduce(tuple(resolved_roles.values()))
-    return {
-        **resolved_roles,
-        "foreground": foreground,
-        "unknown": ~(recognized | foreground),
-        "origin": origin,
-    }
-
-
-def _score_component_ownership(
-    component_mask,
-    component_box,
-    score_context,
-    expected_role: str,
-) -> ScoreComponentOwnership:
-    x1, y1, x2, y2 = component_box
-    origin_x, origin_y = score_context.get("origin", (0, 0))
-    x1 -= origin_x
-    x2 -= origin_x
-    y1 -= origin_y
-    y2 -= origin_y
-    component_height, component_width = component_mask.shape
-    radius = max(1, min(4, int(round(min(component_width, component_height) * 0.12))))
-    image_height, image_width = score_context["foreground"].shape
-    ring_x1 = max(0, x1 - radius)
-    ring_y1 = max(0, y1 - radius)
-    ring_x2 = min(image_width, x2 + radius)
-    ring_y2 = min(image_height, y2 + radius)
-
-    local_component = np.zeros((ring_y2 - ring_y1, ring_x2 - ring_x1), dtype="uint8")
-    local_x = x1 - ring_x1
-    local_y = y1 - ring_y1
-    local_component[
-        local_y : local_y + component_height,
-        local_x : local_x + component_width,
-    ] = component_mask.astype("uint8")
-    kernel = cv2.getStructuringElement(
-        cv2.MORPH_ELLIPSE, (radius * 2 + 1, radius * 2 + 1)
-    )
-    ring = cv2.dilate(local_component, kernel).astype(bool)
-    ring &= ~local_component.astype(bool)
-    ring &= ~score_context["foreground"][ring_y1:ring_y2, ring_x1:ring_x2]
-
-    counts = {
-        role: int(
-            np.count_nonzero(
-                ring & score_context[role][ring_y1:ring_y2, ring_x1:ring_x2]
-            )
-        )
-        for role in ("green", "yellow", "red")
-    }
-    recognized_pixel_count = sum(counts.values())
-    competing_role = max(
-        (role for role in counts if role != expected_role),
-        key=counts.get,
-    )
-    denominator = max(1, recognized_pixel_count)
-    return ScoreComponentOwnership(
-        expected_role=expected_role,
-        expected_share=counts[expected_role] / denominator,
-        competing_role=competing_role if counts[competing_role] else None,
-        competing_share=counts[competing_role] / denominator,
-        recognized_pixel_count=recognized_pixel_count,
-        is_sufficient=(recognized_pixel_count >= SCORE_OWNERSHIP_MIN_RECOGNIZED_PIXELS),
-    )
-
-
-def _score_component_has_competing_ownership(
-    ownership: ScoreComponentOwnership | None,
-) -> bool:
-    return bool(
-        ownership is not None
-        and ownership.is_sufficient
-        and ownership.competing_share >= SCORE_OWNERSHIP_MIN_WINNING_SHARE
-        and ownership.competing_share - ownership.expected_share
-        >= SCORE_OWNERSHIP_MIN_MARGIN
-    )
-
-
-def _score_edge_component_has_expected_ownership(
-    ownership: ScoreComponentOwnership | None,
-) -> bool:
-    return bool(
-        ownership is None
-        or (
-            ownership.is_sufficient
-            and ownership.expected_share >= SCORE_OWNERSHIP_EDGE_MIN_WINNING_SHARE
-            and ownership.expected_share - ownership.competing_share
-            >= SCORE_OWNERSHIP_EDGE_MIN_MARGIN
-        )
-    )
-
-
-def _score_digit_threshold(image, background_rgb=None):
+def _score_digit_threshold(image, background_rgb=None, region_mask=None):
     rgb = np.asarray(image.convert("RGB"))
+    if region_mask is None:
+        region_mask = np.ones(rgb.shape[:2], dtype=bool)
+    else:
+        region_mask = np.asarray(region_mask, dtype=bool)
+        if region_mask.shape != rgb.shape[:2]:
+            raise ValueError("score cell region mask must match its image bounds")
     if background_rgb is not None:
         rgb_float = rgb.astype("float32")
         background = np.asarray(background_rgb, dtype="float32")
         white_direction = 255.0 - background
-        white_mix = np.sum(
-            (rgb_float - background) * white_direction,
-            axis=2,
-        ) / float(np.sum(white_direction * white_direction))
+        direction_length_squared = float(np.sum(white_direction * white_direction))
+        if direction_length_squared <= 0:
+            return np.zeros(rgb.shape[:2], dtype=bool)
+        white_mix = (
+            np.sum(
+                (rgb_float - background) * white_direction,
+                axis=2,
+            )
+            / direction_length_squared
+        )
+        projected = background + white_mix[:, :, np.newaxis] * white_direction
+        residual = np.linalg.norm(rgb_float - projected, axis=2)
         white_mix_uint8 = np.clip(white_mix * 255.0, 0, 255).astype("uint8")
+        region_values = white_mix_uint8[region_mask]
+        if not region_values.size:
+            return np.zeros(rgb.shape[:2], dtype=bool)
         otsu_threshold, _ = cv2.threshold(
-            white_mix_uint8,
+            region_values.reshape(-1, 1),
             0,
             255,
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
@@ -577,7 +545,11 @@ def _score_digit_threshold(image, background_rgb=None):
             SCORE_MIN_WHITE_MIX,
             float(otsu_threshold) / 255.0 + SCORE_WHITE_MIX_OTSU_MARGIN,
         )
-        return white_mix >= cell_white_mix
+        return (
+            region_mask
+            & (white_mix >= cell_white_mix)
+            & (residual <= SCORE_WHITE_MIX_MAX_RESIDUAL)
+        )
 
     red = rgb[:, :, 0]
     green = rgb[:, :, 1]
@@ -585,7 +557,7 @@ def _score_digit_threshold(image, background_rgb=None):
     spread = np.maximum.reduce([red, green, blue]) - np.minimum.reduce(
         [red, green, blue]
     )
-    return (red > 145) & (green > 145) & (blue > 95) & (spread < 120)
+    return region_mask & (red > 145) & (green > 145) & (blue > 95) & (spread < 120)
 
 
 def _largest_component(mask, min_area: int):
@@ -621,109 +593,34 @@ def _normalize_mask(mask, size: tuple[int, int]):
     return np.asarray(image.resize(size, Image.Resampling.NEAREST)) > 0
 
 
-def _score_digit_mask(image, background_rgb=None):
-    threshold = _score_digit_threshold(image, background_rgb)
-    component = _largest_component(threshold, min_area=20)
-    if component is None:
-        return None
-    return _normalize_mask(component, SCORE_TEMPLATE_SIZE)
-
-
-def _score_digit_masks(image, background_rgb=None):
-    return tuple(
-        entry.mask for entry in _score_digit_mask_entries(image, background_rgb)
-    )
-
-
-def _score_digit_mask_entries(
-    image,
-    background_rgb=None,
-    *,
-    score_context=None,
-    cell_box=None,
-    expected_role=None,
-    include_rejected=False,
-):
-    threshold = _score_digit_threshold(image, background_rgb)
-    # Tight scoreboard crops can include a nearly solid vertical separator
-    # connected to the final digit. Remove the separator without discarding
-    # the digit component attached to it.
-    border_columns = threshold.mean(axis=0) >= SCORE_BORDER_COLUMN_MIN_DENSITY
-    threshold[:, border_columns] = False
-    components, labels = _digit_components(threshold, min_area=20)
+def _score_digit_mask_entries(image, background_rgb=None, *, region_mask=None):
+    threshold = _score_digit_threshold(image, background_rgb, region_mask)
+    min_area = max(4, int(image.width * image.height * 0.012))
+    components, labels = _digit_components(threshold, min_area=min_area)
     min_height = max(8, int(image.height * 0.35))
-    min_width = max(4, int(image.width * 0.12))
+    min_width = max(2, int(image.width * 0.07))
     candidates = []
     for x, y, width, height, component_index in components:
-        narrow_leading_candidate = bool(
-            x == 0 and width < min_width and height >= min_height
-        )
-        if height < min_height or (width < min_width and not narrow_leading_candidate):
+        if height < min_height or width < min_width:
             continue
-        # JPEG resampling can leave a one-pixel gap between a crop-boundary
-        # stripe and the actual image edge.
-        touches_edge = x == 0 or x + width >= image.width - 1
-        candidates.append(
-            (
-                x,
-                y,
-                width,
-                height,
-                component_index,
-                touches_edge,
-            )
-        )
+        candidates.append((x, y, width, height, component_index))
+    if not 1 <= len(candidates) <= 2:
+        return ()
 
     masks = []
-    for (
-        x,
-        y,
-        width,
-        height,
-        component_index,
-        touches_edge,
-    ) in candidates:
-        is_edge_leading = bool(x == 0 and width <= int(image.width * 0.42))
+    for x, y, width, height, component_index in candidates:
         component_mask = labels[y : y + height, x : x + width] == component_index
-        ownership = None
-        is_accepted = True
-        rejection_reason = None
-        if score_context is not None and cell_box is not None and expected_role:
-            component_box = (
-                cell_box[0] + x,
-                cell_box[1] + y,
-                cell_box[0] + x + width,
-                cell_box[1] + y + height,
+        masks.append(
+            ScoreDigitMask(
+                _normalize_mask(component_mask, SCORE_TEMPLATE_SIZE),
+                x,
+                width,
+                image.width,
+                y,
+                height,
+                image.height,
             )
-            ownership = _score_component_ownership(
-                component_mask,
-                component_box,
-                score_context,
-                expected_role,
-            )
-            if _score_component_has_competing_ownership(ownership):
-                is_accepted = False
-                rejection_reason = "score-role-competing"
-            if is_edge_leading and ownership.is_sufficient:
-                if not _score_edge_component_has_expected_ownership(ownership):
-                    is_accepted = False
-                    rejection_reason = "score-role-edge"
-        entry = ScoreDigitMask(
-            _normalize_mask(component_mask, SCORE_TEMPLATE_SIZE),
-            x,
-            width,
-            image.width,
-            y,
-            height,
-            image.height,
-            touches_edge,
-            is_edge_leading,
-            ownership,
-            is_accepted,
-            rejection_reason,
         )
-        if is_accepted or include_rejected:
-            masks.append(entry)
     return tuple(masks)
 
 
@@ -906,92 +803,29 @@ class ScoreboardDigitReader:
         if image is None:
             return ScoreboardDigitReading(None, (), False, None)
 
-        # The scoreboard can occupy very different fractions of otherwise valid
-        # archive crops, so only read grids discovered in the image itself.
-        detected_readings = [
-            self._read_layout(image, layout)
-            for layout in self.locator.locate_candidates(image)
-        ]
-        detected_readings_with_digits = [
-            reading
-            for reading in detected_readings
-            if reading.has_layout and reading.digits
-        ]
-        if detected_readings_with_digits:
-            return max(detected_readings_with_digits, key=self._reading_confidence)
-
-        detected_readings_with_layout = [
-            reading for reading in detected_readings if reading.has_layout
-        ]
-        if detected_readings_with_layout:
-            return max(detected_readings_with_layout, key=self._reading_confidence)
-
-        if detected_readings:
-            return max(detected_readings, key=self._reading_confidence)
-
-        return ScoreboardDigitReading(
-            None,
-            tuple(DigitPrediction(None, 0.0, "none") for _ in range(6)),
-            False,
-            None,
-        )
+        layout = self.locator.locate(image)
+        if layout is None:
+            return ScoreboardDigitReading(
+                None,
+                tuple(DigitPrediction(None, 0.0, "none") for _ in range(6)),
+                False,
+                None,
+            )
+        return self._read_layout(image, layout)
 
     def _read_layout(self, image, layout: ScoreLayout) -> ScoreboardDigitReading:
         predictions = []
-        has_layout = True
-        background_palette = _score_layout_background_palette(image, layout)
-        score_context = _score_ownership_context(
-            image, background_palette, layout.cell_boxes
-        )
-        for box, role in zip(layout.cell_boxes, layout.background_roles):
-            raw_cell = image.crop(box)
-            cell = _inner_cell(raw_cell)
-            margin_x = (raw_cell.width - cell.width) // 2
-            margin_y = (raw_cell.height - cell.height) // 2
-            inner_box = (
-                box[0] + margin_x,
-                box[1] + margin_y,
-                box[2] - margin_x,
-                box[3] - margin_y,
-            )
-            if not _score_cell_has_background(cell, role):
-                has_layout = False
-            background_rgb = background_palette[role]
+        for cell_region in layout.cells:
+            cell = image.crop(cell_region.bounds)
             prediction = self._predict_score_cell(
                 cell,
-                background_rgb,
-                score_context=score_context,
-                cell_box=inner_box,
-                expected_role=role,
+                cell_region.background_rgb,
+                region_mask=cell_region.region_mask,
             )
-            raw_prediction = self._predict_score_cell(
-                raw_cell,
-                background_rgb,
-                score_context=score_context,
-                cell_box=box,
-                expected_role=role,
-            )
-            if self._should_use_raw_score_prediction(prediction, raw_prediction):
-                prediction = raw_prediction
-            elif self._prediction_has_ambiguous_edge(prediction) and not (
-                raw_prediction.digit == prediction.digit
-                and self._prediction_has_leading_one_geometry(raw_prediction)
-                and raw_prediction.similarity
-                >= prediction.similarity - SCORE_RAW_LEADING_ONE_SIMILARITY_MARGIN
-            ):
-                prediction = DigitPrediction(
-                    None,
-                    prediction.similarity,
-                    f"{prediction.source}:score-role-ambiguous-edge-unconfirmed",
-                )
-            if prediction.digit is None:
-                predictions.append(DigitPrediction(None, 0.0, "none"))
-            else:
-                predictions.append(prediction)
-        if not has_layout or any(
-            prediction.digit is None for prediction in predictions
-        ):
-            return ScoreboardDigitReading(None, tuple(predictions), has_layout, layout)
+            predictions.append(prediction)
+
+        if any(prediction.digit is None for prediction in predictions):
+            return ScoreboardDigitReading(None, tuple(predictions), True, layout)
         return ScoreboardDigitReading(
             tuple(prediction.digit for prediction in predictions),
             tuple(predictions),
@@ -1004,46 +838,17 @@ class ScoreboardDigitReader:
         cell,
         background_rgb=None,
         *,
-        score_context=None,
-        cell_box=None,
-        expected_role=None,
-    ) -> DigitPrediction:
-        prediction = self._predict_score_cell_from_mask(
-            cell,
-            background_rgb=background_rgb,
-            score_context=score_context,
-            cell_box=cell_box,
-            expected_role=expected_role,
-        )
-        if background_rgb is None:
-            return prediction
-        return DigitPrediction(
-            prediction.digit,
-            prediction.similarity,
-            f"{prediction.source}:score-palette-background",
-        )
-
-    def _predict_score_cell_from_mask(
-        self,
-        cell,
-        background_rgb=None,
-        *,
-        score_context=None,
-        cell_box=None,
-        expected_role=None,
+        region_mask=None,
     ) -> DigitPrediction:
         mask_entries = _score_digit_mask_entries(
             cell,
             background_rgb,
-            score_context=score_context,
-            cell_box=cell_box,
-            expected_role=expected_role,
+            region_mask=region_mask,
         )
         if not mask_entries:
             return DigitPrediction(None, 0.0, "none")
         digit_predictions = [
-            self._predict_score_digit_entry(entry, len(mask_entries))
-            for entry in mask_entries[:2]
+            self._predict_score_digit_entry(entry) for entry in mask_entries
         ]
         if any(prediction.digit is None for prediction in digit_predictions):
             return DigitPrediction(None, 0.0, "none")
@@ -1052,100 +857,21 @@ class ScoreboardDigitReader:
             prediction.similarity for prediction in digit_predictions
         ) / len(digit_predictions)
         source = "+".join(prediction.source for prediction in digit_predictions)
+        if background_rgb is not None:
+            source = f"{source}:score-contained-region"
         return DigitPrediction(value, similarity, source)
 
-    @staticmethod
-    def _prediction_digit_count(prediction: DigitPrediction) -> int:
-        if prediction.digit is None:
-            return 0
-        return len(str(prediction.digit))
-
-    @staticmethod
-    def _prediction_has_leading_one_geometry(prediction: DigitPrediction) -> bool:
-        return bool(
-            prediction.digit is not None
-            and str(prediction.digit).startswith("1")
-            and (
-                ":score-one-geometry" in prediction.source
-                or ":score-leading-one-edge" in prediction.source
-            )
-        )
-
-    @classmethod
-    def _prediction_has_ambiguous_edge(cls, prediction: DigitPrediction) -> bool:
-        return bool(
-            cls._prediction_has_leading_one_geometry(prediction)
-            and ":score-role-ambiguous" in prediction.source
-        )
-
-    @classmethod
-    def _should_use_raw_score_prediction(
-        cls, prediction: DigitPrediction, raw_prediction: DigitPrediction
-    ) -> bool:
-        if raw_prediction.digit is None:
-            return False
-        if prediction.digit is None:
-            return not cls._prediction_has_ambiguous_edge(raw_prediction)
-        if not cls._prediction_has_leading_one_geometry(raw_prediction):
-            return False
-        prediction_digit_count = cls._prediction_digit_count(prediction)
-        raw_prediction_digit_count = cls._prediction_digit_count(raw_prediction)
-        if (
-            cls._prediction_has_leading_one_geometry(prediction)
-            and raw_prediction_digit_count <= prediction_digit_count
-        ):
-            return False
-        return raw_prediction_digit_count >= prediction_digit_count
-
-    def _predict_score_digit_entry(
-        self, entry: ScoreDigitMask, mask_count: int
-    ) -> DigitPrediction:
-        ownership_source = ""
-        if entry.ownership is not None:
-            if _score_edge_component_has_expected_ownership(entry.ownership):
-                ownership_source = ":score-role-owned"
-            elif not entry.ownership.is_sufficient:
-                ownership_source = ":score-role-ambiguous"
+    def _predict_score_digit_entry(self, entry: ScoreDigitMask) -> DigitPrediction:
         if _score_digit_entry_looks_like_one(entry):
             one_prediction = self.classifier.predict(
                 entry.mask, allowed_digits=frozenset((1,))
             )
-            if (
-                entry.is_edge_leading
-                and entry.ownership is not None
-                and not entry.ownership.is_sufficient
-                and one_prediction.similarity
-                < SCORE_OWNERSHIP_AMBIGUOUS_EDGE_ONE_MIN_SIMILARITY
-            ):
-                return DigitPrediction(
-                    None,
-                    one_prediction.similarity,
-                    f"{one_prediction.source}:score-role-ambiguous-edge-rejected",
-                )
             return DigitPrediction(
                 1,
                 one_prediction.similarity,
-                f"{one_prediction.source}:score-one-geometry{ownership_source}",
+                f"{one_prediction.source}:score-one-geometry",
             )
-
-        prediction = self._predict_score_digit(entry.mask)
-        if (
-            mask_count > 1
-            and entry.x == 0
-            and entry.width <= int(entry.image_width * 0.18)
-        ):
-            return DigitPrediction(
-                1,
-                prediction.similarity,
-                f"{prediction.source}:score-leading-one-edge{ownership_source}",
-            )
-        if ownership_source:
-            return DigitPrediction(
-                prediction.digit,
-                prediction.similarity,
-                f"{prediction.source}{ownership_source}",
-            )
-        return prediction
+        return self._predict_score_digit(entry.mask)
 
     def _predict_score_digit(self, mask) -> DigitPrediction:
         prediction = self.classifier.predict(mask)
@@ -1156,9 +882,6 @@ class ScoreboardDigitReader:
                 <= hole_center_ys[0]
                 <= SCORE_ZERO_HOLE_MAX_CENTER_Y
             ):
-                # A zero has one vertically centered counter. JPEG ringing can
-                # unevenly thicken either end until a font template strongly
-                # prefers 6 or 9, while their counters remain clearly offset.
                 zero_prediction = self.classifier.predict(
                     mask, allowed_digits=frozenset((0,))
                 )
@@ -1168,11 +891,6 @@ class ScoreboardDigitReader:
                     f"{zero_prediction.source}:score-zero-hole-geometry",
                 )
             if prediction.digit == 6 and not hole_center_ys:
-                # A six retains an enclosed lower counter, while a five is
-                # open on its upper-right and lower-left sides. At tiny crop
-                # sizes their templates can be nearly tied, so prefer five
-                # when the predicted six has no counter and the five template
-                # remains comparably strong.
                 five_prediction = self.classifier.predict(
                     mask, allowed_digits=frozenset((5,))
                 )
@@ -1201,25 +919,12 @@ class ScoreboardDigitReader:
                     f"{three_prediction.source}:score-three-shape",
                 )
         if prediction.digit == 8 and len(_score_mask_hole_center_ys(mask)) != 2:
-            # An eight must retain two enclosed counters. At these tiny crop
-            # sizes a damaged zero can otherwise normalize into a solid,
-            # deceptively template-like eight. Treat that frame as unreadable
-            # so it cannot create a phantom score event.
             return DigitPrediction(
                 None,
                 prediction.similarity,
                 f"{prediction.source}:score-eight-missing-holes",
             )
         return prediction
-
-    @staticmethod
-    def _reading_confidence(reading: ScoreboardDigitReading) -> float:
-        if not reading.predictions:
-            return 0.0
-        return float(
-            sum(prediction.similarity for prediction in reading.predictions)
-            / len(reading.predictions)
-        )
 
 
 class TimerLocator:
