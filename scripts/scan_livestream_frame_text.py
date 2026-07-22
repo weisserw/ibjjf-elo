@@ -36,6 +36,7 @@ from livestream_frame_text_scan import (  # noqa: E402
 from livestream_frame_text_ocr import build_parser, validate_ocr_engines  # noqa: E402
 from models import LivestreamFrameCaptureSegment  # noqa: E402
 from photos import bucket_name, get_s3_client  # noqa: E402
+from livestream_admin_api import request_with_retries  # noqa: E402
 
 
 ADMIN_URL_ENV_VAR = "LIVESTREAM_ARCHIVE_ADMIN_URL"
@@ -132,12 +133,14 @@ class AdminApiTextScanState:
         self.password = password
         self.session = session or requests.Session()
 
-    def _request(self, method: str, path: str, **kwargs):
+    def _request(self, method: str, path: str, *, replay_safe=False, **kwargs):
         headers = kwargs.pop("headers", {})
         headers["X-Admin-Password"] = self.password
-        response = self.session.request(
+        response = request_with_retries(
+            self.session,
             method,
             urljoin(self.base_url, path.lstrip("/")),
+            replay_safe=replay_safe,
             headers=headers,
             timeout=60,
             **kwargs,
@@ -212,6 +215,7 @@ class AdminApiTextScanState:
         payload = self._request(
             "GET",
             f"/api/livestream_frame_archives/worker/text_scan_segments/{segment.id}/initial_state",
+            replay_safe=True,
         )
         return TextState(**payload["state"])
 
@@ -219,6 +223,7 @@ class AdminApiTextScanState:
         payload = self._request(
             "POST",
             f"/api/livestream_frame_archives/worker/text_scan_segments/{segment.id}/complete",
+            replay_safe=True,
             json={"events": [event_payload(event) for event in events]},
         )
         segment.update_from(payload["segment"])
@@ -227,6 +232,7 @@ class AdminApiTextScanState:
         payload = self._request(
             "POST",
             f"/api/livestream_frame_archives/worker/text_scan_segments/{segment.id}/error",
+            replay_safe=True,
             json={"error": error},
         )
         segment.update_from(payload["segment"])

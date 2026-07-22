@@ -618,7 +618,79 @@ class ArchiveLivestreamFramesAdminApiStateTestCase(unittest.TestCase):
 
         def request(self, method, url, **kwargs):
             self.requests.append((method, url, kwargs))
-            return self.responses.pop(0)
+            response = self.responses.pop(0)
+            if isinstance(response, Exception):
+                raise response
+            return response
+
+    def test_replay_safe_update_retries_transient_connection_error(self):
+        fake_session = self.FakeSession(
+            [
+                runner.requests.exceptions.ConnectionError("connection closed"),
+                self.FakeResponse(
+                    payload={
+                        "archive": {
+                            "id": "archive-1",
+                            "status": "probing",
+                            "frame_rate": 1.0,
+                        }
+                    }
+                ),
+            ]
+        )
+        state = runner.AdminApiArchiveState(
+            "https://admin.example.com", "secret", session=fake_session
+        )
+        archive = runner.ApiObject({"id": "archive-1", "status": "pending"})
+
+        with patch("livestream_admin_api.time.sleep") as sleep:
+            state.mark_probe_started(archive, 1.0)
+
+        self.assertEqual(archive.status, "probing")
+        self.assertEqual(len(fake_session.requests), 2)
+        sleep.assert_called_once_with(1)
+
+    def test_claim_does_not_retry_transient_connection_error(self):
+        fake_session = self.FakeSession(
+            [
+                runner.requests.exceptions.ConnectionError("connection closed"),
+                self.FakeResponse(payload={"segment": None}),
+            ]
+        )
+        state = runner.AdminApiArchiveState(
+            "https://admin.example.com", "secret", session=fake_session
+        )
+
+        with self.assertRaises(runner.requests.exceptions.ConnectionError):
+            state.claim_next_segment()
+
+        self.assertEqual(len(fake_session.requests), 1)
+
+    def test_replay_safe_update_retries_transient_http_status(self):
+        fake_session = self.FakeSession(
+            [
+                self.FakeResponse(status_code=503, text="unavailable"),
+                self.FakeResponse(
+                    payload={
+                        "archive": {
+                            "id": "archive-1",
+                            "status": "probing",
+                            "frame_rate": 1.0,
+                        }
+                    }
+                ),
+            ]
+        )
+        state = runner.AdminApiArchiveState(
+            "https://admin.example.com", "secret", session=fake_session
+        )
+        archive = runner.ApiObject({"id": "archive-1", "status": "pending"})
+
+        with patch("livestream_admin_api.time.sleep") as sleep:
+            state.mark_probe_started(archive, 1.0)
+
+        self.assertEqual(len(fake_session.requests), 2)
+        sleep.assert_called_once_with(1)
 
     def test_claim_next_segment_uses_admin_password_header(self):
         fake_session = self.FakeSession(

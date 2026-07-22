@@ -16,6 +16,7 @@ This is the first part of the livestream match pipeline:
 
 - `app/livestream_frame_archive.py` contains archive discovery, queueing, segment range creation, retry/cancel/requeue logic, status recomputation, S3 key helpers, and dashboard row assembly.
 - `scripts/archive_livestream_frames.py` is the capture worker. It claims capture segments, probes YouTube with `yt-dlp`, extracts scoreboard/timer crops with `ffmpeg`, writes a segment `.tgz`, uploads it to S3, and marks segment success/error.
+- `scripts/livestream_admin_api.py` provides the shared, replay-safe HTTP retry loop used by both remote workers.
 - `admin/app.py` contains the server-rendered admin pages and worker JSON endpoints.
 - `admin/templates/livestream_frame_archives.html` is the archive list/admin action page.
 - `admin/templates/livestream_frame_archive_detail.html` is the archive detail/segment inspection page.
@@ -129,6 +130,15 @@ Text scanner JSON endpoints:
 - `POST /api/livestream_frame_archives/worker/text_scan_segments/<segment_id>/error`
 
 Remote workers depend on the payload helpers in `admin/app.py`: `_archive_payload()`, `_segment_payload()`, `_text_scan_payload()`, `_text_scan_segment_payload()`, and `_text_event_payload()`. Keep those in sync with worker `ApiObject` expectations when adding fields.
+
+In remote mode, the worker clients retry connection/timeouts and transient HTTP
+responses (`429`, `500`, `502`, `503`, `504`) up to four total attempts with
+exponential backoff, but only for replay-safe calls. Capture probe and segment
+success/error updates, text-scan initial-state reads, and text-scan
+success/error updates are replay-safe. Segment claims are intentionally not
+retried because a lost claim response may still have assigned the segment;
+text-scan rescan/reset calls are also one-shot because they clear state or
+increment attempt counts.
 
 ## Key Data Items
 

@@ -1115,6 +1115,72 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
         )
 
 
+class ScanLivestreamFrameTextAdminApiStateTestCase(unittest.TestCase):
+    class FakeResponse:
+        def __init__(self, status_code=200, payload=None, text=""):
+            self.status_code = status_code
+            self.payload = payload or {}
+            self.text = text
+
+        def json(self):
+            return self.payload
+
+    class FakeSession:
+        def __init__(self, responses):
+            self.responses = list(responses)
+            self.requests = []
+
+        def request(self, method, url, **kwargs):
+            self.requests.append((method, url, kwargs))
+            response = self.responses.pop(0)
+            if isinstance(response, Exception):
+                raise response
+            return response
+
+    def test_replay_safe_update_retries_transient_connection_error(self):
+        fake_session = self.FakeSession(
+            [
+                runner.requests.exceptions.ConnectionError("connection closed"),
+                self.FakeResponse(
+                    payload={
+                        "segment": {
+                            "id": "segment-1",
+                            "status": "error",
+                            "last_error": "OCR failed",
+                        }
+                    }
+                ),
+            ]
+        )
+        state = runner.AdminApiTextScanState(
+            "https://admin.example.com", "secret", session=fake_session
+        )
+        segment = runner.ApiObject({"id": "segment-1", "status": "running"})
+
+        with mock.patch("livestream_admin_api.time.sleep") as sleep:
+            state.mark_error(segment, "OCR failed")
+
+        self.assertEqual(segment.status, "error")
+        self.assertEqual(len(fake_session.requests), 2)
+        sleep.assert_called_once_with(1)
+
+    def test_claim_does_not_retry_transient_connection_error(self):
+        fake_session = self.FakeSession(
+            [
+                runner.requests.exceptions.ConnectionError("connection closed"),
+                self.FakeResponse(payload={"segment": None}),
+            ]
+        )
+        state = runner.AdminApiTextScanState(
+            "https://admin.example.com", "secret", session=fake_session
+        )
+
+        with self.assertRaises(runner.requests.exceptions.ConnectionError):
+            state.claim_next_segment()
+
+        self.assertEqual(len(fake_session.requests), 1)
+
+
 class ScanLivestreamFrameTextWorkerTestCase(unittest.TestCase):
     def _name_parser(self, name_engine):
         parser = text_ocr.FrameImageTextParser.__new__(text_ocr.FrameImageTextParser)

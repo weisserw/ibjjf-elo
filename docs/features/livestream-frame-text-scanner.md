@@ -15,6 +15,7 @@ Admins can queue, retry, cancel, clear, inspect, and rescan text-scanning work f
 - `app/livestream_frame_text_scan.py` is the scanner state machine. It owns scan queueing, segment claiming, S3 frame-batch reads, sparse event generation, state reconstruction, rescan/reset helpers, status recomputation, and success/error marking.
 - `app/livestream_frame_text_ocr.py` is the image parser. It contains fixed-digit scoreboard/timer readers, name OCR support, parser profile selection, OCR engine validation, and `build_parser()`.
 - `scripts/scan_livestream_frame_text.py` is the worker CLI. It can claim the next segment from the admin API, rescan a segment, reset an archive from the start, run OCR, and submit events/errors back to the admin API.
+- `scripts/livestream_admin_api.py` provides the shared, replay-safe HTTP retry loop used in admin API mode.
 - `admin/app.py` contains the admin pages and JSON endpoints for queueing scans and for worker coordination.
 - `admin/templates/livestream_frame_text_scans.html` is the scan list/action page.
 - `admin/templates/livestream_frame_text_scan_detail.html` shows one archive's scan status, segments, events, livestream usages, and frame-crop download links.
@@ -84,6 +85,12 @@ Worker API routes share `WORKER_API_PREFIX = /api/livestream_frame_archives/work
 - `POST /api/livestream_frame_archives/worker/text_scan_segments/<segment_id>/complete`
 - `GET /api/livestream_frame_archives/worker/text_scan_segments/<segment_id>/initial_state`
 - `POST /api/livestream_frame_archives/worker/text_scan_segments/<segment_id>/error`
+
+The remote client retries connection/timeouts and transient HTTP responses
+(`429`, `500`, `502`, `503`, `504`) with exponential backoff for the
+replay-safe initial-state, completion, and error calls. Claim, rescan, and reset
+remain single-attempt because replaying them can assign work, increment attempt
+counts, or clear scan state after the first request already succeeded.
 
 ## Key Data Items
 
@@ -199,7 +206,8 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 
 - `LivestreamFrameTextScanAlgorithmTestCase`: sparse event generation, timer filtering, name/score change handling, and segment-boundary behavior.
 - `LivestreamFrameTextScanDbTestCase`: queue/claim/reset/retry/cancel/clear behavior and S3 frame-batch reading.
-- `ScanLivestreamFrameTextWorkerTestCase`: CLI/API worker behavior and parser/name OCR logic.
+- `ScanLivestreamFrameTextAdminApiStateTestCase`: replay-safe client retries and one-shot claim behavior.
+- `ScanLivestreamFrameTextWorkerTestCase`: CLI worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
   `scoreboard_cases.json` explicitly golden-tests all 79 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell

@@ -41,6 +41,7 @@ from livestream_frame_archive import (  # noqa: E402
 )
 from models import LivestreamFrameArchive, LivestreamFrameCaptureSegment  # noqa: E402
 from photos import bucket_name, get_s3_client  # noqa: E402
+from livestream_admin_api import request_with_retries  # noqa: E402
 
 
 DEFAULT_FORMAT_SELECTOR = "best[height=480]/18/best[height<=480]/best"
@@ -207,12 +208,14 @@ class AdminApiArchiveState:
         self.password = password
         self.session = session or requests.Session()
 
-    def _request(self, method: str, path: str, **kwargs):
+    def _request(self, method: str, path: str, *, replay_safe=False, **kwargs):
         headers = kwargs.pop("headers", {})
         headers["X-Admin-Password"] = self.password
-        response = self.session.request(
+        response = request_with_retries(
+            self.session,
             method,
             urljoin(self.base_url, path.lstrip("/")),
+            replay_safe=replay_safe,
             headers=headers,
             timeout=60,
             **kwargs,
@@ -259,6 +262,7 @@ class AdminApiArchiveState:
         payload = self._request(
             "POST",
             f"/api/livestream_frame_archives/worker/archives/{archive.id}/probe_start",
+            replay_safe=True,
             json={"frame_rate": frame_rate},
         )
         archive.update_from(payload["archive"])
@@ -275,6 +279,7 @@ class AdminApiArchiveState:
         payload = self._request(
             "POST",
             f"/api/livestream_frame_archives/worker/archives/{archive.id}/probe_complete",
+            replay_safe=True,
             json={
                 "duration": info.get("duration"),
                 "selected": _selected_probe_fields(selected),
@@ -297,6 +302,7 @@ class AdminApiArchiveState:
         payload = self._request(
             "POST",
             f"/api/livestream_frame_archives/worker/segments/{segment.id}/complete",
+            replay_safe=True,
             json={
                 "status": "success",
                 "uploaded_frame_count": uploaded_frame_count,
@@ -312,6 +318,7 @@ class AdminApiArchiveState:
         payload = self._request(
             "POST",
             f"/api/livestream_frame_archives/worker/segments/{segment.id}/complete",
+            replay_safe=True,
             json={"status": "skipped"},
         )
         segment.update_from(payload["segment"])
@@ -320,6 +327,7 @@ class AdminApiArchiveState:
         payload = self._request(
             "POST",
             f"/api/livestream_frame_archives/worker/segments/{segment.id}/error",
+            replay_safe=True,
             json={"error": error},
         )
         segment.update_from(payload["segment"])
