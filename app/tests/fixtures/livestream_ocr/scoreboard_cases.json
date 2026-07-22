@@ -87,6 +87,24 @@
       ]
     },
     {
+      "fixture": "new_score_000_000_6.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": [
+        "golden",
+        "nearby_same_role_background"
+      ]
+    },
+    {
       "fixture": "new_score_010_1020.jpg",
       "expect_layout": true,
       "expected_digits": [

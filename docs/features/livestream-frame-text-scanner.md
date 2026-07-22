@@ -132,11 +132,13 @@ digits through a misplaced fallback crop.
 Role segmentation compares every pixel to both known bright/muted green, yellow,
 and red palettes and assigns a qualifying pixel to exactly one closest role.
 Small pieces separated by a one- or two-pixel vertical JPEG seam are rejoined
-locally without closing the gap between rows. Green, yellow, and red components
-are then detected independently: no cell edge is inferred from a neighbor and
-cell widths do not have to match. A layout is accepted only when the components
-form one unambiguous pair of non-overlapping `green, yellow, red` row triples with
-compatible spans, gaps, scale, and placement.
+only when they overlap substantially relative to both pieces. This repairs local
+cell seams without absorbing a wider same-color broadcast graphic or closing the
+gap between rows. Green, yellow, and red components are then detected
+independently: no cell edge is inferred from a neighbor and cell widths do not
+have to match. A layout is accepted only when the components form one unambiguous
+pair of non-overlapping `green, yellow, red` row triples with compatible spans,
+gaps, scale, and placement.
 
 Each accepted `ScoreCellRegion` keeps its measured bounds, median background
 color, and a filled convex contour mask of the colored cell. Filling the contour
@@ -199,7 +201,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `LivestreamFrameTextScanDbTestCase`: queue/claim/reset/retry/cancel/clear behavior and S3 frame-batch reading.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI/API worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  `scoreboard_cases.json` explicitly golden-tests all 78 scoreboard/name fixtures
+  `scoreboard_cases.json` explicitly golden-tests all 79 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG

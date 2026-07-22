@@ -236,7 +236,13 @@ def _score_role_components(image, role: str, role_mask=None):
     component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
         mask.astype("uint8"), 8
     )
+    min_area = max(20, int(image.width * image.height * 0.003))
     parents = list(range(component_count))
+    cluster_bounds = [
+        (int(x), int(y), int(x + width), int(y + height))
+        for x, y, width, height, _ in stats
+    ]
+    cluster_areas = [int(area) for _, _, _, _, area in stats]
 
     def find(component_index):
         while parents[component_index] != component_index:
@@ -249,38 +255,61 @@ def _score_role_components(image, role: str, role_mask=None):
         second_root = find(second_index)
         if first_root != second_root:
             parents[second_root] = first_root
+            first_bounds = cluster_bounds[first_root]
+            second_bounds = cluster_bounds[second_root]
+            cluster_bounds[first_root] = (
+                min(first_bounds[0], second_bounds[0]),
+                min(first_bounds[1], second_bounds[1]),
+                max(first_bounds[2], second_bounds[2]),
+                max(first_bounds[3], second_bounds[3]),
+            )
+            cluster_areas[first_root] += cluster_areas[second_root]
 
     # A white stroke or JPEG seam can split a cell's colored background into
-    # nearby pieces. Rejoin only pieces separated by at most two pixels and
-    # sharing most of an axis; the normal gap between rows remains untouched.
+    # nearby pieces. Small compression fragments can bridge the larger pieces,
+    # so compare the accumulated cluster bounds and areas as pieces are joined.
+    # Once a fragment belongs to a retained component, another retained
+    # component must share most of its horizontal span before it can join.
     for first_index in range(1, component_count):
-        first_x, first_y, first_width, first_height, _ = (
-            int(value) for value in stats[first_index]
-        )
         for second_index in range(first_index + 1, component_count):
-            second_x, second_y, second_width, second_height, _ = (
-                int(value) for value in stats[second_index]
-            )
+            first_root = find(first_index)
+            second_root = find(second_index)
+            if first_root == second_root:
+                continue
+            first_x, first_y, first_right, first_bottom = cluster_bounds[first_root]
+            second_x, second_y, second_right, second_bottom = cluster_bounds[
+                second_root
+            ]
+            first_width = first_right - first_x
+            second_width = second_right - second_x
             horizontal_overlap = max(
                 0,
-                min(first_x + first_width, second_x + second_width)
-                - max(first_x, second_x),
+                min(first_right, second_right) - max(first_x, second_x),
             )
             vertical_gap = max(
                 0,
-                first_y - (second_y + second_height),
-                second_y - (first_y + first_height),
+                first_y - second_bottom,
+                second_y - first_bottom,
             )
-            shares_horizontal_span = horizontal_overlap >= 0.45 * min(
+            overlaps_smaller_span = horizontal_overlap >= 0.45 * min(
                 first_width, second_width
             )
-            if vertical_gap <= 2 and shares_horizontal_span:
+            shares_horizontal_span = horizontal_overlap >= 0.45 * max(
+                first_width, second_width
+            )
+            has_small_fragment = (
+                min(cluster_areas[first_root], cluster_areas[second_root]) < min_area
+            )
+            if (
+                vertical_gap <= 2
+                and overlaps_smaller_span
+                and (shares_horizontal_span or has_small_fragment)
+            ):
                 union(first_index, second_index)
 
     clusters = {}
     for component_index in range(1, component_count):
         clusters.setdefault(find(component_index), []).append(component_index)
-    min_area = max(20, int(image.width * image.height * 0.003))
     min_height = max(8, int(image.height * 0.08))
     min_width = max(4, int(image.width * 0.015))
     rgb = np.asarray(image.convert("RGB"))
