@@ -1,4 +1,4 @@
-import { immatureClass, badgeForPercentile, handleExternalVideoLinkClick } from '../utils'
+import { immatureClass, badgeForPercentile } from '../utils'
 import { noMatchStrings } from '../constants';
 import classNames from 'classnames';
 import dayjs from 'dayjs'
@@ -431,7 +431,7 @@ function BracketTable(props: BracketTableProps) {
                       }
                       {
                       (competitor.next_where && competitor.next_when && matLink) &&
-                        <a href={matLink.link} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, matLink.link)}>
+                        <a href={matLink.link} target="_blank" rel="noopener noreferrer">
                           {logoForMatLink(matLink)}
                         </a>
                       }

@@ -5,7 +5,7 @@ import 'dayjs/locale/pt';
 import youtubeLogo from '/src/assets/youtube.png';
 import floLogo from '/src/assets/flo.png';
 import { Tooltip } from 'react-tooltip';
-import { handleExternalVideoLinkClick, isHistorical, type DBRow as Row } from "../utils";
+import { isHistorical, type DBRow as Row } from "../utils";
 import { noMatchStrings } from '../constants';
 import { useAppContext } from '../AppContext';
 import { t, translateMulti, translateMultiSpace, translationKeys } from '../translate';
@@ -261,7 +261,7 @@ function DBTableRows(props: DBTableRowsProps) {
     return (
       <div className="db-match-actions">
         {videoLink &&
-          <a href={videoLink} target="_blank" rel="noopener noreferrer" onClick={handleExternalVideoLinkClick.bind(null, videoLink)}>
+          <a href={videoLink} target="_blank" rel="noopener noreferrer">
             {logoForLink(videoLink)}
           </a>
         }

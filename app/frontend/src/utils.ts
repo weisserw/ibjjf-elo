@@ -45,16 +45,6 @@ export const immatureClass = (matchCount: number | null) => {
   }
 }
 
-export const handleExternalVideoLinkClick = (link: string, e: MouseEvent<HTMLAnchorElement>) => {
-  // Workaround for Flo links opening in the Flo app on Android.
-  if (link.toLowerCase().includes('flograppling') && typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)) {
-    e.preventDefault();
-    const w = window.open('about:blank', '_blank');
-    if (w) w.location = link;
-  }
-}
-
-
 export interface DBRow {
   id: string
   winner: string
