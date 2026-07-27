@@ -161,6 +161,8 @@ pixels or a second crop.
 Timer parsing similarly locates structurally coherent three- or four-digit runs
 across the complete timer crop. Candidate digits must have compatible height,
 baseline, width, spacing, local display background, and template confidence. The
+combined height and baseline confidence must also clear a minimum threshold so
+diagonal building-window edges cannot be interpreted as stopped timer digits. The
 running/stopped interpretation comes from the foreground and background colors
 inside the located display rather than color ratios across the archive crop. The
 selected digit boxes are normalized before template classification, so padding,
@@ -233,6 +235,7 @@ Git history shows this area is sensitive to OCR edge cases and workflow/status h
   regressions in `scoreboard_cases.json`.
 - Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter. Timer geometry is now detected from aligned digit candidates and locally coherent display colors rather than image-ratio search windows or whole-crop color density. Green timer digits take precedence over adjacent white scoreboard text in mixed tight crops so active timers are not mistaken for stopped timers. Dense horizontal foreground rows from video artifacts or timer-frame edges are removed within connected components before digit grouping so crop padding cannot change whether the artifact is recognized.
   Full-height digit fragments separated by a one-pixel JPEG/color-threshold seam are merged before grouping and retained together during classification, preventing clipped zeroes in small timer crops from being interpreted as extra digits.
+  Low-confidence height/baseline alignments are rejected before digit classification, preventing diagonal building windows in `new_timer_blank.jpg` and `new_timer_blank_2.jpg` from becoming false stopped-clock readings.
   Orange and yellow timer digits use one complete warm foreground mask, preventing bright yellow digit sections from being clipped into a low-confidence blank reading. Raw warm timer readings are treated as running because the display has no stopped indicator once it turns yellow; the text scanner then infers stops and resumes from stationary or changing under-one-minute digits. The existing direct `0:00` value override is still treated as stopped and takes precedence over inference.
 - Name OCR: multiple commits fixed athlete/team line selection, multi-line names, Paddle result parsing, Paddle choosing team names, and clipped/trailing initials.
 - Scoreboard visibility: blank scoreboard handling and scoreboard detection have had regressions.

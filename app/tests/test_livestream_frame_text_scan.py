@@ -3357,6 +3357,22 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         self.assertEqual(reading.state, "blank")
         self.assertIsNone(reading.value)
 
+    def test_timer_locator_rejects_diagonal_building_windows_as_blank(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.TimerDigitReader()
+
+        for fixture_name in ("new_timer_blank.jpg", "new_timer_blank_2.jpg"):
+            with self.subTest(fixture=fixture_name):
+                timer_path = os.path.join(self.fixture_dir, fixture_name)
+                with open(timer_path, "rb") as fileobj:
+                    image = text_ocr.Image.open(fileobj).convert("RGB")
+
+                reading = reader.read(image)
+
+                self.assertEqual(reader.locator.locate_candidates(image), ())
+                self.assertEqual(reading.state, "blank")
+                self.assertIsNone(reading.value)
+
     def test_running_timer_with_adjacent_white_text_prefers_green_digits(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         timer_path = os.path.join(self.fixture_dir, "timer_new_running_0642.jpg")

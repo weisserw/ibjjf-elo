@@ -968,6 +968,7 @@ class TimerLocator:
     MAX_ARTIFACT_ROW_DENSITY = 0.55
     MIN_LOCAL_BACKGROUND_DENSITY = 0.08
     MIN_LOCAL_RED_BACKGROUND_DENSITY = 0.12
+    MIN_STRUCTURAL_CONFIDENCE = 0.90
 
     def _color_masks(self, image):
         rgb = np.asarray(image.convert("RGB"))
@@ -1126,6 +1127,8 @@ class TimerLocator:
         height_score = 1 - (max(heights) - min(heights)) / reference_height
         alignment_score = 1 - (max(bottoms) - min(bottoms)) / reference_height
         confidence = max(0.0, min(1.0, (height_score + alignment_score) / 2))
+        if confidence < TimerLocator.MIN_STRUCTURAL_CONFIDENCE:
+            return None
         return int(round(reference_height)), confidence
 
     @staticmethod
