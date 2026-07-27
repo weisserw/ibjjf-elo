@@ -1,5 +1,4 @@
 import dayjs from 'dayjs';
-import type { MouseEvent } from 'react';
 import { toast } from 'bulma-toast';
 import { countryNames, countryNamesPt } from './countries';
 import eliteTier1Badge from '/src/assets/elite-tier1.png';
