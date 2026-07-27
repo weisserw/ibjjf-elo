@@ -140,16 +140,28 @@ def _looks_like_starting_timer_seconds(seconds):
 
 def _trim_match_detail_timer_reset_events(raw_events):
     min_timer_seconds = None
+    saw_non_zero_score = False
     for index, raw_event in enumerate(raw_events):
+        if any(
+            (getattr(raw_event, f"{position}_{category}", None) or 0) != 0
+            for position in SCORE_POSITIONS
+            for category in SCORE_CATEGORIES
+        ):
+            saw_non_zero_score = True
+
         timer_seconds = _parse_match_time(getattr(raw_event, "timer_value", None))
         if timer_seconds is None:
             continue
-        if (
+        looks_like_reset = (
             min_timer_seconds is not None
             and timer_seconds > min_timer_seconds
             and _looks_like_starting_timer_seconds(timer_seconds)
-        ):
-            return raw_events[:index]
+        )
+        if looks_like_reset:
+            if saw_non_zero_score:
+                return raw_events[:index]
+            min_timer_seconds = timer_seconds
+            continue
         min_timer_seconds = (
             timer_seconds
             if min_timer_seconds is None

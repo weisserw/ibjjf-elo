@@ -190,6 +190,10 @@ interface MatchDetailAction {
 - Event match times count down from the latest running-timer snapshot. A stopped
   timer invalidates that running anchor, so subsequent events keep the stopped
   timer value until a new running snapshot resumes the countdown.
+- A clock increase to a whole-minute starting value trims later OCR events only
+  after a non-zero score has already appeared. This filters post-match clock
+  resets and replayed score events without treating a pre-start
+  `10:00 -> 0:00 -> 10:00` correction as the end of the match.
 - The final event is always appended and uses final match fields, not the last
   OCR score snapshot alone.
 - `videoOffsetSeconds` is stored in seconds from the source video. The frontend
@@ -241,6 +245,7 @@ Focused test file:
   - `test_same_timestamp_scores_are_combined_into_one_event`
   - `test_event_time_uses_running_timer_anchor_and_frame_offset`
   - `test_event_time_pauses_while_timer_is_stopped`
+  - `test_prestart_zero_timer_flip_does_not_hide_match_events`
   - `test_payload_includes_livestream_source_url_from_archive`
   - `test_final_event_includes_video_offset`
   - `test_final_method_classification`

@@ -624,6 +624,49 @@ class MatchDetailEventsTestCase(unittest.TestCase):
         self.assertEqual(payload["events"][0]["totals"]["red"]["points"], 2)
         self.assertEqual(payload["events"][-1]["videoOffsetSeconds"], 100)
 
+    def test_prestart_zero_timer_flip_does_not_hide_match_events(self):
+        payload = build_match_detail_payload(
+            match(
+                final_match_time_seconds=245,
+                final_top_points=8,
+                final_top_advantages=3,
+            ),
+            [
+                text_event(
+                    760,
+                    "10:00",
+                    timer_state="stopped",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                ),
+                text_event(770, "0:00", timer_state="stopped"),
+                text_event(771, "10:00", timer_state="stopped"),
+                text_event(784, "10:00", timer_state="running"),
+                text_event(948, "7:16", timer_state="stopped"),
+                text_event(957, "7:16", timer_state="running"),
+                text_event(997, top_advantages=1),
+                text_event(998, top_advantages=2),
+                text_event(1014, top_points=3),
+                text_event(1015, top_points=5),
+                text_event(1046, top_advantages=3),
+                text_event(1131, top_points=8),
+                text_event(1148, "4:05", timer_state="stopped"),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(payload["matchTime"], "10:00")
+        self.assertEqual(len(score_events), 4)
+        self.assertEqual(score_events[-1]["totals"]["red"]["points"], 8)
+        self.assertEqual(score_events[-1]["totals"]["red"]["advantages"], 3)
+        self.assertEqual(payload["events"][-1]["videoOffsetSeconds"], 1148)
+
     def test_timer_reset_does_not_display_saved_starting_final_time(self):
         payload = build_match_detail_payload(
             match(final_match_time_seconds=360, final_top_points=2),
