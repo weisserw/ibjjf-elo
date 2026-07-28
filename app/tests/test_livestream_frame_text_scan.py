@@ -3160,6 +3160,23 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         self.assertEqual(reading.value, "10:00")
         self.assertEqual(reading.predictions[0].digit, 1)
 
+    def test_small_stopped_timer_1000_ignores_dark_video_outside_display(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        timer_path = os.path.join(self.fixture_dir, "timer_stopped_1000.jpg")
+        reader = text_ocr.TimerDigitReader()
+
+        with open(timer_path, "rb") as fileobj:
+            image = text_ocr.Image.open(fileobj).convert("RGB")
+
+        reading = reader.read(image)
+
+        self.assertEqual(reading.state, "stopped")
+        self.assertEqual(reading.value, "10:00")
+        self.assertEqual(
+            [prediction.digit for prediction in reading.predictions],
+            [1, 0, 0, 0],
+        )
+
     def test_new_timer_0000_reads_as_stopped(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         reader = text_ocr.TimerDigitReader()

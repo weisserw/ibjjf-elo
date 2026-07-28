@@ -978,9 +978,12 @@ class TimerLocator:
         red_int = red.astype("int16")
         green_int = green.astype("int16")
         blue_int = blue.astype("int16")
+        red_background = (red > 130) & (green < 100) & (blue < 120)
+        black = (red < 70) & (green < 70) & (blue < 70)
+        black &= self._red_display_support(red_background)
         return {
-            "red_background": (red > 130) & (green < 100) & (blue < 120),
-            "black": (red < 70) & (green < 70) & (blue < 70),
+            "red_background": red_background,
+            "black": black,
             "white": (red > 180) & (green > 180) & (blue > 180),
             "running": (
                 (green > 110)
@@ -999,6 +1002,23 @@ class TimerLocator:
             "dark_background": (red < 60) & (green < 60) & (blue < 60),
             "dark_blue_background": (blue > 60) & (red < 60) & (green < 80),
         }
+
+    def _red_display_support(self, red_background):
+        """Fill broad red display bounds so black digits cannot leak into video."""
+        support = np.zeros_like(red_background)
+        component_count, _, stats, _ = cv2.connectedComponentsWithStats(
+            red_background.astype("uint8"), 8
+        )
+        for component_index in range(1, component_count):
+            x, y, width, height, area = stats[component_index]
+            if (
+                area < self.MIN_COMPONENT_AREA
+                or width < height * 1.5
+                or area / (width * height) < self.MIN_LOCAL_RED_BACKGROUND_DENSITY
+            ):
+                continue
+            support[y : y + height, x : x + width] = True
+        return support
 
     def _clean_foreground_mask(self, mask):
         mask = mask.copy()
