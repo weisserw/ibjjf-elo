@@ -141,6 +141,7 @@ def _looks_like_starting_timer_seconds(seconds):
 def _trim_match_detail_timer_reset_events(raw_events):
     min_timer_seconds = None
     saw_non_zero_score = False
+    saw_blank_after_score = False
     for index, raw_event in enumerate(raw_events):
         if any(
             (getattr(raw_event, f"{position}_{category}", None) or 0) != 0
@@ -148,6 +149,11 @@ def _trim_match_detail_timer_reset_events(raw_events):
             for category in SCORE_CATEGORIES
         ):
             saw_non_zero_score = True
+        if (
+            saw_non_zero_score
+            and getattr(raw_event, "scoreboard_state", None) == "blank"
+        ):
+            saw_blank_after_score = True
 
         timer_seconds = _parse_match_time(getattr(raw_event, "timer_value", None))
         if timer_seconds is None:
@@ -158,7 +164,7 @@ def _trim_match_detail_timer_reset_events(raw_events):
             and _looks_like_starting_timer_seconds(timer_seconds)
         )
         if looks_like_reset:
-            if saw_non_zero_score:
+            if saw_blank_after_score:
                 return raw_events[:index]
             min_timer_seconds = timer_seconds
             continue

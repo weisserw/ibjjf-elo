@@ -603,6 +603,7 @@ class MatchDetailEventsTestCase(unittest.TestCase):
                 text_event(20, "5:00", timer_state="running", top_points=0),
                 text_event(70, "4:10", top_points=2),
                 text_event(100, "1:26", timer_state="stopped"),
+                text_event(110, scoreboard_state="blank", timer_state="blank"),
                 text_event(
                     120,
                     "4:00",
@@ -667,6 +668,57 @@ class MatchDetailEventsTestCase(unittest.TestCase):
         self.assertEqual(score_events[-1]["totals"]["red"]["advantages"], 3)
         self.assertEqual(payload["events"][-1]["videoOffsetSeconds"], 1148)
 
+    def test_stopped_timer_adjustment_to_whole_minute_keeps_later_events(self):
+        payload = build_match_detail_payload(
+            match(
+                final_match_time_seconds=0,
+                final_top_advantages=2,
+                final_top_penalties=2,
+                final_bottom_advantages=1,
+                final_bottom_penalties=2,
+            ),
+            [
+                text_event(
+                    0,
+                    "10:00",
+                    timer_state="stopped",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                ),
+                text_event(53, "10:00", timer_state="running"),
+                text_event(330, bottom_penalties=1),
+                text_event(332, top_penalties=1),
+                text_event(339, "6:26", timer_state="running"),
+                text_event(487, "3:59", timer_state="stopped"),
+                text_event(489, "4:00", timer_state="stopped"),
+                text_event(514, "4:00", timer_state="running"),
+                text_event(525, top_penalties=2),
+                text_event(548, "3:47", timer_state="stopped"),
+                text_event(554, "3:55", timer_state="stopped"),
+                text_event(562, "3:55", timer_state="running"),
+                text_event(571, bottom_penalties=2),
+                text_event(581, top_advantages=1),
+                text_event(584, bottom_advantages=1),
+                text_event(768, top_advantages=2),
+                text_event(777, "0:00", timer_state="stopped"),
+            ],
+        )
+
+        score_events = [
+            event for event in payload["events"] if event["kind"] == "score"
+        ]
+        self.assertEqual(payload["matchTime"], "10:00")
+        self.assertTrue(
+            any(event["videoOffsetSeconds"] == 525 for event in score_events)
+        )
+        self.assertEqual(score_events[-1]["totals"]["red"]["advantages"], 2)
+        self.assertEqual(score_events[-1]["totals"]["blue"]["advantages"], 1)
+        self.assertEqual(payload["events"][-1]["videoOffsetSeconds"], 777)
+
     def test_timer_reset_does_not_display_saved_starting_final_time(self):
         payload = build_match_detail_payload(
             match(final_match_time_seconds=360, final_top_points=2),
@@ -674,6 +726,7 @@ class MatchDetailEventsTestCase(unittest.TestCase):
                 text_event(20, "6:00", timer_state="running", top_points=0),
                 text_event(70, "5:10", top_points=2),
                 text_event(100, "0:00", timer_state="stopped"),
+                text_event(110, scoreboard_state="blank", timer_state="blank"),
                 text_event(
                     120,
                     "6:00",
