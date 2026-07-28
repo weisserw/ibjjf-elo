@@ -43,6 +43,8 @@ MIN_SCORE_MARGIN = 8.0
 MIN_NON_CURSOR_SIDE_NAME_SCORE = 60.0
 MIN_RESET_NAME_CONFIDENCE = 0.9
 MIN_CONTINUATION_NAME_SCORE = 82.0
+STALE_PRESTART_NAME_GAP_SECONDS = 3 * 60
+MIN_CONFLICTING_POSTSTART_PAIRS = 2
 LOOKAHEAD_MATCHES = 8
 TIME_MATCH_WINDOW_SECONDS = 20 * 60
 CONTINUATION_TIME_WINDOW_SECONDS = 3 * 60
@@ -299,7 +301,7 @@ def _position_name_pairs_from_window(
         if top_name == "Victory":
             top_name = None
         pair = (top_name, point.state.bottom_athlete_name)
-        if pair != (None, None) and pair not in pairs:
+        if pair != (None, None):
             pairs.append(pair)
     return pairs
 
@@ -634,6 +636,142 @@ def _candidate_choices(
     return choices
 
 
+def _prestart_lead_seconds(window: MatchWindow) -> int | None:
+    if not window.events or window.video_start_offset_seconds is None:
+        return None
+    first_event = window.events[0]
+    if (
+        first_event.timer_state == "running"
+        and parse_timer_seconds(first_event.timer_value) is not None
+    ):
+        return None
+    return window.video_start_offset_seconds - window.start_second
+
+
+def _observed_pair_candidate_scores(
+    pair: tuple[str | None, str | None],
+    choice: MatchChoice,
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    top_name, bottom_name = pair
+    return (
+        (
+            _best_name_score(
+                [top_name] if top_name else [],
+                choice.top_participant.athlete.name,
+            ),
+            _best_name_score(
+                [bottom_name] if bottom_name else [],
+                choice.bottom_participant.athlete.name,
+            ),
+        ),
+        (
+            _best_name_score(
+                [top_name] if top_name else [],
+                choice.bottom_participant.athlete.name,
+            ),
+            _best_name_score(
+                [bottom_name] if bottom_name else [],
+                choice.top_participant.athlete.name,
+            ),
+        ),
+    )
+
+
+def _observed_pair_two_sided_support_score(
+    pair: tuple[str | None, str | None],
+    choice: MatchChoice,
+) -> float:
+    return max(
+        min(side_scores)
+        for side_scores in _observed_pair_candidate_scores(pair, choice)
+    )
+
+
+def _observed_pair_supports_candidate(
+    pair: tuple[str | None, str | None],
+    choice: MatchChoice,
+) -> bool:
+    return (
+        _observed_pair_two_sided_support_score(pair, choice)
+        >= MIN_NON_CURSOR_SIDE_NAME_SCORE
+    )
+
+
+def _observed_pairs_describe_same_pair(
+    first: tuple[str | None, str | None],
+    second: tuple[str | None, str | None],
+) -> bool:
+    first_top, first_bottom = first
+    second_top, second_bottom = second
+    return (
+        _names_are_continuation_match(first_top, second_top)
+        and _names_are_continuation_match(first_bottom, second_bottom)
+    ) or (
+        _names_are_continuation_match(first_top, second_bottom)
+        and _names_are_continuation_match(first_bottom, second_top)
+    )
+
+
+def _complete_poststart_name_pairs(
+    window: MatchWindow,
+) -> list[tuple[str, str]]:
+    return [
+        (top_name, bottom_name)
+        for top_name, bottom_name in window.position_name_pairs
+        if top_name and bottom_name
+    ]
+
+
+def _best_poststart_two_sided_support_score(
+    window: MatchWindow,
+    choice: MatchChoice,
+) -> float:
+    return max(
+        (
+            _observed_pair_two_sided_support_score(pair, choice)
+            for pair in _complete_poststart_name_pairs(window)
+        ),
+        default=0.0,
+    )
+
+
+def _coherent_conflicting_poststart_pair_count(
+    window: MatchWindow,
+    choice: MatchChoice,
+) -> int:
+    conflicting_pairs = [
+        pair
+        for pair in _complete_poststart_name_pairs(window)
+        if not _observed_pair_supports_candidate(pair, choice)
+    ]
+    return max(
+        (
+            sum(
+                _observed_pairs_describe_same_pair(reference, pair)
+                for pair in conflicting_pairs
+            )
+            for reference in conflicting_pairs
+        ),
+        default=0,
+    )
+
+
+def _has_stale_conflicting_prestart_evidence(
+    window: MatchWindow,
+    choice: MatchChoice,
+) -> bool:
+    prestart_lead_seconds = _prestart_lead_seconds(window)
+    return (
+        prestart_lead_seconds is not None
+        and prestart_lead_seconds >= STALE_PRESTART_NAME_GAP_SECONDS
+        and choice.score >= MIN_NAME_SCORE
+        and _best_poststart_two_sided_support_score(window, choice)
+        < MIN_NON_CURSOR_SIDE_NAME_SCORE
+        and _coherent_conflicting_poststart_pair_count(window, choice)
+        >= MIN_CONFLICTING_POSTSTART_PAIRS
+    )
+
+
 def choose_match_for_window(
     window: MatchWindow,
     candidates: list[Candidate],
@@ -646,6 +784,13 @@ def choose_match_for_window(
     used_match_ids = used_match_ids or set()
     speculative_match_ids = speculative_match_ids or set()
     choices = _candidate_choices(window, candidates, cursor, used_match_ids)
+    if not choices:
+        return None
+    choices = [
+        choice
+        for choice in choices
+        if not _has_stale_conflicting_prestart_evidence(window, choice)
+    ]
     if not choices:
         return None
     best = choices[0]
@@ -1193,7 +1338,7 @@ def _final_score_dict(state: TextState) -> dict[str, int | None]:
     return {field: getattr(state, field) for field in SCORE_FIELDS}
 
 
-def _choice_debug(choice: MatchChoice) -> dict:
+def _choice_debug(window: MatchWindow, choice: MatchChoice) -> dict:
     match = choice.candidate.match
     return {
         "match_id": str(match.id),
@@ -1203,6 +1348,16 @@ def _choice_debug(choice: MatchChoice) -> dict:
         "time_delta_seconds": choice.time_delta_seconds,
         "score": round(choice.score, 2),
         "raw_name_score": round(choice.raw_score, 2),
+        "prestart_lead_seconds": _prestart_lead_seconds(window),
+        "poststart_two_sided_support_score": round(
+            _best_poststart_two_sided_support_score(window, choice), 2
+        ),
+        "coherent_conflicting_poststart_pairs": (
+            _coherent_conflicting_poststart_pair_count(window, choice)
+        ),
+        "stale_prestart_evidence": _has_stale_conflicting_prestart_evidence(
+            window, choice
+        ),
         "top_participant": choice.top_participant.athlete.name,
         "bottom_participant": choice.bottom_participant.athlete.name,
         "winner": next(
@@ -1238,6 +1393,8 @@ def _rejection_reason(
         return "no_running_clock"
     if not choices:
         return "no_candidates_in_cursor_or_time_window"
+    if _has_stale_conflicting_prestart_evidence(window, choices[0]):
+        return "stale_conflicting_prestart_names"
     if choices[0].score < MIN_NAME_SCORE:
         return "below_name_score_threshold"
     if not any(
@@ -1422,12 +1579,12 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
                 "final_timer_seconds": window.final_timer_seconds,
                 "has_running_timer": window.has_running_timer,
                 "final_score": _final_score_dict(window.final_state),
-                "matched": _choice_debug(choice) if choice else None,
+                "matched": _choice_debug(window, choice) if choice else None,
                 "continuation": continuation,
                 "rejection_reason": _rejection_reason(
                     window, choices, choice, cursor_before
                 ),
-                "top_candidates": [_choice_debug(item) for item in choices[:5]],
+                "top_candidates": [_choice_debug(window, item) for item in choices[:5]],
             }
         )
     return SimpleNamespace(

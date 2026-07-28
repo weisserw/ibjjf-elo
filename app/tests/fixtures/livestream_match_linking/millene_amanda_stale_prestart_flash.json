@@ -1,0 +1,185 @@
+{
+  "source": {
+    "scan_id": "797fffc1-2e91-4c39-9cb8-0bb7c6e68de9",
+    "archive_id": null,
+    "status": "success",
+    "parser_profile": "auto",
+    "score_engine": "fixed_digit",
+    "name_engine": "paddle",
+    "derived_from": "log.txt decision stream; source scan database unavailable locally"
+  },
+  "range": {
+    "start_second": 34140,
+    "end_second": 36540
+  },
+  "events": [
+    {
+      "frame_second": 34167,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "6:00",
+      "top_athlete_name": "ZAIAN LANGELLA",
+      "bottom_athlete_name": "MILLENE COSTA LOPES"
+    },
+    {
+      "frame_second": 34175,
+      "timer_state": "running",
+      "timer_value": "5:52"
+    },
+    {
+      "frame_second": 34542,
+      "bottom_points": 4,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    },
+    {
+      "frame_second": 34646,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "6:00",
+      "top_athlete_name": "THAYLA VITORIA RIBEI",
+      "bottom_athlete_name": "LETICIA CARVALHO DE"
+    },
+    {
+      "frame_second": 34740,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "6:00",
+      "top_athlete_name": "MILLENE COSTA LOPES",
+      "bottom_athlete_name": "AMANDA DA SILVA QUE"
+    },
+    {
+      "frame_second": 35033,
+      "timer_state": "running",
+      "timer_value": "5:50",
+      "top_athlete_name": "GUSTAVO MELLO BEDIN",
+      "bottom_athlete_name": "HYAGO ALEXANDRE LI"
+    },
+    {
+      "frame_second": 35043,
+      "top_athlete_name": "GUSTAVO MELLO BEDIN",
+      "bottom_athlete_name": "HYAGO ALEXANDRE LL"
+    },
+    {
+      "frame_second": 35472,
+      "top_points": 4,
+      "top_advantages": 3,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 1,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    },
+    {
+      "frame_second": 35482,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "6:00",
+      "top_athlete_name": "THAYLA VITORIA RIBEI",
+      "bottom_athlete_name": "LETICIA CARVALHO DE"
+    },
+    {
+      "frame_second": 35519,
+      "timer_state": "running",
+      "timer_value": "5:23",
+      "top_athlete_name": "THAYLA VITORIA RIBEI",
+      "bottom_athlete_name": "LETICIA CARVALHO DE"
+    },
+    {
+      "frame_second": 35873,
+      "top_points": 6,
+      "top_advantages": 1,
+      "top_penalties": 1,
+      "bottom_points": 7,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "2:13"
+    },
+    {
+      "frame_second": 35883,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "5:00",
+      "top_athlete_name": "JOAO VICTORM. LUNA",
+      "bottom_athlete_name": "ALLAN PANTALEAO SE"
+    },
+    {
+      "frame_second": 35957,
+      "timer_state": "running",
+      "timer_value": "3:46",
+      "top_athlete_name": "JOAO VICTORM. LUNA",
+      "bottom_athlete_name": "ALLAN PANTALEAO SE"
+    },
+    {
+      "frame_second": 36206,
+      "top_points": 2,
+      "bottom_points": 0,
+      "timer_state": "stopped",
+      "timer_value": "1:44"
+    },
+    {
+      "frame_second": 36216,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "scoreboard_state": "visible",
+      "timer_state": "stopped",
+      "timer_value": "5:00",
+      "top_athlete_name": "MILLENE COSTA LOPES",
+      "bottom_athlete_name": "AMANDA DA SILVA QUE"
+    },
+    {
+      "frame_second": 36229,
+      "timer_state": "running",
+      "timer_value": "4:47",
+      "top_athlete_name": "MILLENE COSTA LOPES",
+      "bottom_athlete_name": "Amanda da Silva Quevedo"
+    },
+    {
+      "frame_second": 36483,
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 8,
+      "bottom_advantages": 2,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "1:35"
+    }
+  ]
+}

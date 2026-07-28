@@ -101,7 +101,11 @@ def _print_decision(decision: dict, verbose: bool) -> None:
                 f"order={candidate['order_index']} "
                 f"expected={_format_second(candidate['expected_start_second'])} "
                 f"stored_offset={_format_second(candidate['stored_video_start_offset_seconds'])} "
-                f"delta={candidate['time_delta_seconds']}s"
+                f"delta={candidate['time_delta_seconds']}s "
+                f"prestart_gap={candidate['prestart_lead_seconds']}s "
+                f"poststart_support={candidate['poststart_two_sided_support_score']} "
+                f"conflicts={candidate['coherent_conflicting_poststart_pairs']} "
+                f"stale={candidate['stale_prestart_evidence']}"
             )
 
 

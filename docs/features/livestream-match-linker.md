@@ -68,9 +68,11 @@ Automatic pipeline flow:
    scoreboards, victory screens, stopped timers, and score changes.
 5. Clears prior links for the archive unless running in dry-run mode.
 6. Loads candidate matches for the archive's livestream rows.
-7. Scores name history and time alignment to identify the match, locks athlete
-   orientation from confident post-start name pairs, tracks used/closed
-   matches, and applies continuation fallback for split windows.
+7. Scores name history and time alignment to identify the match, rejects a
+   new-match choice when a long pre-clock name load is contradicted by repeated
+   coherent post-start pairs, locks athlete orientation from confident
+   post-start name pairs, tracks used/closed matches, and applies continuation
+   fallback for split windows.
 8. Writes event links and match summary fields, then returns a summary with
    `linked`, `windows`, `candidates`, and optional `skipped`.
 
@@ -142,8 +144,9 @@ Useful flags:
 - `start_second`, `end_second`, and `video_start_offset_seconds`.
 - `events`.
 - Deduped `top_names` and `bottom_names`.
-- Chronological `position_name_pairs` observed after the timer starts, used to
-  choose the first confident orientation.
+- Chronological `position_name_pairs` from name-bearing OCR events observed
+  after the timer starts, used to choose the first confident orientation and
+  detect repeated contradictory pairs.
 - `final_state`, `final_timer_seconds`, and `has_running_timer`.
 
 Final timer selection follows timer transitions rather than carried state. A
@@ -174,6 +177,15 @@ non-speculatively, both scoreboard sides independently score at least `60`,
 and its expected start is within three minutes. The usual eight-point margin
 over the next candidate still applies. This lets mat order contribute evidence
 without allowing a speculative forward match or one-sided OCR hit to cascade.
+
+Pre-start names remain part of the aggregate identity score because they are
+often the clearest observations. For new-match selection only, a candidate is
+rejected when its names lead the first running clock by at least three minutes,
+no complete post-start pair supports both candidate athletes at the existing
+side threshold, and at least two coherent complete post-start pairs identify a
+different bout. A long delay with confirming names remains valid, and one
+contradictory pair is treated as OCR noise. Active-continuation and
+continuation-fallback choices do not use this stale-evidence guard.
 
 Persistent match outputs live on `Match` and `MatchParticipant`:
 
@@ -210,10 +222,14 @@ app/tests/fixtures/livestream_match_linking/
 ```
 
 Existing real-world fixtures cover stopped score updates, linking until blank
-windows, and repeated athlete names split by blank resets. Synthetic
-regressions also cover a pre-start top/bottom correction, reject later
-continuation-window OCR swaps after positions have been locked, and allow a
-slightly degraded exact-next match only after a confirmed predecessor.
+windows, and repeated athlete names split by blank resets. A production
+decision-stream reconstruction also covers a stale Millene / Amanda broadcast
+graphic followed by repeated Gustavo / Hyago observations. Synthetic
+regressions cover a pre-start top/bottom correction, reject later
+continuation-window OCR swaps after positions have been locked, allow a
+slightly degraded exact-next match only after a confirmed predecessor, retain
+long pre-start delays with confirming or swapped names, and require more than
+one coherent contradictory post-start pair before rejecting pre-start names.
 
 ## Previously Surfaced Issues From Git History
 

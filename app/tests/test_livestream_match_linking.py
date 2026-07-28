@@ -29,6 +29,7 @@ from test_db import TestDbMixin
 
 import livestream_frame_text_scan as text_scan
 from livestream_match_linking import (
+    analyze_text_scan_links,
     extract_match_windows,
     link_completed_text_scan,
     relink_completed_text_scans_for_events,
@@ -139,6 +140,81 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             .order_by(LivestreamFrameTextEvent.frame_second)
             .all()
         ]
+
+    def _stale_prestart_events(
+        self,
+        poststart_pairs,
+        *,
+        prestart_pair=("CANDIDATE ALPHA", "CANDIDATE BETA"),
+        prestart_second=10,
+        running_second=200,
+        later_running_second=None,
+    ):
+        events = [
+            self._event_data(
+                prestart_second,
+                scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                timer_state="stopped",
+                timer_value="5:00",
+                top_points=0,
+                top_advantages=0,
+                top_penalties=0,
+                bottom_points=0,
+                bottom_advantages=0,
+                bottom_penalties=0,
+                top_athlete_name=prestart_pair[0],
+                bottom_athlete_name=prestart_pair[1],
+            )
+        ]
+        for index, pair in enumerate(poststart_pairs):
+            events.append(
+                self._event_data(
+                    running_second + index * 10,
+                    timer_state="running" if index == 0 else None,
+                    timer_value="4:50" if index == 0 else None,
+                    top_athlete_name=pair[0],
+                    bottom_athlete_name=pair[1],
+                )
+            )
+        events.append(
+            self._event_data(
+                running_second + 50,
+                timer_state="stopped",
+                timer_value="0:00",
+            )
+        )
+        if later_running_second is not None:
+            events.extend(
+                [
+                    self._event_data(
+                        later_running_second - 30,
+                        scoreboard_state=text_scan.SCOREBOARD_STATE_BLANK,
+                        timer_state="blank",
+                    ),
+                    self._event_data(
+                        later_running_second - 20,
+                        scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                        timer_state="stopped",
+                        timer_value="5:00",
+                        top_points=0,
+                        top_advantages=0,
+                        top_penalties=0,
+                        bottom_points=0,
+                        bottom_advantages=0,
+                        bottom_penalties=0,
+                        top_athlete_name=prestart_pair[0],
+                        bottom_athlete_name=prestart_pair[1],
+                    ),
+                    self._event_data(
+                        later_running_second,
+                        timer_state="running",
+                        timer_value="4:50",
+                        top_athlete_name=prestart_pair[0],
+                        bottom_athlete_name=prestart_pair[1],
+                    ),
+                ]
+            )
+        return events
 
     def _match_setup(
         self,
@@ -382,6 +458,68 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(kayla_lauren_windows[0].video_start_offset_seconds, 8303)
         self.assertIsNone(kayla_lauren_windows[1].video_start_offset_seconds)
+
+    def test_millene_amanda_fixture_rejects_stale_prestart_flash(self):
+        matches = self._match_setup(
+            pairs=[
+                ("Millene Costa Lopes", "Zaian Langella"),
+                (
+                    "Leticia Carvalho de Deus",
+                    "Thayla Vitória Ribeiro Boeno",
+                ),
+                ("Amanda da Silva Quevedo", "Millene Costa Lopes"),
+                ("Mirella Lopes Dedéco", "Amanda da Silva Quevedo"),
+            ],
+            match_start=datetime(2026, 1, 1, 9, 0),
+            match_offsets=[1790, 3110, 3830, 4730],
+        )
+        _, scan = self._stored_events(
+            self._fixture_events("millene_amanda_stale_prestart_flash.json")
+        )
+
+        analysis = analyze_text_scan_links(db.session, scan)
+        stale_decision = next(
+            decision
+            for decision in analysis.decisions
+            if decision["start_second"] == 34740
+        )
+        self.assertIsNone(stale_decision["matched"])
+        self.assertEqual(
+            stale_decision["rejection_reason"],
+            "stale_conflicting_prestart_names",
+        )
+        self.assertTrue(stale_decision["top_candidates"][0]["stale_prestart_evidence"])
+        self.assertEqual(
+            stale_decision["top_candidates"][0]["prestart_lead_seconds"],
+            293,
+        )
+        self.assertGreaterEqual(
+            stale_decision["top_candidates"][0]["coherent_conflicting_poststart_pairs"],
+            2,
+        )
+
+        link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        leticia_thayla = db.session.get(Match, matches[1].id)
+        self.assertEqual(leticia_thayla.video_start_offset_seconds, 35519)
+
+        amanda_millene = db.session.get(Match, matches[2].id)
+        self.assertEqual(amanda_millene.video_start_offset_seconds, 36229)
+        self.assertEqual(
+            self._linked_seconds(amanda_millene),
+            [36216, 36229, 36483],
+        )
+        self.assertGreaterEqual(min(self._linked_seconds(amanda_millene)), 36216)
+        false_window_event_count = LivestreamFrameTextEvent.query.filter(
+            LivestreamFrameTextEvent.match_id == amanda_millene.id,
+            LivestreamFrameTextEvent.frame_second.between(34740, 35472),
+        ).count()
+        self.assertEqual(false_window_event_count, 0)
+        self.assertEqual(amanda_millene.final_top_points, 0)
+        self.assertEqual(amanda_millene.final_bottom_points, 8)
+        self.assertEqual(amanda_millene.final_bottom_advantages, 2)
+        self.assertEqual(amanda_millene.final_match_time_seconds, 95)
 
     def test_day_number_uses_first_match_date_instead_of_registration_start(self):
         matches = self._match_setup(
@@ -650,6 +788,114 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(summary.linked, 2)
         self.assertEqual(linked_match.video_start_offset_seconds, 31)
         self.assertEqual(self._linked_seconds(linked_match), [10, 31, 81])
+
+    def test_stale_prestart_names_do_not_identify_conflicting_running_window(self):
+        matches = self._match_setup(
+            pairs=[("CANDIDATE ALPHA", "CANDIDATE BETA")],
+            match_offsets=[200],
+        )
+        _, scan = self._stored_events(
+            self._stale_prestart_events(
+                [
+                    ("UNRELATED GAMMA", "UNRELATED DELTA"),
+                    ("UNRELATED GAMMA", "UNRELATED DELTA"),
+                ]
+            )
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        linked_match = db.session.get(Match, matches[0].id)
+        self.assertEqual(summary.linked, 0)
+        self.assertIsNone(linked_match.video_start_offset_seconds)
+        self.assertEqual(self._linked_seconds(linked_match), [])
+
+    def test_true_later_window_can_use_match_rejected_from_stale_prestart_window(
+        self,
+    ):
+        matches = self._match_setup(
+            pairs=[("CANDIDATE ALPHA", "CANDIDATE BETA")],
+            match_offsets=[320],
+        )
+        _, scan = self._stored_events(
+            self._stale_prestart_events(
+                [
+                    ("UNRELATED GAMMA", "UNRELATED DELTA"),
+                    ("UNRELATED GAMMA", "UNRELATED DELTA"),
+                ],
+                later_running_second=320,
+            )
+        )
+
+        link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        linked_match = db.session.get(Match, matches[0].id)
+        self.assertEqual(linked_match.video_start_offset_seconds, 320)
+        self.assertEqual(self._linked_seconds(linked_match), [300, 320])
+
+    def test_long_prestart_delay_is_allowed_when_running_names_support_candidate(
+        self,
+    ):
+        matches = self._match_setup(
+            pairs=[("CANDIDATE ALPHA", "CANDIDATE BETA")],
+            match_offsets=[200],
+        )
+        _, scan = self._stored_events(
+            self._stale_prestart_events(
+                [
+                    ("CANDIDATE ALPHA", "CANDIDATE BETA"),
+                    ("CANDIDATE ALPHA", "CANDIDATE BETA"),
+                ]
+            )
+        )
+
+        link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        linked_match = db.session.get(Match, matches[0].id)
+        self.assertEqual(linked_match.video_start_offset_seconds, 200)
+        self.assertEqual(self._linked_seconds(linked_match), [10, 200, 210, 250])
+
+    def test_single_conflicting_poststart_pair_does_not_discard_prestart_names(
+        self,
+    ):
+        matches = self._match_setup(
+            pairs=[("CANDIDATE ALPHA", "CANDIDATE BETA")],
+            match_offsets=[200],
+        )
+        _, scan = self._stored_events(
+            self._stale_prestart_events([("UNRELATED GAMMA", "UNRELATED DELTA")])
+        )
+
+        link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        linked_match = db.session.get(Match, matches[0].id)
+        self.assertEqual(linked_match.video_start_offset_seconds, 200)
+        self.assertEqual(self._linked_seconds(linked_match), [10, 200, 250])
+
+    def test_poststart_support_accepts_swapped_orientation(self):
+        matches = self._match_setup(
+            pairs=[("CANDIDATE ALPHA", "CANDIDATE BETA")],
+            match_offsets=[200],
+        )
+        _, scan = self._stored_events(
+            self._stale_prestart_events(
+                [
+                    ("CANDIDATE BETA", "CANDIDATE ALPHA"),
+                    ("CANDIDATE BETA", "CANDIDATE ALPHA"),
+                ]
+            )
+        )
+
+        link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        linked_match = db.session.get(Match, matches[0].id)
+        self.assertEqual(linked_match.video_start_offset_seconds, 200)
+        self.assertEqual(self._linked_seconds(linked_match), [10, 200, 210, 250])
 
     def test_positions_lock_from_names_observed_when_timer_starts(self):
         matches = self._match_setup(
