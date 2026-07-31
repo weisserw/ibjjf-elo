@@ -710,7 +710,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
-    def test_matches_filter_by_exact_score_differential_and_other_score_filter(
+    def test_matches_filter_by_minimum_score_differential_and_other_score_filter(
         self, mock_livestreams, _mock_s3
     ):
         mock_livestreams.return_value = self._patch_livestreams()
@@ -723,7 +723,7 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
 
         try:
             response = self.client.get(
-                "/api/matches?gi=true&score_differential=4&minimum_advantages=2"
+                "/api/matches?gi=true&score_differential=3&minimum_advantages=2"
             )
             data = response.get_json()
         finally:

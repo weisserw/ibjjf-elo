@@ -185,8 +185,8 @@ returned.
 - `minimum_points`, `minimum_advantages`, and `minimum_penalties` are
   non-negative inclusive thresholds. A match qualifies when either scoreboard
   side has at least the requested value.
-- `score_differential` is a non-negative exact absolute difference between the
-  two final point totals. Both point totals must therefore be known.
+- `score_differential` is a non-negative minimum absolute difference between
+  the two final point totals. Both point totals must therefore be known.
 - `referee_decision` requires `final_match_time_seconds = 0`, equal known
   points, advantages, and penalties on both sides, and no DQ note.
 - Score filters are combined with each other and all other filters using AND.

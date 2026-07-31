@@ -1344,7 +1344,7 @@ def matches():
     if score_differential is not None:
         filters += """AND ABS(
             m.final_top_points - m.final_bottom_points
-        ) = :score_differential
+        ) >= :score_differential
         """
         params["score_differential"] = score_differential
 
