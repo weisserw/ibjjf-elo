@@ -600,6 +600,7 @@ def _candidate_choices(
     candidates: list[Candidate],
     cursor: int,
     used_match_ids: set | None = None,
+    allow_stale_cursor_recovery: bool = False,
 ) -> list[MatchChoice]:
     used_match_ids = used_match_ids or set()
     choices = []
@@ -613,9 +614,12 @@ def _candidate_choices(
         )
         if candidate.order_index < cursor and not time_aligned:
             continue
-        if gap > LOOKAHEAD_MATCHES and not time_aligned:
-            continue
         choice = _choice_for_candidate(window, candidate)
+        if gap > LOOKAHEAD_MATCHES and not time_aligned:
+            if not allow_stale_cursor_recovery:
+                continue
+            if _best_poststart_two_sided_support_score(window, choice) < MIN_NAME_SCORE:
+                continue
         if time_aligned:
             order_penalty = 0.0
             time_penalty = min(abs(time_delta) / 60.0 * 0.4, 12.0)
@@ -778,12 +782,19 @@ def choose_match_for_window(
     cursor: int,
     used_match_ids: set | None = None,
     speculative_match_ids: set | None = None,
+    allow_stale_cursor_recovery: bool = False,
 ) -> MatchChoice | None:
     if not window.has_running_timer:
         return None
     used_match_ids = used_match_ids or set()
     speculative_match_ids = speculative_match_ids or set()
-    choices = _candidate_choices(window, candidates, cursor, used_match_ids)
+    choices = _candidate_choices(
+        window,
+        candidates,
+        cursor,
+        used_match_ids,
+        allow_stale_cursor_recovery=allow_stale_cursor_recovery,
+    )
     if not choices:
         return None
     choices = [
@@ -812,6 +823,16 @@ def choose_match_for_window(
     if not _has_non_cursor_name_evidence(window, best, cursor):
         return None
     return best
+
+
+def _rejected_stale_cursor_choice(
+    window: MatchWindow, choices: list[MatchChoice], cursor: int
+) -> bool:
+    return bool(
+        choices
+        and choices[0].candidate.order_index == cursor
+        and _has_stale_conflicting_prestart_evidence(window, choices[0])
+    )
 
 
 def choose_active_continuation_for_window(
@@ -1507,10 +1528,17 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
     speculative_forward_links = {}
     speculative_forward_decisions = {}
     active_candidate = None
+    allow_stale_cursor_recovery = False
     decisions = []
     for index, window in enumerate(windows, start=1):
         cursor_before = cursor
-        choices = _candidate_choices(window, candidates, cursor, used_match_ids)
+        choices = _candidate_choices(
+            window,
+            candidates,
+            cursor,
+            used_match_ids,
+            allow_stale_cursor_recovery=allow_stale_cursor_recovery,
+        )
         choice = choose_active_continuation_for_window(window, active_candidate)
         continuation = choice is not None
         if not choice:
@@ -1520,6 +1548,7 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
                 cursor,
                 used_match_ids,
                 set(speculative_forward_links),
+                allow_stale_cursor_recovery=allow_stale_cursor_recovery,
             )
         if not choice:
             choice = choose_continuation_for_window(
@@ -1547,6 +1576,7 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
                         ] = "released_out_of_order"
                         linked -= 1
                 cursor = max(cursor, choice.candidate.order_index + 1)
+                allow_stale_cursor_recovery = False
                 used_match_ids.add(choice.candidate.match.id)
                 if (
                     choice.candidate.order_index - cursor_before
@@ -1564,8 +1594,11 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
                 None if _window_closes_active_match(window) else choice.candidate
             )
             linked += 1
-        elif _window_closes_active_match(window):
-            active_candidate = None
+        else:
+            if _rejected_stale_cursor_choice(window, choices, cursor_before):
+                allow_stale_cursor_recovery = True
+            if _window_closes_active_match(window):
+                active_candidate = None
         decisions.append(
             {
                 "window_index": index,
@@ -1664,8 +1697,16 @@ def link_completed_text_scan(
     speculative_forward_links = {}
     speculative_forward_windows = {}
     active_candidate = None
+    allow_stale_cursor_recovery = False
     for window in windows:
         cursor_before = cursor
+        choices = _candidate_choices(
+            window,
+            candidates,
+            cursor,
+            used_match_ids,
+            allow_stale_cursor_recovery=allow_stale_cursor_recovery,
+        )
         choice = choose_active_continuation_for_window(window, active_candidate)
         continuation = choice is not None
         if not choice:
@@ -1675,6 +1716,7 @@ def link_completed_text_scan(
                 cursor,
                 used_match_ids,
                 set(speculative_forward_links),
+                allow_stale_cursor_recovery=allow_stale_cursor_recovery,
             )
         if not choice:
             choice = choose_continuation_for_window(
@@ -1682,6 +1724,8 @@ def link_completed_text_scan(
             )
             continuation = choice is not None
         if not choice:
+            if _rejected_stale_cursor_choice(window, choices, cursor_before):
+                allow_stale_cursor_recovery = True
             if _window_closes_active_match(window):
                 active_candidate = None
             continue
@@ -1709,6 +1753,7 @@ def link_completed_text_scan(
                         _clear_stored_choice(stored_window, stored_choice)
                     linked -= 1
             cursor = max(cursor, choice.candidate.order_index + 1)
+            allow_stale_cursor_recovery = False
             used_match_ids.add(choice.candidate.match.id)
             if (
                 choice.candidate.order_index - cursor_before

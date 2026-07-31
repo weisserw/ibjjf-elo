@@ -835,6 +835,78 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(linked_match.video_start_offset_seconds, 320)
         self.assertEqual(self._linked_seconds(linked_match), [300, 320])
 
+    def test_stale_cursor_rejection_recovers_beyond_lookahead(self):
+        filler_pairs = [
+            (f"FILLER TOP {index}", f"FILLER BOTTOM {index}") for index in range(1, 10)
+        ]
+        matches = self._match_setup(
+            pairs=[
+                ("CANDIDATE ALPHA", "CANDIDATE BETA"),
+                *filler_pairs,
+                ("RECOVERY TOP", "RECOVERY BOTTOM"),
+            ],
+            match_start=datetime(2026, 1, 1, 8, 0),
+        )
+        events = self._stale_prestart_events(
+            [
+                ("UNRELATED GAMMA", "UNRELATED DELTA"),
+                ("UNRELATED GAMMA", "UNRELATED DELTA"),
+            ]
+        )
+        events.extend(
+            [
+                self._event_data(
+                    280,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_BLANK,
+                    timer_state="blank",
+                ),
+                self._event_data(
+                    300,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="RECOVERY TOP",
+                    bottom_athlete_name="RECOVERY BOTTOM",
+                ),
+                self._event_data(
+                    320,
+                    timer_state="running",
+                    timer_value="4:50",
+                    top_athlete_name="RECOVERY TOP",
+                    bottom_athlete_name="RECOVERY BOTTOM",
+                ),
+                self._event_data(370, timer_state="stopped", timer_value="0:00"),
+            ]
+        )
+        _, scan = self._stored_events(events)
+
+        analysis = analyze_text_scan_links(db.session, scan)
+        self.assertEqual(
+            analysis.decisions[0]["rejection_reason"],
+            "stale_conflicting_prestart_names",
+        )
+        self.assertEqual(
+            analysis.decisions[1]["matched"]["match_id"],
+            str(matches[-1].id),
+        )
+        self.assertEqual(analysis.decisions[1]["cursor_before"], 0)
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        stale_match = db.session.get(Match, matches[0].id)
+        recovered_match = db.session.get(Match, matches[-1].id)
+        self.assertEqual(summary.linked, 1)
+        self.assertIsNone(stale_match.video_start_offset_seconds)
+        self.assertEqual(recovered_match.video_start_offset_seconds, 320)
+        self.assertEqual(self._linked_seconds(recovered_match), [300, 320, 370])
+
     def test_long_prestart_delay_is_allowed_when_running_names_support_candidate(
         self,
     ):

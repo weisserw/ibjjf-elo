@@ -1,3 +1,4 @@
+import importlib
 import os
 import sys
 import unittest
@@ -6,7 +7,13 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from sqlalchemy import create_engine
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0,
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")),
+)
 sys.path.insert(
     0,
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts")),
@@ -324,6 +331,108 @@ class YoutubeMatchImportDbTestCase(TestDbMixin, unittest.TestCase):
             )
         db.session.add_all(participants)
         db.session.commit()
+
+    def _admin_client(self):
+        admin_module = importlib.import_module("admin.app")
+        db_path = os.path.join(self.temp_dir, "test.db")
+        admin_module.app.config.update(
+            TESTING=True,
+            SQLALCHEMY_DATABASE_URI=f"sqlite:///{db_path}",
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        )
+        with admin_module.app.app_context():
+            sqlalchemy_ext = admin_module.app.extensions.get("sqlalchemy")
+            if sqlalchemy_ext and getattr(sqlalchemy_ext, "engines", None) is not None:
+                sqlalchemy_ext.engines[None] = create_engine(f"sqlite:///{db_path}")
+        return admin_module, admin_module.app.test_client()
+
+    def test_ambiguous_scan_none_option_skips_import(self):
+        admin_module, client = self._admin_client()
+        with client.session_transaction() as session_data:
+            session_data["logged_in"] = True
+        video_id = uuid.uuid4()
+        match_id = uuid.uuid4()
+        candidate = lib.MatchCandidate(
+            match=SimpleNamespace(
+                id=match_id,
+                participants=[
+                    SimpleNamespace(
+                        athlete=SimpleNamespace(id=uuid.uuid4(), name="First Athlete")
+                    ),
+                    SimpleNamespace(
+                        athlete=SimpleNamespace(id=uuid.uuid4(), name="Second Athlete")
+                    ),
+                ],
+                division=SimpleNamespace(display_name=lambda: "Adult / Black / Male"),
+                video_link=None,
+            ),
+            score=82.0,
+            score_gap=2.0,
+            athlete1_score=84.0,
+            athlete2_score=80.0,
+            direction="direct",
+            reason="name_pair",
+        )
+        entry = {
+            "video": SimpleNamespace(
+                id=video_id,
+                url="https://www.youtube.com/watch?v=ambiguous123",
+                title="First Athlete vs Second Athlete / Test Open 2026",
+                published_at=datetime(2026, 6, 15),
+            ),
+            "status": "ambiguous",
+            "parsed_title": SimpleNamespace(
+                athlete1="First Athlete", athlete2="Second Athlete"
+            ),
+            "parsed_division": SimpleNamespace(
+                age=ADULT,
+                belt=BLACK,
+                gender=MALE,
+                weight=MIDDLE,
+                round_name="Final",
+            ),
+            "event": SimpleNamespace(name="Test Open 2026"),
+            "event_score": 95.0,
+            "event_gap": 10.0,
+            "event_alternatives": [],
+            "matched_candidate": None,
+            "default_candidate": candidate,
+            "alternatives": [candidate],
+        }
+
+        with patch.object(
+            admin_module.youtube_match_lib,
+            "scan_youtube_match_videos",
+            return_value=[entry],
+        ):
+            response = client.get(
+                "/youtube_match_videos_scan?scan=1&since=2026-06-01&until=2026-06-30"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertRegex(
+            body,
+            rf'name="ambiguous_{video_id}"\s+value=""',
+        )
+        self.assertIn("None", body)
+
+        with patch.object(
+            admin_module.youtube_match_lib,
+            "import_youtube_match_video_links",
+            return_value=(0, 0, []),
+        ) as import_links:
+            response = client.post(
+                "/youtube_match_videos_scan/import",
+                data={
+                    "since": "2026-06-01",
+                    "until": "2026-06-30",
+                    f"ambiguous_{video_id}": "",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(list(import_links.call_args.args[1]), [])
 
     def test_upsert_youtube_match_videos_inserts_and_updates(self):
         with self.app_module.app.app_context():

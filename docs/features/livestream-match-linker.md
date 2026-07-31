@@ -187,6 +187,13 @@ different bout. A long delay with confirming names remains valid, and one
 contradictory pair is treated as OCR noise. Active-continuation and
 continuation-fallback choices do not use this stale-evidence guard.
 
+When this guard rejects the candidate exactly at the schedule cursor, later
+windows may recover beyond the normal eight-match lookahead. Recovery remains
+active until a new match links and only admits distant candidates whose
+post-start name pairs independently support both athletes at the normal name
+threshold. This prevents one malformed multi-bout OCR window from starving the
+cursor while keeping ordinary forward searches bounded.
+
 Persistent match outputs live on `Match` and `MatchParticipant`:
 
 - `Match.video_start_offset_seconds`.
@@ -230,6 +237,8 @@ continuation-window OCR swaps after positions have been locked, allow a
 slightly degraded exact-next match only after a confirmed predecessor, retain
 long pre-start delays with confirming or swapped names, and require more than
 one coherent contradictory post-start pair before rejecting pre-start names.
+They also cover recovery beyond the normal lookahead after a stale rejection
+blocks the exact cursor candidate.
 
 ## Previously Surfaced Issues From Git History
 

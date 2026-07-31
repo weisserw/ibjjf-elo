@@ -197,6 +197,14 @@
                                         <div class="is-size-7 has-text-danger">existing link: {{ top.match.video_link }}</div>
                                     {% endif %}
                                 {% elif entry.alternatives %}
+                                    <div class="field mb-1">
+                                        <label class="radio">
+                                            <input type="radio"
+                                                   name="ambiguous_{{ video.id }}"
+                                                   value="">
+                                            None
+                                        </label>
+                                    </div>
                                     {% for candidate in entry.alternatives[:5] %}
                                         <div class="field mb-1">
                                             <label class="radio">
