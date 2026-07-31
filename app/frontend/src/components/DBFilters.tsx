@@ -82,6 +82,12 @@ export interface FilterValues {
   dq_type_disciplinary?: boolean;
   has_score?: boolean;
   submission?: boolean;
+  comeback_submission?: boolean;
+  minimum_points?: number;
+  minimum_advantages?: number;
+  minimum_penalties?: number;
+  score_differential?: number;
+  referee_decision?: boolean;
   rating_start?: number;
   rating_end?: number;
   elite_only?: boolean;
@@ -100,6 +106,7 @@ type BooleanFilterKeys = {
 export interface OpenFilters {
   athlete: boolean;
   event: boolean;
+  score: boolean;
   division: boolean;
 }
 
@@ -468,9 +475,7 @@ function DBFilters() {
                         !!filters.date_end ||
                         filters.mat_number !== undefined ||
                         !!filters.dq_type_technical ||
-                        !!filters.dq_type_disciplinary ||
-                        !!filters.has_score ||
-                        !!filters.submission
+                        !!filters.dq_type_disciplinary
                      }>
               <div className="field is-grouped">
                 <div className="control is-expanded">
@@ -555,7 +560,21 @@ function DBFilters() {
                   {(filters.dq_type_technical || filters.dq_type_disciplinary) ? t("Clear") : t("All")}
                 </button>
               </div>
-              <div className="dq-type-filter score-type-filter checkbox-filters checkboxes">
+            </Section>
+            <Section title={t("Score")}
+                     isOpen={openFilters.score}
+                     setIsOpen={(isOpen: boolean) => setOpenFilters({ ...openFilters, score: isOpen })}
+                     isBold={
+                        !!filters.has_score ||
+                        !!filters.submission ||
+                        !!filters.comeback_submission ||
+                        filters.minimum_points !== undefined ||
+                        filters.minimum_advantages !== undefined ||
+                        filters.minimum_penalties !== undefined ||
+                        filters.score_differential !== undefined ||
+                        !!filters.referee_decision
+                     }>
+              <div className="score-type-filter checkbox-filters checkboxes">
                 <label className="checkbox checkbox-filter">
                   <input
                     type="checkbox"
@@ -572,8 +591,66 @@ function DBFilters() {
                   />
                   {t("Submission")}
                 </label>
-                <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['has_score', 'submission'])}>
-                  {(filters.has_score || filters.submission) ? t("Clear") : t("All")}
+                <label className="checkbox checkbox-filter">
+                  <input
+                    type="checkbox"
+                    checked={!!filters.comeback_submission}
+                    onChange={(e) => onChange('comeback_submission', e.target.checked)}
+                  />
+                  {t("Comeback Submission")}
+                </label>
+                <label className="checkbox checkbox-filter">
+                  <input
+                    type="checkbox"
+                    checked={!!filters.referee_decision}
+                    onChange={(e) => onChange('referee_decision', e.target.checked)}
+                  />
+                  {t("Referee Decision")}
+                </label>
+                <button
+                  className="button is-small is-light"
+                  onClick={onClearOrAll.bind(null, [
+                    'has_score',
+                    'submission',
+                    'comeback_submission',
+                    'referee_decision',
+                  ])}
+                >
+                  {(filters.has_score || filters.submission || filters.comeback_submission || filters.referee_decision) ? t("Clear") : t("All")}
+                </button>
+              </div>
+              <div className="score-number-filters">
+                {([
+                  ['minimum_points', 'Minimum Points'],
+                  ['minimum_advantages', 'Minimum Advantages'],
+                  ['minimum_penalties', 'Minimum Penalties'],
+                  ['score_differential', 'Score Differential'],
+                ] as const).map(([key, label]) => (
+                  <input
+                    aria-label={t(label)}
+                    className="input is-small score-number-input"
+                    key={key}
+                    type="number"
+                    min={0}
+                    placeholder={t(label)}
+                    value={filters[key] !== undefined ? filters[key] : ''}
+                    onChange={(e) => onChange(key, e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                  />
+                ))}
+                <button
+                  className="button is-small is-light score-filter-clear"
+                  onClick={onClearProps.bind(null, [
+                    'has_score',
+                    'submission',
+                    'comeback_submission',
+                    'minimum_points',
+                    'minimum_advantages',
+                    'minimum_penalties',
+                    'score_differential',
+                    'referee_decision',
+                  ])}
+                >
+                  {t("Clear")}
                 </button>
               </div>
             </Section>

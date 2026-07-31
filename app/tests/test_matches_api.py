@@ -673,6 +673,152 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_minimum_score_values(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        match = Match.query.filter_by(match_location="Mat 1").one()
+        match.final_top_points = 6
+        match.final_bottom_points = 2
+        match.final_top_advantages = 1
+        match.final_bottom_advantages = 3
+        match.final_top_penalties = 2
+        match.final_bottom_penalties = 0
+        db.session.commit()
+
+        try:
+            cases = [
+                ("minimum_points", 6),
+                ("minimum_advantages", 3),
+                ("minimum_penalties", 2),
+            ]
+            for parameter, value in cases:
+                with self.subTest(parameter=parameter):
+                    response = self.client.get(
+                        f"/api/matches?gi=true&{parameter}={value}"
+                    )
+                    data = response.get_json()
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(len(data["rows"]), 1)
+                    self.assertEqual(data["rows"][0]["matchLocation"], "Mat 1")
+        finally:
+            match.final_top_points = None
+            match.final_bottom_points = None
+            match.final_top_advantages = None
+            match.final_bottom_advantages = None
+            match.final_top_penalties = None
+            match.final_bottom_penalties = None
+            db.session.commit()
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_exact_score_differential_and_other_score_filter(
+        self, mock_livestreams, _mock_s3
+    ):
+        mock_livestreams.return_value = self._patch_livestreams()
+        match = Match.query.filter_by(match_location="Mat 1").one()
+        match.final_top_points = 6
+        match.final_bottom_points = 2
+        match.final_top_advantages = 2
+        match.final_bottom_advantages = 0
+        db.session.commit()
+
+        try:
+            response = self.client.get(
+                "/api/matches?gi=true&score_differential=4&minimum_advantages=2"
+            )
+            data = response.get_json()
+        finally:
+            match.final_top_points = None
+            match.final_bottom_points = None
+            match.final_top_advantages = None
+            match.final_bottom_advantages = None
+            db.session.commit()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["matchLocation"], "Mat 1")
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_comeback_submission(self, mock_livestreams, _mock_s3):
+        mock_livestreams.return_value = self._patch_livestreams()
+        match = Match.query.filter_by(match_location="Mat 1").one()
+        participants = MatchParticipant.query.filter_by(match_id=match.id).all()
+        match.final_match_time_seconds = 120
+        match.final_top_points = 6
+        match.final_bottom_points = 2
+        for participant in participants:
+            participant.scoreboard_position = "bottom" if participant.winner else "top"
+        db.session.commit()
+
+        try:
+            response = self.client.get("/api/matches?gi=true&comeback_submission=true")
+            data = response.get_json()
+        finally:
+            match.final_match_time_seconds = None
+            match.final_top_points = None
+            match.final_bottom_points = None
+            for participant in participants:
+                participant.scoreboard_position = None
+            db.session.commit()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["matchLocation"], "Mat 1")
+        self.assertTrue(data["rows"][0]["submission"])
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_filter_by_referee_decision_excludes_dq(
+        self, mock_livestreams, _mock_s3
+    ):
+        mock_livestreams.return_value = self._patch_livestreams()
+        decision_match = Match.query.filter_by(match_location="Mat 1").one()
+        dq_match = Match.query.filter_by(match_location="Mat 3").one()
+        matches = [decision_match, dq_match]
+        for match in matches:
+            match.final_match_time_seconds = 0
+            match.final_top_points = 2
+            match.final_bottom_points = 2
+            match.final_top_advantages = 1
+            match.final_bottom_advantages = 1
+            match.final_top_penalties = 0
+            match.final_bottom_penalties = 0
+        db.session.commit()
+
+        try:
+            response = self.client.get("/api/matches?gi=true&referee_decision=true")
+            data = response.get_json()
+        finally:
+            for match in matches:
+                match.final_match_time_seconds = None
+                match.final_top_points = None
+                match.final_bottom_points = None
+                match.final_top_advantages = None
+                match.final_bottom_advantages = None
+                match.final_top_penalties = None
+                match.final_bottom_penalties = None
+            db.session.commit()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["matchLocation"], "Mat 1")
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_rejects_invalid_score_filter_values(
+        self, mock_livestreams, _mock_s3
+    ):
+        mock_livestreams.return_value = self._patch_livestreams()
+        for query in ["minimum_points=-1", "score_differential=not-a-number"]:
+            with self.subTest(query=query):
+                response = self.client.get(f"/api/matches?gi=true&{query}")
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(
+                    response.get_json(), {"error": "Invalid score filter value"}
+                )
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.load_livestream_links")
     def test_matches_juvenile_filter_includes_all_juvenile_variants(
         self, mock_livestreams, _mock_s3
     ):

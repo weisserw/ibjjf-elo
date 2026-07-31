@@ -204,7 +204,7 @@ function Teams() {
       team_name: asExactFilter(teamName),
     }
     setFilters(newFilters)
-    setOpenFilters({ division: false, athlete: true, event: true })
+    setOpenFilters({ division: false, athlete: true, event: true, score: false })
     setActiveTab(isGi(eventNameFetch) ? 'Gi' : 'No Gi')
     navigate('/database')
   }
@@ -218,7 +218,7 @@ function Teams() {
       country: normalizedCountry,
     }
     setFilters(newFilters)
-    setOpenFilters({ division: false, athlete: true, event: true })
+    setOpenFilters({ division: false, athlete: true, event: true, score: false })
     setActiveTab(isGi(eventNameFetch) ? 'Gi' : 'No Gi')
     navigate('/database')
   }

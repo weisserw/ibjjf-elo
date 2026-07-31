@@ -192,7 +192,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const [filters, setFilters] = useLocalStorage<FilterValues>('filters', {});
-  const [openFilters, setOpenFilters] = useLocalStorage<OpenFilters>('openFilters', { athlete: true, event: false, division: false });
+  const [openFilters, setOpenFilters] = useLocalStorage<OpenFilters>('openFilters', { athlete: true, event: false, score: false, division: false });
   const [activeTab, setActiveTab] = useLocalStorage<TabName>('activeTab', 'Gi');
   const [rankingGender, setRankingGender] = useLocalStorage('rankingGender', 'Male');
   const [rankingAge, setRankingAge] = useLocalStorage('rankingAge', 'Adult');

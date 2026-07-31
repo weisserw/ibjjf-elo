@@ -96,7 +96,26 @@
 }
 
 .score-type-filter {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 24px;
+  row-gap: 12px;
+}
+
+.score-number-filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   margin-top: 12px;
+}
+
+.score-number-input {
+  width: 140px;
+}
+
+.score-filter-clear {
+  margin-bottom: 0;
 }
 
 .db-country-autosuggest .react-autosuggest__input {

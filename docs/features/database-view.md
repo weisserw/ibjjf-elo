@@ -7,8 +7,9 @@ match results view; it is not the internal database that powers the app.
 
 The Database view is a top-level UI tab at `/database`. It shows paginated match
 results for the active Gi/No-Gi tab and lets users filter those matches by
-athlete, team, country, event, division, date, mat, DQ type, rating range, and
-elite status.
+athlete, team, country, event, division, date, mat, DQ type, score/result,
+rating range, and elite status. Score controls live in their own filter
+accordion rather than under Tournament.
 
 Rows link out to related paths and components:
 
@@ -108,6 +109,8 @@ Important query params accepted by `matches()`:
   `weight_super_heavy`, `weight_ultra_heavy`, `weight_open_class`.
 - Other filters: `date_start`, `date_end`, `mat_number`,
   `dq_type_technical`, `dq_type_disciplinary`, `has_score`, `submission`,
+  `comeback_submission`, `minimum_points`, `minimum_advantages`,
+  `minimum_penalties`, `score_differential`, `referee_decision`,
   `rating_start`, `rating_end`, `elite_only`, `page`.
 
 Supporting frontend calls:
@@ -176,6 +179,17 @@ returned.
 - `has_score` includes matches with at least one non-null final score field.
 - `submission` includes matches with a positive `final_match_time_seconds` and
   excludes DQ notes, matching the visible Sub column.
+- `comeback_submission` applies the submission rules and also requires the
+  winner's scoreboard position to be known and the winner to have strictly
+  fewer final points than the loser.
+- `minimum_points`, `minimum_advantages`, and `minimum_penalties` are
+  non-negative inclusive thresholds. A match qualifies when either scoreboard
+  side has at least the requested value.
+- `score_differential` is a non-negative exact absolute difference between the
+  two final point totals. Both point totals must therefore be known.
+- `referee_decision` requires `final_match_time_seconds = 0`, equal known
+  points, advantages, and penalties on both sides, and no DQ note.
+- Score filters are combined with each other and all other filters using AND.
 - `submission` is derived from `final_match_time_seconds`: `null` means the
   value is unknown, positive values render as submission, zero renders as not a
   submission. DQ notes suppress the visible submission checkbox/value.
@@ -222,7 +236,8 @@ Do not run the frontend build as routine verification; `npm run build` in
 `app/frontend` rewrites generated SEO snippet files.
 
 Focused coverage exists in `app/tests/test_matches_api.py` for athlete/team/
-country/event/rating/elite/DQ/juvenile filters and mandatory/invalid params.
+country/event/rating/elite/DQ/juvenile/score filters and mandatory/invalid
+params.
 There is no obvious dedicated frontend unit test for `DBTableRows` responsive
 rendering, so manually inspect desktop and mobile layouts when changing row
 markup or CSS.

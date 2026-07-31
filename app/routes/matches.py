@@ -869,6 +869,12 @@ def matches():
     dq_type_disciplinary = request.args.get("dq_type_disciplinary")
     has_score = request.args.get("has_score")
     submission = request.args.get("submission")
+    comeback_submission = request.args.get("comeback_submission")
+    minimum_points = request.args.get("minimum_points")
+    minimum_advantages = request.args.get("minimum_advantages")
+    minimum_penalties = request.args.get("minimum_penalties")
+    score_differential = request.args.get("score_differential")
+    referee_decision = request.args.get("referee_decision")
     rating_start = request.args.get("rating_start")
     rating_end = request.args.get("rating_end")
     elite_only = request.args.get("elite_only")
@@ -883,6 +889,22 @@ def matches():
             raise ValueError()
     except ValueError:
         return jsonify({"error": "Invalid page number"}), 400
+
+    def parse_nonnegative_int(value):
+        if value is None:
+            return None
+        parsed = int(value)
+        if parsed < 0:
+            raise ValueError()
+        return parsed
+
+    try:
+        minimum_points = parse_nonnegative_int(minimum_points)
+        minimum_advantages = parse_nonnegative_int(minimum_advantages)
+        minimum_penalties = parse_nonnegative_int(minimum_penalties)
+        score_differential = parse_nonnegative_int(score_differential)
+    except ValueError:
+        return jsonify({"error": "Invalid score filter value"}), 400
 
     if gi:
         gi = gi.lower() == "true"
@@ -952,6 +974,8 @@ def matches():
     dq_type_disciplinary = (dq_type_disciplinary or "").lower() == "true"
     has_score = (has_score or "").lower() == "true"
     submission = (submission or "").lower() == "true"
+    comeback_submission = (comeback_submission or "").lower() == "true"
+    referee_decision = (referee_decision or "").lower() == "true"
     if elite_only:
         elite_only = elite_only.lower() == "true"
 
@@ -1253,6 +1277,82 @@ def matches():
 
     if submission:
         filters += """AND m.final_match_time_seconds > 0
+        AND NOT EXISTS (
+            SELECT 1
+            FROM match_participants mp
+            WHERE mp.match_id = m.id
+            AND (
+                LOWER(mp.note) LIKE '%disqualified%'
+                OR LOWER(mp.note) LIKE '%desqualificado%'
+            )
+        )
+        """
+
+    if comeback_submission:
+        filters += """AND m.final_match_time_seconds > 0
+        AND EXISTS (
+            SELECT 1
+            FROM match_participants mp
+            WHERE mp.match_id = m.id
+            AND mp.winner IS TRUE
+            AND (
+                (
+                    mp.scoreboard_position = 'top'
+                    AND m.final_top_points < m.final_bottom_points
+                )
+                OR (
+                    mp.scoreboard_position = 'bottom'
+                    AND m.final_bottom_points < m.final_top_points
+                )
+            )
+        )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM match_participants mp
+            WHERE mp.match_id = m.id
+            AND (
+                LOWER(mp.note) LIKE '%disqualified%'
+                OR LOWER(mp.note) LIKE '%desqualificado%'
+            )
+        )
+        """
+
+    if minimum_points is not None:
+        filters += """AND (
+            m.final_top_points >= :minimum_points
+            OR m.final_bottom_points >= :minimum_points
+        )
+        """
+        params["minimum_points"] = minimum_points
+
+    if minimum_advantages is not None:
+        filters += """AND (
+            m.final_top_advantages >= :minimum_advantages
+            OR m.final_bottom_advantages >= :minimum_advantages
+        )
+        """
+        params["minimum_advantages"] = minimum_advantages
+
+    if minimum_penalties is not None:
+        filters += """AND (
+            m.final_top_penalties >= :minimum_penalties
+            OR m.final_bottom_penalties >= :minimum_penalties
+        )
+        """
+        params["minimum_penalties"] = minimum_penalties
+
+    if score_differential is not None:
+        filters += """AND ABS(
+            m.final_top_points - m.final_bottom_points
+        ) = :score_differential
+        """
+        params["score_differential"] = score_differential
+
+    if referee_decision:
+        filters += """AND m.final_match_time_seconds = 0
+        AND m.final_top_points = m.final_bottom_points
+        AND m.final_top_advantages = m.final_bottom_advantages
+        AND m.final_top_penalties = m.final_bottom_penalties
         AND NOT EXISTS (
             SELECT 1
             FROM match_participants mp
