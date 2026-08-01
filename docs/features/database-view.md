@@ -9,7 +9,8 @@ The Database view is a top-level UI tab at `/database`. It shows paginated match
 results for the active Gi/No-Gi tab and lets users filter those matches by
 athlete, team, country, event, division, date, mat, DQ type, score/result,
 rating range, and elite status. Score controls live in their own filter
-accordion rather than under Tournament.
+accordion rather than under Tournament. The technical and disciplinary DQ
+controls appear below the other Score filters.
 
 Rows link out to related paths and components:
 

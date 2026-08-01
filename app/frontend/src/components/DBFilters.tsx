@@ -473,9 +473,7 @@ function DBFilters() {
                         !!filters.event_name ||
                         !!filters.date_start ||
                         !!filters.date_end ||
-                        filters.mat_number !== undefined ||
-                        !!filters.dq_type_technical ||
-                        !!filters.dq_type_disciplinary
+                        filters.mat_number !== undefined
                      }>
               <div className="field is-grouped">
                 <div className="control is-expanded">
@@ -539,27 +537,6 @@ function DBFilters() {
                   <button className="button is-small is-light" onClick={onClearProps.bind(null, ['mat_number'])}>{t("Clear")}</button>
                 </div>
               </div>
-              <div className="dq-type-filter checkbox-filters checkboxes">
-                <label className="checkbox checkbox-filter">
-                  <input
-                    type="checkbox"
-                    checked={!!filters.dq_type_technical}
-                    onChange={(e) => onChange('dq_type_technical', e.target.checked)}
-                  />
-                  {t("Technical DQ")}
-                </label>
-                <label className="checkbox checkbox-filter">
-                  <input
-                    type="checkbox"
-                    checked={!!filters.dq_type_disciplinary}
-                    onChange={(e) => onChange('dq_type_disciplinary', e.target.checked)}
-                  />
-                  {t("Disciplinary DQ")}
-                </label>
-                <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['dq_type_technical', 'dq_type_disciplinary'])}>
-                  {(filters.dq_type_technical || filters.dq_type_disciplinary) ? t("Clear") : t("All")}
-                </button>
-              </div>
             </Section>
             <Section title={t("Score")}
                      isOpen={openFilters.score}
@@ -572,7 +549,9 @@ function DBFilters() {
                         filters.minimum_advantages !== undefined ||
                         filters.minimum_penalties !== undefined ||
                         filters.score_differential !== undefined ||
-                        !!filters.referee_decision
+                        !!filters.referee_decision ||
+                        !!filters.dq_type_technical ||
+                        !!filters.dq_type_disciplinary
                      }>
               <div className="score-type-filter checkbox-filters checkboxes">
                 <label className="checkbox checkbox-filter">
@@ -651,6 +630,27 @@ function DBFilters() {
                   ])}
                 >
                   {t("Clear")}
+                </button>
+              </div>
+              <div className="dq-type-filter checkbox-filters checkboxes">
+                <label className="checkbox checkbox-filter">
+                  <input
+                    type="checkbox"
+                    checked={!!filters.dq_type_technical}
+                    onChange={(e) => onChange('dq_type_technical', e.target.checked)}
+                  />
+                  {t("Technical DQ")}
+                </label>
+                <label className="checkbox checkbox-filter">
+                  <input
+                    type="checkbox"
+                    checked={!!filters.dq_type_disciplinary}
+                    onChange={(e) => onChange('dq_type_disciplinary', e.target.checked)}
+                  />
+                  {t("Disciplinary DQ")}
+                </label>
+                <button className="button is-small is-light" onClick={onClearOrAll.bind(null, ['dq_type_technical', 'dq_type_disciplinary'])}>
+                  {(filters.dq_type_technical || filters.dq_type_disciplinary) ? t("Clear") : t("All")}
                 </button>
               </div>
             </Section>
