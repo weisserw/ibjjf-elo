@@ -443,12 +443,13 @@ def compute_start_rating(
         age_progression_index(last_match.match.division.age)
         < age_progression_index(division.age)
         and not has_same_or_higher_age_match
+        and match_count <= RATING_VERY_IMMATURE_COUNT
         and last_match.end_rating
         < DEFAULT_RATINGS[last_match.match.division.belt][last_match.match.division.age]
         and last_match.end_rating > DEFAULT_RATINGS[division.belt][division.age]
     ):
         log.debug(
-            "Athlete is in higher age division for the first time and is below or equal to default rating of previous division, using default rating"
+            "Fully provisional athlete is in higher age division for the first time and is below the default rating of the previous division, using default rating"
         )
         start_rating = DEFAULT_RATINGS[division.belt][division.age]
         rating_note = f"Adjusted rating for new age division {division.age}"

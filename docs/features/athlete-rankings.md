@@ -108,6 +108,9 @@ board for `previous_rating`, `previous_rank`, `previous_match_count`, and
 - `match_count`: count of ranked matches in the rolling window. The frontend uses
   `RATING_VERY_IMMATURE_COUNT` and `RATING_IMMATURE_COUNT` through
   `immatureClass` to mark provisional and semi-provisional ratings.
+- On an athlete's first match at a higher age level, a rating between the new
+  and previous age defaults is reset to the new default only while the athlete
+  is fully provisional (four or fewer rated matches in the rolling window).
 - `rank`: computed only for sufficiently mature board rows. UI code should allow
   null ranks even when a rating exists.
 - `percentile`: used for athlete profile badges and elite filtering; beware that
