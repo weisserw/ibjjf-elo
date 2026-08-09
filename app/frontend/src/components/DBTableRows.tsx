@@ -250,9 +250,13 @@ function DBTableRows(props: DBTableRowsProps) {
     return Boolean(row.videoLink && row.videoLink.toLowerCase() !== 'none' && !noMatch(row));
   }
 
+  const showMatchDetail = (row: Row) => {
+    return showVideoLink(row) && rowHasFinalScoreValues(row);
+  }
+
   const matchActions = (row: Row, onDetailClick: () => void, expanded = false) => {
     const videoLink = showVideoLink(row) ? row.videoLink : null;
-    const hasMatchDetail = rowHasFinalScoreValues(row);
+    const hasMatchDetail = showMatchDetail(row);
 
     if (!videoLink && !hasMatchDetail) {
       return null;
@@ -365,7 +369,10 @@ function DBTableRows(props: DBTableRowsProps) {
                   </td>
                   {showScoreColumns &&
                     <>
-                      <td>{finalScoreText(row, () => setDetailModalMatchId(row.id))}</td>
+                      <td>{finalScoreText(
+                        row,
+                        showMatchDetail(row) ? () => setDetailModalMatchId(row.id) : undefined,
+                      )}</td>
                       <td className="has-text-centered">{submissionCheckbox(row)}</td>
                     </>
                   }
@@ -418,9 +425,12 @@ function DBTableRows(props: DBTableRowsProps) {
         {
           !!data.length && data.map((row: Row) => {
             const weightText = openWeightText(row);
-            const score = finalScoreText(row, () => {
-              setInlineDetailMatchId(current => current === row.id ? null : row.id);
-            });
+            const score = finalScoreText(
+              row,
+              showMatchDetail(row)
+                ? () => setInlineDetailMatchId(current => current === row.id ? null : row.id)
+                : undefined,
+            );
             const hasSubmissionValue = row.submission !== null && row.submission !== undefined && !hasDqNote(row);
             return (
               <div key={row.id} data-id={row.id} className={classNames("card db-row-card db-row-data-card", {"is-historical": isHistorical(row.event)})}>

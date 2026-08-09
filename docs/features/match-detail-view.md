@@ -29,6 +29,11 @@ Users can reach it from:
 The bracket view opens `MatchDetailModal`. Database rows can open the modal or
 expand an inline `MatchDetailView`.
 
+Score-detail controls are shown only when the match's video action is also
+visible. In particular, a livestream segment with `hide_all` enabled suppresses
+both the YouTube action and the score-detail (+) action; displayed final scores
+remain non-interactive.
+
 On mobile, the Event column wraps within the available width in both the modal
 and the inline Database card so the score-detail table does not extend past the
 viewport.

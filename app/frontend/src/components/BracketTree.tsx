@@ -164,13 +164,15 @@ function BracketTreeMatch(props: BracketTreeMatchProps) {
   const blueWinner = match.red_loser && !match.blue_loser && !match.blue_bye;
   const showSubmission = matchHasSubmission(match);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const showMatchDetailButton = Boolean(match.id && matchHasFinalScoreValues(match));
   const showMatchVideoLink = Boolean(
     match.video_link &&
     !match.red_bye && !match.blue_bye &&
     !noMatchStrings.some(s => match.red_note?.toLowerCase() === s) &&
     !noMatchStrings.some(s => match.blue_note?.toLowerCase() === s) &&
     (!match.video_link.includes('flograppling') || match.red_loser || match.blue_loser)
+  );
+  const showMatchDetailButton = Boolean(
+    match.id && matchHasFinalScoreValues(match) && showMatchVideoLink
   );
 
   const logoForLink = (link: string) => {
