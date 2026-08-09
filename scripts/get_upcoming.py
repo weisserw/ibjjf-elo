@@ -72,6 +72,11 @@ def parse_event_dates(date_str, current_year, current_month):
         return dt, dt
 
 
+def update_event_dates(link, start_date, end_date):
+    link.event_start_date = start_date
+    link.event_end_date = end_date
+
+
 def main():
     try:
         from app import db, app
@@ -140,7 +145,7 @@ def main():
                     db.session.commit()
                     log.info(f"Found new tournament {name} ({event_link})")
                 else:
-                    link.event_id = event_id
+                    update_event_dates(link, start_date, end_date)
 
                 try:
                     competitor_count = import_registration_link(
