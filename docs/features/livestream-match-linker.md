@@ -49,8 +49,9 @@ or manually through the admin detail page or CLI.
   - `analyze_text_scan_links()`, `analyze_candidate_loading()`, and
     `livestream_rows_for_archive()` support CLI diagnostics.
 - `app/livestream_frame_text_scan.py`
-  - `mark_text_scan_segment_success()` calls `link_completed_text_scan()` when
-    the whole scan reaches `success`.
+  - `mark_text_scan_segment_success()` calls `link_completed_text_scan()` by
+    default when the whole scan reaches `success`; the admin completion endpoint
+    disables that synchronous call before queueing its thread.
   - `replace_segment_events()` clears existing links before replacing events
     for a segment.
 - `scripts/link_livestream_matches.py` is the standalone diagnostic and write
@@ -67,7 +68,10 @@ Automatic pipeline flow:
 1. Frame archiver captures cropped scoreboard/timer images.
 2. Text scanner OCR creates sparse `LivestreamFrameTextEvent` rows.
 3. When the last scan segment completes and scan status becomes `success`,
-   `mark_text_scan_segment_success()` invokes `link_completed_text_scan()`.
+   the admin worker API commits the OCR result and starts
+   `link_completed_text_scan()` in a daemon thread with a fresh application
+   context and database session. Direct scanner-library callers retain the
+   synchronous behavior by default.
 
 `link_completed_text_scan()`:
 
@@ -112,8 +116,9 @@ Worker/API route involved in automatic linking:
 
 - `POST /api/livestream_frame_archives/worker/text_scan_segments/<segment_id>/complete`
   - Marks a scan segment successful through `mark_text_scan_segment_success()`.
-  - If this completes the scan, linking runs inside the same worker completion
-    path.
+  - If this completes the scan, it commits and returns the OCR result before a
+    daemon thread runs linking outside the request path. Linker failures are
+    logged and do not make the worker retry an already-stored OCR payload.
 
 Related scan management APIs are documented in
 `docs/features/livestream-frame-text-scanner.md`.

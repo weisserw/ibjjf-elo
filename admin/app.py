@@ -894,6 +894,35 @@ def _queue_site_statistics_refresh(reason):
     thread.start()
 
 
+def _run_livestream_match_linking(scan_id):
+    with app.app_context():
+        try:
+            scan = db.session.get(LivestreamFrameTextScan, scan_id)
+            summary = link_completed_text_scan(db.session, scan_id)
+            db.session.commit()
+            app.logger.info(
+                "livestream text scan linking "
+                f"scan={scan_id} "
+                f"archive={scan.archive_id if scan else None} "
+                f"linked={summary.linked} windows={summary.windows} "
+                f"candidates={summary.candidates} skipped={summary.skipped}"
+            )
+        except Exception:
+            db.session.rollback()
+            app.logger.exception(
+                "Failed to link matches for livestream text scan %s.", scan_id
+            )
+
+
+def _queue_livestream_match_linking(scan_id):
+    thread = threading.Thread(
+        target=_run_livestream_match_linking,
+        args=(scan_id,),
+        daemon=True,
+    )
+    thread.start()
+
+
 # Simple authentication
 @app.before_request
 def require_login():
@@ -1937,19 +1966,28 @@ def worker_complete_livestream_frame_text_scan_segment(segment_id):
     except (KeyError, TypeError, ValueError) as exc:
         return jsonify({"error": f"invalid event payload: {exc}"}), 400
 
-    mark_text_scan_segment_success(db.session, segment, events)
+    mark_text_scan_segment_success(
+        db.session,
+        segment,
+        events,
+        link_completed_scan=False,
+    )
+    completed_scan_id = segment.scan_id if segment.scan.status == "success" else None
     db.session.commit()
     stored_events = (
         LivestreamFrameTextEvent.query.filter_by(scan_segment_id=segment.id)
         .order_by(LivestreamFrameTextEvent.frame_second)
         .all()
     )
-    return jsonify(
+    response = jsonify(
         {
             "segment": _text_scan_segment_payload(segment),
             "events": [_text_event_payload(event) for event in stored_events],
         }
     )
+    if completed_scan_id:
+        _queue_livestream_match_linking(completed_scan_id)
+    return response
 
 
 @app.route(

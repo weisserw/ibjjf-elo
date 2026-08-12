@@ -786,6 +786,28 @@ class LivestreamFrameTextScanDbTestCase(TestDbMixin, unittest.TestCase):
         second = text_scan.claim_next_text_scan_segment(db.session)
         self.assertEqual(second.start_second, 120)
 
+    def test_mark_success_can_defer_completed_scan_linking(self):
+        archive, _ = self._archive_with_segments()
+        text_scan.queue_text_scan(db.session, archive, score_engine="none")
+        segments = LivestreamFrameTextScanSegment.query.order_by(
+            LivestreamFrameTextScanSegment.start_second
+        ).all()
+        segments[0].status = "success"
+        db.session.flush()
+
+        with mock.patch(
+            "livestream_match_linking.link_completed_text_scan"
+        ) as link_scan:
+            text_scan.mark_text_scan_segment_success(
+                db.session,
+                segments[1],
+                [],
+                link_completed_scan=False,
+            )
+
+        self.assertEqual(segments[1].scan.status, "success")
+        link_scan.assert_not_called()
+
     def test_claim_next_text_scan_segment_uses_queue_requested_order(self):
         first_archive, _ = self._archive_with_segments(youtube_video_id="QueueFirst01")
         text_scan.queue_text_scan(
@@ -3906,23 +3928,26 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(initial_state.status_code, 200)
         self.assertIsNone(initial_state.get_json()["state"]["timer_state"])
 
-        complete = client.post(
-            "/api/livestream_frame_archives/worker/"
-            f"text_scan_segments/{segment_payload['id']}/complete",
-            json={
-                "events": [
-                    {
-                        "frame_second": 0,
-                        "scoreboard_state": text_scan.SCOREBOARD_STATE_VISIBLE,
-                        "top_points": 2,
-                        "timer_state": "running",
-                        "timer_value": "5:00",
-                        "evidence": {"source": "test"},
-                    }
-                ]
-            },
-            headers=headers,
-        )
+        with mock.patch.object(
+            self.admin_module, "_queue_livestream_match_linking"
+        ) as queue_linking:
+            complete = client.post(
+                "/api/livestream_frame_archives/worker/"
+                f"text_scan_segments/{segment_payload['id']}/complete",
+                json={
+                    "events": [
+                        {
+                            "frame_second": 0,
+                            "scoreboard_state": text_scan.SCOREBOARD_STATE_VISIBLE,
+                            "top_points": 2,
+                            "timer_state": "running",
+                            "timer_value": "5:00",
+                            "evidence": {"source": "test"},
+                        }
+                    ]
+                },
+                headers=headers,
+            )
         self.assertEqual(complete.status_code, 200)
         body = complete.get_json()
         self.assertEqual(body["segment"]["status"], "success")
@@ -3931,6 +3956,7 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(body["events"][0]["top_points"], 2)
         self.assertEqual(body["events"][0]["evidence"], {"source": "test"})
+        queue_linking.assert_called_once_with(uuid.UUID(body["segment"]["scan_id"]))
 
         rescan = client.post(
             "/api/livestream_frame_archives/worker/"
@@ -3950,6 +3976,32 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
             ).count(),
             0,
         )
+
+    def test_background_match_linker_commits_in_its_app_context(self):
+        archive, _ = self._archive_with_segment()
+        text_scan.queue_text_scan(db.session, archive, score_engine="none")
+        scan = LivestreamFrameTextScan.query.filter_by(archive_id=archive.id).one()
+        scan.status = "success"
+        db.session.commit()
+        self._admin_client()
+        summary = types.SimpleNamespace(
+            linked=2,
+            windows=3,
+            candidates=4,
+            skipped=None,
+        )
+
+        with mock.patch.object(
+            self.admin_module,
+            "link_completed_text_scan",
+            return_value=summary,
+        ) as link_scan, mock.patch.object(
+            self.admin_module.db.session, "commit"
+        ) as commit:
+            self.admin_module._run_livestream_match_linking(scan.id)
+
+        self.assertEqual(link_scan.call_args.args[1], scan.id)
+        commit.assert_called_once_with()
 
     def test_worker_reset_text_scan_api_requeues_segments_and_deletes_events(self):
         archive, _ = self._archive_with_segment()

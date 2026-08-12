@@ -92,6 +92,12 @@ replay-safe initial-state, completion, and error calls. Claim, rescan, and reset
 remain single-attempt because replaying them can assign work, increment attempt
 counts, or clear scan state after the first request already succeeded.
 
+When a completion makes the whole scan successful, the endpoint commits the OCR
+events and returns before match linking runs. It starts the linker in a daemon
+thread with a fresh Flask application context and database session, preventing a
+large archive's linking pass from exhausting the synchronous web-worker timeout.
+Linker failures are logged without changing the already-persisted OCR completion.
+
 ## Key Data Items
 
 - `LivestreamFrameTextScan`

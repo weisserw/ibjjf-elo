@@ -1108,7 +1108,11 @@ def replace_segment_events(
 
 
 def mark_text_scan_segment_success(
-    session, scan_segment: LivestreamFrameTextScanSegment, events: list[TextEventData]
+    session,
+    scan_segment: LivestreamFrameTextScanSegment,
+    events: list[TextEventData],
+    *,
+    link_completed_scan: bool = True,
 ) -> None:
     replace_segment_events(session, scan_segment, events)
     scan_segment.status = "success"
@@ -1117,7 +1121,7 @@ def mark_text_scan_segment_success(
     scan_segment.last_error = None
     scan_segment.finished_at = datetime.utcnow()
     recompute_text_scan_status(session, scan_segment.scan)
-    if scan_segment.scan.status == "success":
+    if scan_segment.scan.status == "success" and link_completed_scan:
         from livestream_match_linking import link_completed_text_scan
 
         summary = link_completed_text_scan(session, scan_segment.scan)
