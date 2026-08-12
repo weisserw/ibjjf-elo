@@ -269,6 +269,7 @@ def _print_candidate_load_debug(scan_or_archive_id, limit: int) -> None:
         "candidate-load "
         f"youtube_video_id={report.youtube_video_id} "
         f"usages={report.usage_count} events={','.join(report.event_ids)} "
+        f"matless_events={','.join(report.matless_event_ids)} "
         f"total_matches={report.total_matches} included={report.included} "
         f"excluded={report.excluded} reason_counts={report.reason_counts}"
     )
@@ -293,6 +294,7 @@ def _print_candidate_load_debug(scan_or_archive_id, limit: int) -> None:
             f"stored_offset={_format_second(row['video_start_offset_seconds'])} "
             f"event_id={row['event_ibjjf_id']} "
             f"day={row['day_number']} mat={row['mat_number']} "
+            f"matless_mode={row['matless_mode']} "
             f"time={row['happened_at']} location={row['match_location']} "
             f"fight={row['fight_number']} match_number={row['match_number']} "
             f"participants={row['participants']}"
@@ -306,6 +308,7 @@ def _print_candidate_load_debug(scan_or_archive_id, limit: int) -> None:
             f"reason={row['reason']} match={row['match_id']} "
             f"event_id={row['event_ibjjf_id']} "
             f"day={row['day_number']} mat={row['mat_number']} "
+            f"matless_mode={row['matless_mode']} "
             f"time={row['happened_at']} location={row['match_location']} "
             f"fight={row['fight_number']} match_number={row['match_number']} "
             f"participants={row['participants']}"

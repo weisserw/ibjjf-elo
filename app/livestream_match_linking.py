@@ -80,6 +80,7 @@ class Candidate:
     stream: LiveStream
     order_index: int
     expected_start_second: int | None = None
+    matless_mode: bool = False
 
 
 @dataclass
@@ -536,6 +537,8 @@ def _has_two_sided_name_evidence(window: MatchWindow, choice: MatchChoice) -> bo
 def _has_non_cursor_name_evidence(
     window: MatchWindow, choice: MatchChoice, cursor: int
 ) -> bool:
+    if choice.candidate.matless_mode:
+        return _has_two_sided_name_evidence(window, choice)
     if choice.candidate.order_index == cursor:
         return True
     return _has_two_sided_name_evidence(window, choice)
@@ -548,7 +551,11 @@ def _has_confirmed_sequential_predecessor(
     used_match_ids: set,
     speculative_match_ids: set,
 ) -> bool:
-    if cursor <= 0 or choice.candidate.order_index != cursor:
+    if (
+        choice.candidate.matless_mode
+        or cursor <= 0
+        or choice.candidate.order_index != cursor
+    ):
         return False
     predecessor = next(
         (candidate for candidate in candidates if candidate.order_index == cursor - 1),
@@ -1084,7 +1091,66 @@ def _candidate_query_for_archive(event_ids: set[str]):
     )
 
 
-def _stream_for_match(match: Match, streams_by_key, event_start_dates):
+def _event_ids_without_match_mat_numbers(
+    matches: list[Match], event_ids: set[str]
+) -> set[str]:
+    event_ids_with_mat_numbers = {
+        match.event.ibjjf_id
+        for match in matches
+        if match.event
+        and match.event.ibjjf_id
+        and _match_mat_number(match.match_location) is not None
+    }
+    return event_ids - event_ids_with_mat_numbers
+
+
+def _matless_stream_for_match(
+    match: Match,
+    streams_for_archive: list[LiveStream],
+    event_start_dates: dict[str, datetime],
+):
+    event_ibjjf_id = match.event.ibjjf_id if match.event else None
+    day_number = _match_day_number(match, event_start_dates)
+    matching_streams = [
+        stream
+        for stream in streams_for_archive
+        if stream.event_id == event_ibjjf_id
+        and (day_number is None or stream.day_number == day_number)
+    ]
+    if not matching_streams:
+        reason = (
+            "no_stream_for_event_without_day"
+            if day_number is None
+            else "no_stream_for_event_day"
+        )
+        return None, reason
+
+    match_seconds = _time_of_day_seconds(match.happened_at)
+    matching_streams.sort(
+        key=lambda stream: (
+            _expected_video_offset_seconds(match, stream, streams_for_archive) is None,
+            abs(match_seconds - _stream_start_seconds(stream)),
+            _stream_start_seconds(stream),
+            stream.mat_number,
+        )
+    )
+    return matching_streams[0], None
+
+
+def _stream_for_match(
+    match: Match,
+    streams_by_key,
+    event_start_dates,
+    *,
+    streams_for_archive: list[LiveStream] | None = None,
+    matless_event_ids: set[str] | None = None,
+):
+    event_ibjjf_id = match.event.ibjjf_id if match.event else None
+    if event_ibjjf_id in (matless_event_ids or set()):
+        return _matless_stream_for_match(
+            match, streams_for_archive or [], event_start_dates
+        )
+
     mat_number = _match_mat_number(match.match_location)
     if mat_number is None:
         return None, "no_mat_number"
@@ -1093,12 +1159,12 @@ def _stream_for_match(match: Match, streams_by_key, event_start_dates):
         matching_streams = [
             stream
             for (event_id, _day, mat), stream in streams_by_key.items()
-            if event_id == match.event.ibjjf_id and mat == mat_number
+            if event_id == event_ibjjf_id and mat == mat_number
         ]
         if not matching_streams:
             return None, "no_stream_for_event_mat_without_day"
         return matching_streams[0], None
-    stream = streams_by_key.get((match.event.ibjjf_id, day_number, mat_number))
+    stream = streams_by_key.get((event_ibjjf_id, day_number, mat_number))
     if not stream:
         return None, "no_stream_for_event_day_mat"
     return stream, None
@@ -1127,6 +1193,7 @@ def load_candidates_for_archive(
     }
     event_start_dates = _event_start_dates(event_ids)
     matches = _candidate_query_for_archive(event_ids)
+    matless_event_ids = _event_ids_without_match_mat_numbers(matches, event_ids)
 
     candidates = []
     for match in matches:
@@ -1135,7 +1202,13 @@ def load_candidates_for_archive(
             continue
         if any(_note_indicates_no_fight(participant) for participant in participants):
             continue
-        stream, _reason = _stream_for_match(match, streams_by_key, event_start_dates)
+        stream, _reason = _stream_for_match(
+            match,
+            streams_by_key,
+            event_start_dates,
+            streams_for_archive=streams_for_archive,
+            matless_event_ids=matless_event_ids,
+        )
         if not stream:
             continue
         candidates.append(
@@ -1146,6 +1219,10 @@ def load_candidates_for_archive(
                 order_index=len(candidates),
                 expected_start_second=_expected_video_offset_seconds(
                     match, stream, streams_for_archive
+                ),
+                matless_mode=(
+                    match.event is not None
+                    and match.event.ibjjf_id in matless_event_ids
                 ),
             )
         )
@@ -1173,6 +1250,7 @@ def analyze_candidate_loading(session, scan_or_archive_id) -> SimpleNamespace:
     }
     event_start_dates = _event_start_dates(event_ids)
     matches = _candidate_query_for_archive(event_ids)
+    matless_event_ids = _event_ids_without_match_mat_numbers(matches, event_ids)
     rows = []
     reason_counts = Counter()
     reason_counts_by_event = Counter()
@@ -1187,13 +1265,20 @@ def analyze_candidate_loading(session, scan_or_archive_id) -> SimpleNamespace:
         mat_number = _match_mat_number(match.match_location)
         day_number = _match_day_number(match, event_start_dates)
         event_ibjjf_id = match.event.ibjjf_id if match.event else None
+        matless_mode = event_ibjjf_id in matless_event_ids
         match_counts_by_event_day_mat[(event_ibjjf_id, day_number, mat_number)] += 1
         if len(participants) != 2:
             reason = f"participant_count_{len(participants)}"
         elif any(_note_indicates_no_fight(participant) for participant in participants):
             reason = "no_fight_note"
         else:
-            stream, reason = _stream_for_match(match, streams_by_key, event_start_dates)
+            stream, reason = _stream_for_match(
+                match,
+                streams_by_key,
+                event_start_dates,
+                streams_for_archive=streams_for_archive,
+                matless_event_ids=matless_event_ids,
+            )
             if stream:
                 expected_start_second = _expected_video_offset_seconds(
                     match, stream, streams_for_archive
@@ -1213,6 +1298,7 @@ def analyze_candidate_loading(session, scan_or_archive_id) -> SimpleNamespace:
                 "event_ibjjf_id": event_ibjjf_id,
                 "day_number": day_number,
                 "mat_number": mat_number,
+                "matless_mode": matless_mode,
                 "happened_at": match.happened_at.isoformat(),
                 "match_location": match.match_location,
                 "match_number": match.match_number,
@@ -1230,6 +1316,7 @@ def analyze_candidate_loading(session, scan_or_archive_id) -> SimpleNamespace:
         youtube_video_id=archive.youtube_video_id,
         usage_count=len(usages),
         event_ids=sorted(event_ids),
+        matless_event_ids=sorted(matless_event_ids),
         stream_keys=sorted(streams_by_key),
         event_start_dates={
             event_id: value.isoformat() for event_id, value in event_start_dates.items()
@@ -1399,6 +1486,7 @@ def _choice_debug(window: MatchWindow, choice: MatchChoice) -> dict:
         ),
         "match_time": match.happened_at.isoformat(),
         "match_location": match.match_location,
+        "matless_mode": choice.candidate.matless_mode,
     }
 
 

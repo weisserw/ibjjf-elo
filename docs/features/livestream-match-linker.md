@@ -19,6 +19,17 @@ scoreboard-side correction made before the clock begins. Once the initial
 window stores the positions, continuation windows do not rewrite them from
 later OCR noise.
 
+For older tournaments whose matches contain no parseable mat numbers, candidate
+loading automatically switches to mat-less mode for that event. The linker
+considers all two-participant, fight-eligible matches covered by the archive's
+event and day, then uses OCR names and the expected video time offset to choose
+among the wider pool. If any match in the event has a mat number, normal
+mat-aware loading remains in effect and individual mat-less rows are excluded.
+Mat-less choices require evidence for both scoreboard names because mat order is
+not available as supporting evidence. The linker never infers or writes
+`Match.match_location` or `Match.fight_number`, so relinking cannot pollute a
+later run with backfilled scheduling data.
+
 It can run automatically as the final step of the livestream archive pipeline,
 or manually through the admin detail page or CLI.
 
@@ -67,7 +78,8 @@ Automatic pipeline flow:
 4. Extracts match windows from zero-score starts, running timers, blank
    scoreboards, victory screens, stopped timers, and score changes.
 5. Clears prior links for the archive unless running in dry-run mode.
-6. Loads candidate matches for the archive's livestream rows.
+6. Loads candidate matches for the archive's livestream rows. Events with no
+   match mat numbers automatically use the broader event/day candidate pool.
 7. Scores name history and time alignment to identify the match, rejects a
    new-match choice when a long pre-clock name load is contradicted by repeated
    coherent post-start pairs, locks athlete orientation from confident
@@ -163,6 +175,7 @@ excluded.
 - `stream`.
 - `order_index`.
 - `expected_start_second`.
+- `matless_mode`, indicating that event/day coverage replaced mat filtering.
 
 `MatchChoice` is an in-memory scoring result:
 

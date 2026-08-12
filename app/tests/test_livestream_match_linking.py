@@ -29,9 +29,11 @@ from test_db import TestDbMixin
 
 import livestream_frame_text_scan as text_scan
 from livestream_match_linking import (
+    analyze_candidate_loading,
     analyze_text_scan_links,
     extract_match_windows,
     link_completed_text_scan,
+    load_candidates_for_archive,
     relink_completed_text_scans_for_events,
 )
 
@@ -340,6 +342,100 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].archive_id, archive.id)
         self.assertEqual(results[0].linked, 1)
+
+    def test_matless_tournament_uses_event_day_candidates_without_backfilling(self):
+        matches = self._match_setup(
+            pairs=[
+                ("EARLY ALPHA", "EARLY BETA"),
+                ("TARGET ALPHA", "TARGET BETA"),
+                ("LATE ALPHA", "LATE BETA"),
+            ],
+            match_offsets=[0, 600, 1200],
+        )
+        for match in matches:
+            match.match_location = None
+            match.fight_number = None
+        db.session.commit()
+
+        archive, scan = self._stored_events(
+            [
+                self._event_data(
+                    590,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="TARGET ALPHA",
+                    bottom_athlete_name="TARGET BETA",
+                ),
+                self._event_data(600, timer_state="running", timer_value="4:50"),
+                self._event_data(630, top_points=2),
+                self._event_data(650, timer_state="stopped", timer_value="4:00"),
+            ]
+        )
+
+        candidates = load_candidates_for_archive(db.session, archive)
+        self.assertEqual(len(candidates), 3)
+        self.assertTrue(all(candidate.matless_mode for candidate in candidates))
+        self.assertEqual(
+            [candidate.expected_start_second for candidate in candidates],
+            [1, 600, 1200],
+        )
+
+        report = analyze_candidate_loading(db.session, scan)
+        self.assertEqual(report.matless_event_ids, ["evt-1"])
+        self.assertEqual(report.included, 3)
+        self.assertTrue(all(row["matless_mode"] for row in report.rows))
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        self.assertEqual(summary.linked, 1)
+        self.assertEqual(summary.candidates, 3)
+        target = db.session.get(Match, matches[1].id)
+        self.assertEqual(target.video_start_offset_seconds, 600)
+        self.assertEqual(target.final_top_points, 2)
+        self.assertEqual(self._linked_seconds(target), [590, 600, 630, 650])
+
+        rerun_summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        self.assertEqual(rerun_summary.linked, 1)
+        for match in matches:
+            refreshed = db.session.get(Match, match.id)
+            self.assertIsNone(refreshed.match_location)
+            self.assertIsNone(refreshed.fight_number)
+
+    def test_incomplete_match_does_not_enable_matless_mode_for_matted_event(self):
+        matches = self._match_setup(
+            pairs=[
+                ("MATTED ALPHA", "MATTED BETA"),
+                ("MISSING ALPHA", "MISSING BETA"),
+            ]
+        )
+        matches[1].match_location = None
+        matches[1].fight_number = None
+        db.session.commit()
+        archive, scan = self._stored_events([])
+
+        candidates = load_candidates_for_archive(db.session, archive)
+        report = analyze_candidate_loading(db.session, scan)
+
+        self.assertEqual(
+            [candidate.match.id for candidate in candidates], [matches[0].id]
+        )
+        self.assertFalse(candidates[0].matless_mode)
+        self.assertEqual(report.matless_event_ids, [])
+        missing_row = next(
+            row for row in report.rows if row["match_id"] == str(matches[1].id)
+        )
+        self.assertEqual(missing_row["reason"], "no_mat_number")
+        self.assertFalse(missing_row["matless_mode"])
 
     def test_real_joao_maycon_fixture_links_stopped_score_update(self):
         matches = self._match_setup(
