@@ -954,6 +954,81 @@
       ]
     },
     {
+      "fixture": "score_bad_000_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "elongated_points",
+      "purposes": [
+        "golden",
+        "narrow_red_cell",
+        "split_cell_background"
+      ]
+    },
+    {
+      "fixture": "score_bad_210_410.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        2,
+        1,
+        0,
+        4,
+        1,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "elongated_points",
+      "purposes": [
+        "golden",
+        "narrow_red_cell",
+        "split_cell_background"
+      ]
+    },
+    {
+      "fixture": "score_bad_600_000.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        6,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "elongated_points",
+      "purposes": [
+        "golden",
+        "narrow_red_cell",
+        "split_cell_background"
+      ]
+    },
+    {
+      "fixture": "score_bad_working_000_210.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        2,
+        1,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "elongated_points",
+      "purposes": [
+        "golden",
+        "narrow_red_cell"
+      ]
+    },
+    {
       "fixture": "score_error.jpg",
       "expect_layout": true,
       "expected_digits": [

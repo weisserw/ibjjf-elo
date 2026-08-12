@@ -2677,7 +2677,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         }
 
         self.assertEqual(manifest["version"], 1)
-        self.assertEqual(len(manifest_names), 79)
+        self.assertEqual(len(manifest_names), 83)
         self.assertEqual(manifest_names, fixture_names)
         self.assertEqual(len(manifest_names), len(manifest["cases"]))
 
@@ -2918,6 +2918,23 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
 
         self.assertEqual(len(components), 1)
         self.assertEqual(components[0].bounds, (5, 2, 25, 23))
+
+    def test_score_role_components_rejoin_narrow_fragment_but_not_row_gap(self):
+        image = text_ocr.Image.new("RGB", (50, 34), (8, 60, 130))
+        draw = text_ocr.ImageDraw.Draw(image)
+        red = text_ocr.SCORE_BACKGROUND_PALETTES[1]["red"]
+        draw.rectangle((5, 2, 16, 9), fill=red)
+        draw.rectangle((9, 13, 11, 17), fill=red)
+        draw.rectangle((5, 20, 16, 27), fill=red)
+        draw.rectangle((27, 2, 38, 13), fill=red)
+        draw.rectangle((27, 18, 38, 29), fill=red)
+
+        components = text_ocr._score_role_components(image, "red")
+
+        self.assertEqual(
+            {component.bounds for component in components},
+            {(5, 2, 17, 28), (27, 2, 39, 14), (27, 18, 39, 30)},
+        )
 
     def test_cell_region_fills_digit_hole_but_excludes_rounded_corners(self):
         image = text_ocr.Image.new("RGB", (40, 30), (8, 60, 130))

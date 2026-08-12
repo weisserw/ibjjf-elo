@@ -366,5 +366,69 @@
       "timer_state": "stopped",
       "timer_value": "0:00"
     }
+  },
+  {
+    "id": "score_bad_000_000_timer_stopped_000",
+    "score_image": "score_bad_000_000.jpg",
+    "timer_image": "timer_stopped_000.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    }
+  },
+  {
+    "id": "score_bad_210_410_timer_stopped_000",
+    "score_image": "score_bad_210_410.jpg",
+    "timer_image": "timer_stopped_000.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 2,
+      "top_advantages": 1,
+      "top_penalties": 0,
+      "bottom_points": 4,
+      "bottom_advantages": 1,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    }
+  },
+  {
+    "id": "score_bad_600_000_timer_stopped_000",
+    "score_image": "score_bad_600_000.jpg",
+    "timer_image": "timer_stopped_000.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 6,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    }
+  },
+  {
+    "id": "score_bad_working_000_210_timer_stopped_000",
+    "score_image": "score_bad_working_000_210.jpg",
+    "timer_image": "timer_stopped_000.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 2,
+      "bottom_advantages": 1,
+      "bottom_penalties": 0,
+      "timer_state": "stopped",
+      "timer_value": "0:00"
+    }
   }
 ]

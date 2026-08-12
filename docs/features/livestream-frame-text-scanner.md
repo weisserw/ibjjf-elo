@@ -138,10 +138,13 @@ digits through a misplaced fallback crop.
 
 Role segmentation compares every pixel to both known bright/muted green, yellow,
 and red palettes and assigns a qualifying pixel to exactly one closest role.
-Small pieces separated by a one- or two-pixel vertical JPEG seam are rejoined
-only when they overlap substantially relative to both pieces. This repairs local
-cell seams without absorbing a wider same-color broadcast graphic or closing the
-gap between rows. Green, yellow, and red components are then detected
+Small pieces separated by a short vertical JPEG seam are rejoined
+only when they overlap substantially relative to both pieces. The bounded
+three-piece pattern formed by a zero spanning nearly the full width of an
+unusually narrow cell is also rejoined: two aligned outer pieces around a thin
+same-color counter sliver, with gaps no larger than three pixels. The combined
+height limit keeps this repair from crossing the gap between scoreboard rows.
+Green, yellow, and red components are then detected
 independently: no cell edge is inferred from a neighbor and cell widths do not
 have to match. A layout is accepted only when the components form one unambiguous
 pair of non-overlapping `green, yellow, red` row triples with compatible spans,
@@ -211,7 +214,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `ScanLivestreamFrameTextAdminApiStateTestCase`: replay-safe client retries and one-shot claim behavior.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  `scoreboard_cases.json` explicitly golden-tests all 79 scoreboard/name fixtures
+  `scoreboard_cases.json` explicitly golden-tests all 83 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG

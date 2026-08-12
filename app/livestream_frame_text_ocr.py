@@ -265,11 +265,53 @@ def _score_role_components(image, role: str, role_mask=None):
             )
             cluster_areas[first_root] += cluster_areas[second_root]
 
+    # In a very narrow cell, a zero can leave two full-width background pieces
+    # plus only a thin colored sliver inside the counter. Rejoin that bounded
+    # three-piece pattern before the ordinary local-seam pass.
+    split_cell_triples = []
+    for first_index, middle_index, last_index in combinations(
+        range(1, component_count), 3
+    ):
+        ordered = sorted(
+            (first_index, middle_index, last_index),
+            key=lambda index: cluster_bounds[index][1],
+        )
+        top_index, center_index, bottom_index = ordered
+        top = cluster_bounds[top_index]
+        center = cluster_bounds[center_index]
+        bottom = cluster_bounds[bottom_index]
+        top_width = top[2] - top[0]
+        center_width = center[2] - center[0]
+        bottom_width = bottom[2] - bottom[0]
+        top_center_gap = center[1] - top[3]
+        center_bottom_gap = bottom[1] - center[3]
+        outer_overlap = max(0, min(top[2], bottom[2]) - max(top[0], bottom[0]))
+        center_outer_overlap = max(
+            0,
+            min(top[2], center[2], bottom[2]) - max(top[0], center[0], bottom[0]),
+        )
+        total_height = bottom[3] - top[1]
+        if (
+            cluster_areas[center_index] < min_area
+            and center_width <= 0.50 * min(top_width, bottom_width)
+            and max(top_width, bottom_width) <= 1.35 * min(top_width, bottom_width)
+            and outer_overlap >= 0.80 * min(top_width, bottom_width)
+            and center_outer_overlap >= 0.80 * center_width
+            and 0 <= top_center_gap <= 3
+            and 0 <= center_bottom_gap <= 3
+            and total_height <= 3.0 * max(top_width, bottom_width)
+        ):
+            split_cell_triples.append((top_index, center_index, bottom_index))
+    for top_index, center_index, bottom_index in split_cell_triples:
+        union(top_index, center_index)
+        union(top_index, bottom_index)
+
     # A white stroke or JPEG seam can split a cell's colored background into
     # nearby pieces. Small compression fragments can bridge the larger pieces,
     # so compare the accumulated cluster bounds and areas as pieces are joined.
-    # Once a fragment belongs to a retained component, another retained
-    # component must share most of its horizontal span before it can join.
+    # A three-pixel seam is accepted only next to a tiny fragment. This handles
+    # the colored sliver inside a zero spanning a very narrow cell without
+    # closing the gap between full cell components in different rows.
     for first_index in range(1, component_count):
         for second_index in range(first_index + 1, component_count):
             first_root = find(first_index)
