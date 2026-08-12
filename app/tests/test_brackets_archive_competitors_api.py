@@ -148,6 +148,50 @@ class BracketsArchiveCompetitorsApiTestCase(TestDbMixin, unittest.TestCase):
         medals = {c["name"]: c["medal"] for c in data["competitors"]}
         self.assertEqual(medals["Red Fighter"], "1")
 
+    @mock.patch("routes.brackets.get_livestream_link", return_value=None)
+    @mock.patch("routes.brackets.load_linked_archive_video_links")
+    @mock.patch(
+        "routes.brackets.load_livestream_links",
+        return_value={"tournament_days": {}, "live_streams": {}, "flo_event_tags": {}},
+    )
+    @mock.patch("routes.brackets.get_s3_client", return_value=None)
+    def test_archive_competitors_returns_matless_ocr_archive_video_link(
+        self,
+        _mock_s3,
+        _mock_streams,
+        mock_archive_links,
+        _mock_link,
+    ):
+        with self.app_module.app.app_context():
+            match = Match.query.one()
+            match.match_location = None
+            db.session.commit()
+            mock_archive_links.return_value = {
+                match.id: "https://www.youtube.com/watch?v=archive123&t=321s"
+            }
+
+            try:
+                response = self.client.get(
+                    "/api/brackets/archive/competitors",
+                    query_string={
+                        "event_name": "Test Event (Results)",
+                        "age": ADULT,
+                        "belt": BLACK,
+                        "weight": LIGHT,
+                        "gender": MALE,
+                        "gi": "true",
+                    },
+                )
+            finally:
+                match.match_location = "Mat 1"
+                db.session.commit()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.get_json()["matches"][0]["video_link"],
+            "https://www.youtube.com/watch?v=archive123&t=321s",
+        )
+
     def test_archive_competitors_missing_param(self):
         response = self.client.get("/api/brackets/archive/competitors")
         self.assertEqual(response.status_code, 400)

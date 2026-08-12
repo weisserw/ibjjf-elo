@@ -97,7 +97,9 @@ event choices from `GET /api/awards/events/recent`, division categories from
 
 Archive competitors and matches are DB-backed. The match payloads can include
 match IDs, score summaries, video links, and offsets used by the match detail and
-livestream-linking features.
+livestream-linking features. A visible OCR-linked YouTube archive supplies the
+match video URL and stored offset even when the historical match has no mat
+number, allowing the tree's YouTube and score-detail controls to render.
 
 ## Backend Flow
 

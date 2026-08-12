@@ -16,9 +16,10 @@ affiliation disclaimer it replaced.
 
 ## Coverage Semantics
 
-`app/site_statistics.py` deliberately uses `get_livestream_link()` from
-`app/livestreams.py`, the same resolver used by Database and bracket APIs. A
-match counts only when its final resolved link is a valid YouTube URL.
+`app/site_statistics.py` deliberately uses the ordinary mat-aware and linked
+OCR/archive resolvers from `app/livestreams.py`, the same resolution paths used
+by Database and bracket APIs. A match counts only when its final resolved link
+is a valid YouTube URL.
 
 This means the total:
 
@@ -83,9 +84,10 @@ No scheduled process is required after that initial refresh.
 ## Main Code Paths
 
 - `app/site_statistics.py` computes and persists the count.
-  It resolves ordinary coverage through `get_livestream_link()` and separately
-  maps linked OCR events to visible `LivestreamFrameArchive` YouTube URLs so
-  mat-less links do not depend on `Match.match_location`.
+- `app/livestreams.py` resolves ordinary coverage through
+  `get_livestream_link()` and maps linked OCR events to visible
+  `LivestreamFrameArchive` YouTube URLs so mat-less links do not depend on
+  `Match.match_location`.
 - `app/models.py` defines `SiteStatistic`.
 - `app/routes/top.py` serves `GET /api/site-statistics`.
 - `admin/app.py` starts untracked refresh threads after livestream and

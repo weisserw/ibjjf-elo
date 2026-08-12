@@ -105,6 +105,9 @@ Successful automatic and manual admin linking queues a homepage covered-match
 count refresh. The standalone CLI refreshes that cached count synchronously
 when `--commit` is used. The count follows linked OCR events to the archive's
 visible YouTube URL, so mat-less links contribute without a stored mat number.
+Database rows and archive brackets use the same association to expose a timed
+YouTube link; this makes their video icon and score-detail control available
+without backfilling the mat.
 
 Full tournament CSV imports also relink every successful text scan whose
 archived YouTube video is used by that tournament. This runs after replacement

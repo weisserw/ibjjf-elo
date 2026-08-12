@@ -61,7 +61,11 @@ from models import (
 from elo import RATING_VERY_IMMATURE_COUNT
 from photos import get_public_photo_url, get_s3_client
 from normalize import normalize
-from livestreams import load_livestream_links, get_livestream_link
+from livestreams import (
+    get_livestream_link,
+    load_linked_archive_video_links,
+    load_livestream_links,
+)
 
 matches_route = Blueprint("matches_route", __name__)
 
@@ -1593,8 +1597,12 @@ def matches():
     if len(event_ids):
         livestream_data = load_livestream_links(db.session, event_ids)
 
+    linked_archive_urls = load_linked_archive_video_links(
+        db.session, (match["id"] for match in response)
+    )
+
     for match in response:
-        match["videoLink"] = get_livestream_link(
+        resolved_link = get_livestream_link(
             livestream_data,
             match["event_ibjjf_id"],
             match["winner"],
@@ -1610,6 +1618,13 @@ def matches():
             match["videoLink"],
             match["video_start_offset_seconds"],
         )
+        if not (
+            isinstance(match["videoLink"], str) and match["videoLink"].lower() == "none"
+        ):
+            resolved_link = linked_archive_urls.get(
+                uuid.UUID(str(match["id"])), resolved_link
+            )
+        match["videoLink"] = resolved_link
 
         del match["event_ibjjf_id"]
         del match["date_happened_at"]

@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 import requests
 import threading
 import os
+import uuid
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from pull import (
@@ -11,7 +12,11 @@ from pull import (
     parse_competitor,
     parse_medals,
 )
-from livestreams import load_livestream_links, get_livestream_link
+from livestreams import (
+    get_livestream_link,
+    load_linked_archive_video_links,
+    load_livestream_links,
+)
 import re
 import json
 from sqlalchemy.sql import func, or_, and_, tuple_
@@ -3331,6 +3336,9 @@ def archive_competitors():
         ordinals_by_id[competitor["ibjjf_id"]] = competitor["ordinal"]
 
     livestream_data = load_livestream_links(db.session, [event.ibjjf_id])
+    linked_archive_urls = load_linked_archive_video_links(
+        db.session, (uuid.UUID(match["id"]) for match in parsed_matches)
+    )
 
     for match in parsed_matches:
         if match["red_id"] in ordinals_by_id:
@@ -3338,8 +3346,9 @@ def archive_competitors():
         if match["blue_id"] in ordinals_by_id:
             match["blue_ordinal"] = ordinals_by_id[match["blue_id"]]
 
+        resolved_link = match["video_link"]
         if event.ibjjf_id and match["when"] and match["where"]:
-            match["video_link"] = get_livestream_link(
+            resolved_link = get_livestream_link(
                 livestream_data,
                 event.ibjjf_id,
                 match["blue_name"],
@@ -3355,6 +3364,14 @@ def archive_competitors():
                 match["video_link"],
                 match["video_start_offset_seconds"],
             )
+        if not (
+            isinstance(match["video_link"], str)
+            and match["video_link"].lower() == "none"
+        ):
+            resolved_link = linked_archive_urls.get(
+                uuid.UUID(match["id"]), resolved_link
+            )
+        match["video_link"] = resolved_link
 
     return jsonify(
         {

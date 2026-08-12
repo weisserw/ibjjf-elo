@@ -21,6 +21,7 @@ from models import (
     Team,
 )
 from site_statistics import get_covered_match_count, refresh_covered_match_count
+from livestreams import load_linked_archive_video_links
 from test_db import TestDbMixin
 
 
@@ -218,6 +219,7 @@ class SiteStatisticsTestCase(TestDbMixin, unittest.TestCase):
         add_match(11, 0, 1, note="Disqualified by no show")
         add_match(13, 0, 3)
         matless_linked_match = add_match(8, 0, None)
+        matless_linked_match.video_start_offset_seconds = 321
         hidden_matless_linked_match = add_match(8, 10, None)
         suppressed_matless_linked_match = add_match(8, 20, None, video_link="NONE")
         link_match_to_archive(matless_linked_match, "stream123")
@@ -240,6 +242,18 @@ class SiteStatisticsTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), {"coveredMatchCount": 3})
+
+    def test_visible_ocr_archive_link_includes_match_video_offset(self):
+        with self.app_module.app.app_context():
+            match = Match.query.filter_by(
+                match_location=None,
+                video_start_offset_seconds=321,
+            ).one()
+
+            self.assertEqual(
+                load_linked_archive_video_links(db.session, [match.id]),
+                {match.id: ("https://www.youtube.com/watch?v=stream123&t=321s")},
+            )
 
 
 if __name__ == "__main__":

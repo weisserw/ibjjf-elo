@@ -392,6 +392,34 @@ class MatchesApiTestCase(TestDbMixin, unittest.TestCase):
         }
 
     @mock.patch("routes.matches.get_s3_client", return_value=None)
+    @mock.patch("routes.matches.get_livestream_link", return_value=None)
+    @mock.patch("routes.matches.load_linked_archive_video_links")
+    @mock.patch("routes.matches.load_livestream_links")
+    def test_matches_returns_ocr_archive_video_link(
+        self,
+        mock_livestreams,
+        mock_archive_links,
+        _mock_link,
+        _mock_s3,
+    ):
+        mock_livestreams.return_value = self._patch_livestreams()
+        match = Match.query.filter_by(match_location="Mat 1").one()
+        mock_archive_links.return_value = {
+            match.id: "https://www.youtube.com/watch?v=archive123&t=321s"
+        }
+
+        response = self.client.get("/api/matches?gi=true&athlete_name=Test%20Athlete")
+
+        self.assertEqual(response.status_code, 200)
+        row = next(
+            item for item in response.get_json()["rows"] if item["id"] == match.id.hex
+        )
+        self.assertEqual(
+            row["videoLink"],
+            "https://www.youtube.com/watch?v=archive123&t=321s",
+        )
+
+    @mock.patch("routes.matches.get_s3_client", return_value=None)
     @mock.patch("routes.matches.load_livestream_links")
     @unittest.skipUnless(
         os.environ.get("RUN_OCR_TESTS") == "1",

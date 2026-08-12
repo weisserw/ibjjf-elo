@@ -69,7 +69,8 @@ Backend:
   - Builds SQL filters from query params.
   - Converts joined match/participant rows into one response row per match.
   - Adds S3-backed athlete photo URLs when present.
-  - Rewrites `videoLink` through livestream lookup helpers before returning.
+  - Rewrites `videoLink` through mat-aware livestream lookup and visible
+    OCR/archive associations before returning.
   - `match_detail_events(match_id)` handles
     `GET /api/matches/<match_id>/detail-events` for row score details.
 - `app/livestream_match_linking.py`
@@ -198,11 +199,14 @@ returned.
 - Historical events are detected client-side with `isHistorical` and get
   historical styling/warnings. Bracket links are suppressed for historical
   events.
-- Video links prefer livestream links/offsets when link data is available and
-  fall back to the match's stored `video_link`.
-- The homepage's cached YouTube-covered match count uses the same
-  `get_livestream_link()` resolver and also excludes no-match notes that suppress
-  Database video icons. See `docs/features/homepage-video-count.md`.
+- Video links prefer a visible OCR-linked YouTube archive, including the stored
+  match video offset. This allows mat-less linked matches to show the YouTube
+  icon and score-detail control. Otherwise they use ordinary mat-aware
+  livestream resolution and fall back to the match's stored `video_link`.
+- The case-insensitive `NONE` sentinel still suppresses every video source.
+- The homepage's cached YouTube-covered match count uses the same ordinary and
+  OCR/archive resolvers and also excludes no-match notes that suppress Database
+  video icons. See `docs/features/homepage-video-count.md`.
 
 ## Tests To Run
 

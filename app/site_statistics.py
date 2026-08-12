@@ -2,15 +2,17 @@ from datetime import datetime
 
 from sqlalchemy import or_, text
 
-from livestreams import get_livestream_link, load_livestream_links
+from livestreams import (
+    get_livestream_link,
+    load_linked_archive_video_links,
+    load_livestream_links,
+)
 from models import (
     Athlete,
     Division,
     Event,
     FloEventTag,
     LiveStream,
-    LivestreamFrameArchive,
-    LivestreamFrameTextEvent,
     Match,
     MatchParticipant,
     SiteStatistic,
@@ -62,49 +64,6 @@ def _participant_values(row):
     }
 
 
-def _load_visible_ocr_archive_links(session):
-    visible_archive_keys = {
-        (event_id, youtube_video_id)
-        for event_id, link in session.query(LiveStream.event_id, LiveStream.link)
-        .filter(LiveStream.hide_all.is_(False))
-        .all()
-        if (youtube_video_id := extract_youtube_video_id(link)) is not None
-    }
-    if not visible_archive_keys:
-        return {}
-
-    rows = (
-        session.query(
-            LivestreamFrameTextEvent.match_id,
-            Event.ibjjf_id,
-            LivestreamFrameArchive.youtube_video_id,
-            LivestreamFrameArchive.canonical_url,
-        )
-        .select_from(LivestreamFrameTextEvent)
-        .join(Match, Match.id == LivestreamFrameTextEvent.match_id)
-        .join(Event, Event.id == Match.event_id)
-        .join(
-            LivestreamFrameArchive,
-            LivestreamFrameArchive.id == LivestreamFrameTextEvent.archive_id,
-        )
-        .filter(LivestreamFrameTextEvent.match_id.isnot(None))
-        .distinct()
-        .order_by(
-            LivestreamFrameTextEvent.match_id,
-            LivestreamFrameArchive.youtube_video_id,
-        )
-        .all()
-    )
-    links_by_match_id = {}
-    for match_id, event_id, youtube_video_id, canonical_url in rows:
-        if (event_id, youtube_video_id) not in visible_archive_keys:
-            continue
-        if extract_youtube_video_id(canonical_url) is None:
-            continue
-        links_by_match_id.setdefault(match_id, canonical_url)
-    return links_by_match_id
-
-
 def _is_covered_match(match, participants, livestream_data, linked_archive_url=None):
     if len(participants) != 2:
         return False
@@ -153,7 +112,7 @@ def calculate_covered_match_count(session):
         event_id for (event_id,) in session.query(FloEventTag.event_id).distinct().all()
     )
     livestream_data = _load_coverage_link_data(session, coverage_event_ids)
-    linked_archive_urls = _load_visible_ocr_archive_links(session)
+    linked_archive_urls = load_linked_archive_video_links(session)
 
     rows = (
         session.query(

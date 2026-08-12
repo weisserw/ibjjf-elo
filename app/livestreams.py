@@ -1,11 +1,89 @@
 from datetime import datetime
 import re
+import uuid
 from urllib.parse import quote
 
 from constants import ADULT, BLACK
+from models import (
+    Event,
+    LiveStream,
+    LivestreamFrameArchive,
+    LivestreamFrameTextEvent,
+    Match,
+)
 from normalize import normalize
 from sqlalchemy.sql import text
-from youtube_utils import extract_youtube_video_id
+from youtube_utils import canonical_youtube_url, extract_youtube_video_id
+
+
+def _youtube_url_with_offset(url, offset_seconds):
+    youtube_video_id = extract_youtube_video_id(url)
+    if youtube_video_id is None:
+        return None
+    result = canonical_youtube_url(youtube_video_id)
+    if offset_seconds is not None:
+        result += f"&t={max(1, offset_seconds)}s"
+    return result
+
+
+def load_linked_archive_video_links(session, match_ids=None):
+    """Return visible YouTube archive links for OCR-linked matches."""
+    query = (
+        session.query(
+            LivestreamFrameTextEvent.match_id,
+            Event.ibjjf_id,
+            Match.video_start_offset_seconds,
+            LivestreamFrameArchive.youtube_video_id,
+            LivestreamFrameArchive.canonical_url,
+        )
+        .select_from(LivestreamFrameTextEvent)
+        .join(Match, Match.id == LivestreamFrameTextEvent.match_id)
+        .join(Event, Event.id == Match.event_id)
+        .join(
+            LivestreamFrameArchive,
+            LivestreamFrameArchive.id == LivestreamFrameTextEvent.archive_id,
+        )
+        .filter(LivestreamFrameTextEvent.match_id.isnot(None))
+    )
+    if match_ids is not None:
+        match_ids = [
+            match_id if isinstance(match_id, uuid.UUID) else uuid.UUID(str(match_id))
+            for match_id in match_ids
+        ]
+        if not match_ids:
+            return {}
+        query = query.filter(LivestreamFrameTextEvent.match_id.in_(match_ids))
+
+    rows = (
+        query.distinct()
+        .order_by(
+            LivestreamFrameTextEvent.match_id,
+            LivestreamFrameArchive.youtube_video_id,
+        )
+        .all()
+    )
+    if not rows:
+        return {}
+
+    event_ids = {event_id for _, event_id, _, _, _ in rows}
+    visible_archive_keys = {
+        (event_id, youtube_video_id)
+        for event_id, link in session.query(LiveStream.event_id, LiveStream.link)
+        .filter(
+            LiveStream.event_id.in_(event_ids),
+            LiveStream.hide_all.is_(False),
+        )
+        .all()
+        if (youtube_video_id := extract_youtube_video_id(link)) is not None
+    }
+    links_by_match_id = {}
+    for match_id, event_id, offset_seconds, youtube_video_id, canonical_url in rows:
+        if (event_id, youtube_video_id) not in visible_archive_keys:
+            continue
+        link = _youtube_url_with_offset(canonical_url, offset_seconds)
+        if link is not None:
+            links_by_match_id.setdefault(match_id, link)
+    return links_by_match_id
 
 
 def _load_special_search_names(session):
