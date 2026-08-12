@@ -26,7 +26,16 @@ event and day, then uses OCR names and the expected video time offset to choose
 among the wider pool. If any match in the event has a mat number, normal
 mat-aware loading remains in effect and individual mat-less rows are excluded.
 Mat-less choices require evidence for both scoreboard names because mat order is
-not available as supporting evidence. The linker never infers or writes
+not available as supporting evidence. Their candidate gate ignores both the
+global match-order cursor and the configured livestream start time. Before a
+time calibration exists, the first strong two-name match can link using names
+alone. That link establishes the difference between scheduled time-of-day and
+video time. Later candidates use their relative scheduled times with a
+30-minute tolerance around a rolling median of the five most recent confident
+links. This absorbs an inaccurate stream start and gradual schedule drift while
+still narrowing the event-wide candidate pool after the first link. The
+ordinary mat-aware path keeps its configured stream offset, 20-minute window,
+and mat-order cursor. The linker never infers or writes
 `Match.match_location` or `Match.fight_number`, so relinking cannot pollute a
 later run with backfilled scheduling data.
 
@@ -91,6 +100,11 @@ Automatic pipeline flow:
    fallback for split windows.
 8. Writes event links and match summary fields, then returns a summary with
    `linked`, `windows`, `candidates`, and optional `skipped`.
+
+Successful automatic and manual admin linking queues a homepage covered-match
+count refresh. The standalone CLI refreshes that cached count synchronously
+when `--commit` is used. The count follows linked OCR events to the archive's
+visible YouTube URL, so mat-less links contribute without a stored mat number.
 
 Full tournament CSV imports also relink every successful text scan whose
 archived YouTube video is used by that tournament. This runs after replacement
@@ -179,7 +193,8 @@ excluded.
 - `participants`.
 - `stream`.
 - `order_index`.
-- `expected_start_second`.
+- `expected_start_second`: expected video offset in mat-aware mode, or the
+  match's schedule time-of-day coordinate in mat-less mode.
 - `matless_mode`, indicating that event/day coverage replaced mat filtering.
 
 `MatchChoice` is an in-memory scoring result:
@@ -195,6 +210,13 @@ non-speculatively, both scoreboard sides independently score at least `60`,
 and its expected start is within three minutes. The usual eight-point margin
 over the next candidate still applies. This lets mat order contribute evidence
 without allowing a speculative forward match or one-sided OCR hit to cascade.
+
+Mat-less candidates do not use this sequential exception or speculative
+forward-link rollback because their global event order interleaves matches from
+different unknown mats. The initial uncalibrated choice and every later choice
+must meet the ordinary name threshold and margin and independently support both
+scoreboard names. After calibration, choices must also fall within the mat-less
+relative-time window.
 
 Pre-start names remain part of the aggregate identity score because they are
 often the clearest observations. For new-match selection only, a candidate is
@@ -256,7 +278,10 @@ slightly degraded exact-next match only after a confirmed predecessor, retain
 long pre-start delays with confirming or swapped names, and require more than
 one coherent contradictory post-start pair before rejecting pre-start names.
 They also cover recovery beyond the normal lookahead after a stale rejection
-blocks the exact cursor candidate.
+blocks the exact cursor candidate. Mat-less regressions cover automatic mode
+selection, no scheduling-field backfill across reruns, mixed-data events staying
+mat-aware, initial name-only linking despite a bad configured stream time, and
+relative-time calibration that distinguishes otherwise identical rematches.
 
 ## Previously Surfaced Issues From Git History
 

@@ -5,6 +5,7 @@ import uuid
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
+from statistics import median
 from types import SimpleNamespace
 
 from rapidfuzz import fuzz
@@ -47,6 +48,8 @@ STALE_PRESTART_NAME_GAP_SECONDS = 3 * 60
 MIN_CONFLICTING_POSTSTART_PAIRS = 2
 LOOKAHEAD_MATCHES = 8
 TIME_MATCH_WINDOW_SECONDS = 20 * 60
+MATLESS_TIME_MATCH_WINDOW_SECONDS = 30 * 60
+MATLESS_TIME_OFFSET_SAMPLE_COUNT = 5
 CONTINUATION_TIME_WINDOW_SECONDS = 3 * 60
 SEQUENTIAL_TIME_WINDOW_SECONDS = 3 * 60
 SPECULATIVE_FORWARD_RELEASE_GAP = 2
@@ -602,12 +605,62 @@ def _candidate_time_delta(window: MatchWindow, candidate: Candidate) -> int | No
     return window.video_start_offset_seconds - candidate.expected_start_second
 
 
+def _candidate_adjusted_time_delta(
+    window: MatchWindow,
+    candidate: Candidate,
+    matless_time_offset_seconds: int | None = None,
+) -> int | None:
+    time_delta = _candidate_time_delta(window, candidate)
+    if time_delta is None:
+        return None
+    if candidate.matless_mode:
+        if matless_time_offset_seconds is None:
+            return None
+        return time_delta - matless_time_offset_seconds
+    return time_delta
+
+
+def _candidate_is_time_aligned(
+    window: MatchWindow,
+    candidate: Candidate,
+    matless_time_offset_seconds: int | None = None,
+) -> bool:
+    if candidate.matless_mode and matless_time_offset_seconds is None:
+        return True
+    time_delta = _candidate_adjusted_time_delta(
+        window, candidate, matless_time_offset_seconds
+    )
+    time_window_seconds = (
+        MATLESS_TIME_MATCH_WINDOW_SECONDS
+        if candidate.matless_mode
+        else TIME_MATCH_WINDOW_SECONDS
+    )
+    return time_delta is not None and abs(time_delta) <= time_window_seconds
+
+
+def _matless_time_offset_seconds(samples: list[int]) -> int | None:
+    if not samples:
+        return None
+    return round(median(samples[-MATLESS_TIME_OFFSET_SAMPLE_COUNT:]))
+
+
+def _record_matless_time_offset_sample(
+    samples: list[int], window: MatchWindow, choice: MatchChoice
+) -> None:
+    if not choice.candidate.matless_mode:
+        return
+    time_delta = _candidate_time_delta(window, choice.candidate)
+    if time_delta is not None:
+        samples.append(time_delta)
+
+
 def _candidate_choices(
     window: MatchWindow,
     candidates: list[Candidate],
     cursor: int,
     used_match_ids: set | None = None,
     allow_stale_cursor_recovery: bool = False,
+    matless_time_offset_seconds: int | None = None,
 ) -> list[MatchChoice]:
     used_match_ids = used_match_ids or set()
     choices = []
@@ -615,21 +668,30 @@ def _candidate_choices(
         if candidate.match.id in used_match_ids:
             continue
         gap = candidate.order_index - cursor
-        time_delta = _candidate_time_delta(window, candidate)
-        time_aligned = (
-            time_delta is not None and abs(time_delta) <= TIME_MATCH_WINDOW_SECONDS
+        time_delta = _candidate_adjusted_time_delta(
+            window, candidate, matless_time_offset_seconds
         )
-        if candidate.order_index < cursor and not time_aligned:
+        time_aligned = _candidate_is_time_aligned(
+            window, candidate, matless_time_offset_seconds
+        )
+        if candidate.matless_mode:
+            if not time_aligned:
+                continue
+        elif candidate.order_index < cursor and not time_aligned:
             continue
         choice = _choice_for_candidate(window, candidate)
-        if gap > LOOKAHEAD_MATCHES and not time_aligned:
+        if not candidate.matless_mode and gap > LOOKAHEAD_MATCHES and not time_aligned:
             if not allow_stale_cursor_recovery:
                 continue
             if _best_poststart_two_sided_support_score(window, choice) < MIN_NAME_SCORE:
                 continue
         if time_aligned:
             order_penalty = 0.0
-            time_penalty = min(abs(time_delta) / 60.0 * 0.4, 12.0)
+            time_penalty = (
+                min(abs(time_delta) / 60.0 * 0.4, 12.0)
+                if time_delta is not None
+                else 0.0
+            )
         else:
             order_penalty = min(gap * 3.0, 18.0)
             time_penalty = 0.0
@@ -790,6 +852,7 @@ def choose_match_for_window(
     used_match_ids: set | None = None,
     speculative_match_ids: set | None = None,
     allow_stale_cursor_recovery: bool = False,
+    matless_time_offset_seconds: int | None = None,
 ) -> MatchChoice | None:
     if not window.has_running_timer:
         return None
@@ -801,6 +864,7 @@ def choose_match_for_window(
         cursor,
         used_match_ids,
         allow_stale_cursor_recovery=allow_stale_cursor_recovery,
+        matless_time_offset_seconds=matless_time_offset_seconds,
     )
     if not choices:
         return None
@@ -837,6 +901,7 @@ def _rejected_stale_cursor_choice(
 ) -> bool:
     return bool(
         choices
+        and not choices[0].candidate.matless_mode
         and choices[0].candidate.order_index == cursor
         and _has_stale_conflicting_prestart_evidence(window, choices[0])
     )
@@ -879,8 +944,7 @@ def _continuation_time_delta(window: MatchWindow, candidate: Candidate) -> int |
 
 
 def _continuation_is_time_aligned(window: MatchWindow, candidate: Candidate) -> bool:
-    expected_delta = _candidate_time_delta(window, candidate)
-    if expected_delta is not None and abs(expected_delta) <= TIME_MATCH_WINDOW_SECONDS:
+    if not candidate.matless_mode and _candidate_is_time_aligned(window, candidate):
         return True
     stored_delta = _continuation_time_delta(window, candidate)
     return (
@@ -943,7 +1007,9 @@ def _sequential_choice_for_ambiguous_window(
     strong_choices = [
         choice
         for choice in choices
-        if choice.score >= MIN_NAME_SCORE and choice.candidate.order_index >= cursor
+        if choice.score >= MIN_NAME_SCORE
+        and not choice.candidate.matless_mode
+        and choice.candidate.order_index >= cursor
     ]
     if not strong_choices:
         return None
@@ -1012,6 +1078,10 @@ def _match_day_number(
 
 def _time_of_day_seconds(value: datetime) -> int:
     return value.hour * 3600 + value.minute * 60 + value.second
+
+
+def _matless_expected_schedule_second(match: Match) -> int:
+    return _time_of_day_seconds(match.happened_at)
 
 
 def _stream_start_seconds(stream: LiveStream) -> int:
@@ -1125,13 +1195,11 @@ def _matless_stream_for_match(
         )
         return None, reason
 
-    match_seconds = _time_of_day_seconds(match.happened_at)
     matching_streams.sort(
         key=lambda stream: (
-            _expected_video_offset_seconds(match, stream, streams_for_archive) is None,
-            abs(match_seconds - _stream_start_seconds(stream)),
-            _stream_start_seconds(stream),
             stream.mat_number,
+            _stream_start_seconds(stream),
+            str(stream.id),
         )
     )
     return matching_streams[0], None
@@ -1217,8 +1285,13 @@ def load_candidates_for_archive(
                 participants=(participants[0], participants[1]),
                 stream=stream,
                 order_index=len(candidates),
-                expected_start_second=_expected_video_offset_seconds(
-                    match, stream, streams_for_archive
+                expected_start_second=(
+                    _matless_expected_schedule_second(match)
+                    if match.event is not None
+                    and match.event.ibjjf_id in matless_event_ids
+                    else _expected_video_offset_seconds(
+                        match, stream, streams_for_archive
+                    )
                 ),
                 matless_mode=(
                     match.event is not None
@@ -1280,8 +1353,12 @@ def analyze_candidate_loading(session, scan_or_archive_id) -> SimpleNamespace:
                 matless_event_ids=matless_event_ids,
             )
             if stream:
-                expected_start_second = _expected_video_offset_seconds(
-                    match, stream, streams_for_archive
+                expected_start_second = (
+                    _matless_expected_schedule_second(match)
+                    if matless_mode
+                    else _expected_video_offset_seconds(
+                        match, stream, streams_for_archive
+                    )
                 )
                 included += 1
                 included_counts_by_event_day_mat[
@@ -1617,15 +1694,20 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
     speculative_forward_decisions = {}
     active_candidate = None
     allow_stale_cursor_recovery = False
+    matless_time_offset_samples = []
     decisions = []
     for index, window in enumerate(windows, start=1):
         cursor_before = cursor
+        matless_time_offset_before = _matless_time_offset_seconds(
+            matless_time_offset_samples
+        )
         choices = _candidate_choices(
             window,
             candidates,
             cursor,
             used_match_ids,
             allow_stale_cursor_recovery=allow_stale_cursor_recovery,
+            matless_time_offset_seconds=matless_time_offset_before,
         )
         choice = choose_active_continuation_for_window(window, active_candidate)
         continuation = choice is not None
@@ -1637,6 +1719,7 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
                 used_match_ids,
                 set(speculative_forward_links),
                 allow_stale_cursor_recovery=allow_stale_cursor_recovery,
+                matless_time_offset_seconds=matless_time_offset_before,
             )
         if not choice:
             choice = choose_continuation_for_window(
@@ -1645,7 +1728,10 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
             continuation = choice is not None
         if choice:
             if not continuation:
-                if choice.candidate.order_index < cursor_before:
+                if (
+                    not choice.candidate.matless_mode
+                    and choice.candidate.order_index < cursor_before
+                ):
                     released_ids = _release_speculative_forward_links(
                         used_match_ids,
                         closed_match_ids,
@@ -1663,11 +1749,19 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
                             "rejection_reason"
                         ] = "released_out_of_order"
                         linked -= 1
-                cursor = max(cursor, choice.candidate.order_index + 1)
                 allow_stale_cursor_recovery = False
                 used_match_ids.add(choice.candidate.match.id)
+                _record_matless_time_offset_sample(
+                    matless_time_offset_samples, window, choice
+                )
                 if (
-                    choice.candidate.order_index - cursor_before
+                    not choice.candidate.matless_mode
+                    and choice.candidate.order_index >= cursor_before
+                ):
+                    cursor = max(cursor, choice.candidate.order_index + 1)
+                if (
+                    not choice.candidate.matless_mode
+                    and choice.candidate.order_index - cursor_before
                     >= SPECULATIVE_FORWARD_RELEASE_GAP
                 ):
                     speculative_forward_links[choice.candidate.match.id] = (
@@ -1691,6 +1785,10 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
             {
                 "window_index": index,
                 "cursor_before": cursor_before,
+                "matless_time_offset_before_seconds": matless_time_offset_before,
+                "matless_time_offset_after_seconds": _matless_time_offset_seconds(
+                    matless_time_offset_samples
+                ),
                 "start_second": window.start_second,
                 "end_second": window.end_second,
                 "video_start_offset_seconds": window.video_start_offset_seconds,
@@ -1712,6 +1810,9 @@ def analyze_text_scan_links(session, scan_or_archive_id) -> SimpleNamespace:
         linked=linked,
         windows=len(windows),
         candidates=len(candidates),
+        matless_time_offset_seconds=_matless_time_offset_seconds(
+            matless_time_offset_samples
+        ),
         skipped=None,
         decisions=decisions,
     )
@@ -1786,14 +1887,17 @@ def link_completed_text_scan(
     speculative_forward_windows = {}
     active_candidate = None
     allow_stale_cursor_recovery = False
+    matless_time_offset_samples = []
     for window in windows:
         cursor_before = cursor
+        matless_time_offset = _matless_time_offset_seconds(matless_time_offset_samples)
         choices = _candidate_choices(
             window,
             candidates,
             cursor,
             used_match_ids,
             allow_stale_cursor_recovery=allow_stale_cursor_recovery,
+            matless_time_offset_seconds=matless_time_offset,
         )
         choice = choose_active_continuation_for_window(window, active_candidate)
         continuation = choice is not None
@@ -1805,6 +1909,7 @@ def link_completed_text_scan(
                 used_match_ids,
                 set(speculative_forward_links),
                 allow_stale_cursor_recovery=allow_stale_cursor_recovery,
+                matless_time_offset_seconds=matless_time_offset,
             )
         if not choice:
             choice = choose_continuation_for_window(
@@ -1825,7 +1930,10 @@ def link_completed_text_scan(
                 update_start_offset=not continuation,
             )
         if not continuation:
-            if choice.candidate.order_index < cursor_before:
+            if (
+                not choice.candidate.matless_mode
+                and choice.candidate.order_index < cursor_before
+            ):
                 released_ids = _release_speculative_forward_links(
                     used_match_ids,
                     closed_match_ids,
@@ -1840,11 +1948,19 @@ def link_completed_text_scan(
                     if not dry_run:
                         _clear_stored_choice(stored_window, stored_choice)
                     linked -= 1
-            cursor = max(cursor, choice.candidate.order_index + 1)
             allow_stale_cursor_recovery = False
             used_match_ids.add(choice.candidate.match.id)
+            _record_matless_time_offset_sample(
+                matless_time_offset_samples, window, choice
+            )
             if (
-                choice.candidate.order_index - cursor_before
+                not choice.candidate.matless_mode
+                and choice.candidate.order_index >= cursor_before
+            ):
+                cursor = max(cursor, choice.candidate.order_index + 1)
+            if (
+                not choice.candidate.matless_mode
+                and choice.candidate.order_index - cursor_before
                 >= SPECULATIVE_FORWARD_RELEASE_GAP
             ):
                 speculative_forward_links[choice.candidate.match.id] = (
@@ -1864,6 +1980,9 @@ def link_completed_text_scan(
         linked=linked,
         windows=len(windows),
         candidates=len(candidates),
+        matless_time_offset_seconds=_matless_time_offset_seconds(
+            matless_time_offset_samples
+        ),
         skipped=None,
     )
 

@@ -907,6 +907,9 @@ def _run_livestream_match_linking(scan_id):
                 f"linked={summary.linked} windows={summary.windows} "
                 f"candidates={summary.candidates} skipped={summary.skipped}"
             )
+            _queue_site_statistics_refresh(
+                f"livestream match linking completed for scan {scan_id}"
+            )
         except Exception:
             db.session.rollback()
             app.logger.exception(
@@ -1475,6 +1478,9 @@ def livestream_frame_text_scans():
             elif action == "clear_selected":
                 summary = clear_text_scan_events(db.session, scan_ids)
                 db.session.commit()
+                _queue_site_statistics_refresh(
+                    f"livestream text links cleared for {len(scan_ids)} scan(s)"
+                )
                 message = (
                     f"Deleted {summary['events']} text event(s) and cleared "
                     f"{summary['associations']} match link(s); reset "
@@ -1531,6 +1537,9 @@ def livestream_frame_text_scan_detail(archive_id):
                     error=f"Match relink skipped: {summary.skipped}.",
                 )
             )
+        _queue_site_statistics_refresh(
+            f"livestream match links manually recreated for scan {scan.id}"
+        )
         return redirect(
             url_for(
                 "livestream_frame_text_scan_detail",

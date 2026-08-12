@@ -384,7 +384,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertTrue(all(candidate.matless_mode for candidate in candidates))
         self.assertEqual(
             [candidate.expected_start_second for candidate in candidates],
-            [1, 600, 1200],
+            [32400, 33000, 33600],
         )
 
         report = analyze_candidate_loading(db.session, scan)
@@ -436,6 +436,143 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(missing_row["reason"], "no_mat_number")
         self.assertFalse(missing_row["matless_mode"])
+
+    def test_matless_tournament_links_initial_match_without_stream_time_anchor(self):
+        pairs = [
+            (f"DECOY ALPHA {index}", f"DECOY BETA {index}") for index in range(10)
+        ] + [("TARGET ALPHA", "TARGET BETA")]
+        matches = self._match_setup(
+            pairs=pairs,
+            match_start=datetime(2026, 1, 1, 8, 45),
+        )
+        for match in matches:
+            match.match_location = None
+            match.fight_number = None
+        db.session.commit()
+
+        archive, scan = self._stored_events(
+            [
+                self._event_data(
+                    1190,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="TARGET ALPHA",
+                    bottom_athlete_name="TARGET BETA",
+                ),
+                self._event_data(1200, timer_state="running", timer_value="4:50"),
+                self._event_data(1230, top_points=2),
+                self._event_data(1250, timer_state="stopped", timer_value="4:00"),
+            ]
+        )
+
+        candidates = load_candidates_for_archive(db.session, archive)
+        target_candidate = next(
+            candidate
+            for candidate in candidates
+            if candidate.match.id == matches[-1].id
+        )
+        self.assertEqual(target_candidate.order_index, 10)
+        self.assertEqual(target_candidate.expected_start_second, 32100)
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        self.assertEqual(summary.linked, 1)
+        target = db.session.get(Match, matches[-1].id)
+        self.assertEqual(target.video_start_offset_seconds, 1200)
+        self.assertEqual(self._linked_seconds(target), [1190, 1200, 1230, 1250])
+        self.assertIsNone(target.match_location)
+        self.assertIsNone(target.fight_number)
+
+    def test_matless_tournament_calibrates_relative_schedule_after_first_link(self):
+        matches = self._match_setup(
+            pairs=[
+                ("ANCHOR ALPHA", "ANCHOR BETA"),
+                ("TARGET ALPHA", "TARGET BETA"),
+                ("TARGET ALPHA", "TARGET BETA"),
+            ],
+            match_offsets=[0, 600, 7200],
+        )
+        for match in matches:
+            match.match_location = None
+            match.fight_number = None
+        stream = LiveStream.query.one()
+        stream.start_hour = 2
+        stream.end_hour = 3
+        db.session.commit()
+
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    100,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="ANCHOR ALPHA",
+                    bottom_athlete_name="ANCHOR BETA",
+                ),
+                self._event_data(110, timer_state="running", timer_value="4:50"),
+                self._event_data(120, timer_state="stopped", timer_value="0:00"),
+                self._event_data(
+                    130, scoreboard_state=text_scan.SCOREBOARD_STATE_BLANK
+                ),
+                self._event_data(
+                    690,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="TARGET ALPHA",
+                    bottom_athlete_name="TARGET BETA",
+                ),
+                self._event_data(700, timer_state="running", timer_value="4:50"),
+                self._event_data(730, top_points=2),
+                self._event_data(750, timer_state="stopped", timer_value="4:00"),
+            ]
+        )
+
+        analysis = analyze_text_scan_links(db.session, scan)
+
+        self.assertEqual(analysis.linked, 2)
+        self.assertEqual(
+            analysis.decisions[0]["matched"]["match_id"], str(matches[0].id)
+        )
+        self.assertIsNone(analysis.decisions[0]["matless_time_offset_before_seconds"])
+        self.assertEqual(
+            analysis.decisions[1]["matched"]["match_id"], str(matches[1].id)
+        )
+        self.assertEqual(analysis.decisions[1]["matched"]["time_delta_seconds"], -10)
+        self.assertEqual(analysis.matless_time_offset_seconds, -32295)
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        self.assertEqual(summary.linked, 2)
+        self.assertEqual(
+            db.session.get(Match, matches[1].id).video_start_offset_seconds,
+            700,
+        )
+        self.assertIsNone(
+            db.session.get(Match, matches[2].id).video_start_offset_seconds
+        )
 
     def test_real_joao_maycon_fixture_links_stopped_score_update(self):
         matches = self._match_setup(

@@ -11,6 +11,11 @@ from models import (
     Division,
     Event,
     LiveStream,
+    LivestreamFrameArchive,
+    LivestreamFrameCaptureSegment,
+    LivestreamFrameTextEvent,
+    LivestreamFrameTextScan,
+    LivestreamFrameTextScanSegment,
     Match,
     MatchParticipant,
     Team,
@@ -90,7 +95,7 @@ class SiteStatisticsTestCase(TestDbMixin, unittest.TestCase):
                 event_id=event.id,
                 division_id=division.id,
                 rated=True,
-                match_location=f"Mat {mat}",
+                match_location=f"Mat {mat}" if mat is not None else None,
                 video_link=video_link,
             )
             db.session.add(match)
@@ -124,6 +129,86 @@ class SiteStatisticsTestCase(TestDbMixin, unittest.TestCase):
                     ),
                 ]
             )
+            return match
+
+        archive_resources = {}
+
+        def link_match_to_archive(match, youtube_video_id):
+            existing = archive_resources.get(youtube_video_id)
+            if existing:
+                archive, capture_segment, scan, scan_segment, event_index = existing
+                archive_resources[youtube_video_id] = (
+                    archive,
+                    capture_segment,
+                    scan,
+                    scan_segment,
+                    event_index + 1,
+                )
+                db.session.add(
+                    LivestreamFrameTextEvent(
+                        scan_id=scan.id,
+                        archive_id=archive.id,
+                        match_id=match.id,
+                        scan_segment_id=scan_segment.id,
+                        capture_segment_id=capture_segment.id,
+                        frame_second=100 + event_index,
+                    )
+                )
+                return
+
+            archive = LivestreamFrameArchive(
+                youtube_video_id=youtube_video_id,
+                canonical_url=(f"https://www.youtube.com/watch?v={youtube_video_id}"),
+                s3_prefix=f"livestream-frames/{youtube_video_id}/",
+                status="success",
+                frame_rate=1.0,
+                image_format="jpg",
+            )
+            db.session.add(archive)
+            db.session.flush()
+            capture_segment = LivestreamFrameCaptureSegment(
+                archive_id=archive.id,
+                start_second=0,
+                end_second=300,
+                status="success",
+                uploaded_frame_count=300,
+                sampled_frame_count=300,
+            )
+            scan = LivestreamFrameTextScan(
+                archive_id=archive.id,
+                status="success",
+                total_segment_count=1,
+                processed_segment_count=1,
+            )
+            db.session.add_all([capture_segment, scan])
+            db.session.flush()
+            scan_segment = LivestreamFrameTextScanSegment(
+                scan_id=scan.id,
+                archive_id=archive.id,
+                capture_segment_id=capture_segment.id,
+                start_second=0,
+                end_second=300,
+                status="success",
+            )
+            db.session.add(scan_segment)
+            db.session.flush()
+            archive_resources[youtube_video_id] = (
+                archive,
+                capture_segment,
+                scan,
+                scan_segment,
+                1,
+            )
+            db.session.add(
+                LivestreamFrameTextEvent(
+                    scan_id=scan.id,
+                    archive_id=archive.id,
+                    match_id=match.id,
+                    scan_segment_id=scan_segment.id,
+                    capture_segment_id=capture_segment.id,
+                    frame_second=100,
+                )
+            )
 
         add_match(10, 0, 1)
         add_match(10, 0, 2)
@@ -132,6 +217,12 @@ class SiteStatisticsTestCase(TestDbMixin, unittest.TestCase):
         add_match(10, 45, 1, video_link="https://www.flograppling.com/events/test")
         add_match(11, 0, 1, note="Disqualified by no show")
         add_match(13, 0, 3)
+        matless_linked_match = add_match(8, 0, None)
+        hidden_matless_linked_match = add_match(8, 10, None)
+        suppressed_matless_linked_match = add_match(8, 20, None, video_link="NONE")
+        link_match_to_archive(matless_linked_match, "stream123")
+        link_match_to_archive(hidden_matless_linked_match, "hidden123")
+        link_match_to_archive(suppressed_matless_linked_match, "stream123")
 
         refresh_covered_match_count(db.session)
         db.session.commit()
@@ -141,14 +232,14 @@ class SiteStatisticsTestCase(TestDbMixin, unittest.TestCase):
 
     def test_refresh_counts_only_visible_youtube_match_links(self):
         with self.app_module.app.app_context():
-            self.assertEqual(get_covered_match_count(db.session), 2)
-            self.assertEqual(refresh_covered_match_count(db.session), 2)
+            self.assertEqual(get_covered_match_count(db.session), 3)
+            self.assertEqual(refresh_covered_match_count(db.session), 3)
 
     def test_site_statistics_api_returns_cached_count(self):
         response = self.client.get("/api/site-statistics")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json(), {"coveredMatchCount": 2})
+        self.assertEqual(response.get_json(), {"coveredMatchCount": 3})
 
 
 if __name__ == "__main__":

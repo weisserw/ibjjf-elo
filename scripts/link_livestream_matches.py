@@ -14,11 +14,14 @@ from app import app  # noqa: E402
 from extensions import db  # noqa: E402
 from livestream_match_linking import (  # noqa: E402
     LOOKAHEAD_MATCHES,
+    MATLESS_TIME_MATCH_WINDOW_SECONDS,
     MIN_NAME_SCORE,
     MIN_SEQUENTIAL_NAME_SCORE,
     MIN_SCORE_MARGIN,
     TIME_MATCH_WINDOW_SECONDS,
+    _candidate_adjusted_time_delta,
     _candidate_time_delta,
+    _candidate_is_time_aligned,
     _choice_for_candidate,
     _scan_from_id,
     analyze_candidate_loading,
@@ -29,16 +32,19 @@ from livestream_match_linking import (  # noqa: E402
     load_candidates_for_archive,
 )
 from models import LivestreamFrameArchive, LivestreamFrameTextEvent  # noqa: E402
+from site_statistics import refresh_covered_match_count  # noqa: E402
 
 
 def _format_second(value: int | None) -> str:
     if value is None:
         return "-"
+    sign = "-" if value < 0 else ""
+    value = abs(value)
     hours, remainder = divmod(value, 3600)
     minutes, seconds = divmod(remainder, 60)
     if hours:
-        return f"{hours}:{minutes:02d}:{seconds:02d}"
-    return f"{minutes}:{seconds:02d}"
+        return f"{sign}{hours}:{minutes:02d}:{seconds:02d}"
+    return f"{sign}{minutes}:{seconds:02d}"
 
 
 def _show_value(value: int | None) -> str:
@@ -91,6 +97,13 @@ def _print_decision(decision: dict, verbose: bool) -> None:
     else:
         print(f"  SKIP {decision['rejection_reason']}")
 
+    if verbose and decision.get("matless_time_offset_after_seconds") is not None:
+        print(
+            "    matless-time-calibration "
+            f"before={_format_second(decision.get('matless_time_offset_before_seconds'))} "
+            f"after={_format_second(decision['matless_time_offset_after_seconds'])}"
+        )
+
     if verbose:
         for candidate in decision["top_candidates"]:
             print(
@@ -110,15 +123,22 @@ def _print_decision(decision: dict, verbose: bool) -> None:
 
 
 def _candidate_gate(
-    candidate, window, cursor: int, used_match_ids: set[uuid.UUID]
+    candidate,
+    window,
+    cursor: int,
+    used_match_ids: set[uuid.UUID],
+    matless_time_offset_seconds: int | None,
 ) -> str:
     if candidate.match.id in used_match_ids:
         return "used_match"
     gap = candidate.order_index - cursor
-    time_delta = _candidate_time_delta(window, candidate)
-    time_aligned = (
-        time_delta is not None and abs(time_delta) <= TIME_MATCH_WINDOW_SECONDS
+    time_aligned = _candidate_is_time_aligned(
+        window, candidate, matless_time_offset_seconds
     )
+    if candidate.matless_mode and not time_aligned:
+        return "outside_matless_time_window"
+    if candidate.matless_mode:
+        return "eligible_matless"
     if candidate.order_index < cursor and not time_aligned:
         return "behind_cursor"
     if gap > LOOKAHEAD_MATCHES and not time_aligned:
@@ -126,16 +146,25 @@ def _candidate_gate(
     return "eligible"
 
 
-def _adjusted_candidate_score(candidate, window, cursor: int) -> float:
+def _adjusted_candidate_score(
+    candidate,
+    window,
+    cursor: int,
+    matless_time_offset_seconds: int | None,
+) -> float:
     choice = _choice_for_candidate(window, candidate)
     gap = candidate.order_index - cursor
-    time_delta = _candidate_time_delta(window, candidate)
-    time_aligned = (
-        time_delta is not None and abs(time_delta) <= TIME_MATCH_WINDOW_SECONDS
+    time_delta = _candidate_adjusted_time_delta(
+        window, candidate, matless_time_offset_seconds
+    )
+    time_aligned = _candidate_is_time_aligned(
+        window, candidate, matless_time_offset_seconds
     )
     if time_aligned:
         order_penalty = 0.0
-        time_penalty = min(abs(time_delta) / 60.0 * 0.4, 12.0)
+        time_penalty = (
+            min(abs(time_delta) / 60.0 * 0.4, 12.0) if time_delta is not None else 0.0
+        )
     else:
         order_penalty = min(gap * 3.0, 18.0)
         time_penalty = 0.0
@@ -191,19 +220,31 @@ def _print_skipped_choice_debug(
             continue
 
         cursor = decision["cursor_before"]
+        matless_time_offset_seconds = decision.get("matless_time_offset_before_seconds")
         scored = []
         for candidate in candidates:
             choice = _choice_for_candidate(window, candidate)
-            time_delta = _candidate_time_delta(window, candidate)
+            time_delta = _candidate_adjusted_time_delta(
+                window, candidate, matless_time_offset_seconds
+            )
             scored.append(
                 {
                     "candidate": candidate,
                     "raw_score": choice.raw_score,
                     "adjusted_score": _adjusted_candidate_score(
-                        candidate, window, cursor
+                        candidate,
+                        window,
+                        cursor,
+                        matless_time_offset_seconds,
                     ),
                     "time_delta": time_delta,
-                    "gate": _candidate_gate(candidate, window, cursor, used_match_ids),
+                    "gate": _candidate_gate(
+                        candidate,
+                        window,
+                        cursor,
+                        used_match_ids,
+                        matless_time_offset_seconds,
+                    ),
                 }
             )
         scored.sort(key=lambda item: item["raw_score"], reverse=True)
@@ -213,6 +254,8 @@ def _print_skipped_choice_debug(
             f"cursor={cursor} min_name_score={MIN_NAME_SCORE} "
             f"min_sequential_name_score={MIN_SEQUENTIAL_NAME_SCORE} "
             f"min_margin={MIN_SCORE_MARGIN} "
+            f"time_window={TIME_MATCH_WINDOW_SECONDS}s "
+            f"matless_time_window={MATLESS_TIME_MATCH_WINDOW_SECONDS}s "
             f"loaded_candidates={len(candidates)}"
         )
         for item in scored[:limit]:
@@ -527,12 +570,14 @@ def main() -> int:
 
         if args.commit:
             summary = link_completed_text_scan(db.session, scan_or_archive_id)
+            covered_count = refresh_covered_match_count(db.session)
             db.session.commit()
             print(
                 "committed "
                 f"linked={summary.linked} windows={summary.windows} "
                 f"candidates={summary.candidates} skipped={summary.skipped}"
             )
+            print(f"refreshed covered-match count={covered_count}")
         else:
             db.session.rollback()
             print("dry-run only; pass --commit to persist links")

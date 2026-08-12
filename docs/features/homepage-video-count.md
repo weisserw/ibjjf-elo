@@ -23,6 +23,8 @@ match counts only when its final resolved link is a valid YouTube URL.
 This means the total:
 
 - includes matches inside a visible livestream's event day, mat, and time range;
+- includes OCR-linked matches through their visible YouTube frame archive even
+  when the match has no mat number;
 - includes an individual match YouTube link even without livestream coverage;
 - excludes a match whose individual link is the case-insensitive `NONE` sentinel;
 - excludes matching livestream ranges with `hide_all` enabled;
@@ -61,6 +63,11 @@ A background refresh is queued after:
 - syncing the livestream frame archive page;
 - saving individual match video links from the athlete matches page; and
 - importing individual videos from the YouTube match scanner.
+- automatically or manually linking a completed livestream text scan, or
+  clearing linked text-scan events.
+
+The standalone `scripts/link_livestream_matches.py --commit` path refreshes the
+counter synchronously in the same transaction and prints the new value.
 
 After deploying the migration, populate the row once with the archive page's
 Sync action. Sync returns immediately while the count runs in the background;
@@ -76,6 +83,9 @@ No scheduled process is required after that initial refresh.
 ## Main Code Paths
 
 - `app/site_statistics.py` computes and persists the count.
+  It resolves ordinary coverage through `get_livestream_link()` and separately
+  maps linked OCR events to visible `LivestreamFrameArchive` YouTube URLs so
+  mat-less links do not depend on `Match.match_location`.
 - `app/models.py` defines `SiteStatistic`.
 - `app/routes/top.py` serves `GET /api/site-statistics`.
 - `admin/app.py` starts untracked refresh threads after livestream and
