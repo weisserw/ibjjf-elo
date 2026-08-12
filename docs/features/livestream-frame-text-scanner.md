@@ -240,6 +240,10 @@ Git history shows this area is sensitive to OCR edge cases and workflow/status h
   Full-height digit fragments separated by a one-pixel JPEG/color-threshold seam are merged before grouping and retained together during classification, preventing clipped zeroes in small timer crops from being interpreted as extra digits.
   Black stopped-timer candidates are clipped to broad red display bounds, preventing dark video outside a tightly cropped timer from joining the leading digit and turning `10:00` into a false `0:00`.
   Low-confidence height/baseline alignments are rejected before digit classification, preventing diagonal building windows in `new_timer_blank.jpg` and `new_timer_blank_2.jpg` from becoming false stopped-clock readings.
+  The structural-confidence cutoff still permits the small, naturally anti-aliased
+  digit-height and baseline variation in `timer_004.jpg` and `timer_951.jpg`;
+  those running timers previously fell just below an overly strict cutoff and
+  were incorrectly returned as blank.
   Orange and yellow timer digits use one complete warm foreground mask, preventing bright yellow digit sections from being clipped into a low-confidence blank reading. Raw warm timer readings are treated as running because the display has no stopped indicator once it turns yellow; the text scanner then infers stops and resumes from stationary or changing under-one-minute digits. The existing direct `0:00` value override is still treated as stopped and takes precedence over inference.
 - Name OCR: multiple commits fixed athlete/team line selection, multi-line names, Paddle result parsing, Paddle choosing team names, and clipped/trailing initials.
 - Scoreboard visibility: blank scoreboard handling and scoreboard detection have had regressions.

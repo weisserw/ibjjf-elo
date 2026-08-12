@@ -3292,6 +3292,29 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     expected_digits,
                 )
 
+    def test_small_running_timers_allow_natural_digit_alignment_variation(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.TimerDigitReader()
+        cases = (
+            ("timer_004.jpg", "0:04", [0, 0, 4]),
+            ("timer_951.jpg", "9:51", [9, 5, 1]),
+        )
+
+        for fixture_name, expected_value, expected_digits in cases:
+            with self.subTest(fixture=fixture_name):
+                timer_path = os.path.join(self.fixture_dir, fixture_name)
+                with open(timer_path, "rb") as fileobj:
+                    image = text_ocr.Image.open(fileobj).convert("RGB")
+
+                reading = reader.read(image)
+
+                self.assertEqual(reading.state, "running")
+                self.assertEqual(reading.value, expected_value)
+                self.assertEqual(
+                    [prediction.digit for prediction in reading.predictions],
+                    expected_digits,
+                )
+
     def test_timer_layout_tracks_padding_position_and_scale(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         reader = text_ocr.TimerDigitReader()

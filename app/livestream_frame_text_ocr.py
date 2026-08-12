@@ -1010,7 +1010,12 @@ class TimerLocator:
     MAX_ARTIFACT_ROW_DENSITY = 0.55
     MIN_LOCAL_BACKGROUND_DENSITY = 0.08
     MIN_LOCAL_RED_BACKGROUND_DENSITY = 0.12
-    MIN_STRUCTURAL_CONFIDENCE = 0.90
+    # Small archived timer crops can have one-to-three pixels of natural
+    # anti-aliasing/JPEG variation between otherwise aligned digits.  At the
+    # common 20-24px digit height that produces a confidence just below 0.90.
+    # Keep enough separation to reject the much smaller diagonal-window false
+    # positives covered by the blank timer fixtures (at most 0.864).
+    MIN_STRUCTURAL_CONFIDENCE = 0.88
 
     def _color_masks(self, image):
         rgb = np.asarray(image.convert("RGB"))
