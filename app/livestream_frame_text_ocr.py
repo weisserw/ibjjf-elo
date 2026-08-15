@@ -45,6 +45,8 @@ SCORE_MIN_WHITE_MIX = 0.28
 SCORE_WHITE_MIX_OTSU_MARGIN = 0.07
 SCORE_ROLE_MAX_DISTANCE = 45.0
 SCORE_WHITE_MIX_MAX_RESIDUAL = 55.0
+# Retain the corpus's narrowest valid 12x28 cells while rejecting stacked rows.
+SCORE_CELL_MAX_HEIGHT_WIDTH_RATIO = 7 / 3
 SCORE_BACKGROUND_PALETTES = (
     {
         "green": (49, 226, 81),
@@ -342,10 +344,16 @@ def _score_role_components(image, role: str, role_mask=None):
             has_small_fragment = (
                 min(cluster_areas[first_root], cluster_areas[second_root]) < min_area
             )
+            combined_width = max(first_right, second_right) - min(first_x, second_x)
+            combined_height = max(first_bottom, second_bottom) - min(first_y, second_y)
+            has_plausible_cell_aspect = (
+                combined_height <= SCORE_CELL_MAX_HEIGHT_WIDTH_RATIO * combined_width
+            )
             if (
                 vertical_gap <= 2
                 and overlaps_smaller_span
                 and (shares_horizontal_span or has_small_fragment)
+                and has_plausible_cell_aspect
             ):
                 union(first_index, second_index)
 

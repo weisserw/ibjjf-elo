@@ -2699,7 +2699,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         }
 
         self.assertEqual(manifest["version"], 1)
-        self.assertEqual(len(manifest_names), 83)
+        self.assertEqual(len(manifest_names), 84)
         self.assertEqual(manifest_names, fixture_names)
         self.assertEqual(len(manifest_names), len(manifest["cases"]))
 
@@ -2956,6 +2956,20 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         self.assertEqual(
             {component.bounds for component in components},
             {(5, 2, 17, 28), (27, 2, 39, 14), (27, 18, 39, 30)},
+        )
+
+    def test_score_role_components_do_not_join_two_pixel_row_gap(self):
+        image = text_ocr.Image.new("RGB", (32, 64), (8, 60, 130))
+        draw = text_ocr.ImageDraw.Draw(image)
+        green = text_ocr.SCORE_BACKGROUND_PALETTES[1]["green"]
+        draw.rectangle((3, 1, 27, 29), fill=green)
+        draw.rectangle((3, 32, 27, 60), fill=green)
+
+        components = text_ocr._score_role_components(image, "green")
+
+        self.assertEqual(
+            {component.bounds for component in components},
+            {(3, 1, 28, 30), (3, 32, 28, 61)},
         )
 
     def test_cell_region_fills_digit_hole_but_excludes_rounded_corners(self):

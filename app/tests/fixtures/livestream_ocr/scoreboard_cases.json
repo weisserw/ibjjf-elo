@@ -691,6 +691,25 @@
       ]
     },
     {
+      "fixture": "score_000_000_2.jpg",
+      "expect_layout": true,
+      "expected_digits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "palette_family": "muted",
+      "layout_family": "legacy_rendered",
+      "purposes": [
+        "golden",
+        "small_scale",
+        "row_gap"
+      ]
+    },
+    {
       "fixture": "score_000_1100.jpg",
       "expect_layout": true,
       "expected_digits": [
