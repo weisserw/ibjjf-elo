@@ -79,6 +79,12 @@ GET /api/athlete/<id>?gi=<true|false>&all_medals=<true|false>
   the medal-case toggle and includes filtered-out medals too.
 - A missing athlete returns `404` with `{ "error": "Athlete not found" }`.
 
+The server-rendered `/athlete/<id>` page also returns an HTTP `404` when the
+identifier does not resolve while retaining the normal `index.html` body for
+the React application. It returns that response directly rather than raising
+Flask's 404 exception, because the application-level 404 handler otherwise
+serves the React shell with a successful status.
+
 The profile response shape is:
 
 ```ts

@@ -165,7 +165,7 @@ def render_athlete_page(app, athlete_identifier: str):
         return Response(base_html, mimetype="text/html")
 
     if athlete_payload is None:
-        return Response(base_html, mimetype="text/html")
+        return Response(base_html, status=404, mimetype="text/html")
 
     injected_html = base_html.replace(
         '<div id="root"></div>',

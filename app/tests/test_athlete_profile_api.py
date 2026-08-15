@@ -347,6 +347,13 @@ class AthleteProfileApiTestCase(TestDbMixin, unittest.TestCase):
         response = self.client.get("/api/athlete/missing-athlete")
         self.assertEqual(response.status_code, 404)
 
+    def test_rendered_athlete_page_not_found(self):
+        response = self.client.get("/athlete/missing-athlete")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.mimetype, "text/html")
+        self.assertIn('<div id="root"></div>', response.get_data(as_text=True))
+
 
 if __name__ == "__main__":
     unittest.main()
