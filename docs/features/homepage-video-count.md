@@ -85,9 +85,10 @@ No scheduled process is required after that initial refresh.
 
 - `app/site_statistics.py` computes and persists the count.
 - `app/livestreams.py` resolves ordinary coverage through
-  `get_livestream_link()` and maps linked OCR events to visible
-  `LivestreamFrameArchive` YouTube URLs so mat-less links do not depend on
-  `Match.match_location`.
+  `get_livestream_link()` and maps linked OCR events to segment-visible
+  `LivestreamFrameArchive` YouTube URLs. The linked match time, mat when known,
+  and source-video offset distinguish visible and hidden ranges of the same
+  upload; ambiguous mixed-visibility associations are suppressed.
 - `app/models.py` defines `SiteStatistic`.
 - `app/routes/top.py` serves `GET /api/site-statistics`.
 - `admin/app.py` starts untracked refresh threads after livestream and

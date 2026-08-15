@@ -12,6 +12,7 @@ from models import (
     Match,
 )
 from normalize import normalize
+from sqlalchemy import func
 from sqlalchemy.sql import text
 from youtube_utils import canonical_youtube_url, extract_youtube_video_id
 
@@ -26,15 +27,136 @@ def _youtube_url_with_offset(url, offset_seconds):
     return result
 
 
+def _stream_time_seconds(stream):
+    return (
+        stream.start_hour * 3600 + stream.start_minute * 60 + stream.start_seconds,
+        stream.end_hour * 3600 + stream.end_minute * 60,
+    )
+
+
+def _match_mat_number(match_location):
+    if not match_location:
+        return None
+    try:
+        return int(match_location.split()[-1])
+    except (TypeError, ValueError):
+        return None
+
+
+def _stream_contains_video_second(stream, related_streams, video_second):
+    """Return whether a source-video second falls inside one stream segment."""
+    youtube_video_id = extract_youtube_video_id(stream.link)
+    if youtube_video_id is None:
+        return False
+
+    same_video_streams = sorted(
+        (
+            related_stream
+            for related_stream in related_streams
+            if extract_youtube_video_id(related_stream.link) == youtube_video_id
+        ),
+        key=lambda item: (
+            item.start_hour,
+            item.start_minute,
+            item.start_seconds,
+        ),
+    )
+    preceding_duration = 0
+    for related_stream in same_video_streams:
+        start_seconds, end_seconds = _stream_time_seconds(related_stream)
+        duration = max(0, end_seconds - start_seconds)
+        if related_stream.id == stream.id:
+            drift_factor = stream.drift_factor or 1.0
+            video_start = round(preceding_duration * drift_factor)
+            video_end = round((preceding_duration + duration) * drift_factor)
+            return video_start <= video_second < video_end
+        preceding_duration += duration
+    return False
+
+
+def _linked_archive_segment_is_visible(
+    entry,
+    streams,
+    event_start_date,
+):
+    """Resolve hide_all for the exact stream segment containing a linked match."""
+    happened_at = entry["happened_at"]
+    match_mat_number = _match_mat_number(entry["match_location"])
+    match_day_number = None
+    if event_start_date is not None:
+        match_day_number = (happened_at.date() - event_start_date.date()).days + 1
+
+    candidate_streams = streams
+    if match_day_number is not None:
+        day_streams = [
+            stream
+            for stream in candidate_streams
+            if stream.day_number == match_day_number
+        ]
+        if day_streams:
+            candidate_streams = day_streams
+        elif match_mat_number is not None:
+            return False
+
+    if match_mat_number is not None:
+        candidate_streams = [
+            stream
+            for stream in candidate_streams
+            if stream.mat_number == match_mat_number
+        ]
+        if not candidate_streams:
+            return False
+
+    match_seconds = happened_at.hour * 3600 + happened_at.minute * 60
+    time_matches = []
+    for stream in candidate_streams:
+        start_seconds, end_seconds = _stream_time_seconds(stream)
+        if start_seconds <= match_seconds < end_seconds:
+            time_matches.append(stream)
+
+    linked_seconds = set(entry["frame_seconds"])
+    if entry["video_start_offset_seconds"] is not None:
+        linked_seconds.add(entry["video_start_offset_seconds"])
+    offset_matches = []
+    streams_by_day_mat = {}
+    for stream in candidate_streams:
+        streams_by_day_mat.setdefault(
+            (stream.event_id, stream.day_number, stream.mat_number), []
+        ).append(stream)
+    for stream in candidate_streams:
+        related_streams = streams_by_day_mat[
+            (stream.event_id, stream.day_number, stream.mat_number)
+        ]
+        if any(
+            _stream_contains_video_second(stream, related_streams, video_second)
+            for video_second in linked_seconds
+        ):
+            offset_matches.append(stream)
+
+    matched_streams = {stream.id: stream for stream in [*time_matches, *offset_matches]}
+    if matched_streams:
+        # Conflicting schedule/offset evidence fails closed rather than exposing a
+        # segment that an administrator marked hidden.
+        return all(not stream.hide_all for stream in matched_streams.values())
+
+    visibility_values = {stream.hide_all for stream in candidate_streams}
+    if len(visibility_values) == 1:
+        return not visibility_values.pop()
+    return False
+
+
 def load_linked_archive_video_links(session, match_ids=None):
-    """Return visible YouTube archive links for OCR-linked matches."""
+    """Return segment-visible YouTube archive links for OCR-linked matches."""
     query = (
         session.query(
             LivestreamFrameTextEvent.match_id,
             Event.ibjjf_id,
+            Match.happened_at,
+            Match.match_location,
             Match.video_start_offset_seconds,
             LivestreamFrameArchive.youtube_video_id,
             LivestreamFrameArchive.canonical_url,
+            func.min(LivestreamFrameTextEvent.frame_second),
         )
         .select_from(LivestreamFrameTextEvent)
         .join(Match, Match.id == LivestreamFrameTextEvent.match_id)
@@ -55,7 +177,15 @@ def load_linked_archive_video_links(session, match_ids=None):
         query = query.filter(LivestreamFrameTextEvent.match_id.in_(match_ids))
 
     rows = (
-        query.distinct()
+        query.group_by(
+            LivestreamFrameTextEvent.match_id,
+            Event.ibjjf_id,
+            Match.happened_at,
+            Match.match_location,
+            Match.video_start_offset_seconds,
+            LivestreamFrameArchive.youtube_video_id,
+            LivestreamFrameArchive.canonical_url,
+        )
         .order_by(
             LivestreamFrameTextEvent.match_id,
             LivestreamFrameArchive.youtube_video_id,
@@ -65,24 +195,79 @@ def load_linked_archive_video_links(session, match_ids=None):
     if not rows:
         return {}
 
-    event_ids = {event_id for _, event_id, _, _, _ in rows}
-    visible_archive_keys = {
-        (event_id, youtube_video_id)
-        for event_id, link in session.query(LiveStream.event_id, LiveStream.link)
-        .filter(
-            LiveStream.event_id.in_(event_ids),
-            LiveStream.hide_all.is_(False),
+    entries = {}
+    for (
+        match_id,
+        event_id,
+        happened_at,
+        match_location,
+        offset_seconds,
+        youtube_video_id,
+        canonical_url,
+        frame_second,
+    ) in rows:
+        entry = entries.setdefault(
+            (match_id, youtube_video_id),
+            {
+                "match_id": match_id,
+                "event_id": event_id,
+                "happened_at": happened_at,
+                "match_location": match_location,
+                "video_start_offset_seconds": offset_seconds,
+                "youtube_video_id": youtube_video_id,
+                "canonical_url": canonical_url,
+                "frame_seconds": [],
+            },
+        )
+        entry["frame_seconds"].append(frame_second)
+
+    event_ids = {entry["event_id"] for entry in entries.values()}
+    event_start_dates = {
+        event_id: happened_at
+        for event_id, happened_at in session.query(
+            Event.ibjjf_id, func.min(Match.happened_at)
+        )
+        .join(Match, Match.event_id == Event.id)
+        .filter(Event.ibjjf_id.in_(event_ids))
+        .group_by(Event.ibjjf_id)
+        .all()
+    }
+    streams_by_archive_key = {}
+    for stream in (
+        session.query(LiveStream)
+        .filter(LiveStream.event_id.in_(event_ids))
+        .order_by(
+            LiveStream.event_id,
+            LiveStream.day_number,
+            LiveStream.mat_number,
+            LiveStream.start_hour,
+            LiveStream.start_minute,
+            LiveStream.start_seconds,
         )
         .all()
-        if (youtube_video_id := extract_youtube_video_id(link)) is not None
-    }
+    ):
+        youtube_video_id = extract_youtube_video_id(stream.link)
+        if youtube_video_id is not None:
+            streams_by_archive_key.setdefault(
+                (stream.event_id, youtube_video_id), []
+            ).append(stream)
+
     links_by_match_id = {}
-    for match_id, event_id, offset_seconds, youtube_video_id, canonical_url in rows:
-        if (event_id, youtube_video_id) not in visible_archive_keys:
+    for entry in entries.values():
+        streams = streams_by_archive_key.get(
+            (entry["event_id"], entry["youtube_video_id"]), []
+        )
+        if not streams or not _linked_archive_segment_is_visible(
+            entry,
+            streams,
+            event_start_dates.get(entry["event_id"]),
+        ):
             continue
-        link = _youtube_url_with_offset(canonical_url, offset_seconds)
+        link = _youtube_url_with_offset(
+            entry["canonical_url"], entry["video_start_offset_seconds"]
+        )
         if link is not None:
-            links_by_match_id.setdefault(match_id, link)
+            links_by_match_id.setdefault(entry["match_id"], link)
     return links_by_match_id
 
 

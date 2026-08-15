@@ -32,7 +32,9 @@ expand an inline `MatchDetailView`.
 Score-detail controls are shown only when the match's video action is also
 visible. In particular, a livestream segment with `hide_all` enabled suppresses
 both the YouTube action and the score-detail (+) action; displayed final scores
-remain non-interactive.
+remain non-interactive. OCR/archive links resolve visibility at the exact stream
+segment, so this remains true when one YouTube upload contains both visible and
+hidden ranges and when the tournament's matches have no mat numbers.
 
 On mobile, the Event column wraps within the available width in both the modal
 and the inline Database card so the score-detail table does not extend past the

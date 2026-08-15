@@ -199,10 +199,13 @@ returned.
 - Historical events are detected client-side with `isHistorical` and get
   historical styling/warnings. Bracket links are suppressed for historical
   events.
-- Video links prefer a visible OCR-linked YouTube archive, including the stored
-  match video offset. This allows mat-less linked matches to show the YouTube
-  icon and score-detail control. Otherwise they use ordinary mat-aware
-  livestream resolution and fall back to the match's stored `video_link`.
+- Video links prefer a segment-visible OCR-linked YouTube archive, including the
+  stored match video offset. Visibility is resolved from the linked upload,
+  event day/time, mat when known, and source-video offset, so a hidden range of
+  an otherwise visible upload suppresses both controls for mat-aware and
+  mat-less tournaments. Ambiguous mixed-visibility associations fail closed.
+  Otherwise rows use ordinary mat-aware livestream resolution and fall back to
+  the match's stored `video_link`.
 - The case-insensitive `NONE` sentinel still suppresses every video source.
 - The homepage's cached YouTube-covered match count uses the same ordinary and
   OCR/archive resolvers and also excludes no-match notes that suppress Database
