@@ -346,8 +346,9 @@ def _score_role_components(image, role: str, role_mask=None):
             )
             combined_width = max(first_right, second_right) - min(first_x, second_x)
             combined_height = max(first_bottom, second_bottom) - min(first_y, second_y)
+            aspect_width = combined_width if has_small_fragment else horizontal_overlap
             has_plausible_cell_aspect = (
-                combined_height <= SCORE_CELL_MAX_HEIGHT_WIDTH_RATIO * combined_width
+                combined_height <= SCORE_CELL_MAX_HEIGHT_WIDTH_RATIO * aspect_width
             )
             if (
                 vertical_gap <= 2
@@ -369,7 +370,16 @@ def _score_role_components(image, role: str, role_mask=None):
         component_y, component_x = np.where(component)
         x = int(component_x.min())
         y = int(component_y.min())
-        width = int(component_x.max() - x + 1)
+        # A one-scanline JPEG fringe can extend a cell into its neighbor even
+        # though it is not part of the cell's stable horizontal span.
+        column_support = np.bincount(component_x, minlength=image.width)
+        supported_x = np.flatnonzero(column_support >= 2)
+        if supported_x.size:
+            x = int(supported_x.min())
+            right = int(supported_x.max() + 1)
+        else:
+            right = int(component_x.max() + 1)
+        width = right - x
         height = int(component_y.max() - y + 1)
         area = int(component.sum())
         if area < min_area or height < min_height or width < min_width:

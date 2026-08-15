@@ -16,6 +16,21 @@
     }
   },
   {
+    "id": "score_000_000_3_timer_blank",
+    "score_image": "score_000_000_3.jpg",
+    "timer_image": "timer_blank.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "timer_state": "blank"
+    }
+  },
+  {
     "id": "score_010_220_timer_stopped_000",
     "score_image": "score_010_220.jpg",
     "timer_image": "timer_stopped_000.jpg",
