@@ -1514,7 +1514,11 @@ def matches():
                 {
                     "id": current_match.id,
                     "videoLink": current_match.video_link,
-                    "winner": winner.athlete.name,
+                    "winner": (
+                        winner.athlete.name
+                        if not winner.athlete.hide_full_name
+                        else winner.athlete.personal_name
+                    ),
                     "winnerSlug": winner.athlete.slug,
                     "winnerId": winner.athlete.id,
                     "winnerStartRating": round(winner.start_rating),
@@ -1532,7 +1536,11 @@ def matches():
                         if winner.athlete.profile_image_saved_at
                         else None
                     ),
-                    "loser": loser.athlete.name,
+                    "loser": (
+                        loser.athlete.name
+                        if not loser.athlete.hide_full_name
+                        else loser.athlete.personal_name
+                    ),
                     "loserSlug": loser.athlete.slug,
                     "loserId": loser.athlete.id,
                     "loserStartRating": round(loser.start_rating),
