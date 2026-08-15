@@ -1390,7 +1390,7 @@ def matches():
     sql = f"""
         SELECT m.id, m.happened_at, d.gi, d.gender, d.age, d.belt, d.weight, e.name as event_name, e.ibjjf_id,
             mp.id as participant_id, mp.winner, mp.start_rating, mp.end_rating,
-            a.id as athlete_id, a.name, a.slug, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.personal_name, a.profile_image_saved_at,
+            a.id as athlete_id, a.name, a.slug, a.country, a.country_note, a.country_note_pt, a.instagram_profile, a.personal_name, a.profile_image_saved_at, a.hide_full_name,
             mp.note, m.rated, mp.rating_note, mp.weight_for_open, mp.start_match_count, mp.end_match_count, m.match_location, m.video_link,
             mp.scoreboard_position,
             m.match_number, m.division_size, m.video_start_offset_seconds,
@@ -1485,6 +1485,7 @@ def matches():
                     instagram_profile=row["instagram_profile"],
                     personal_name=row["personal_name"],
                     profile_image_saved_at=row["profile_image_saved_at"],
+                    hide_full_name=row["hide_full_name"],
                 ),
                 note=row["note"],
                 weight_for_open=row["weight_for_open"],
