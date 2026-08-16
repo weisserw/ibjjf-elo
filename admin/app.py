@@ -2251,8 +2251,17 @@ def highlights_score_events():
 
     age_filter = (request.args.get("age") or "").strip()
     belt_filter = (request.args.get("belt") or "").strip()
+    event_name_filter = (request.args.get("event_name") or "").strip()
     normalized_age_filter = normalize(age_filter) if age_filter else None
     normalized_belt_filter = normalize(belt_filter) if belt_filter else None
+    normalized_event_name_filter = (
+        normalize(event_name_filter) if event_name_filter else None
+    )
+    event_name_tokens = (
+        [token for token in normalized_event_name_filter.split() if token]
+        if normalized_event_name_filter
+        else []
+    )
 
     since = datetime.utcnow() - timedelta(days=days)
     matches = (
@@ -2271,6 +2280,10 @@ def highlights_score_events():
         division = match.division
         if division is None:
             continue
+        if event_name_tokens:
+            normalized_event_name = normalize((match.event.name if match.event else "") or "")
+            if not all(token in normalized_event_name for token in event_name_tokens):
+                continue
         if gi_filter is not None and bool(division.gi) != gi_filter:
             continue
         if normalized_age_filter and normalize(division.age or "") != normalized_age_filter:
@@ -2363,6 +2376,7 @@ def highlights_score_events():
                 "gi": gi_filter,
                 "age": age_filter or None,
                 "belt": belt_filter or None,
+                "event_name": event_name_filter or None,
                 "score_category": score_category or None,
                 "score_delta": score_delta,
                 "limit": limit,

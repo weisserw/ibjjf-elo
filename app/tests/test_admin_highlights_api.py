@@ -326,6 +326,51 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(str(event["division_belt"]).lower(), "black")
         self.assertTrue(event["division_gi"])
 
+    def test_highlights_submission_filters_by_event_name(self):
+        included_match, included_scan, included_scan_segment, included_capture_segment, _archive = self._create_linked_match(
+            youtube_url="https://www.youtube.com/watch?v=eventname001",
+            happened_at=datetime.utcnow() - timedelta(days=2),
+            final_match_time_seconds=111,
+        )
+        included_match.event.name = "IBJJF Worlds 2026"
+        self._attach_match_events(
+            match=included_match,
+            scan=included_scan,
+            scan_segment=included_scan_segment,
+            capture_segment=included_capture_segment,
+            start_second=80,
+            end_second=111,
+        )
+
+        excluded_match, excluded_scan, excluded_scan_segment, excluded_capture_segment, _archive = self._create_linked_match(
+            youtube_url="https://www.youtube.com/watch?v=eventname002",
+            happened_at=datetime.utcnow() - timedelta(days=2),
+            final_match_time_seconds=119,
+        )
+        excluded_match.event.name = "IBJJF Brasileiros 2026"
+        self._attach_match_events(
+            match=excluded_match,
+            scan=excluded_scan,
+            scan_segment=excluded_scan_segment,
+            capture_segment=excluded_capture_segment,
+            start_second=88,
+            end_second=119,
+        )
+        db.session.commit()
+
+        client = self._admin_client()
+        response = client.get(
+            "/api/highlights/score-events?event_type=submission&days=9&event_name=worlds",
+            headers={"X-Admin-Password": self.admin_password},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["count"], 1)
+        event = payload["events"][0]
+        self.assertEqual(event["youtube_url"], "https://www.youtube.com/watch?v=eventname001")
+        self.assertEqual(event["event_name"], "IBJJF Worlds 2026")
+
     def test_highlights_score_events_can_filter_for_two_point_scores(self):
         match, scan, scan_segment, capture_segment, _archive = self._create_linked_match(
             youtube_url="https://www.youtube.com/watch?v=points000001",
