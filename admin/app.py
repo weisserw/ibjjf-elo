@@ -2254,14 +2254,7 @@ def highlights_score_events():
     event_name_filter = (request.args.get("event_name") or "").strip()
     normalized_age_filter = normalize(age_filter) if age_filter else None
     normalized_belt_filter = normalize(belt_filter) if belt_filter else None
-    normalized_event_name_filter = (
-        normalize(event_name_filter) if event_name_filter else None
-    )
-    event_name_tokens = (
-        [token for token in normalized_event_name_filter.split() if token]
-        if normalized_event_name_filter
-        else []
-    )
+    normalized_event_name_filter = normalize(event_name_filter) if event_name_filter else None
 
     since = datetime.utcnow() - timedelta(days=days)
     matches = (
@@ -2280,9 +2273,9 @@ def highlights_score_events():
         division = match.division
         if division is None:
             continue
-        if event_name_tokens:
+        if normalized_event_name_filter:
             normalized_event_name = normalize((match.event.name if match.event else "") or "")
-            if not all(token in normalized_event_name for token in event_name_tokens):
+            if normalized_event_name != normalized_event_name_filter:
                 continue
         if gi_filter is not None and bool(division.gi) != gi_filter:
             continue
@@ -2367,6 +2360,14 @@ def highlights_score_events():
 
         if len(results) >= limit:
             break
+
+    results.sort(
+        key=lambda row: (
+            row.get("happened_at") or "",
+            row.get("video_offset_seconds") if row.get("video_offset_seconds") is not None else -1,
+            row.get("match_id") or "",
+        )
+    )
 
     return jsonify(
         {

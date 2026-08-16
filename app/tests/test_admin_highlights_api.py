@@ -360,7 +360,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         client = self._admin_client()
         response = client.get(
-            "/api/highlights/score-events?event_type=submission&days=9&event_name=worlds",
+            "/api/highlights/score-events?event_type=submission&days=9&event_name=IBJJF%20Worlds%202026",
             headers={"X-Admin-Password": self.admin_password},
         )
 
@@ -370,6 +370,77 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         event = payload["events"][0]
         self.assertEqual(event["youtube_url"], "https://www.youtube.com/watch?v=eventname001")
         self.assertEqual(event["event_name"], "IBJJF Worlds 2026")
+
+    def test_highlights_submission_event_name_filter_is_exact(self):
+        match, scan, scan_segment, capture_segment, _archive = self._create_linked_match(
+            youtube_url="https://www.youtube.com/watch?v=eventname003",
+            happened_at=datetime.utcnow() - timedelta(days=2),
+            final_match_time_seconds=111,
+        )
+        match.event.name = "IBJJF Worlds 2026"
+        self._attach_match_events(
+            match=match,
+            scan=scan,
+            scan_segment=scan_segment,
+            capture_segment=capture_segment,
+            start_second=80,
+            end_second=111,
+        )
+        db.session.commit()
+
+        client = self._admin_client()
+        response = client.get(
+            "/api/highlights/score-events?event_type=submission&days=9&event_name=worlds",
+            headers={"X-Admin-Password": self.admin_password},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["count"], 0)
+
+    def test_highlights_submission_results_are_ordered_by_happened_at(self):
+        earlier_match, earlier_scan, earlier_segment, earlier_capture, _archive = self._create_linked_match(
+            youtube_url="https://www.youtube.com/watch?v=ordered001",
+            happened_at=datetime.utcnow() - timedelta(days=2),
+            final_match_time_seconds=111,
+        )
+        earlier_match.event.name = "IBJJF Worlds 2026"
+        self._attach_match_events(
+            match=earlier_match,
+            scan=earlier_scan,
+            scan_segment=earlier_segment,
+            capture_segment=earlier_capture,
+            start_second=80,
+            end_second=111,
+        )
+
+        later_match, later_scan, later_segment, later_capture, _archive = self._create_linked_match(
+            youtube_url="https://www.youtube.com/watch?v=ordered002",
+            happened_at=datetime.utcnow() - timedelta(days=1),
+            final_match_time_seconds=125,
+        )
+        later_match.event.name = "IBJJF Worlds 2026"
+        self._attach_match_events(
+            match=later_match,
+            scan=later_scan,
+            scan_segment=later_segment,
+            capture_segment=later_capture,
+            start_second=90,
+            end_second=125,
+        )
+        db.session.commit()
+
+        client = self._admin_client()
+        response = client.get(
+            "/api/highlights/score-events?event_type=submission&days=9&event_name=IBJJF%20Worlds%202026",
+            headers={"X-Admin-Password": self.admin_password},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["count"], 2)
+        happened_ats = [event["happened_at"] for event in payload["events"]]
+        self.assertEqual(happened_ats, sorted(happened_ats))
 
     def test_highlights_score_events_can_filter_for_two_point_scores(self):
         match, scan, scan_segment, capture_segment, _archive = self._create_linked_match(
