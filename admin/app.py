@@ -110,6 +110,7 @@ from photos import (
     get_s3_client,
     save_profile_photo_to_s3,
 )
+from routes.matches import build_match_detail_payload
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "default_secret")
@@ -932,6 +933,10 @@ def require_login():
     if request.endpoint == "login" or request.endpoint == "static":
         return
     if request.path.startswith(WORKER_API_PREFIX):
+        if _worker_api_authorized():
+            return
+        return jsonify({"error": "unauthorized"}), 401
+    if request.path == "/api/highlights/score-events":
         if _worker_api_authorized():
             return
         return jsonify({"error": "unauthorized"}), 401
@@ -2165,6 +2170,173 @@ def event_unrecorded_matches(event_id):
                 "ibjjf_id": event.ibjjf_id,
             },
             "matches": response_matches,
+        }
+    )
+
+
+def _iso_datetime(value):
+    if value is None:
+        return None
+    return value.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _participant_summary(payload):
+    red_name = next(
+        (participant.get("fullName") for participant in payload["participants"] if participant["key"] == "red"),
+        None,
+    )
+    blue_name = next(
+        (participant.get("fullName") for participant in payload["participants"] if participant["key"] == "blue"),
+        None,
+    )
+    final_event = payload["events"][-1] if payload.get("events") else {}
+    winner_key = final_event.get("winnerKey")
+    if winner_key == "red":
+        winner_name = red_name
+        loser_name = blue_name
+    elif winner_key == "blue":
+        winner_name = blue_name
+        loser_name = red_name
+    else:
+        winner_name = None
+        loser_name = None
+    return {
+        "red": red_name,
+        "blue": blue_name,
+        "winner": winner_name,
+        "loser": loser_name,
+    }
+
+
+@app.route("/api/highlights/score-events")
+def highlights_score_events():
+    event_type = (request.args.get("event_type") or "submission").strip().lower()
+    if event_type not in {"submission", "score"}:
+        return jsonify({"error": "event_type must be one of: submission, score"}), 400
+
+    days = request.args.get("days", 7, type=int)
+    if days is None or days < 1 or days > 90:
+        return jsonify({"error": "days must be an integer between 1 and 90"}), 400
+
+    limit = request.args.get("limit", 200, type=int)
+    if limit is None or limit < 1 or limit > 5000:
+        return jsonify({"error": "limit must be an integer between 1 and 5000"}), 400
+
+    score_category = (request.args.get("score_category") or "").strip().lower()
+    if event_type == "score" and score_category and score_category not in {
+        "points",
+        "advantages",
+        "penalties",
+    }:
+        return (
+            jsonify(
+                {
+                    "error": "score_category must be one of: points, advantages, penalties"
+                }
+            ),
+            400,
+        )
+
+    score_delta = request.args.get("score_delta", type=int)
+    if event_type == "score" and score_delta is not None and score_delta < 1:
+        return jsonify({"error": "score_delta must be a positive integer"}), 400
+
+    since = datetime.utcnow() - timedelta(days=days)
+    matches = (
+        Match.query.options(
+            selectinload(Match.event),
+            selectinload(Match.participants).selectinload(MatchParticipant.athlete),
+        )
+        .filter(Match.happened_at >= since)
+        .order_by(Match.happened_at.desc())
+        .all()
+    )
+
+    results = []
+    for match in matches:
+        raw_events = (
+            db.session.query(LivestreamFrameTextEvent)
+            .filter(LivestreamFrameTextEvent.match_id == match.id)
+            .order_by(LivestreamFrameTextEvent.frame_second)
+            .all()
+        )
+        if not raw_events:
+            continue
+
+        payload = build_match_detail_payload(match, raw_events)
+        video_source_url = payload.get("videoSourceUrl")
+        if not video_source_url:
+            continue
+
+        participant_info = _participant_summary(payload)
+        common = {
+            "match_id": str(match.id),
+            "happened_at": _iso_datetime(match.happened_at),
+            "event_name": match.event.name if match.event else None,
+            "youtube_url": video_source_url,
+            "athlete_red": participant_info["red"],
+            "athlete_blue": participant_info["blue"],
+            "winner": participant_info["winner"],
+            "loser": participant_info["loser"],
+        }
+
+        if event_type == "submission":
+            final_event = payload["events"][-1] if payload.get("events") else None
+            if (
+                final_event
+                and final_event.get("kind") == "final"
+                and final_event.get("endingMethod") == "Submission"
+                and final_event.get("videoOffsetSeconds") is not None
+            ):
+                results.append(
+                    {
+                        **common,
+                        "event_type": "submission",
+                        "match_time": final_event.get("time"),
+                        "video_offset_seconds": final_event.get("videoOffsetSeconds"),
+                    }
+                )
+        else:
+            for score_event in payload.get("events", []):
+                if score_event.get("kind") != "score":
+                    continue
+                event_offset = score_event.get("videoOffsetSeconds")
+                if event_offset is None:
+                    continue
+                for action in score_event.get("actions") or []:
+                    if action.get("kind") != "score":
+                        continue
+                    if score_category and action.get("category") != score_category:
+                        continue
+                    if score_delta is not None and action.get("delta") != score_delta:
+                        continue
+                    results.append(
+                        {
+                            **common,
+                            "event_type": "score",
+                            "match_time": score_event.get("time"),
+                            "video_offset_seconds": event_offset,
+                            "score_category": action.get("category"),
+                            "score_delta": action.get("delta"),
+                            "action_athlete_name": action.get("athleteName"),
+                            "action_participant_key": action.get("participantKey"),
+                        }
+                    )
+
+        if len(results) >= limit:
+            break
+
+    return jsonify(
+        {
+            "filters": {
+                "event_type": event_type,
+                "days": days,
+                "score_category": score_category or None,
+                "score_delta": score_delta,
+                "limit": limit,
+            },
+            "count": len(results),
+            "events": results[:limit],
         }
     )
 
