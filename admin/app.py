@@ -2241,10 +2241,24 @@ def highlights_score_events():
     if event_type == "score" and score_delta is not None and score_delta < 1:
         return jsonify({"error": "score_delta must be a positive integer"}), 400
 
+    gi_filter_raw = request.args.get("gi")
+    gi_filter = None
+    if gi_filter_raw is not None:
+        gi_filter_value = gi_filter_raw.strip().lower()
+        if gi_filter_value not in {"true", "false"}:
+            return jsonify({"error": "gi must be true or false"}), 400
+        gi_filter = gi_filter_value == "true"
+
+    age_filter = (request.args.get("age") or "").strip()
+    belt_filter = (request.args.get("belt") or "").strip()
+    normalized_age_filter = normalize(age_filter) if age_filter else None
+    normalized_belt_filter = normalize(belt_filter) if belt_filter else None
+
     since = datetime.utcnow() - timedelta(days=days)
     matches = (
         Match.query.options(
             selectinload(Match.event),
+            selectinload(Match.division),
             selectinload(Match.participants).selectinload(MatchParticipant.athlete),
         )
         .filter(Match.happened_at >= since)
@@ -2254,6 +2268,16 @@ def highlights_score_events():
 
     results = []
     for match in matches:
+        division = match.division
+        if division is None:
+            continue
+        if gi_filter is not None and bool(division.gi) != gi_filter:
+            continue
+        if normalized_age_filter and normalize(division.age or "") != normalized_age_filter:
+            continue
+        if normalized_belt_filter and normalize(division.belt or "") != normalized_belt_filter:
+            continue
+
         raw_events = (
             db.session.query(LivestreamFrameTextEvent)
             .filter(LivestreamFrameTextEvent.match_id == match.id)
@@ -2273,6 +2297,11 @@ def highlights_score_events():
             "match_id": str(match.id),
             "happened_at": _iso_datetime(match.happened_at),
             "event_name": match.event.name if match.event else None,
+            "division_gi": bool(division.gi),
+            "division_age": division.age,
+            "division_belt": division.belt,
+            "division_gender": division.gender,
+            "division_weight": division.weight,
             "youtube_url": video_source_url,
             "athlete_red": participant_info["red"],
             "athlete_blue": participant_info["blue"],
@@ -2331,6 +2360,9 @@ def highlights_score_events():
             "filters": {
                 "event_type": event_type,
                 "days": days,
+                "gi": gi_filter,
+                "age": age_filter or None,
+                "belt": belt_filter or None,
                 "score_category": score_category or None,
                 "score_delta": score_delta,
                 "limit": limit,

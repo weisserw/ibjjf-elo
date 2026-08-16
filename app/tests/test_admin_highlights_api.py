@@ -195,6 +195,47 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         return match, scan, scan_segment, capture_segment, archive
 
+    def _attach_match_events(
+        self,
+        *,
+        match,
+        scan,
+        scan_segment,
+        capture_segment,
+        start_second,
+        end_second,
+        running_timer="2:30",
+        stopped_timer="2:23",
+    ):
+        db.session.add_all(
+            [
+                LivestreamFrameTextEvent(
+                    scan_id=scan.id,
+                    archive_id=scan.archive_id,
+                    match_id=match.id,
+                    scan_segment_id=scan_segment.id,
+                    capture_segment_id=capture_segment.id,
+                    frame_second=start_second,
+                    timer_state="running",
+                    timer_value=running_timer,
+                    top_points=0,
+                    bottom_points=0,
+                ),
+                LivestreamFrameTextEvent(
+                    scan_id=scan.id,
+                    archive_id=scan.archive_id,
+                    match_id=match.id,
+                    scan_segment_id=scan_segment.id,
+                    capture_segment_id=capture_segment.id,
+                    frame_second=end_second,
+                    timer_state="stopped",
+                    timer_value=stopped_timer,
+                    top_points=2,
+                    bottom_points=0,
+                ),
+            ]
+        )
+
     def test_highlights_api_requires_existing_admin_password_auth(self):
         client = self._admin_client()
 
@@ -213,34 +254,13 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             happened_at=datetime.utcnow() - timedelta(days=1),
             final_match_time_seconds=143,
         )
-
-        db.session.add_all(
-            [
-                LivestreamFrameTextEvent(
-                    scan_id=scan.id,
-                    archive_id=scan.archive_id,
-                    match_id=match.id,
-                    scan_segment_id=scan_segment.id,
-                    capture_segment_id=capture_segment.id,
-                    frame_second=100,
-                    timer_state="running",
-                    timer_value="2:30",
-                    top_points=0,
-                    bottom_points=0,
-                ),
-                LivestreamFrameTextEvent(
-                    scan_id=scan.id,
-                    archive_id=scan.archive_id,
-                    match_id=match.id,
-                    scan_segment_id=scan_segment.id,
-                    capture_segment_id=capture_segment.id,
-                    frame_second=143,
-                    timer_state="stopped",
-                    timer_value="2:23",
-                    top_points=2,
-                    bottom_points=0,
-                ),
-            ]
+        self._attach_match_events(
+            match=match,
+            scan=scan,
+            scan_segment=scan_segment,
+            capture_segment=capture_segment,
+            start_second=100,
+            end_second=143,
         )
         db.session.commit()
 
@@ -259,6 +279,52 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(event["video_offset_seconds"], 143)
         self.assertEqual(event["winner"], "Top Athlete")
         self.assertEqual(event["loser"], "Bottom Athlete")
+
+    def test_highlights_submission_filters_by_adult_black_belt(self):
+        included_match, included_scan, included_scan_segment, included_capture_segment, _archive = self._create_linked_match(
+            youtube_url="https://www.youtube.com/watch?v=adultblack01",
+            happened_at=datetime.utcnow() - timedelta(days=1),
+            final_match_time_seconds=121,
+        )
+        self._attach_match_events(
+            match=included_match,
+            scan=included_scan,
+            scan_segment=included_scan_segment,
+            capture_segment=included_capture_segment,
+            start_second=90,
+            end_second=121,
+        )
+
+        excluded_match, excluded_scan, excluded_scan_segment, excluded_capture_segment, _archive = self._create_linked_match(
+            youtube_url="https://www.youtube.com/watch?v=masterblack01",
+            happened_at=datetime.utcnow() - timedelta(days=1),
+            final_match_time_seconds=130,
+        )
+        excluded_match.division.age = "Master 1"
+        self._attach_match_events(
+            match=excluded_match,
+            scan=excluded_scan,
+            scan_segment=excluded_scan_segment,
+            capture_segment=excluded_capture_segment,
+            start_second=100,
+            end_second=130,
+        )
+        db.session.commit()
+
+        client = self._admin_client()
+        response = client.get(
+            "/api/highlights/score-events?event_type=submission&days=9&gi=true&age=adult&belt=black",
+            headers={"X-Admin-Password": self.admin_password},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["count"], 1)
+        event = payload["events"][0]
+        self.assertEqual(event["youtube_url"], "https://www.youtube.com/watch?v=adultblack01")
+        self.assertEqual(str(event["division_age"]).lower(), "adult")
+        self.assertEqual(str(event["division_belt"]).lower(), "black")
+        self.assertTrue(event["division_gi"])
 
     def test_highlights_score_events_can_filter_for_two_point_scores(self):
         match, scan, scan_segment, capture_segment, _archive = self._create_linked_match(
