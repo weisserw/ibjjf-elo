@@ -224,12 +224,19 @@ interface MatchDetailAction {
   decision finals.
 - The optional `days` filter limits candidates to the previous 1–90 days. When
   omitted, candidates are not date-limited. The default result `limit` is 30.
+- The `gi` filter defaults to `true`; callers can explicitly request `false` or
+  `all`.
 - Candidate filters also support exact, case-insensitive `Athlete.name` matching
   through `athlete_name` (never `personal_name`), exact division `gender`, and `elite`
   values `tier3`, `tier2`, or `tier1`. Elite matching uses the participant's
   current Gi/No-Gi rating, requires a mature ranked adult/juvenile badge on an
   eligible belt, excludes masters badges, and applies strict percentile cutoffs
   of `.10`, `.05`, and `.02` respectively.
+- Candidate match selection applies linked-event, exact event/athlete, division,
+  Gi/No-Gi, gender, and elite filters in SQL before loading match rows. Remaining
+  event-type and score-action checks are derived from OCR details while candidate
+  matches stream in batches of 100. Thus even an unfiltered all-time request does
+  not materialize the full match database in application memory.
 - `videoSourceUrl` prefers the OCR event archive's `canonical_url`; if no
   archive URL is available, it falls back to the match's `video_link`.
 

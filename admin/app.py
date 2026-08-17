@@ -24,7 +24,7 @@ from flask import (
 )
 from types import SimpleNamespace
 from urllib.parse import urlparse, urlencode, urlunparse
-from sqlalchemy import or_, func, case
+from sqlalchemy import and_, or_, func, case
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 
@@ -35,6 +35,7 @@ from extensions import db
 from models import (
     Athlete,
     AthleteRating,
+    Division,
     Event,
     RegistrationLink,
     LiveStream,
@@ -146,6 +147,7 @@ WORKER_API_PREFIX = "/api/livestream_frame_archives/worker/"
 _site_statistics_refresh_lock = threading.Lock()
 _site_statistics_refresh_running = False
 _site_statistics_refresh_requested = False
+HIGHLIGHTS_MATCH_BATCH_SIZE = 100
 
 
 def _append_task_log(task, text):
@@ -2264,13 +2266,14 @@ def highlights_score_events():
     if event_type == "score" and score_delta is not None and score_delta < 1:
         return jsonify({"error": "score_delta must be a positive integer"}), 400
 
-    gi_filter_raw = request.args.get("gi")
+    gi_filter_raw = request.args.get("gi", "true")
     gi_filter = None
     if gi_filter_raw is not None:
         gi_filter_value = gi_filter_raw.strip().lower()
-        if gi_filter_value not in {"true", "false"}:
-            return jsonify({"error": "gi must be true or false"}), 400
-        gi_filter = gi_filter_value == "true"
+        if gi_filter_value not in {"all", "true", "false"}:
+            return jsonify({"error": "gi must be one of: all, true, false"}), 400
+        if gi_filter_value != "all":
+            gi_filter = gi_filter_value == "true"
 
     age_filter = (request.args.get("age") or "").strip()
     belt_filter = (request.args.get("belt") or "").strip()
@@ -2299,35 +2302,121 @@ def highlights_score_events():
     )
     normalized_gender_filter = normalize(gender_filter) if gender_filter else None
 
-    elite_athlete_gi_pairs = None
-    if elite_filter:
-        elite_rows = (
-            db.session.query(AthleteRating.athlete_id, AthleteRating.gi)
-            .filter(
-                AthleteRating.percentile.isnot(None),
-                AthleteRating.percentile < elite_percentile_thresholds[elite_filter],
-                AthleteRating.rank.isnot(None),
-                AthleteRating.match_count > RATING_VERY_IMMATURE_COUNT,
-                AthleteRating.belt.notin_(NON_ELITE_BELTS),
-                or_(
-                    AthleteRating.age == ADULT,
-                    AthleteRating.age.like(f"{JUVENILE}%"),
-                ),
-            )
-            .distinct()
-            .all()
-        )
-        elite_athlete_gi_pairs = {(row.athlete_id, bool(row.gi)) for row in elite_rows}
-
     matches_query = Match.query.options(
         selectinload(Match.event),
         selectinload(Match.division),
         selectinload(Match.participants).selectinload(MatchParticipant.athlete),
     )
+    matches_query = matches_query.filter(
+        db.session.query(LivestreamFrameTextEvent.id)
+        .filter(LivestreamFrameTextEvent.match_id == Match.id)
+        .exists()
+    )
     if days is not None:
         since = datetime.utcnow() - timedelta(days=days)
         matches_query = matches_query.filter(Match.happened_at >= since)
-    matches = matches_query.order_by(Match.happened_at.desc()).all()
+    if normalized_event_name_filter:
+        matches_query = matches_query.filter(
+            Match.event_id.in_(
+                db.session.query(Event.id).filter(
+                    Event.normalized_name == normalized_event_name_filter
+                )
+            )
+        )
+    if normalized_athlete_name_filter:
+        matches_query = matches_query.filter(
+            db.session.query(MatchParticipant.id)
+            .join(Athlete, MatchParticipant.athlete_id == Athlete.id)
+            .filter(
+                MatchParticipant.match_id == Match.id,
+                Athlete.normalized_name == normalized_athlete_name_filter,
+            )
+            .exists()
+        )
+
+    division_filters_requested = any(
+        (
+            gi_filter is not None,
+            normalized_age_filter,
+            normalized_belt_filter,
+            normalized_gender_filter,
+            elite_filter,
+        )
+    )
+    division_ids_by_gi = {True: [], False: []}
+    if division_filters_requested:
+        division_rows = db.session.query(
+            Division.id,
+            Division.gi,
+            Division.age,
+            Division.belt,
+            Division.gender,
+        ).all()
+        matching_division_ids = []
+        for division_row in division_rows:
+            division_gi = bool(division_row.gi)
+            if gi_filter is not None and division_gi != gi_filter:
+                continue
+            if (
+                normalized_age_filter
+                and normalize(division_row.age or "") != normalized_age_filter
+            ):
+                continue
+            if (
+                normalized_belt_filter
+                and normalize(division_row.belt or "") != normalized_belt_filter
+            ):
+                continue
+            if (
+                normalized_gender_filter
+                and normalize(division_row.gender or "") != normalized_gender_filter
+            ):
+                continue
+            matching_division_ids.append(division_row.id)
+            division_ids_by_gi[division_gi].append(division_row.id)
+        matches_query = matches_query.filter(
+            Match.division_id.in_(matching_division_ids)
+        )
+
+    if elite_filter:
+        elite_match_conditions = []
+        for rating_gi, division_ids in division_ids_by_gi.items():
+            if not division_ids:
+                continue
+            elite_participant_exists = (
+                db.session.query(MatchParticipant.id)
+                .join(
+                    AthleteRating,
+                    AthleteRating.athlete_id == MatchParticipant.athlete_id,
+                )
+                .filter(
+                    MatchParticipant.match_id == Match.id,
+                    AthleteRating.gi == rating_gi,
+                    AthleteRating.percentile.isnot(None),
+                    AthleteRating.percentile
+                    < elite_percentile_thresholds[elite_filter],
+                    AthleteRating.rank.isnot(None),
+                    AthleteRating.match_count > RATING_VERY_IMMATURE_COUNT,
+                    AthleteRating.belt.notin_(NON_ELITE_BELTS),
+                    or_(
+                        AthleteRating.age == ADULT,
+                        AthleteRating.age.like(f"{JUVENILE}%"),
+                    ),
+                )
+                .exists()
+            )
+            elite_match_conditions.append(
+                and_(
+                    Match.division_id.in_(division_ids),
+                    elite_participant_exists,
+                )
+            )
+        if elite_match_conditions:
+            matches_query = matches_query.filter(or_(*elite_match_conditions))
+
+    matches = matches_query.order_by(Match.happened_at.desc()).yield_per(
+        HIGHLIGHTS_MATCH_BATCH_SIZE
+    )
 
     results = []
     for match in matches:
@@ -2362,12 +2451,6 @@ def highlights_score_events():
             for participant in match.participants
         ):
             continue
-        if elite_athlete_gi_pairs is not None and not any(
-            (participant.athlete_id, bool(division.gi)) in elite_athlete_gi_pairs
-            for participant in match.participants
-        ):
-            continue
-
         raw_events = (
             db.session.query(LivestreamFrameTextEvent)
             .filter(LivestreamFrameTextEvent.match_id == match.id)

@@ -4,6 +4,7 @@ import sys
 import unittest
 import uuid
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 from sqlalchemy import create_engine
 
@@ -16,6 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(REPO_ROOT, "admin")))
 from constants import ADULT, BLACK, FEMALE, LIGHT, MALE, MASTER_1  # noqa: E402
 from extensions import db  # noqa: E402
 from livestream_frame_text_scan import queue_text_scan  # noqa: E402
+from normalize import normalize  # noqa: E402
 from models import (  # noqa: E402
     Athlete,
     AthleteRating,
@@ -333,21 +335,41 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         )
         db.session.commit()
 
-        response = self._admin_client().get(
-            "/api/highlights/score-events?event_type=match_start",
-            headers={"X-Admin-Password": self.admin_password},
-        )
+        query_class = type(Match.query)
+        original_yield_per = query_class.yield_per
+        yield_sizes = []
+
+        def recording_yield_per(query, count):
+            yield_sizes.append(count)
+            return original_yield_per(query, count)
+
+        with patch.object(query_class, "yield_per", recording_yield_per):
+            response = self._admin_client().get(
+                "/api/highlights/score-events?event_type=match_start",
+                headers={"X-Admin-Password": self.admin_password},
+            )
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(yield_sizes, [100])
         payload = response.get_json()
         self.assertEqual(payload["filters"]["days"], None)
         self.assertEqual(payload["filters"]["limit"], 30)
+        self.assertEqual(payload["filters"]["gi"], True)
         self.assertEqual(payload["count"], 1)
         event = payload["events"][0]
         self.assertEqual(event["event_type"], "match_start")
         self.assertEqual(event["match_time"], "5:00")
         self.assertEqual(event["video_offset_seconds"], 100)
         self.assertEqual(event["video_lead_seconds"], 10)
+
+        match.division.gi = False
+        db.session.commit()
+        all_response = self._admin_client().get(
+            "/api/highlights/score-events?event_type=match_start&gi=all",
+            headers={"X-Admin-Password": self.admin_password},
+        )
+        self.assertEqual(all_response.get_json()["filters"]["gi"], None)
+        self.assertEqual(all_response.get_json()["count"], 1)
 
     def test_highlights_submission_filters_by_adult_black_belt(self):
         (
@@ -422,6 +444,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             final_match_time_seconds=111,
         )
         included_match.event.name = "IBJJF Worlds 2026"
+        included_match.event.normalized_name = normalize(included_match.event.name)
         self._attach_match_events(
             match=included_match,
             scan=included_scan,
@@ -443,6 +466,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             final_match_time_seconds=119,
         )
         excluded_match.event.name = "IBJJF Brasileiros 2026"
+        excluded_match.event.normalized_name = normalize(excluded_match.event.name)
         self._attach_match_events(
             match=excluded_match,
             scan=excluded_scan,
@@ -477,6 +501,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             )
         )
         match.event.name = "IBJJF Worlds 2026"
+        match.event.normalized_name = normalize(match.event.name)
         self._attach_match_events(
             match=match,
             scan=scan,
@@ -506,6 +531,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             )
         )
         earlier_match.event.name = "IBJJF Worlds 2026"
+        earlier_match.event.normalized_name = normalize(earlier_match.event.name)
         self._attach_match_events(
             match=earlier_match,
             scan=earlier_scan,
@@ -523,6 +549,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             )
         )
         later_match.event.name = "IBJJF Worlds 2026"
+        later_match.event.normalized_name = normalize(later_match.event.name)
         self._attach_match_events(
             match=later_match,
             scan=later_scan,
@@ -709,7 +736,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         client = self._admin_client()
         headers = {"X-Admin-Password": self.admin_password}
         exact = client.get(
-            "/api/highlights/score-events?days=3&athlete_name=GABRIELI%20PESSANHA",
+            "/api/highlights/score-events?athlete_name=GABRIELI%20PESSANHA",
             headers=headers,
         )
         personal = client.get(
