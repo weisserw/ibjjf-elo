@@ -2329,6 +2329,7 @@ def highlights_score_events():
                         "event_type": "submission",
                         "match_time": final_event.get("time"),
                         "video_offset_seconds": final_event.get("videoOffsetSeconds"),
+                        "video_lead_seconds": final_event.get("videoLeadSeconds"),
                     }
                 )
         else:
@@ -2351,6 +2352,7 @@ def highlights_score_events():
                             "event_type": "score",
                             "match_time": score_event.get("time"),
                             "video_offset_seconds": event_offset,
+                            "video_lead_seconds": score_event.get("videoLeadSeconds"),
                             "score_category": action.get("category"),
                             "score_delta": action.get("delta"),
                             "action_athlete_name": action.get("athleteName"),

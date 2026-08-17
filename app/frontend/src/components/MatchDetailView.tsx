@@ -26,6 +26,7 @@ interface MatchDetailEvent {
   kind: string;
   time: string | null;
   videoOffsetSeconds?: number | null;
+  videoLeadSeconds: number;
   actions?: MatchDetailAction[];
   endingMethod?: string;
   endingMethodAmount?: number | null;
@@ -226,24 +227,6 @@ const youtubeVideoId = (url: string | null | undefined) => {
   return null;
 }
 
-const videoLeadSeconds = (event: MatchDetailEvent) => {
-  if (event.kind === 'score') {
-    const isStandalonePenalty = event.actions?.length === 1 && event.actions[0].category === 'penalties';
-    if (isStandalonePenalty) {
-      return 8;
-    }
-    return 15;
-  }
-  if (event.kind === 'final' && event.endingMethod === 'points') {
-    return 2;
-  }
-  if (event.kind === 'final' && event.endingMethod === 'Submission') {
-    const pointsDifference = Math.abs(event.totals.red.points - event.totals.blue.points);
-    return pointsDifference <= 2 ? 15 : 8;
-  }
-  return 10;
-}
-
 const youtubeWatchUrl = (sourceUrl: string | null | undefined, event: MatchDetailEvent) => {
   const videoId = youtubeVideoId(sourceUrl);
   const offsetSeconds = event.videoOffsetSeconds;
@@ -251,7 +234,7 @@ const youtubeWatchUrl = (sourceUrl: string | null | undefined, event: MatchDetai
     return null;
   }
 
-  const startSeconds = Math.max(0, Math.floor(offsetSeconds) - videoLeadSeconds(event));
+  const startSeconds = Math.max(0, Math.floor(offsetSeconds) - event.videoLeadSeconds);
   return `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&t=${startSeconds}s`;
 }
 
@@ -267,7 +250,7 @@ const youtubeWatchUrl = (sourceUrl: string | null | undefined, event: MatchDetai
  *     return null;
  *   }
  *
- *   const startSeconds = Math.max(0, Math.floor(offsetSeconds) - videoLeadSeconds(event));
+ *   const startSeconds = Math.max(0, Math.floor(offsetSeconds) - event.videoLeadSeconds);
  *   return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?start=${startSeconds}&rel=0`;
  * }
  *

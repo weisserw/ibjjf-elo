@@ -137,6 +137,7 @@ interface MatchDetailEvent {
   kind: string;
   time: string | null;
   videoOffsetSeconds?: number | null;
+  videoLeadSeconds: number;
   actions?: MatchDetailAction[];
   endingMethod?: string;
   endingMethodAmount?: number | null;
@@ -204,12 +205,17 @@ interface MatchDetailAction {
   adjustment such as `3:59 -> 4:00` as the end of the match.
 - The final event is always appended and uses final match fields, not the last
   OCR score snapshot alone.
-- `videoOffsetSeconds` is stored in seconds from the source video. The frontend
-  opens YouTube links before that offset by event type: 8 seconds for standalone
+- `videoOffsetSeconds` is stored in seconds from the source video. Each event also
+  includes the backend-computed `videoLeadSeconds`, and the frontend opens YouTube
+  links that many seconds before the offset: 8 seconds for standalone
   penalty events, 15 seconds for other score events, 2 seconds for final wins by
   points, 15 seconds for submissions with a final points difference of 2 or
   less, 8 seconds for submissions with a final points difference greater than
-  2, and 10 seconds for other final rows.
+  2, and 10 seconds for other final rows. The backend is the sole owner of this
+  calculation; the frontend consumes the required field directly.
+- The authenticated admin `GET /api/highlights/score-events` candidate contract
+  exposes this value as `video_lead_seconds` for both score and submission rows so
+  downstream highlight tools use the same pre-roll as Match Detail.
 - `videoSourceUrl` prefers the OCR event archive's `canonical_url`; if no
   archive URL is available, it falls back to the match's `video_link`.
 

@@ -584,6 +584,24 @@ def _final_totals(match, participants):
     return totals
 
 
+def match_detail_video_lead_seconds(event):
+    """Return the pre-roll used when opening a match-detail event video."""
+    if event.get("kind") == "score":
+        actions = event.get("actions") or []
+        is_standalone_penalty = (
+            len(actions) == 1 and actions[0].get("category") == "penalties"
+        )
+        return 8 if is_standalone_penalty else 15
+    if event.get("kind") == "final" and event.get("endingMethod") == "points":
+        return 2
+    if event.get("kind") == "final" and event.get("endingMethod") == "Submission":
+        totals = event.get("totals") or {}
+        red_points = (totals.get("red") or {}).get("points") or 0
+        blue_points = (totals.get("blue") or {}).get("points") or 0
+        return 15 if abs(red_points - blue_points) <= 2 else 8
+    return 10
+
+
 def _winner_loser_participants(match):
     winner = None
     loser = None
@@ -764,6 +782,8 @@ def build_match_detail_payload(match, raw_events):
             "totals": _final_totals(match, participants),
         }
     )
+    for event in events:
+        event["videoLeadSeconds"] = match_detail_video_lead_seconds(event)
     return {
         "matchId": str(match.id),
         "matchTime": match_time,

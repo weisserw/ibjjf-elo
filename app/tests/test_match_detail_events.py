@@ -802,6 +802,20 @@ class MatchDetailEventsTestCase(unittest.TestCase):
 
         self.assertEqual(payload["events"][-1]["videoOffsetSeconds"], 217)
 
+    def test_events_include_video_lead_seconds(self):
+        score_events = build_match_detail_payload(
+            match(final_match_time_seconds=120, final_top_points=4),
+            [
+                text_event(10, "5:00", top_points=0, top_penalties=0),
+                text_event(20, "4:50", top_points=0, top_penalties=1),
+                text_event(30, "4:40", top_points=2, top_penalties=1),
+            ],
+        )["events"]
+
+        self.assertEqual(score_events[0]["videoLeadSeconds"], 8)
+        self.assertEqual(score_events[1]["videoLeadSeconds"], 15)
+        self.assertEqual(score_events[-1]["videoLeadSeconds"], 8)
+
     def test_final_method_classification(self):
         self.assertEqual(
             build_match_detail_payload(match(final_match_time_seconds=120), [])[

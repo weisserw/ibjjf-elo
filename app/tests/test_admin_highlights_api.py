@@ -277,6 +277,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(event["event_type"], "submission")
         self.assertEqual(event["youtube_url"], "https://www.youtube.com/watch?v=submission01")
         self.assertEqual(event["video_offset_seconds"], 143)
+        self.assertEqual(event["video_lead_seconds"], 15)
         self.assertEqual(event["winner"], "Top Athlete")
         self.assertEqual(event["loser"], "Bottom Athlete")
 
@@ -507,6 +508,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(event["event_type"], "score")
         self.assertEqual(event["score_category"], "points")
         self.assertEqual(event["score_delta"], 2)
+        self.assertEqual(event["video_lead_seconds"], 15)
         self.assertEqual(event["action_athlete_name"], "Top")
         self.assertEqual(event["youtube_url"], "https://www.youtube.com/watch?v=points000001")
 
