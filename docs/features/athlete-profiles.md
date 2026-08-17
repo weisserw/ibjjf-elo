@@ -193,7 +193,9 @@ make test
 Useful focused test files while editing this feature:
 
 - `app/tests/test_athlete_profile_api.py` for `/api/athlete/<slug>`, profile
-  payload shape, medals, media coverage, and not-found behavior.
+  payload shape, medals, media coverage, and not-found behavior. Its rendered
+  page 404 test supplies a minimal React shell in memory, so it does not require
+  a local frontend build or `app/frontend/dist/index.html`.
 - `app/tests/test_athlete_ratings_api.py` for `/api/athletes/ratings` profile
   rating snippets and slug behavior.
 - `app/tests/test_athletes_search_api.py` for athlete search/autocomplete

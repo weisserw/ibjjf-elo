@@ -2,6 +2,7 @@ import os
 import sys
 import unittest
 from datetime import date, datetime, timedelta
+from unittest import mock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -348,8 +349,11 @@ class AthleteProfileApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_rendered_athlete_page_not_found(self):
-        response = self.client.get("/athlete/missing-athlete")
+        index_html = '<!doctype html><html><body><div id="root"></div></body></html>'
+        with mock.patch("seo.load_index_html", return_value=index_html) as load_index:
+            response = self.client.get("/athlete/missing-athlete")
 
+        load_index.assert_called_once_with(self.app_module.app.static_folder)
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.mimetype, "text/html")
         self.assertIn('<div id="root"></div>', response.get_data(as_text=True))
