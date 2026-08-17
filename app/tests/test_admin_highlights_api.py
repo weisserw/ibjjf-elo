@@ -313,6 +313,42 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(event["winner"], "Top Athlete")
         self.assertEqual(event["loser"], "Bottom Athlete")
 
+    def test_highlights_match_start_defaults_to_all_time_and_thirty_results(self):
+        match, scan, scan_segment, capture_segment, _archive = (
+            self._create_linked_match(
+                youtube_url="https://www.youtube.com/watch?v=matchstart01",
+                happened_at=datetime.utcnow() - timedelta(days=365),
+                final_match_time_seconds=143,
+            )
+        )
+        match.video_start_offset_seconds = 100
+        self._attach_match_events(
+            match=match,
+            scan=scan,
+            scan_segment=scan_segment,
+            capture_segment=capture_segment,
+            start_second=100,
+            end_second=143,
+            running_timer="5:00",
+        )
+        db.session.commit()
+
+        response = self._admin_client().get(
+            "/api/highlights/score-events?event_type=match_start",
+            headers={"X-Admin-Password": self.admin_password},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["filters"]["days"], None)
+        self.assertEqual(payload["filters"]["limit"], 30)
+        self.assertEqual(payload["count"], 1)
+        event = payload["events"][0]
+        self.assertEqual(event["event_type"], "match_start")
+        self.assertEqual(event["match_time"], "5:00")
+        self.assertEqual(event["video_offset_seconds"], 100)
+        self.assertEqual(event["video_lead_seconds"], 10)
+
     def test_highlights_submission_filters_by_adult_black_belt(self):
         (
             included_match,

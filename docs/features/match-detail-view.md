@@ -214,11 +214,16 @@ interface MatchDetailAction {
   2, and 10 seconds for other final rows. The backend is the sole owner of this
   calculation; the frontend consumes the required field directly.
 - The authenticated admin `GET /api/highlights/score-events` candidate contract
-  exposes this value as `video_lead_seconds` for score, submission, and decision
-  rows so downstream highlight tools use the same pre-roll as Match Detail.
-- Its `event_type` filter accepts `submission` (the default), `decision`, `score`,
-  and `all`. Decision rows are non-DQ final events at `0:00`; `all` returns score actions
-  together with submission and decision finals.
+  exposes this value as `video_lead_seconds` for match-start, score, submission,
+  and decision rows so downstream highlight tools use the same pre-roll as Match
+  Detail.
+- Its `event_type` filter accepts `submission` (the default), `match_start`,
+  `decision`, `score`, and `all`. Match-start rows use the linked match's first
+  running-clock video offset. Decision rows are non-DQ final events at `0:00`;
+  `all` returns match starts and score actions together with submission and
+  decision finals.
+- The optional `days` filter limits candidates to the previous 1–90 days. When
+  omitted, candidates are not date-limited. The default result `limit` is 30.
 - Candidate filters also support exact, case-insensitive `Athlete.name` matching
   through `athlete_name` (never `personal_name`), exact division `gender`, and `elite`
   values `tier3`, `tier2`, or `tier1`. Elite matching uses the participant's

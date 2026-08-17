@@ -112,7 +112,7 @@ from photos import (
     get_s3_client,
     save_profile_photo_to_s3,
 )
-from routes.matches import build_match_detail_payload
+from routes.matches import build_match_detail_payload, match_detail_video_lead_seconds
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "default_secret")
@@ -2221,19 +2221,22 @@ def _participant_summary(payload):
 @app.route("/api/highlights/score-events")
 def highlights_score_events():
     event_type = (request.args.get("event_type") or "submission").strip().lower()
-    if event_type not in {"all", "decision", "submission", "score"}:
+    if event_type not in {"all", "decision", "match_start", "submission", "score"}:
         return (
             jsonify(
-                {"error": "event_type must be one of: all, decision, submission, score"}
+                {
+                    "error": "event_type must be one of: all, decision, "
+                    "match_start, submission, score"
+                }
             ),
             400,
         )
 
-    days = request.args.get("days", 7, type=int)
-    if days is None or days < 1 or days > 90:
+    days = request.args.get("days", type=int)
+    if "days" in request.args and (days is None or days < 1 or days > 90):
         return jsonify({"error": "days must be an integer between 1 and 90"}), 400
 
-    limit = request.args.get("limit", 200, type=int)
+    limit = request.args.get("limit", 30, type=int)
     if limit is None or limit < 1 or limit > 5000:
         return jsonify({"error": "limit must be an integer between 1 and 5000"}), 400
 
@@ -2316,17 +2319,17 @@ def highlights_score_events():
         )
         elite_athlete_gi_pairs = {(row.athlete_id, bool(row.gi)) for row in elite_rows}
 
-    since = datetime.utcnow() - timedelta(days=days)
-    matches = (
+    matches_query = (
         Match.query.options(
             selectinload(Match.event),
             selectinload(Match.division),
             selectinload(Match.participants).selectinload(MatchParticipant.athlete),
         )
-        .filter(Match.happened_at >= since)
-        .order_by(Match.happened_at.desc())
-        .all()
     )
+    if days is not None:
+        since = datetime.utcnow() - timedelta(days=days)
+        matches_query = matches_query.filter(Match.happened_at >= since)
+    matches = matches_query.order_by(Match.happened_at.desc()).all()
 
     results = []
     for match in matches:
@@ -2397,6 +2400,22 @@ def highlights_score_events():
             "winner": participant_info["winner"],
             "loser": participant_info["loser"],
         }
+
+        if (
+            event_type in {"all", "match_start"}
+            and match.video_start_offset_seconds is not None
+        ):
+            results.append(
+                {
+                    **common,
+                    "event_type": "match_start",
+                    "match_time": payload.get("matchTime"),
+                    "video_offset_seconds": match.video_start_offset_seconds,
+                    "video_lead_seconds": match_detail_video_lead_seconds(
+                        {"kind": "match_start"}
+                    ),
+                }
+            )
 
         final_event = payload["events"][-1] if payload.get("events") else None
         final_event_type = None
