@@ -2319,12 +2319,10 @@ def highlights_score_events():
         )
         elite_athlete_gi_pairs = {(row.athlete_id, bool(row.gi)) for row in elite_rows}
 
-    matches_query = (
-        Match.query.options(
-            selectinload(Match.event),
-            selectinload(Match.division),
-            selectinload(Match.participants).selectinload(MatchParticipant.athlete),
-        )
+    matches_query = Match.query.options(
+        selectinload(Match.event),
+        selectinload(Match.division),
+        selectinload(Match.participants).selectinload(MatchParticipant.athlete),
     )
     if days is not None:
         since = datetime.utcnow() - timedelta(days=days)
