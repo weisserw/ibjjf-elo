@@ -34,6 +34,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../a
 from extensions import db
 from models import (
     Athlete,
+    AthleteRating,
     Event,
     RegistrationLink,
     LiveStream,
@@ -101,7 +102,8 @@ from youtube_utils import canonical_youtube_url
 from site_statistics import refresh_covered_match_count
 from livestream_match_linking import link_completed_text_scan
 from normalize import normalize
-from elo import WINNER_NOT_RECORDED
+from constants import ADULT, JUVENILE, NON_ELITE_BELTS
+from elo import RATING_VERY_IMMATURE_COUNT, WINNER_NOT_RECORDED
 from photos import (
     bucket_name,
     convert_image_to_jpeg,
@@ -2182,11 +2184,19 @@ def _iso_datetime(value):
 
 def _participant_summary(payload):
     red_name = next(
-        (participant.get("fullName") for participant in payload["participants"] if participant["key"] == "red"),
+        (
+            participant.get("fullName")
+            for participant in payload["participants"]
+            if participant["key"] == "red"
+        ),
         None,
     )
     blue_name = next(
-        (participant.get("fullName") for participant in payload["participants"] if participant["key"] == "blue"),
+        (
+            participant.get("fullName")
+            for participant in payload["participants"]
+            if participant["key"] == "blue"
+        ),
         None,
     )
     final_event = payload["events"][-1] if payload.get("events") else {}
@@ -2211,8 +2221,13 @@ def _participant_summary(payload):
 @app.route("/api/highlights/score-events")
 def highlights_score_events():
     event_type = (request.args.get("event_type") or "submission").strip().lower()
-    if event_type not in {"submission", "score"}:
-        return jsonify({"error": "event_type must be one of: submission, score"}), 400
+    if event_type not in {"all", "decision", "submission", "score"}:
+        return (
+            jsonify(
+                {"error": "event_type must be one of: all, decision, submission, score"}
+            ),
+            400,
+        )
 
     days = request.args.get("days", 7, type=int)
     if days is None or days < 1 or days > 90:
@@ -2223,11 +2238,16 @@ def highlights_score_events():
         return jsonify({"error": "limit must be an integer between 1 and 5000"}), 400
 
     score_category = (request.args.get("score_category") or "").strip().lower()
-    if event_type == "score" and score_category and score_category not in {
-        "points",
-        "advantages",
-        "penalties",
-    }:
+    if (
+        event_type == "score"
+        and score_category
+        and score_category
+        not in {
+            "points",
+            "advantages",
+            "penalties",
+        }
+    ):
         return (
             jsonify(
                 {
@@ -2252,9 +2272,49 @@ def highlights_score_events():
     age_filter = (request.args.get("age") or "").strip()
     belt_filter = (request.args.get("belt") or "").strip()
     event_name_filter = (request.args.get("event_name") or "").strip()
+    athlete_name_filter = (
+        request.args.get("athlete_name") or request.args.get("athlete") or ""
+    ).strip()
+    gender_filter = (request.args.get("gender") or "").strip()
+    elite_filter = (request.args.get("elite") or "").strip().lower()
+    if gender_filter and normalize(gender_filter) not in {"male", "female"}:
+        return jsonify({"error": "gender must be one of: male, female"}), 400
+    elite_percentile_thresholds = {
+        "tier3": 0.10,
+        "tier2": 0.05,
+        "tier1": 0.02,
+    }
+    if elite_filter and elite_filter not in elite_percentile_thresholds:
+        return jsonify({"error": "elite must be one of: tier3, tier2, tier1"}), 400
     normalized_age_filter = normalize(age_filter) if age_filter else None
     normalized_belt_filter = normalize(belt_filter) if belt_filter else None
-    normalized_event_name_filter = normalize(event_name_filter) if event_name_filter else None
+    normalized_event_name_filter = (
+        normalize(event_name_filter) if event_name_filter else None
+    )
+    normalized_athlete_name_filter = (
+        normalize(athlete_name_filter) if athlete_name_filter else None
+    )
+    normalized_gender_filter = normalize(gender_filter) if gender_filter else None
+
+    elite_athlete_gi_pairs = None
+    if elite_filter:
+        elite_rows = (
+            db.session.query(AthleteRating.athlete_id, AthleteRating.gi)
+            .filter(
+                AthleteRating.percentile.isnot(None),
+                AthleteRating.percentile < elite_percentile_thresholds[elite_filter],
+                AthleteRating.rank.isnot(None),
+                AthleteRating.match_count > RATING_VERY_IMMATURE_COUNT,
+                AthleteRating.belt.notin_(NON_ELITE_BELTS),
+                or_(
+                    AthleteRating.age == ADULT,
+                    AthleteRating.age.like(f"{JUVENILE}%"),
+                ),
+            )
+            .distinct()
+            .all()
+        )
+        elite_athlete_gi_pairs = {(row.athlete_id, bool(row.gi)) for row in elite_rows}
 
     since = datetime.utcnow() - timedelta(days=days)
     matches = (
@@ -2274,14 +2334,37 @@ def highlights_score_events():
         if division is None:
             continue
         if normalized_event_name_filter:
-            normalized_event_name = normalize((match.event.name if match.event else "") or "")
+            normalized_event_name = normalize(
+                (match.event.name if match.event else "") or ""
+            )
             if normalized_event_name != normalized_event_name_filter:
                 continue
         if gi_filter is not None and bool(division.gi) != gi_filter:
             continue
-        if normalized_age_filter and normalize(division.age or "") != normalized_age_filter:
+        if (
+            normalized_age_filter
+            and normalize(division.age or "") != normalized_age_filter
+        ):
             continue
-        if normalized_belt_filter and normalize(division.belt or "") != normalized_belt_filter:
+        if (
+            normalized_belt_filter
+            and normalize(division.belt or "") != normalized_belt_filter
+        ):
+            continue
+        if (
+            normalized_gender_filter
+            and normalize(division.gender or "") != normalized_gender_filter
+        ):
+            continue
+        if normalized_athlete_name_filter and not any(
+            normalize(participant.athlete.name or "") == normalized_athlete_name_filter
+            for participant in match.participants
+        ):
+            continue
+        if elite_athlete_gi_pairs is not None and not any(
+            (participant.athlete_id, bool(division.gi)) in elite_athlete_gi_pairs
+            for participant in match.participants
+        ):
             continue
 
         raw_events = (
@@ -2315,24 +2398,34 @@ def highlights_score_events():
             "loser": participant_info["loser"],
         }
 
-        if event_type == "submission":
-            final_event = payload["events"][-1] if payload.get("events") else None
-            if (
-                final_event
-                and final_event.get("kind") == "final"
-                and final_event.get("endingMethod") == "Submission"
-                and final_event.get("videoOffsetSeconds") is not None
+        final_event = payload["events"][-1] if payload.get("events") else None
+        final_event_type = None
+        if final_event and final_event.get("kind") == "final":
+            if final_event.get("endingMethod") == "Submission":
+                final_event_type = "submission"
+            elif (
+                final_event.get("time") == "0:00"
+                and final_event.get("endingMethod") != "DQ"
             ):
-                results.append(
-                    {
-                        **common,
-                        "event_type": "submission",
-                        "match_time": final_event.get("time"),
-                        "video_offset_seconds": final_event.get("videoOffsetSeconds"),
-                        "video_lead_seconds": final_event.get("videoLeadSeconds"),
-                    }
-                )
-        else:
+                final_event_type = "decision"
+
+        if (
+            final_event_type in {"submission", "decision"}
+            and event_type in {"all", final_event_type}
+            and final_event.get("videoOffsetSeconds") is not None
+        ):
+            results.append(
+                {
+                    **common,
+                    "event_type": final_event_type,
+                    "match_time": final_event.get("time"),
+                    "video_offset_seconds": final_event.get("videoOffsetSeconds"),
+                    "video_lead_seconds": final_event.get("videoLeadSeconds"),
+                    "ending_method": final_event.get("endingMethod"),
+                }
+            )
+
+        if event_type in {"all", "score"}:
             for score_event in payload.get("events", []):
                 if score_event.get("kind") != "score":
                     continue
@@ -2366,10 +2459,15 @@ def highlights_score_events():
     results.sort(
         key=lambda row: (
             row.get("happened_at") or "",
-            row.get("video_offset_seconds") if row.get("video_offset_seconds") is not None else -1,
+            (
+                row.get("video_offset_seconds")
+                if row.get("video_offset_seconds") is not None
+                else -1
+            ),
             row.get("match_id") or "",
         )
     )
+    results = results[:limit]
 
     return jsonify(
         {
@@ -2380,12 +2478,15 @@ def highlights_score_events():
                 "age": age_filter or None,
                 "belt": belt_filter or None,
                 "event_name": event_name_filter or None,
+                "athlete_name": athlete_name_filter or None,
+                "gender": gender_filter.lower() or None,
+                "elite": elite_filter or None,
                 "score_category": score_category or None,
                 "score_delta": score_delta,
                 "limit": limit,
             },
             "count": len(results),
-            "events": results[:limit],
+            "events": results,
         }
     )
 
