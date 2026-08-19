@@ -62,7 +62,7 @@ class ArchiveLivestreamFramesOptionsTestCase(unittest.TestCase):
         self.assertEqual(options["remote_components"], ["ejs:github"])
         self.assertEqual(
             options["extractor_args"],
-            {"youtube": {"player_client": ["default", "-web_embedded"]}},
+            {"youtube": {"player_client": ["web_embedded", "default"]}},
         )
 
     def test_default_fallback_format_prefers_video_only_after_primary(self):

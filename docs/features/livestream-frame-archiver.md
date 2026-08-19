@@ -45,6 +45,12 @@ The capture worker can run in two modes:
 
 `scripts/archive_livestream_frames.py` selects a YouTube format, with fallback handling for unavailable primary formats. It prefers 480p/default selector behavior but has a fallback video-only selector for `avc1` formats. DASH fragment formats are handled specially: the worker downloads only the overlapping fragment section before calling `ffmpeg`.
 
+The default YouTube player-client order is `web_embedded,default`. Keep the
+embedded client first: current yt-dlp default clients can return media URLs that
+probe successfully but fail with HTTP 403 when ffmpeg reads them. Operators can
+override the order with `YTDLP_EXTRACTOR_ARGS` when YouTube client behavior
+changes.
+
 `CROP_FILTER` creates two crops per sampled second:
 
 - `score`: left/top scoreboard area, currently `w=iw*0.27`, `h=ih*0.22`, `x=0`, `y=0`.
