@@ -113,7 +113,11 @@ from photos import (
     get_s3_client,
     save_profile_photo_to_s3,
 )
-from routes.matches import build_match_detail_payload, match_detail_video_lead_seconds
+from routes.matches import (
+    DQ_TYPE_NOTES,
+    build_match_detail_payload,
+    match_detail_video_lead_seconds,
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET_KEY", "default_secret")
@@ -2319,6 +2323,18 @@ def highlights_score_events():
         .filter(LivestreamFrameTextEvent.match_id == Match.id)
         .exists()
     )
+    if event_type == "dq":
+        dq_notes = (
+            note for note_group in DQ_TYPE_NOTES.values() for note in note_group
+        )
+        matches_query = matches_query.filter(
+            db.session.query(MatchParticipant.id)
+            .filter(
+                MatchParticipant.match_id == Match.id,
+                or_(*(MatchParticipant.note.like(f"%{note}%") for note in dq_notes)),
+            )
+            .exists()
+        )
     if days is not None:
         since = datetime.utcnow() - timedelta(days=days)
         matches_query = matches_query.filter(Match.happened_at >= since)

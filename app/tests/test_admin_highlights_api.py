@@ -730,6 +730,24 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             stopped_timer="0:30",
         )
 
+        ordinary_match, scan, scan_segment, capture_segment, _archive = (
+            self._create_linked_match(
+                youtube_url="https://www.youtube.com/watch?v=notdqevent01",
+                happened_at=datetime.utcnow(),
+                final_match_time_seconds=30,
+            )
+        )
+        self._attach_match_events(
+            match=ordinary_match,
+            scan=scan,
+            scan_segment=scan_segment,
+            capture_segment=capture_segment,
+            start_second=15,
+            end_second=45,
+            running_timer="1:00",
+            stopped_timer="0:30",
+        )
+
         unlinked_match, _scan, _segment, _capture, _archive = self._create_linked_match(
             youtube_url="https://www.youtube.com/watch?v=dqnoscores01",
             happened_at=datetime.utcnow() - timedelta(days=1),
@@ -740,12 +758,22 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         ).one().note = "Disqualified by disciplinary desc."
         db.session.commit()
 
-        response = self._admin_client().get(
-            "/api/highlights/score-events?event_type=dq&days=3",
-            headers={"X-Admin-Password": self.admin_password},
-        )
+        client = self._admin_client()
+        with patch.object(
+            self.admin_module,
+            "build_match_detail_payload",
+            wraps=self.admin_module.build_match_detail_payload,
+        ) as build_payload:
+            response = client.get(
+                "/api/highlights/score-events?event_type=dq&days=3",
+                headers={"X-Admin-Password": self.admin_password},
+            )
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [match.id],
+            [call.args[0].id for call in build_payload.call_args_list],
+        )
         payload = response.get_json()
         self.assertEqual(payload["count"], 1)
         event = payload["events"][0]
