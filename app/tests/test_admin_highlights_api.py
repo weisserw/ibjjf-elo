@@ -708,6 +708,56 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             {event["event_type"] for event in all_payload["events"]},
         )
 
+    def test_highlights_dq_uses_final_match_detail_video_window(self):
+        match, scan, scan_segment, capture_segment, _archive = (
+            self._create_linked_match(
+                youtube_url="https://www.youtube.com/watch?v=dqevent00001",
+                happened_at=datetime.utcnow() - timedelta(days=1),
+                final_match_time_seconds=30,
+            )
+        )
+        MatchParticipant.query.filter_by(match_id=match.id, red=False).one().note = (
+            "Disqualified by technical desc."
+        )
+        self._attach_match_events(
+            match=match,
+            scan=scan,
+            scan_segment=scan_segment,
+            capture_segment=capture_segment,
+            start_second=30,
+            end_second=90,
+            running_timer="1:00",
+            stopped_timer="0:30",
+        )
+
+        unlinked_match, _scan, _segment, _capture, _archive = self._create_linked_match(
+            youtube_url="https://www.youtube.com/watch?v=dqnoscores01",
+            happened_at=datetime.utcnow() - timedelta(days=1),
+            final_match_time_seconds=30,
+        )
+        MatchParticipant.query.filter_by(
+            match_id=unlinked_match.id, red=False
+        ).one().note = "Disqualified by disciplinary desc."
+        db.session.commit()
+
+        response = self._admin_client().get(
+            "/api/highlights/score-events?event_type=dq&days=3",
+            headers={"X-Admin-Password": self.admin_password},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["count"], 1)
+        event = payload["events"][0]
+        self.assertEqual(event["event_type"], "dq")
+        self.assertEqual(event["ending_method"], "DQ")
+        self.assertEqual(event["video_offset_seconds"], 90)
+        self.assertEqual(event["video_lead_seconds"], 10)
+        self.assertEqual(
+            event["youtube_url"],
+            "https://www.youtube.com/watch?v=dqevent00001",
+        )
+
     def test_highlights_athlete_filter_uses_exact_full_name_not_personal_name(self):
         match, scan, scan_segment, capture_segment, _archive = (
             self._create_linked_match(

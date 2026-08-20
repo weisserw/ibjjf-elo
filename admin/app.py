@@ -2223,11 +2223,18 @@ def _participant_summary(payload):
 @app.route("/api/highlights/score-events")
 def highlights_score_events():
     event_type = (request.args.get("event_type") or "submission").strip().lower()
-    if event_type not in {"all", "decision", "match_start", "submission", "score"}:
+    if event_type not in {
+        "all",
+        "decision",
+        "dq",
+        "match_start",
+        "submission",
+        "score",
+    }:
         return (
             jsonify(
                 {
-                    "error": "event_type must be one of: all, decision, "
+                    "error": "event_type must be one of: all, decision, dq, "
                     "match_start, submission, score"
                 }
             ),
@@ -2501,7 +2508,9 @@ def highlights_score_events():
         final_event = payload["events"][-1] if payload.get("events") else None
         final_event_type = None
         if final_event and final_event.get("kind") == "final":
-            if final_event.get("endingMethod") == "Submission":
+            if final_event.get("endingMethod") == "DQ":
+                final_event_type = "dq"
+            elif final_event.get("endingMethod") == "Submission":
                 final_event_type = "submission"
             elif (
                 final_event.get("time") == "0:00"
@@ -2510,7 +2519,7 @@ def highlights_score_events():
                 final_event_type = "decision"
 
         if (
-            final_event_type in {"submission", "decision"}
+            final_event_type in {"submission", "decision", "dq"}
             and event_type in {"all", final_event_type}
             and final_event.get("videoOffsetSeconds") is not None
         ):
