@@ -59,7 +59,7 @@
     </form>
 
     <div class="tags mb-4" aria-label="Archive status filters">
-        <span class="tag">Status</span>
+        <span class="tag is-dark">Status</span>
         {% for value, label in archive_status_options %}
         <a class="tag {% if value == selected_status %}is-link{% else %}is-light{% endif %}" href="{{ url_for('livestream_frame_archives', sort=selected_sort, q=search, status=value) }}">{{ label }}</a>
         {% endfor %}
