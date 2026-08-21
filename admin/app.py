@@ -69,6 +69,7 @@ from livestream_frame_archive import (
     claim_next_segment,
     create_missing_segments,
     get_archive_dashboard_rows,
+    get_archive_dashboard_page,
     get_or_create_archive,
     queue_archive_capture,
     requeue_completed_segments,
@@ -380,20 +381,12 @@ def _text_event_type_counts_query():
         LivestreamFrameTextEvent.top_athlete_name.isnot(None),
         LivestreamFrameTextEvent.bottom_athlete_name.isnot(None),
     )
-    team_name_condition = or_(
-        LivestreamFrameTextEvent.top_team_name.isnot(None),
-        LivestreamFrameTextEvent.bottom_team_name.isnot(None),
-    )
     return db.session.query(
         LivestreamFrameTextEvent.scan_id.label("scan_id"),
         func.count(LivestreamFrameTextEvent.id).label("total"),
         func.sum(case((score_condition, 1), else_=0)).label("score"),
         func.sum(case((timer_condition, 1), else_=0)).label("timer"),
         func.sum(case((athlete_name_condition, 1), else_=0)).label("athlete_names"),
-        func.sum(case((team_name_condition, 1), else_=0)).label("team_names"),
-        func.sum(
-            case((LivestreamFrameTextEvent.profile_id.isnot(None), 1), else_=0)
-        ).label("profiles"),
     ).group_by(LivestreamFrameTextEvent.scan_id)
 
 
@@ -403,8 +396,6 @@ def _empty_text_event_counts():
         "score": 0,
         "timer": 0,
         "athlete_names": 0,
-        "team_names": 0,
-        "profiles": 0,
     }
 
 
@@ -420,8 +411,6 @@ def _text_event_counts_for_scan_ids(scan_ids):
             "score": row.score or 0,
             "timer": row.timer or 0,
             "athlete_names": row.athlete_names or 0,
-            "team_names": row.team_names or 0,
-            "profiles": row.profiles or 0,
         }
     return counts
 
@@ -519,21 +508,15 @@ def _text_scan_segment_status_counts(scan_ids):
     return counts
 
 
-def _livestream_frame_text_scan_rows(sort: str = "event_date_desc"):
-    archive_rows = [
-        row
-        for row in get_archive_dashboard_rows(db.session, sort=sort)
-        if row.get("archive") is None or not row["archive"].is_bad
-    ]
+def _decorate_livestream_frame_text_scan_rows(archive_rows, scan_by_archive_id):
     archive_ids = [
         row["archive"].id for row in archive_rows if row.get("archive") is not None
     ]
-    scans = []
-    if archive_ids:
-        scans = LivestreamFrameTextScan.query.filter(
-            LivestreamFrameTextScan.archive_id.in_(archive_ids)
-        ).all()
-    scan_by_archive_id = {scan.archive_id: scan for scan in scans}
+    scans = [
+        scan_by_archive_id[archive_id]
+        for archive_id in archive_ids
+        if archive_id in scan_by_archive_id
+    ]
     scan_ids = [scan.id for scan in scans]
     event_counts_by_scan_id = _text_event_counts_for_scan_ids(scan_ids)
     segment_counts_by_scan_id = _text_scan_segment_status_counts(scan_ids)
@@ -556,6 +539,7 @@ def _livestream_frame_text_scan_rows(sort: str = "event_date_desc"):
             {
                 **row,
                 "scan": scan,
+                "dashboard_status": _text_scan_dashboard_status(row, scan),
                 "ready_to_queue": ready_to_queue,
                 "capture_segment_count": len(capture_segments),
                 "successful_capture_segment_count": len(successful_capture_segments),
@@ -570,6 +554,159 @@ def _livestream_frame_text_scan_rows(sort: str = "event_date_desc"):
             }
         )
     return rows
+
+
+def _livestream_frame_text_scan_rows(sort: str = "event_date_desc"):
+    archive_rows = [
+        row
+        for row in get_archive_dashboard_rows(db.session, sort=sort)
+        if row.get("archive") is None or not row["archive"].is_bad
+    ]
+    archive_ids = [
+        row["archive"].id for row in archive_rows if row.get("archive") is not None
+    ]
+    scans = (
+        LivestreamFrameTextScan.query.filter(
+            LivestreamFrameTextScan.archive_id.in_(archive_ids)
+        ).all()
+        if archive_ids
+        else []
+    )
+    return _decorate_livestream_frame_text_scan_rows(
+        archive_rows, {scan.archive_id: scan for scan in scans}
+    )
+
+
+def _text_scan_row_matches_search(row, search):
+    terms = [term for term in search.casefold().split() if term]
+    if not terms:
+        return True
+    values = [
+        row["youtube_video_id"],
+    ]
+    for usage in row["usages"]:
+        values.extend((usage.event_name or "", usage.stream.event_id or ""))
+    searchable_text = " ".join(values).casefold()
+    return all(term in searchable_text for term in terms)
+
+
+def _text_scan_dashboard_status(row, scan):
+    if scan is not None:
+        if scan.status in {"pending", "cancelled"}:
+            return "ready"
+        return scan.status
+    archive = row.get("archive")
+    if archive is not None and archive.status == "success":
+        return "ready"
+    return "waiting_for_archive"
+
+
+def _text_scan_row_matches_status(row, scan, status):
+    if not status:
+        return True
+    return _text_scan_dashboard_status(row, scan) == status
+
+
+def _load_archive_segments_for_dashboard_rows(rows):
+    archive_ids = [row["archive"].id for row in rows if row.get("archive") is not None]
+    if not archive_ids:
+        return
+    archives = (
+        LivestreamFrameArchive.query.options(
+            selectinload(LivestreamFrameArchive.segments)
+        )
+        .filter(LivestreamFrameArchive.id.in_(archive_ids))
+        .all()
+    )
+    archive_by_id = {archive.id: archive for archive in archives}
+    for row in rows:
+        archive = row.get("archive")
+        if archive is not None:
+            row["archive"] = archive_by_id[archive.id]
+
+
+def _livestream_frame_text_scan_page(sort, search, status, page, per_page):
+    archive_rows = [
+        row
+        for row in get_archive_dashboard_rows(
+            db.session, sort=sort, load_segments=False
+        )
+        if row.get("archive") is None or not row["archive"].is_bad
+    ]
+    archive_ids = [
+        row["archive"].id for row in archive_rows if row.get("archive") is not None
+    ]
+    scans = (
+        LivestreamFrameTextScan.query.filter(
+            LivestreamFrameTextScan.archive_id.in_(archive_ids)
+        ).all()
+        if archive_ids
+        else []
+    )
+    scan_by_archive_id = {scan.archive_id: scan for scan in scans}
+    filtered_rows = [
+        row
+        for row in archive_rows
+        if _text_scan_row_matches_search(row, search)
+        and _text_scan_row_matches_status(
+            row,
+            scan_by_archive_id.get(row["archive"].id) if row.get("archive") else None,
+            status,
+        )
+    ]
+
+    total = len(filtered_rows)
+    per_page = max(int(per_page or 1), 1)
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = min(max(int(page or 1), 1), total_pages)
+    offset = (page - 1) * per_page
+    page_archive_rows = filtered_rows[offset : offset + per_page]
+    _load_archive_segments_for_dashboard_rows(page_archive_rows)
+    rows = _decorate_livestream_frame_text_scan_rows(
+        page_archive_rows, scan_by_archive_id
+    )
+    return rows, {
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "total_pages": total_pages,
+        "first_item": offset + 1 if total else 0,
+        "last_item": min(offset + per_page, total),
+    }
+
+
+def _livestream_frame_text_scan_dashboard_counts():
+    ready_count = (
+        db.session.query(func.count(func.distinct(LivestreamFrameArchive.id)))
+        .join(
+            LivestreamFrameCaptureSegment,
+            LivestreamFrameCaptureSegment.archive_id == LivestreamFrameArchive.id,
+        )
+        .outerjoin(
+            LivestreamFrameTextScan,
+            LivestreamFrameTextScan.archive_id == LivestreamFrameArchive.id,
+        )
+        .filter(
+            LivestreamFrameArchive.status == "success",
+            LivestreamFrameArchive.is_bad.is_(False),
+            LivestreamFrameCaptureSegment.status == "success",
+            LivestreamFrameTextScan.id.is_(None),
+        )
+        .scalar()
+        or 0
+    )
+    active_count = (
+        LivestreamFrameTextScan.query.join(
+            LivestreamFrameArchive,
+            LivestreamFrameArchive.id == LivestreamFrameTextScan.archive_id,
+        )
+        .filter(
+            LivestreamFrameArchive.is_bad.is_(False),
+            LivestreamFrameTextScan.status.in_({"queued", "running", "partial"}),
+        )
+        .count()
+    )
+    return ready_count, active_count
 
 
 def _parse_uuid_list(values):
@@ -1176,11 +1313,17 @@ def tasks_unrecorded_winners():
     )
 
 
+LIVESTREAM_DASHBOARD_PER_PAGE = 50
+
+
 @app.route("/livestream_frame_archives", methods=["GET", "POST"])
 def livestream_frame_archives():
     message = request.args.get("message")
     error = None
     selected_sort = request.values.get("sort") or "event_date_desc"
+    search = (request.values.get("q") or "").strip()
+    selected_status = (request.values.get("status") or "").strip()
+    page = request.values.get("page", 1, type=int) or 1
     archive_sort_options = [
         ("event_date_desc", "Event date descending"),
         ("event_date_asc", "Event date ascending"),
@@ -1188,6 +1331,19 @@ def livestream_frame_archives():
     ]
     if selected_sort not in {value for value, _label in archive_sort_options}:
         selected_sort = "event_date_desc"
+    archive_status_options = [
+        ("", "All"),
+        ("not_synced", "Not synced"),
+        ("ready", "Ready"),
+        ("queued", "Queued"),
+        ("in_progress", "In progress"),
+        ("partial", "Partial"),
+        ("success", "Success"),
+        ("error", "Error"),
+        ("bad", "Bad"),
+    ]
+    if selected_status not in {value for value, _label in archive_status_options}:
+        selected_status = ""
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -1292,7 +1448,14 @@ def livestream_frame_archives():
             db.session.rollback()
             error = str(exc)
 
-    rows = get_archive_dashboard_rows(db.session, sort=selected_sort)
+    rows, pagination = get_archive_dashboard_page(
+        db.session,
+        sort=selected_sort,
+        search=search,
+        status=selected_status,
+        page=page,
+        per_page=LIVESTREAM_DASHBOARD_PER_PAGE,
+    )
     return render_template(
         "livestream_frame_archives.html",
         rows=rows,
@@ -1301,6 +1464,10 @@ def livestream_frame_archives():
         progress_label=archive_progress_label,
         selected_sort=selected_sort,
         archive_sort_options=archive_sort_options,
+        search=search,
+        selected_status=selected_status,
+        archive_status_options=archive_status_options,
+        pagination=pagination,
     )
 
 
@@ -1410,6 +1577,9 @@ def livestream_frame_text_scans():
     message = request.args.get("message")
     error = None
     selected_sort = request.values.get("sort") or "event_date_desc"
+    search = (request.values.get("q") or "").strip()
+    selected_status = (request.values.get("status") or "").strip()
+    page = request.values.get("page", 1, type=int) or 1
     text_scan_sort_options = [
         ("event_date_desc", "Event date descending"),
         ("event_date_asc", "Event date ascending"),
@@ -1417,6 +1587,18 @@ def livestream_frame_text_scans():
     ]
     if selected_sort not in {value for value, _label in text_scan_sort_options}:
         selected_sort = "event_date_desc"
+    text_scan_status_options = [
+        ("", "All"),
+        ("waiting_for_archive", "Waiting for archive"),
+        ("ready", "Ready"),
+        ("queued", "Queued"),
+        ("running", "Running"),
+        ("partial", "Partial"),
+        ("success", "Success"),
+        ("error", "Error"),
+    ]
+    if selected_status not in {value for value, _label in text_scan_status_options}:
+        selected_status = ""
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -1503,13 +1685,14 @@ def livestream_frame_text_scans():
             db.session.rollback()
             error = str(exc)
 
-    rows = _livestream_frame_text_scan_rows(sort=selected_sort)
-    ready_count = sum(1 for row in rows if row["ready_to_queue"])
-    active_count = sum(
-        1
-        for row in rows
-        if row["scan"] and row["scan"].status in {"queued", "running", "partial"}
+    rows, pagination = _livestream_frame_text_scan_page(
+        sort=selected_sort,
+        search=search,
+        status=selected_status,
+        page=page,
+        per_page=LIVESTREAM_DASHBOARD_PER_PAGE,
     )
+    ready_count, active_count = _livestream_frame_text_scan_dashboard_counts()
     return render_template(
         "livestream_frame_text_scans.html",
         rows=rows,
@@ -1521,6 +1704,10 @@ def livestream_frame_text_scans():
         segment_statuses=TEXT_SCAN_SEGMENT_STATUSES,
         selected_sort=selected_sort,
         text_scan_sort_options=text_scan_sort_options,
+        search=search,
+        selected_status=selected_status,
+        text_scan_status_options=text_scan_status_options,
+        pagination=pagination,
     )
 
 

@@ -88,6 +88,11 @@ The admin UI for this feature is server-rendered Flask. The templates submit nor
 Browser/admin routes:
 
 - `GET/POST /livestream_frame_archives`
+  - The list is paged at 50 rows and has text search for event name/event ID or
+    YouTube ID. Status links group pending/cancelled as ready and
+    probing/ready/running as in progress; bad rows are classified only as bad,
+    regardless of their stored worker status. Only capture segments for the
+    current page are loaded during normal list views.
   - Event-date sorting uses descending maximum day number and then descending
     maximum mat number within each event date.
   - `sync`: discover archive rows from livestreams.
@@ -100,6 +105,8 @@ Browser/admin routes:
   - `toggle_bad`: toggles the no-scoreboard-data flag for checked archive rows. With
     no checked rows it is a no-op. Marking an archive bad removes its text scan,
     text scan segments, and text events after clearing downstream match links.
+  - Actions labeled for selected rows remain page-scoped through their checkboxes;
+    queue-missing and unselected retry/cancel actions retain their global behavior.
 - `GET/POST /livestream_frame_archives/<archive_id>`
   - shows archive metadata, segment rows, S3 batch prefix, errors, and livestream usages.
   - uploads a custom S3 preview and saves draggable scoreboard/timer crop rectangles.

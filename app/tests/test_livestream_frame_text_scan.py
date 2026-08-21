@@ -3785,16 +3785,46 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
             session_data["logged_in"] = True
 
         with mock.patch.object(
-            self.admin_module, "_livestream_frame_text_scan_rows", return_value=[]
+            self.admin_module,
+            "_livestream_frame_text_scan_page",
+            return_value=(
+                [],
+                {
+                    "page": 2,
+                    "per_page": 50,
+                    "total": 75,
+                    "total_pages": 2,
+                    "first_item": 51,
+                    "last_item": 75,
+                },
+            ),
         ) as rows:
-            response = client.get("/livestream_frame_text_scans?sort=youtube_id")
+            response = client.get(
+                "/livestream_frame_text_scans?"
+                "sort=youtube_id&q=QueueReady&status=queued&page=2"
+            )
 
         self.assertEqual(response.status_code, 200)
-        rows.assert_called_once_with(sort="youtube_id")
+        rows.assert_called_once_with(
+            sort="youtube_id",
+            search="QueueReady",
+            status="queued",
+            page=2,
+            per_page=50,
+        )
         html = response.get_data(as_text=True)
         self.assertIn('id="text-scan-sort"', html)
         self.assertIn('value="youtube_id" selected', html)
         self.assertIn('name="sort" value="youtube_id"', html)
+        self.assertIn('id="text-scan-search"', html)
+        self.assertIn('value="QueueReady"', html)
+        self.assertIn('name="status" value="queued"', html)
+        self.assertIn("Text scan status filters", html)
+        self.assertIn("status=waiting_for_archive", html)
+        self.assertNotIn("status=pending", html)
+        self.assertNotIn("status=cancelled", html)
+        self.assertIn("Page 2 of 2", html)
+        self.assertIn("Showing 51-75 of 75 livestreams", html)
 
     def test_admin_queue_ready_uses_selected_dashboard_sort_order(self):
         first_archive, _ = self._archive_with_segment("QueueReady01")
@@ -3816,11 +3846,25 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
         with mock.patch.object(
             self.admin_module,
             "_livestream_frame_text_scan_rows",
-            side_effect=[sorted_rows, []],
+            return_value=sorted_rows,
         ) as rows, mock.patch.object(
             self.admin_module,
             "queue_text_scan",
             side_effect=fake_queue_text_scan,
+        ), mock.patch.object(
+            self.admin_module,
+            "_livestream_frame_text_scan_page",
+            return_value=(
+                [],
+                {
+                    "page": 1,
+                    "per_page": 50,
+                    "total": 0,
+                    "total_pages": 1,
+                    "first_item": 0,
+                    "last_item": 0,
+                },
+            ),
         ):
             response = client.post(
                 "/livestream_frame_text_scans",
@@ -3834,6 +3878,64 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertLess(queued[0][1], queued[1][1])
         self.assertEqual(rows.call_args_list[0].kwargs, {"sort": "event_date_asc"})
+
+    def test_text_scan_page_searches_status_and_paginates(self):
+        first_archive, _ = self._archive_with_segment("ScanPage001")
+        self._archive_with_segment("ScanPage002")
+        waiting_archive, _ = self._archive_with_segment("ScanWait001")
+        waiting_archive.status = "pending"
+        self._admin_client()
+        text_scan.queue_text_scan(db.session, first_archive, score_engine="none")
+        scan = LivestreamFrameTextScan.query.filter_by(
+            archive_id=first_archive.id
+        ).one()
+        scan.status = "error"
+        db.session.commit()
+
+        rows, pagination = self.admin_module._livestream_frame_text_scan_page(
+            sort="youtube_id", search="ScanPage", status="", page=2, per_page=1
+        )
+        self.assertEqual(pagination["total"], 2)
+        self.assertEqual(pagination["total_pages"], 2)
+        self.assertEqual(rows[0]["youtube_video_id"], "ScanPage002")
+
+        rows, pagination = self.admin_module._livestream_frame_text_scan_page(
+            sort="youtube_id",
+            search="ScanPage001",
+            status="error",
+            page=1,
+            per_page=50,
+        )
+        self.assertEqual(pagination["total"], 1)
+        self.assertEqual(rows[0]["youtube_video_id"], "ScanPage001")
+        self.assertNotIn("team_names", rows[0]["event_counts"])
+        self.assertNotIn("profiles", rows[0]["event_counts"])
+
+        scan.status = "cancelled"
+        db.session.commit()
+        rows, pagination = self.admin_module._livestream_frame_text_scan_page(
+            sort="youtube_id",
+            search="ScanPage",
+            status="ready",
+            page=1,
+            per_page=50,
+        )
+        self.assertEqual(pagination["total"], 2)
+        self.assertEqual(
+            [row["dashboard_status"] for row in rows],
+            ["ready", "ready"],
+        )
+
+        rows, pagination = self.admin_module._livestream_frame_text_scan_page(
+            sort="youtube_id",
+            search="ScanWait001",
+            status="waiting_for_archive",
+            page=1,
+            per_page=50,
+        )
+        self.assertEqual(pagination["total"], 1)
+        self.assertEqual(rows[0]["archive"].id, waiting_archive.id)
+        self.assertEqual(rows[0]["dashboard_status"], "waiting_for_archive")
 
     def test_admin_queue_selected_uses_submitted_row_order(self):
         first_archive, _ = self._archive_with_segment("QueueSelect1")
@@ -3851,7 +3953,19 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
         with mock.patch.object(
             self.admin_module, "queue_text_scan", side_effect=fake_queue_text_scan
         ), mock.patch.object(
-            self.admin_module, "_livestream_frame_text_scan_rows", return_value=[]
+            self.admin_module,
+            "_livestream_frame_text_scan_page",
+            return_value=(
+                [],
+                {
+                    "page": 1,
+                    "per_page": 50,
+                    "total": 0,
+                    "total_pages": 1,
+                    "first_item": 0,
+                    "last_item": 0,
+                },
+            ),
         ):
             response = client.post(
                 "/livestream_frame_text_scans",

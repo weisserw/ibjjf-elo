@@ -1183,6 +1183,100 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
             ).delete(synchronize_session=False)
             db.session.commit()
 
+    def test_dashboard_page_searches_event_youtube_id_and_status(self):
+        first_archive, _ = archive_lib.get_or_create_archive(db.session, "PageFind001")
+        second_archive, _ = archive_lib.get_or_create_archive(db.session, "PageFind002")
+        first_archive.status = "error"
+        second_archive.status = "pending"
+        db.session.add(
+            RegistrationLink(
+                name="Paging Search Championship",
+                event_id="paging-search-event",
+                normalized_name="paging search championship",
+                updated_at=datetime(2026, 1, 1),
+                link=(
+                    "https://www.ibjjfdb.com/ChampionshipResults/" "paging-search-event"
+                ),
+                hidden=False,
+                event_start_date=datetime(2026, 7, 1),
+            )
+        )
+        db.session.add(
+            LiveStream(
+                event_id="paging-search-event",
+                platform="youtube",
+                mat_number=1,
+                day_number=1,
+                start_hour=9,
+                start_minute=30,
+                start_seconds=0,
+                end_hour=18,
+                end_minute=0,
+                drift_factor=1.0,
+                hide_all=False,
+                link="https://www.youtube.com/watch?v=PageFind002",
+            )
+        )
+        db.session.commit()
+
+        try:
+            rows, pagination = archive_lib.get_archive_dashboard_page(
+                db.session,
+                sort="youtube_id",
+                search="PageFind",
+                page=2,
+                per_page=1,
+            )
+            self.assertEqual(pagination["total"], 2)
+            self.assertEqual(pagination["total_pages"], 2)
+            self.assertEqual(rows[0]["youtube_video_id"], "PageFind002")
+
+            rows, pagination = archive_lib.get_archive_dashboard_page(
+                db.session, search="PageFind", status="error"
+            )
+            self.assertEqual(pagination["total"], 1)
+            self.assertEqual(rows[0]["youtube_video_id"], "PageFind001")
+
+            rows, pagination = archive_lib.get_archive_dashboard_page(
+                db.session, search="PageFind", status="ready"
+            )
+            self.assertEqual(pagination["total"], 1)
+            self.assertEqual(rows[0]["youtube_video_id"], "PageFind002")
+
+            first_archive.status = "ready"
+            second_archive.is_bad = True
+            db.session.commit()
+            rows, pagination = archive_lib.get_archive_dashboard_page(
+                db.session, search="PageFind", status="ready"
+            )
+            self.assertEqual(pagination["total"], 0)
+            rows, pagination = archive_lib.get_archive_dashboard_page(
+                db.session, search="PageFind", status="in_progress"
+            )
+            self.assertEqual(pagination["total"], 1)
+            self.assertEqual(rows[0]["youtube_video_id"], "PageFind001")
+            rows, pagination = archive_lib.get_archive_dashboard_page(
+                db.session, search="PageFind", status="bad"
+            )
+            self.assertEqual(pagination["total"], 1)
+            self.assertEqual(rows[0]["youtube_video_id"], "PageFind002")
+            self.assertEqual(rows[0]["dashboard_status"], "bad")
+
+            rows, pagination = archive_lib.get_archive_dashboard_page(
+                db.session, search="Paging Search Championship"
+            )
+            self.assertEqual(pagination["total"], 1)
+            self.assertEqual(rows[0]["youtube_video_id"], "PageFind002")
+        finally:
+            LiveStream.query.filter_by(event_id="paging-search-event").delete()
+            RegistrationLink.query.filter_by(event_id="paging-search-event").delete()
+            LivestreamFrameArchive.query.filter(
+                LivestreamFrameArchive.youtube_video_id.in_(
+                    ["PageFind001", "PageFind002"]
+                )
+            ).delete(synchronize_session=False)
+            db.session.commit()
+
     def test_admin_queue_missing_uses_selected_dashboard_sort_order(self):
         db.session.add(
             RegistrationLink(

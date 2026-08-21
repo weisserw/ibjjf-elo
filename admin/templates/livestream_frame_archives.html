@@ -19,18 +19,29 @@
             <form method="POST">
                 <input type="hidden" name="action" value="sync">
                 <input type="hidden" name="sort" value="{{ selected_sort }}">
+                <input type="hidden" name="q" value="{{ search }}">
+                <input type="hidden" name="status" value="{{ selected_status }}">
+                <input type="hidden" name="page" value="{{ pagination.page }}">
                 <button class="button is-link" type="submit">Sync from live_streams</button>
             </form>
             <form method="POST">
                 <input type="hidden" name="action" value="queue_missing">
                 <input type="hidden" name="sort" value="{{ selected_sort }}">
+                <input type="hidden" name="q" value="{{ search }}">
+                <input type="hidden" name="status" value="{{ selected_status }}">
+                <input type="hidden" name="page" value="{{ pagination.page }}">
                 <button class="button is-info" type="submit">Queue missing</button>
             </form>
         </div>
     </div>
 
     <form method="GET" class="mb-4">
+        <input type="hidden" name="status" value="{{ selected_status }}">
         <div class="field is-grouped is-align-items-center">
+            <label class="label mb-0 mr-2" for="archive-search">Search:</label>
+            <div class="control">
+                <input class="input is-small" id="archive-search" name="q" type="search" value="{{ search }}" placeholder="Event or YouTube ID">
+            </div>
             <label class="label mb-0 mr-2" for="archive-sort">Sort:</label>
             <div class="control">
                 <div class="select is-small">
@@ -47,8 +58,18 @@
         </div>
     </form>
 
+    <div class="tags mb-4" aria-label="Archive status filters">
+        <span class="tag">Status</span>
+        {% for value, label in archive_status_options %}
+        <a class="tag {% if value == selected_status %}is-link{% else %}is-light{% endif %}" href="{{ url_for('livestream_frame_archives', sort=selected_sort, q=search, status=value) }}">{{ label }}</a>
+        {% endfor %}
+    </div>
+
     <form method="POST">
         <input type="hidden" name="sort" value="{{ selected_sort }}">
+        <input type="hidden" name="q" value="{{ search }}">
+        <input type="hidden" name="status" value="{{ selected_status }}">
+        <input type="hidden" name="page" value="{{ pagination.page }}">
         <div class="buttons">
             <button class="button is-info is-small" name="action" value="queue_selected" type="submit">Queue selected</button>
             <button class="button is-warning is-small" name="action" value="retry_failed" type="submit">Retry failed</button>
@@ -94,7 +115,7 @@
                             {% endfor %}
                         </td>
                         <td><a href="{{ row.canonical_url }}" target="_blank">{{ row.canonical_url }}</a></td>
-                        <td>{{ archive.status if archive else 'not synced' }}</td>
+                        <td>{{ row.dashboard_status|replace('_', ' ') }}</td>
                         <td>
                             {% if archive and archive.is_bad %}
                             <span class="has-text-danger">Bad / no scoreboard data</span>
@@ -124,12 +145,30 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="10">No YouTube livestreams found.</td>
+                        <td colspan="10">No YouTube livestreams match this search.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </form>
+    <p class="is-size-7 has-text-grey">
+        Showing {{ pagination.first_item }}-{{ pagination.last_item }} of {{ pagination.total }} livestreams.
+    </p>
+    <nav class="pagination is-small mt-3 mb-6" role="navigation" aria-label="archive pagination">
+        {% if pagination.page > 1 %}
+        <a class="pagination-previous" href="{{ url_for('livestream_frame_archives', page=pagination.page - 1, sort=selected_sort, q=search, status=selected_status) }}">Previous</a>
+        {% else %}
+        <a class="pagination-previous" disabled>Previous</a>
+        {% endif %}
+        {% if pagination.page < pagination.total_pages %}
+        <a class="pagination-next" href="{{ url_for('livestream_frame_archives', page=pagination.page + 1, sort=selected_sort, q=search, status=selected_status) }}">Next</a>
+        {% else %}
+        <a class="pagination-next" disabled>Next</a>
+        {% endif %}
+        <ul class="pagination-list">
+            <li><span class="pagination-link is-current">Page {{ pagination.page }} of {{ pagination.total_pages }}</span></li>
+        </ul>
+    </nav>
 </div>
 {% endblock %}

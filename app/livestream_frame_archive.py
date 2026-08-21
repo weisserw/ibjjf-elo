@@ -550,15 +550,56 @@ def _dashboard_row_max_mat_number(usages: list[LivestreamUsage]) -> int:
     return max((usage.stream.mat_number for usage in usages), default=0)
 
 
-def get_archive_dashboard_rows(session, sort: str = "event_date_desc") -> list[dict]:
+def _dashboard_row_matches_search(row: dict, search: str) -> bool:
+    terms = [term for term in search.casefold().split() if term]
+    if not terms:
+        return True
+
+    values = [
+        row["youtube_video_id"],
+    ]
+    for usage in row["usages"]:
+        values.extend((usage.event_name or "", usage.stream.event_id or ""))
+    searchable_text = " ".join(values).casefold()
+    return all(term in searchable_text for term in terms)
+
+
+def archive_dashboard_status(archive: LivestreamFrameArchive | None) -> str:
+    if archive is None:
+        return "not_synced"
+    if archive.is_bad:
+        return "bad"
+    if archive.status in {"pending", "cancelled"}:
+        return "ready"
+    if archive.status in {"probing", "ready", "running"}:
+        return "in_progress"
+    return archive.status
+
+
+def _dashboard_row_matches_status(row: dict, status: str) -> bool:
+    if not status:
+        return True
+    return row["dashboard_status"] == status
+
+
+def get_archive_dashboard_rows(
+    session,
+    sort: str = "event_date_desc",
+    search: str = "",
+    status: str = "",
+    load_segments: bool = True,
+) -> list[dict]:
     usages = discover_livestream_usages(session)
-    archives = {
-        archive.youtube_video_id: archive
-        for archive in LivestreamFrameArchive.query.options(
+    archive_query = LivestreamFrameArchive.query
+    if load_segments:
+        archive_query = archive_query.options(
             selectinload(LivestreamFrameArchive.segments)
         )
-        .order_by(LivestreamFrameArchive.youtube_video_id)
-        .all()
+    archives = {
+        archive.youtube_video_id: archive
+        for archive in archive_query.order_by(
+            LivestreamFrameArchive.youtube_video_id
+        ).all()
     }
 
     rows = []
@@ -570,12 +611,17 @@ def get_archive_dashboard_rows(session, sort: str = "event_date_desc") -> list[d
                 "youtube_video_id": youtube_video_id,
                 "canonical_url": canonical_youtube_url(youtube_video_id),
                 "archive": archive,
+                "dashboard_status": archive_dashboard_status(archive),
                 "usages": row_usages,
                 "event_date": _dashboard_row_event_date(row_usages),
                 "max_day_number": _dashboard_row_max_day_number(row_usages),
                 "max_mat_number": _dashboard_row_max_mat_number(row_usages),
             }
         )
+    if search:
+        rows = [row for row in rows if _dashboard_row_matches_search(row, search)]
+    if status:
+        rows = [row for row in rows if _dashboard_row_matches_status(row, status)]
     if sort == "youtube_id":
         rows.sort(key=lambda row: row["youtube_video_id"])
     elif sort == "event_date_asc":
@@ -597,6 +643,55 @@ def get_archive_dashboard_rows(session, sort: str = "event_date_desc") -> list[d
             reverse=True,
         )
     return rows
+
+
+def get_archive_dashboard_page(
+    session,
+    sort: str = "event_date_desc",
+    search: str = "",
+    status: str = "",
+    page: int = 1,
+    per_page: int = 50,
+) -> tuple[list[dict], dict]:
+    rows = get_archive_dashboard_rows(
+        session,
+        sort=sort,
+        search=search,
+        status=status,
+        load_segments=False,
+    )
+    total = len(rows)
+    per_page = max(int(per_page or 1), 1)
+    total_pages = max(1, math.ceil(total / per_page))
+    page = min(max(int(page or 1), 1), total_pages)
+    offset = (page - 1) * per_page
+    page_rows = rows[offset : offset + per_page]
+
+    archive_ids = [
+        row["archive"].id for row in page_rows if row.get("archive") is not None
+    ]
+    if archive_ids:
+        loaded_archives = (
+            LivestreamFrameArchive.query.options(
+                selectinload(LivestreamFrameArchive.segments)
+            )
+            .filter(LivestreamFrameArchive.id.in_(archive_ids))
+            .all()
+        )
+        archive_by_id = {archive.id: archive for archive in loaded_archives}
+        for row in page_rows:
+            archive = row.get("archive")
+            if archive is not None:
+                row["archive"] = archive_by_id[archive.id]
+
+    return page_rows, {
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "total_pages": total_pages,
+        "first_item": offset + 1 if total else 0,
+        "last_item": min(offset + per_page, total),
+    }
 
 
 def archive_usage_rows(session, youtube_video_id: str) -> list[LivestreamUsage]:

@@ -50,6 +50,11 @@ The admin UI for this feature is server-rendered Flask. The templates submit nor
 Browser/admin routes:
 
 - `GET/POST /livestream_frame_text_scans`
+  - The list is paged at 50 rows and has text search for event name/event ID or
+    YouTube ID. Status links group pending/cancelled scans and scan-ready archives
+    as ready, while archives that have not completed capture are grouped as
+    waiting for archive. Capture segments, text scan segment counts, and text
+    event counts are loaded only for the current page.
   - Event-date sorting uses descending maximum day number and then descending
     maximum mat number within each event date.
   - `queue_ready`: queue successful archives that do not already have text scans.
@@ -59,6 +64,8 @@ Browser/admin routes:
   - `cancel_queued`: cancel pending/queued scan segments.
   - `clear_selected`: delete text events, clear downstream match links, and leave
     the selected scans' segments pending until they are explicitly queued again.
+  - Queue-ready and unselected retry/cancel actions continue to act globally;
+    selected actions apply only to checked rows on the current page.
 - `GET/POST /livestream_frame_text_scans/<archive_id>`
   - shows archive metadata, scan status/progress, segment status counts, events, livestream usages, and frame-crop links.
   - supports segment/archive rescan actions from the detail page.
