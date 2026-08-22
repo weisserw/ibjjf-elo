@@ -60,6 +60,21 @@ privacy, ambiguity, pagination, rankings, match/event facts, query counts, and
 asset validation/caching. Run `make test` from the repository root before
 shipping related changes.
 
+## Downstream acceptance
+
+The private highlight worker treats this API as untrusted, versioned research
+data. Its Milestone 5 acceptance gate combines at least one route above with the
+private highlight-event search, validates every StoryPlan reference against the
+per-run catalog, and creates an unapproved editable draft without generating
+speech, downloading video, preparing media, or rendering.
+
+When changing a response, run the worker's deterministic platform-contract and
+agent regression suites as well as this repository's focused contract suite. A
+live worker acceptance run must be explicitly enabled because it calls deployed
+services and a configured planning model. The worker records logical routes and
+opaque evidence/asset references; it must not persist presigned URLs, credentials,
+raw private payloads, or downloaded image bytes in its research catalog.
+
 ## Editing notes
 
 - Keep unknown-field behavior strict because the private worker parses exact DTOs.
