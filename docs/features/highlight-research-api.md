@@ -1,0 +1,70 @@
+# Highlight Research API
+
+## Purpose
+
+`/api/highlights/v1` is the compact, versioned public research boundary used by
+the private highlight worker. It is additive to the website APIs and returns
+only public facts. The routes do not accept admin authentication and do not
+provide a privacy bypass.
+
+Every JSON response has `schema_version: 1` and an `as_of` timestamp. Requests
+reject unknown parameters and bound searches and pages. Canonical entity IDs
+are UUID strings; public display names follow the existing hidden-name and
+personal-name behavior.
+
+## Routes
+
+- `GET /api/highlights/v1/athletes?query=...&limit=...`
+- `GET /api/highlights/v1/athletes/<athlete_uuid>?gi=true|false`
+- `GET /api/highlights/v1/athletes/<athlete_uuid>/matches?gi=...&page=...&page_size=...`
+- `GET /api/highlights/v1/matches/<match_uuid>`
+- `GET /api/highlights/v1/rankings?...`
+- `GET /api/highlights/v1/events?query=...&limit=...`
+- `GET /api/highlights/v1/events/<event_uuid>`
+- `GET /api/highlights/v1/assets/<asset_ref>`
+
+Ranking filters and semantics delegate to the existing `/api/top` implementation.
+Profile facts delegate to `get_athlete_data` without materializing a presigned
+photo URL. Match results reuse match-detail ending semantics and the same
+livestream/archive visibility helpers used by the Database view.
+
+## Logical assets
+
+Research responses never include a presigned profile-photo URL. An available
+photo is represented by `athlete-photo.<athlete_uuid>`. The asset route accepts
+only a previously representable logical reference, reads the fixed athlete-photo
+S3 key, and validates media type, bytes, decoded format, and pixel count. Successful
+responses include dimensions, an ETag, and bounded public caching. Missing objects
+return `404`; invalid or unavailable upstream objects fail closed.
+
+## Main code paths
+
+- `app/routes/highlights.py` owns request validation and response construction.
+- `app/routes/athletes.py` owns athlete privacy, profile, medal, promotion, and
+  team-history behavior shared by the research profile.
+- `app/routes/top.py` owns ranking filters and pagination shared by research.
+- `app/routes/matches.py` owns result and ending-method semantics.
+- `app/livestreams.py` owns visible public video-link resolution.
+- `app/photos.py` owns the logical athlete-photo storage key.
+
+## Tests
+
+Run the focused contract suite from `app/tests`:
+
+```sh
+python3 -m unittest test_highlights_research_api
+```
+
+The suite covers schema/version envelopes, strict query bounds, hidden-name
+privacy, ambiguity, pagination, rankings, match/event facts, query counts, and
+asset validation/caching. Run `make test` from the repository root before
+shipping related changes.
+
+## Editing notes
+
+- Keep unknown-field behavior strict because the private worker parses exact DTOs.
+- Update the private worker parser and its fixtures in the same change as a v1
+  response-shape change. Use a new version for incompatible deployed changes.
+- Do not return presigned asset URLs, admin fields, hidden names, or internal UI
+  payloads.
+- Preserve SQLite/Postgres behavior and constant query counts for bounded lists.

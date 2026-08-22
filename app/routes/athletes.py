@@ -306,7 +306,9 @@ def _won_real_match_exists():
     )
 
 
-def get_athlete_data(identifier, gi_param=None, all_medals=False):
+def get_athlete_data(
+    identifier, gi_param=None, all_medals=False, include_photo_url=True
+):
     athlete, id_uuid = _resolve_athlete(identifier)
     if not athlete:
         return None
@@ -515,6 +517,7 @@ def get_athlete_data(identifier, gi_param=None, all_medals=False):
         db.session.query(
             Medal.place,
             Medal.happened_at,
+            Event.id.label("event_id"),
             Event.name,
             Event.medals_only,
             Division.belt,
@@ -540,6 +543,7 @@ def get_athlete_data(identifier, gi_param=None, all_medals=False):
     medals = [
         {
             "place": r.place,
+            "event_id": str(r.event_id),
             "event_name": r.name,
             "event_medals_only": r.medals_only,
             "division": f"{r.belt} / {r.age} / {r.gender} / {r.weight}",
@@ -569,7 +573,7 @@ def get_athlete_data(identifier, gi_param=None, all_medals=False):
         athlete_json["name"] = athlete.personal_name
         athlete_json["personal_name"] = None
 
-    if athlete.profile_image_saved_at is not None:
+    if include_photo_url and athlete.profile_image_saved_at is not None:
         s3_client = get_s3_client()
         photo_url = get_public_photo_url(s3_client, athlete)
         athlete_json["instagram_profile_photo_url"] = photo_url
@@ -1209,12 +1213,7 @@ def _build_athlete_search_query(search, gi=None, gender=None, allow_teen=False):
         # Use full-text search
         search_terms = [term + ":*" for term in search.split()]
         ts_query = func.to_tsquery("simple", " & ".join(search_terms))
-        query = db.session.query(
-            Athlete.slug,
-            Athlete.name,
-            Athlete.personal_name,
-            Athlete.hide_full_name,
-        ).filter(
+        query = db.session.query(Athlete).filter(
             or_(
                 and_(
                     Athlete.hide_full_name.is_(True),
@@ -1231,12 +1230,7 @@ def _build_athlete_search_query(search, gi=None, gender=None, allow_teen=False):
         )
     else:
         # Fallback to LIKE search
-        query = db.session.query(
-            Athlete.slug,
-            Athlete.name,
-            Athlete.personal_name,
-            Athlete.hide_full_name,
-        )
+        query = db.session.query(Athlete)
         for name_part in search.split():
             query = query.filter(
                 or_(

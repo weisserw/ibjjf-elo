@@ -48,7 +48,7 @@ def site_statistics():
 
 
 @top_route.route("/api/top")
-def top():
+def top(*, include_photo_urls=True):
     gender = request.args.get("gender")
     age = request.args.get("age")
     belt = request.args.get("belt")
@@ -75,7 +75,7 @@ def top():
     upcoming = upcoming and upcoming.lower() == "true"
     hide_youth_registration_links = _is_adult_or_master_age(age)
 
-    s3_client = get_s3_client()
+    s3_client = get_s3_client() if include_photo_urls else None
 
     query = (
         db.session.query(
@@ -262,7 +262,7 @@ def top():
             "personal_name": result.personal_name,
             "profile_image_url": (
                 get_public_photo_url(s3_client, result)
-                if result.profile_image_saved_at
+                if include_photo_urls and result.profile_image_saved_at
                 else None
             ),
             "country": result.country,

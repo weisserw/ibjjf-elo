@@ -7,6 +7,7 @@
 - [Bracket Views](features/bracket-views.md) - Live, registration, and archive tournament bracket views, their APIs, shared data shapes, tests, and regression history.
 - [Database View](features/database-view.md) - End-user match results tab, filters, row links, responsive table/card rendering, and match detail entry points.
 - [Homepage Video Count](features/homepage-video-count.md) - Cached count of free YouTube-covered matches, refresh paths, public API, and homepage banner.
+- [Highlight Research API](features/highlight-research-api.md) - Versioned public athlete, ranking, match, event, and logical-image contracts for the private highlight worker.
 - [Livestream Frame Archiver](features/livestream-frame-archiver.md) - YouTube livestream frame capture, S3 crop batches, OCR text scans, admin controls, and match linking.
 - [Livestream Match Linker](features/livestream-match-linker.md) - OCR event windowing, match candidate scoring, event-to-match links, persisted video offsets, final scores, and regression workflow.
 - [Livestream Frame Text Scanner](features/livestream-frame-text-scanner.md) - OCR over archived livestream frame crops, sparse scoreboard/timer events, admin scheduling, worker APIs, and slow OCR test coverage.

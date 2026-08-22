@@ -15,6 +15,7 @@ from routes.brackets import brackets_route
 from routes.awards import awards_route
 from routes.news import news_route
 from routes.teams import teams_route
+from routes.highlights import highlights_route
 from site_statistics import refresh_covered_match_count
 
 logger = logging.getLogger("ibjjf")
@@ -112,7 +113,13 @@ def not_found(e):
 
 @app.after_request
 def add_cache_control_headers(response):
-    if request.path.startswith("/api/") or response.mimetype == "text/html":
+    cacheable_highlight_asset = (
+        request.path.startswith("/api/highlights/v1/assets/")
+        and response.status_code == 200
+    )
+    if (
+        request.path.startswith("/api/") and not cacheable_highlight_asset
+    ) or response.mimetype == "text/html":
         response.headers["Cache-Control"] = (
             "no-store, no-cache, must-revalidate, max-age=0"
         )
@@ -145,6 +152,7 @@ app.register_blueprint(brackets_route)
 app.register_blueprint(awards_route)
 app.register_blueprint(news_route)
 app.register_blueprint(teams_route)
+app.register_blueprint(highlights_route)
 
 application = app
 
