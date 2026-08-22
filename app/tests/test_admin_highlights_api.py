@@ -830,6 +830,61 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(personal.get_json()["count"], 0)
         self.assertEqual(partial.get_json()["count"], 0)
 
+    def test_highlights_match_id_filter_is_exact_and_validated(self):
+        selected, scan, scan_segment, capture_segment, _archive = (
+            self._create_linked_match(
+                youtube_url="https://www.youtube.com/watch?v=matchid0001",
+                happened_at=datetime.utcnow() - timedelta(days=1),
+                final_match_time_seconds=120,
+            )
+        )
+        self._attach_match_events(
+            match=selected,
+            scan=scan,
+            scan_segment=scan_segment,
+            capture_segment=capture_segment,
+            start_second=80,
+            end_second=120,
+        )
+        other, other_scan, other_scan_segment, other_capture_segment, _archive = (
+            self._create_linked_match(
+                youtube_url="https://www.youtube.com/watch?v=matchid0002",
+                happened_at=datetime.utcnow() - timedelta(days=1),
+                final_match_time_seconds=120,
+            )
+        )
+        self._attach_match_events(
+            match=other,
+            scan=other_scan,
+            scan_segment=other_scan_segment,
+            capture_segment=other_capture_segment,
+            start_second=80,
+            end_second=120,
+        )
+        db.session.commit()
+
+        client = self._admin_client()
+        headers = {"X-Admin-Password": self.admin_password}
+        exact = client.get(
+            f"/api/highlights/score-events?event_type=all&match_id={selected.id}",
+            headers=headers,
+        )
+        invalid = client.get(
+            "/api/highlights/score-events?match_id=match_01",
+            headers=headers,
+        )
+
+        self.assertEqual(exact.status_code, 200)
+        self.assertGreater(exact.get_json()["count"], 0)
+        self.assertTrue(
+            all(
+                row["match_id"] == str(selected.id)
+                for row in exact.get_json()["events"]
+            )
+        )
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(invalid.get_json()["error"], "match_id must be a UUID")
+
     def test_highlights_gender_filter_is_exact(self):
         female_match, scan, scan_segment, capture_segment, _archive = (
             self._create_linked_match(

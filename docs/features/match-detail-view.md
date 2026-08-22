@@ -232,7 +232,10 @@ interface MatchDetailAction {
   current Gi/No-Gi rating, requires a mature ranked adult/juvenile badge on an
   eligible belt, excludes masters badges, and applies strict percentile cutoffs
   of `.10`, `.05`, and `.02` respectively.
-- Candidate match selection applies linked-event, exact event/athlete, division,
+- The optional `match_id` filter accepts one canonical match UUID and limits the
+  response to linked highlight moments from that exact match. Invalid UUIDs return
+  `400`.
+- Candidate match selection applies linked-event, exact match/event/athlete, division,
   Gi/No-Gi, gender, and elite filters in SQL before loading match rows. Remaining
   event-type and score-action checks are derived from OCR details while candidate
   matches stream in batches of 100. Thus even an unfiltered all-time request does

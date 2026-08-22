@@ -2479,6 +2479,10 @@ def highlights_score_events():
     athlete_name_filter = (
         request.args.get("athlete_name") or request.args.get("athlete") or ""
     ).strip()
+    try:
+        match_id_filter = _parse_uuid(request.args.get("match_id"), "match_id")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     gender_filter = (request.args.get("gender") or "").strip()
     elite_filter = (request.args.get("elite") or "").strip().lower()
     if gender_filter and normalize(gender_filter) not in {"male", "female"}:
@@ -2510,6 +2514,8 @@ def highlights_score_events():
         .filter(LivestreamFrameTextEvent.match_id == Match.id)
         .exists()
     )
+    if match_id_filter is not None:
+        matches_query = matches_query.filter(Match.id == match_id_filter)
     if event_type == "dq":
         dq_notes = (
             note for note_group in DQ_TYPE_NOTES.values() for note in note_group
@@ -2791,6 +2797,7 @@ def highlights_score_events():
                 "belt": belt_filter or None,
                 "event_name": event_name_filter or None,
                 "athlete_name": athlete_name_filter or None,
+                "match_id": str(match_id_filter) if match_id_filter else None,
                 "gender": gender_filter.lower() or None,
                 "elite": elite_filter or None,
                 "score_category": score_category or None,
