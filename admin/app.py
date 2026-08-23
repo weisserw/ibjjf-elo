@@ -1026,6 +1026,12 @@ def _queue_site_statistics_refresh(reason):
     global _site_statistics_refresh_running
     global _site_statistics_refresh_requested
 
+    # Temporarily disabled while diagnosing production database latency. The
+    # cached value remains available, and the manual Flask refresh command still
+    # works when an explicit refresh is needed.
+    app.logger.info("Skipping automatic site-statistics refresh after %s.", reason)
+    return
+
     with _site_statistics_refresh_lock:
         if _site_statistics_refresh_running:
             _site_statistics_refresh_requested = True

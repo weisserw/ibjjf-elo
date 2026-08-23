@@ -17,7 +17,7 @@ from livestreams import (
 )
 from models import (
     Athlete,
-    AthleteRating,
+    # AthleteRating, temporarily removed, see below
     Division,
     Event,
     Match,
