@@ -160,16 +160,23 @@ def search_athletes():
     athlete_ids = [row.id for row in rows]
     latest_teams = {}
     if athlete_ids:
-        team_rows = (
+        team_rank = func.row_number().over(
+            partition_by=MatchParticipant.athlete_id,
+            order_by=(Match.happened_at.desc(), MatchParticipant.id.desc()),
+        )
+        ranked_teams = (
             db.session.query(MatchParticipant.athlete_id, Team.name)
+            .add_columns(team_rank.label("team_rank"))
             .join(Match, Match.id == MatchParticipant.match_id)
             .join(Team, Team.id == MatchParticipant.team_id)
             .filter(MatchParticipant.athlete_id.in_(athlete_ids))
-            .order_by(Match.happened_at.desc(), MatchParticipant.id.desc())
-            .all()
+            .subquery()
         )
+        team_rows = db.session.query(
+            ranked_teams.c.athlete_id, ranked_teams.c.name
+        ).filter(ranked_teams.c.team_rank == 1)
         for athlete_id, team_name in team_rows:
-            latest_teams.setdefault(athlete_id, team_name)
+            latest_teams[athlete_id] = team_name
 
     display_counts = {}
     for row in rows:

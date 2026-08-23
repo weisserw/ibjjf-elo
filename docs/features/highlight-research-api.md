@@ -28,6 +28,11 @@ Profile facts delegate to `get_athlete_data` without materializing a presigned
 photo URL. Match results reuse match-detail ending semantics and the same
 livestream/archive visibility helpers used by the Database view.
 
+Athlete profile Elo history reuses its existing match, division, and team joins
+to avoid per-row relationship loads. Athlete search resolves current teams with
+one ranked query that returns only the latest team row per result rather than
+materializing every historical team assignment.
+
 ## Logical assets
 
 Research responses never include a presigned profile-photo URL. An available

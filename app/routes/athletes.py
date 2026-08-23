@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from uuid import UUID
 from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, contains_eager
 from sqlalchemy.sql import exists
 from extensions import db
 from models import (
@@ -329,6 +329,10 @@ def get_athlete_data(
             .join(Match)
             .join(Division)
             .join(Team)
+            .options(
+                contains_eager(MatchParticipant.match).contains_eager(Match.division),
+                contains_eager(MatchParticipant.team),
+            )
             .filter(Division.gi == gi)
             .filter(MatchParticipant.athlete_id == athlete.id)
             .filter(MatchParticipant.end_rating != 0)

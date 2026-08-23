@@ -92,7 +92,7 @@ class HighlightsResearchApiTestCase(TestDbMixin, unittest.TestCase):
                     MatchParticipant(
                         match_id=match.id,
                         athlete_id=athlete.id,
-                        team_id=team.id,
+                        team_id=team.id if index == 0 else other_team.id,
                         seed=1,
                         red=True,
                         winner=True,
@@ -251,6 +251,28 @@ class HighlightsResearchApiTestCase(TestDbMixin, unittest.TestCase):
             sqlalchemy_event.remove(engine, "before_cursor_execute", record)
         self.assertEqual(200, response.status_code)
         self.assertLessEqual(len(statements), 2)
+
+        statements.clear()
+        sqlalchemy_event.listen(engine, "before_cursor_execute", record)
+        try:
+            response = self.client.get(
+                f"/api/highlights/v1/athletes/{self.athlete_id}?gi=true"
+            )
+        finally:
+            sqlalchemy_event.remove(engine, "before_cursor_execute", record)
+        self.assertEqual(200, response.status_code)
+        normalized_statements = [
+            " ".join(statement.split()) for statement in statements
+        ]
+        lazy_relationship_loads = [
+            statement
+            for statement in normalized_statements
+            if any(
+                f"FROM {table} WHERE {table}.id =" in statement
+                for table in ("matches", "divisions", "teams")
+            )
+        ]
+        self.assertEqual([], lazy_relationship_loads)
 
         statements.clear()
         sqlalchemy_event.listen(engine, "before_cursor_execute", record)
