@@ -311,7 +311,9 @@ class HighlightsResearchApiTestCase(TestDbMixin, unittest.TestCase):
         buffer = io.BytesIO()
         image.save(buffer, format="JPEG")
         get_s3_client.return_value.get_object.return_value = {
-            "ContentType": "image/jpeg",
+            # Older saved profile photos can have generic S3 metadata even
+            # though the stored bytes are a valid JPEG.
+            "ContentType": "binary/octet-stream",
             "Body": io.BytesIO(buffer.getvalue()),
         }
         asset_ref = f"athlete-photo.{self.athlete_id}"
@@ -325,7 +327,7 @@ class HighlightsResearchApiTestCase(TestDbMixin, unittest.TestCase):
         png = io.BytesIO()
         Image.new("RGBA", (2, 2), (255, 0, 0, 100)).save(png, format="PNG")
         get_s3_client.return_value.get_object.return_value = {
-            "ContentType": "image/png",
+            "ContentType": "binary/octet-stream",
             "Body": io.BytesIO(png.getvalue()),
         }
         normalized = self.client.get(f"/api/highlights/v1/assets/{asset_ref}")

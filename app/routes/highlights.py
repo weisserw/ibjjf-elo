@@ -726,9 +726,6 @@ def asset(asset_ref):
         obj = get_s3_client().get_object(
             Bucket=bucket_name, Key=f"{photo_key}/{athlete.id}.jpg"
         )
-        content_type = (obj.get("ContentType") or "").split(";", 1)[0].lower()
-        if content_type not in {"image/jpeg", "image/png"}:
-            return _error("invalid_asset", "Asset has an unsupported media type", 502)
         body = obj["Body"].read(MAX_ASSET_BYTES + 1)
     except Exception as exc:
         error_response = getattr(exc, "response", None)
@@ -749,16 +746,15 @@ def asset(asset_ref):
         return _error("invalid_asset", "Asset is not a valid image", 502)
     if width <= 0 or height <= 0 or width * height > MAX_ASSET_PIXELS:
         return _error("invalid_asset", "Asset exceeds the pixel limit", 502)
-    expected_format = "JPEG" if content_type == "image/jpeg" else "PNG"
-    if actual_format != expected_format:
-        return _error("invalid_asset", "Asset media type does not match its bytes", 502)
+    if actual_format not in {"JPEG", "PNG"}:
+        return _error("invalid_asset", "Asset has an unsupported media type", 502)
 
     if actual_format == "PNG":
         try:
             body = convert_image_to_jpeg(body)
         except ValueError:
             return _error("invalid_asset", "Asset could not be normalized", 502)
-        content_type = "image/jpeg"
+    content_type = "image/jpeg"
 
     response = make_response(body)
     response.headers["Content-Type"] = content_type

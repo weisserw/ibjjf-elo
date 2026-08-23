@@ -38,9 +38,11 @@ materializing every historical team assignment.
 Research responses never include a presigned profile-photo URL. An available
 photo is represented by `athlete-photo.<athlete_uuid>`. The asset route accepts
 only a previously representable logical reference, reads the fixed athlete-photo
-S3 key, and validates media type, bytes, decoded format, and pixel count. Successful
-responses include dimensions, an ETag, and bounded public caching. Missing objects
-return `404`; invalid or unavailable upstream objects fail closed.
+S3 key with bounded client timeouts, and validates the actual bytes, decoded format,
+and pixel count. Legacy JPEG/PNG objects remain usable when their S3 metadata has a
+generic content type; the response emits the verified normalized media type.
+Successful responses include dimensions, an ETag, and bounded public caching.
+Missing objects return `404`; invalid or unavailable upstream objects fail closed.
 
 ## Main code paths
 

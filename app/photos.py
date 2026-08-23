@@ -3,6 +3,7 @@ import os
 import boto3
 import requests
 import re
+from botocore.config import Config
 from uuid import UUID
 from bs4 import BeautifulSoup
 import logging
@@ -45,6 +46,11 @@ def get_s3_client():
         aws_access_key_id=aws_creds["aws_access_key_id"],
         aws_secret_access_key=aws_creds["aws_secret_access_key"],
         region_name=aws_creds.get("region"),
+        config=Config(
+            connect_timeout=5,
+            read_timeout=10,
+            retries={"max_attempts": 2, "mode": "standard"},
+        ),
     )
 
 
