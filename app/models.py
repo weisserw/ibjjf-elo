@@ -300,6 +300,7 @@ class Match(db.Model):
     __table_args__ = (
         Index("ix_matches_event_id", "event_id"),
         Index("ix_matches_division_id", "division_id"),
+        Index("ix_matches_event_division_id", "event_id", "division_id", "id"),
         Index("ix_matches_happened_at", "happened_at"),
         Index("ix_matches_division_id_covering", "division_id", "happened_at", "id"),
     )
