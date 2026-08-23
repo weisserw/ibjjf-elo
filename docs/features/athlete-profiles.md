@@ -67,6 +67,13 @@ Admin:
 
 ## Frontend APIs
 
+Athlete autocomplete endpoints use prefix full-text search in PostgreSQL and a
+LIKE fallback in local SQLite tests. Personal names are always searchable, while
+canonical names are searchable only when `hide_full_name` is not true. Searches
+exclude athletes whose latest match is in a Teen 1, Teen 2, or Teen 3 division
+unless `allow_teen=true`. The latest-match lookup is supported by the covering
+`match_participants (athlete_id, match_id)` index.
+
 `Athlete.tsx` calls:
 
 ```text

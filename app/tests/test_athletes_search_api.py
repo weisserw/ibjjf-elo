@@ -70,7 +70,23 @@ class AthletesSearchApiTestCase(TestDbMixin, unittest.TestCase):
             normalized_name="female test",
             slug="female-test",
         )
-        db.session.add_all([adult, teen, female])
+        visible_name = Athlete(
+            name="Visible Canonical",
+            normalized_name="visible canonical",
+            personal_name="Visible Alias",
+            normalized_personal_name="visible alias",
+            slug="visible-name",
+            hide_full_name=False,
+        )
+        hidden_name = Athlete(
+            name="Hidden Canonical",
+            normalized_name="hidden canonical",
+            personal_name="Public Alias",
+            normalized_personal_name="public alias",
+            slug="hidden-name",
+            hide_full_name=True,
+        )
+        db.session.add_all([adult, teen, female, visible_name, hidden_name])
         db.session.flush()
 
         adult_match = Match(
@@ -164,6 +180,27 @@ class AthletesSearchApiTestCase(TestDbMixin, unittest.TestCase):
         data = response.get_json()
         names = [row["name"] for row in data]
         self.assertEqual(names, ["Female Test"])
+
+    def test_search_matches_personal_names_and_respects_hidden_full_names(self):
+        response = self.client.get(
+            "/api/athletes", query_string={"search": "visible alias"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [row["name"] for row in response.get_json()], ["Visible Canonical"]
+        )
+
+        response = self.client.get(
+            "/api/athletes", query_string={"search": "public alias"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([row["name"] for row in response.get_json()], ["Public Alias"])
+
+        response = self.client.get(
+            "/api/athletes", query_string={"search": "hidden canonical"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), [])
 
 
 if __name__ == "__main__":

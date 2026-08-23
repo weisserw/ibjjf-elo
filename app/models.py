@@ -351,6 +351,7 @@ class MatchParticipant(db.Model):
     __table_args__ = (
         Index("ix_match_participants_match_id", "match_id"),
         Index("ix_match_participants_athlete_id", "athlete_id"),
+        Index("ix_match_participants_athlete_match_id", "athlete_id", "match_id"),
         Index("ix_match_participants_team_id", "team_id"),
         Index(
             "ix_match_participants_match_id_covering", "match_id", "athlete_id", "id"
