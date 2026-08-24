@@ -530,6 +530,7 @@ class LivestreamFrameArchive(db.Model):
     protocol = Column(String, nullable=True)
     yt_dlp_version = Column(String, nullable=True)
     last_error = Column(Text, nullable=True)
+    capture_retry_at = Column(DateTime, nullable=True)
     queue_requested_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
@@ -550,6 +551,10 @@ class LivestreamFrameArchive(db.Model):
             "youtube_video_id", name="uq_livestream_frame_archives_youtube_video_id"
         ),
         Index("ix_livestream_frame_archives_status", "status"),
+        Index(
+            "ix_livestream_frame_archives_capture_retry_at",
+            "capture_retry_at",
+        ),
     )
 
 

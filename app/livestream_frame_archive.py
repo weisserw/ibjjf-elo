@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -30,22 +31,27 @@ ARCHIVE_STATUSES = (
     "cancelled",
 )
 DEFAULT_ERROR_RETRY_BACKOFF_SECONDS = 300
-DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS = 1800
+DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS = 600
 DEFAULT_FRESH_SEGMENTS_PER_ERROR_RETRY = 3
 
 
 def error_retry_backoff_seconds(
-    attempt_count: int | None,
+    attempt_count: int | None = None,
     base_seconds: int = DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
     max_seconds: int = DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
 ) -> int:
+    """Return one randomized archive retry delay.
+
+    ``attempt_count`` remains accepted for worker/API compatibility, but capture
+    retries no longer grow exponentially by segment attempt.
+    """
+    del attempt_count
     if base_seconds <= 0:
         return 0
-    attempts = max((attempt_count or 0), 1)
-    retry_seconds = base_seconds * (2 ** (attempts - 1))
-    if max_seconds > 0:
-        retry_seconds = min(retry_seconds, max_seconds)
-    return retry_seconds
+    minimum = int(base_seconds)
+    maximum = int(max_seconds) if max_seconds > 0 else minimum
+    maximum = max(maximum, minimum)
+    return random.randint(minimum, maximum)
 
 
 def error_segment_retry_ready(
@@ -56,19 +62,34 @@ def error_segment_retry_ready(
 ) -> bool:
     if segment.status != "error":
         return False
-    if base_seconds <= 0:
-        return True
-    if not segment.finished_at:
-        return True
     now = now or datetime.utcnow()
-    retry_at = segment.finished_at + timedelta(
-        seconds=error_retry_backoff_seconds(
-            segment.attempt_count,
-            base_seconds=base_seconds,
-            max_seconds=max_seconds,
-        )
-    )
-    return retry_at <= now
+    retry_at = segment.archive.capture_retry_at
+    if retry_at is not None:
+        return retry_at <= now
+    if base_seconds <= 0 or not segment.finished_at:
+        return True
+    # Backward compatibility for failures created before capture_retry_at existed
+    # or by an older worker during a rolling deployment.
+    return segment.finished_at + timedelta(seconds=base_seconds) <= now
+
+
+def mark_capture_segment_error(
+    session,
+    segment: LivestreamFrameCaptureSegment,
+    error: str,
+    retry_delay_seconds: int | None = None,
+    now: datetime | None = None,
+) -> None:
+    now = now or datetime.utcnow()
+    if retry_delay_seconds is None:
+        retry_delay_seconds = error_retry_backoff_seconds()
+    retry_delay_seconds = max(int(retry_delay_seconds), 0)
+    segment.status = "error"
+    segment.last_error = error
+    segment.finished_at = now
+    segment.archive.last_error = error
+    segment.archive.capture_retry_at = now + timedelta(seconds=retry_delay_seconds)
+    recompute_archive_status(session, segment.archive)
 
 
 SEGMENT_STATUSES = (
@@ -290,6 +311,7 @@ def queue_archive_capture(
         .update({"status": "queued", "last_error": None}, synchronize_session=False)
     )
     archive.status = "queued"
+    archive.capture_retry_at = None
     archive.queue_requested_at = queue_requested_at or datetime.utcnow()
     archive.last_error = None
     archive.completed_at = None
@@ -325,6 +347,7 @@ def retry_failed_segments(
         ).all()
         for archive in archives:
             archive.last_error = None
+            archive.capture_retry_at = None
             recompute_archive_status(session, archive)
     return len(segments)
 
@@ -430,15 +453,30 @@ def claim_next_segment(
         LivestreamFrameCaptureSegment.created_at,
     )
     now = datetime.utcnow()
+    archives_with_errors = session.query(
+        LivestreamFrameCaptureSegment.archive_id
+    ).filter(LivestreamFrameCaptureSegment.status == "error")
+    archives_with_running_segments = session.query(
+        LivestreamFrameCaptureSegment.archive_id
+    ).filter(LivestreamFrameCaptureSegment.status == "running")
     fresh_segment = (
         base_query.filter(
-            LivestreamFrameCaptureSegment.status.in_(["pending", "queued"])
+            LivestreamFrameCaptureSegment.status.in_(["pending", "queued"]),
+            ~LivestreamFrameCaptureSegment.archive_id.in_(archives_with_errors),
+            ~LivestreamFrameCaptureSegment.archive_id.in_(
+                archives_with_running_segments
+            ),
         )
         .order_by(*ordering)
         .first()
     )
     error_segments = (
-        base_query.filter(LivestreamFrameCaptureSegment.status == "error")
+        base_query.filter(
+            LivestreamFrameCaptureSegment.status == "error",
+            ~LivestreamFrameCaptureSegment.archive_id.in_(
+                archives_with_running_segments
+            ),
+        )
         .order_by(*ordering)
         .all()
     )
@@ -477,6 +515,7 @@ def claim_next_segment(
     if not segment:
         return None
 
+    was_retry = segment.status == "error"
     segment.status = "running"
     segment.attempt_count = (segment.attempt_count or 0) + 1
     segment.started_at = now
@@ -485,6 +524,8 @@ def claim_next_segment(
     segment.background_task_id = background_task_id
     segment.archive.status = "running"
     segment.archive.last_error = None
+    if was_retry:
+        segment.archive.capture_retry_at = None
     segment.archive.started_at = segment.archive.started_at or now
     session.commit()
     return segment

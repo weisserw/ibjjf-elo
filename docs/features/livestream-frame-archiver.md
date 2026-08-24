@@ -164,7 +164,7 @@ increment attempt counts.
 - Classification: `is_bad` marks an archive as having no scoreboard data.
 - Status/progress: `status`, `frame_rate`, `image_format`, `duration_seconds`, `expected_frame_count`, `uploaded_frame_count`, `last_uploaded_second`.
 - Probe metadata: `format_id`, `format_note`, `width`, `height`, `source_fps`, `video_codec`, `audio_codec`, `tbr`, `protocol`, `yt_dlp_version`.
-- Operations: `last_error`, `queue_requested_at`, `started_at`, `completed_at`.
+- Operations: `last_error`, `capture_retry_at`, `queue_requested_at`, `started_at`, `completed_at`.
 
 Archive statuses are:
 
@@ -237,7 +237,7 @@ Requeueing or clearing scanner work calls `clear_livestream_match_links()`, whic
 ## Operational Notes
 
 - `claim_next_segment()` orders archive capture work by `queue_requested_at`, archive creation time, then segment start. Admin `queue_missing` and `queue_selected` deliberately assign slightly offset `queue_requested_at` values so streams process in selected/dashboard order.
-- Failed capture segments are automatically claimable after exponential backoff. Defaults are 300 seconds base and 1800 seconds max. When fresh and retry-eligible work coexist, claims reserve one retry after every three fresh segments by default; `--fresh-segments-per-error-retry` changes that ratio without tying retry progress to queue size or segment duration.
+- A failed capture segment places its whole archive in the retry lane until the archive-level `capture_retry_at` cooldown expires. The default delay is randomized between 300 and 600 seconds; `--error-retry-backoff-seconds` (or `--min-error-retry-backoff-seconds`) and `--max-error-retry-backoff-seconds` set the bounds. An archive can have only one running capture segment, and while it has an error its untouched queued segments cannot be claimed as fresh work, so capture proceeds linearly by segment and retries resume at the earliest failed segment. When other fresh archives and retry-eligible archives coexist, claims reserve one retry after every three fresh segments by default; `--fresh-segments-per-error-retry` changes that ratio.
 - Text scan segments are claimed sequentially within a scan; a later segment is blocked until earlier segments are successful/skipped. This preserves correct `reconstruct_text_state()` behavior across segment boundaries.
 - `queue_text_scan()` requires a successful archive and clears existing match links for that archive.
 - Bad archives cannot be queued or claimed for capture or text scanning. They show

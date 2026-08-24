@@ -71,6 +71,7 @@ from livestream_frame_archive import (
     get_archive_dashboard_rows,
     get_archive_dashboard_page,
     get_or_create_archive,
+    mark_capture_segment_error,
     queue_archive_capture,
     requeue_completed_segments,
     recompute_archive_status,
@@ -198,6 +199,7 @@ def _archive_payload(archive):
         "protocol": archive.protocol,
         "yt_dlp_version": archive.yt_dlp_version,
         "last_error": archive.last_error,
+        "capture_retry_at": _utc_iso(archive.capture_retry_at),
         "created_at": _utc_iso(archive.created_at),
         "updated_at": _utc_iso(archive.updated_at),
         "started_at": _utc_iso(archive.started_at),
@@ -1958,11 +1960,18 @@ def worker_error_livestream_frame_segment(segment_id):
 
     data = request.get_json(silent=True) or {}
     error = str(data.get("error") or "unknown error")
-    segment.status = "error"
-    segment.last_error = error
-    segment.finished_at = datetime.utcnow()
-    segment.archive.last_error = error
-    recompute_archive_status(db.session, segment.archive)
+    retry_delay_seconds = data.get("retry_delay_seconds")
+    try:
+        if retry_delay_seconds is not None:
+            retry_delay_seconds = int(retry_delay_seconds)
+    except (TypeError, ValueError):
+        return jsonify({"error": "retry_delay_seconds must be an integer"}), 400
+    mark_capture_segment_error(
+        db.session,
+        segment,
+        error,
+        retry_delay_seconds=retry_delay_seconds,
+    )
     db.session.commit()
     return jsonify({"segment": _segment_payload(segment)})
 

@@ -37,6 +37,8 @@ from livestream_frame_archive import (  # noqa: E402
     batch_s3_key,
     claim_next_segment,
     create_missing_segments,
+    error_retry_backoff_seconds,
+    mark_capture_segment_error,
     recompute_archive_status,
 )
 from models import LivestreamFrameArchive, LivestreamFrameCaptureSegment  # noqa: E402
@@ -190,15 +192,15 @@ class LocalArchiveState:
         recompute_archive_status(db.session, segment.archive)
         db.session.commit()
 
-    def mark_error(self, segment, error: str):
+    def mark_error(self, segment, error: str, retry_delay_seconds: int | None = None):
         db.session.rollback()
         segment = db.session.get(LivestreamFrameCaptureSegment, segment.id)
-        archive = db.session.get(LivestreamFrameArchive, segment.archive_id)
-        segment.status = "error"
-        segment.last_error = error
-        segment.finished_at = datetime.utcnow()
-        archive.last_error = error
-        recompute_archive_status(db.session, archive)
+        mark_capture_segment_error(
+            db.session,
+            segment,
+            error,
+            retry_delay_seconds=retry_delay_seconds,
+        )
         db.session.commit()
 
 
@@ -323,12 +325,15 @@ class AdminApiArchiveState:
         )
         segment.update_from(payload["segment"])
 
-    def mark_error(self, segment, error: str):
+    def mark_error(self, segment, error: str, retry_delay_seconds: int | None = None):
         payload = self._request(
             "POST",
             f"/api/livestream_frame_archives/worker/segments/{segment.id}/error",
             replay_safe=True,
-            json={"error": error},
+            json={
+                "error": error,
+                "retry_delay_seconds": retry_delay_seconds,
+            },
         )
         segment.update_from(payload["segment"])
 
@@ -1417,7 +1422,16 @@ def run(args, state=None) -> int:
             )
             processed += 1
         except Exception as exc:
-            state.mark_error(segment, str(exc))
+            retry_delay_seconds = error_retry_backoff_seconds(
+                segment.attempt_count,
+                base_seconds=args.error_retry_backoff_seconds,
+                max_seconds=args.max_error_retry_backoff_seconds,
+            )
+            state.mark_error(
+                segment,
+                str(exc),
+                retry_delay_seconds=retry_delay_seconds,
+            )
             print(f"Segment {segment.id} failed: {exc}", file=sys.stderr)
             return 1
 
@@ -1436,18 +1450,17 @@ def parse_args(argv=None):
     parser.add_argument("--segment-seconds", type=int, default=DEFAULT_SEGMENT_SECONDS)
     parser.add_argument(
         "--error-retry-backoff-seconds",
+        "--min-error-retry-backoff-seconds",
+        dest="error_retry_backoff_seconds",
         type=int,
         default=DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
-        help=(
-            "Seconds to wait before retrying a failed segment; retries back off "
-            "exponentially by attempt count"
-        ),
+        help=("Minimum randomized archive-wide capture retry delay in seconds"),
     )
     parser.add_argument(
         "--max-error-retry-backoff-seconds",
         type=int,
         default=DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
-        help="Maximum automatic failed-segment retry backoff in seconds",
+        help="Maximum randomized archive-wide capture retry delay in seconds",
     )
     parser.add_argument(
         "--fresh-segments-per-error-retry",

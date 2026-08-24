@@ -1789,8 +1789,9 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(segment.attempt_count, 1)
         self.assertEqual(segment.archive.status, "running")
 
-    def test_claim_next_segment_prefers_queued_before_error_retry(self):
+    def test_claim_next_segment_keeps_error_archive_in_retry_lane(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        archive.capture_retry_at = datetime.utcnow() - timedelta(seconds=1)
         db.session.flush()
         db.session.add_all(
             [
@@ -1817,9 +1818,64 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         segment = archive_lib.claim_next_segment(db.session)
 
         self.assertIsNotNone(segment)
-        self.assertEqual(segment.start_second, 600)
+        self.assertEqual(segment.start_second, 0)
         self.assertEqual(segment.status, "running")
-        self.assertEqual(segment.attempt_count, 1)
+        self.assertEqual(segment.attempt_count, 2)
+        self.assertIsNone(segment.archive.capture_retry_at)
+
+    def test_claim_next_segment_blocks_queued_sibling_while_archive_runs(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        db.session.flush()
+        db.session.add_all(
+            [
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=0,
+                    end_second=600,
+                    status="running",
+                    attempt_count=1,
+                    started_at=datetime.utcnow(),
+                ),
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=600,
+                    end_second=1200,
+                    status="queued",
+                ),
+            ]
+        )
+        db.session.commit()
+
+        self.assertIsNone(archive_lib.claim_next_segment(db.session))
+
+    def test_claim_next_segment_blocks_retry_sibling_while_archive_runs(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        archive.capture_retry_at = datetime.utcnow() - timedelta(seconds=1)
+        db.session.flush()
+        db.session.add_all(
+            [
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=0,
+                    end_second=600,
+                    status="running",
+                    attempt_count=2,
+                    started_at=datetime.utcnow(),
+                ),
+                LivestreamFrameCaptureSegment(
+                    archive_id=archive.id,
+                    start_second=600,
+                    end_second=1200,
+                    status="error",
+                    attempt_count=1,
+                    last_error="temporary yt-dlp error",
+                    finished_at=datetime.utcnow() - timedelta(minutes=10),
+                ),
+            ]
+        )
+        db.session.commit()
+
+        self.assertIsNone(archive_lib.claim_next_segment(db.session))
 
     def test_claim_next_segment_uses_queue_requested_order_before_created_at(self):
         first_archive, _ = archive_lib.get_or_create_archive(db.session, "QueueFirst1")
@@ -1852,13 +1908,15 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertIsNotNone(segment)
         self.assertEqual(segment.archive.youtube_video_id, "QueueFirst1")
 
-    def test_claim_next_segment_does_not_let_max_backoff_bypass_fresh_quota(self):
-        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+    def test_claim_next_segment_prefers_fresh_before_quota(self):
+        retry_archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        fresh_archive, _ = archive_lib.get_or_create_archive(db.session, "AbCdEfGhIjK")
+        retry_archive.capture_retry_at = datetime.utcnow() - timedelta(seconds=1)
         db.session.flush()
         db.session.add_all(
             [
                 LivestreamFrameCaptureSegment(
-                    archive_id=archive.id,
+                    archive_id=retry_archive.id,
                     start_second=0,
                     end_second=600,
                     status="error",
@@ -1867,9 +1925,9 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
                     finished_at=datetime.utcnow() - timedelta(minutes=31),
                 ),
                 LivestreamFrameCaptureSegment(
-                    archive_id=archive.id,
-                    start_second=600,
-                    end_second=1200,
+                    archive_id=fresh_archive.id,
+                    start_second=0,
+                    end_second=600,
                     status="queued",
                     attempt_count=0,
                 ),
@@ -1880,19 +1938,22 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         segment = archive_lib.claim_next_segment(db.session)
 
         self.assertIsNotNone(segment)
-        self.assertEqual(segment.start_second, 600)
+        self.assertEqual(segment.archive_id, fresh_archive.id)
+        self.assertEqual(segment.start_second, 0)
         self.assertEqual(segment.status, "running")
         self.assertEqual(segment.attempt_count, 1)
         self.assertIsNone(segment.last_error)
 
     def test_claim_next_segment_retries_after_fresh_claim_quota(self):
-        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        retry_archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        fresh_archive, _ = archive_lib.get_or_create_archive(db.session, "AbCdEfGhIjK")
         now = datetime.utcnow()
+        retry_archive.capture_retry_at = now - timedelta(seconds=1)
         db.session.flush()
         db.session.add_all(
             [
                 LivestreamFrameCaptureSegment(
-                    archive_id=archive.id,
+                    archive_id=retry_archive.id,
                     start_second=0,
                     end_second=600,
                     status="error",
@@ -1902,14 +1963,14 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
                     finished_at=now - timedelta(minutes=31),
                 ),
                 LivestreamFrameCaptureSegment(
-                    archive_id=archive.id,
-                    start_second=600,
-                    end_second=1200,
+                    archive_id=fresh_archive.id,
+                    start_second=0,
+                    end_second=600,
                     status="queued",
                 ),
                 *[
                     LivestreamFrameCaptureSegment(
-                        archive_id=archive.id,
+                        archive_id=fresh_archive.id,
                         start_second=start_second,
                         end_second=start_second + 600,
                         status="success",
@@ -1920,9 +1981,9 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
                         + timedelta(seconds=1),
                     )
                     for start_second, minutes_ago in (
-                        (1200, 3),
-                        (1800, 2),
-                        (2400, 1),
+                        (600, 3),
+                        (1200, 2),
+                        (1800, 1),
                     )
                 ],
             ]
@@ -1932,18 +1993,21 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         segment = archive_lib.claim_next_segment(db.session)
 
         self.assertIsNotNone(segment)
+        self.assertEqual(segment.archive_id, retry_archive.id)
         self.assertEqual(segment.start_second, 0)
         self.assertEqual(segment.status, "running")
         self.assertEqual(segment.attempt_count, 6)
 
     def test_claim_next_segment_resets_fresh_quota_after_retry(self):
-        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        retry_archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        fresh_archive, _ = archive_lib.get_or_create_archive(db.session, "AbCdEfGhIjK")
         now = datetime.utcnow()
+        retry_archive.capture_retry_at = now - timedelta(seconds=1)
         db.session.flush()
         db.session.add_all(
             [
                 LivestreamFrameCaptureSegment(
-                    archive_id=archive.id,
+                    archive_id=retry_archive.id,
                     start_second=0,
                     end_second=600,
                     status="error",
@@ -1953,15 +2017,15 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
                     finished_at=now - timedelta(minutes=31),
                 ),
                 LivestreamFrameCaptureSegment(
-                    archive_id=archive.id,
-                    start_second=600,
-                    end_second=1200,
+                    archive_id=fresh_archive.id,
+                    start_second=0,
+                    end_second=600,
                     status="queued",
                 ),
                 LivestreamFrameCaptureSegment(
-                    archive_id=archive.id,
-                    start_second=1200,
-                    end_second=1800,
+                    archive_id=retry_archive.id,
+                    start_second=600,
+                    end_second=1200,
                     status="success",
                     attempt_count=2,
                     started_at=now - timedelta(minutes=1),
@@ -1974,12 +2038,14 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         segment = archive_lib.claim_next_segment(db.session)
 
         self.assertIsNotNone(segment)
-        self.assertEqual(segment.start_second, 600)
+        self.assertEqual(segment.archive_id, fresh_archive.id)
+        self.assertEqual(segment.start_second, 0)
         self.assertEqual(segment.status, "running")
         self.assertEqual(segment.attempt_count, 1)
 
     def test_claim_next_segment_skips_error_still_in_backoff(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        archive.capture_retry_at = datetime.utcnow() + timedelta(minutes=1)
         db.session.flush()
         db.session.add(
             LivestreamFrameCaptureSegment(
@@ -2004,6 +2070,7 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
     def test_claim_next_segment_retries_error_after_backoff(self):
         archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
         archive.last_error = "temporary yt-dlp error"
+        archive.capture_retry_at = datetime.utcnow() - timedelta(seconds=1)
         db.session.flush()
         db.session.add(
             LivestreamFrameCaptureSegment(
@@ -2029,16 +2096,51 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(segment.attempt_count, 3)
         self.assertIsNone(segment.last_error)
         self.assertIsNone(segment.archive.last_error)
+        self.assertIsNone(segment.archive.capture_retry_at)
 
-    def test_default_error_retry_backoff_caps_at_30_minutes(self):
+    def test_mark_capture_segment_error_sets_archive_retry_time(self):
+        archive, _ = archive_lib.get_or_create_archive(db.session, "HxZSos1k_MA")
+        segment = LivestreamFrameCaptureSegment(
+            archive=archive,
+            start_second=0,
+            end_second=600,
+            status="running",
+            attempt_count=1,
+        )
+        db.session.add(segment)
+        now = datetime(2026, 8, 24, 12, 0, 0)
+
+        archive_lib.mark_capture_segment_error(
+            db.session,
+            segment,
+            "temporary yt-dlp error",
+            retry_delay_seconds=450,
+            now=now,
+        )
+
+        self.assertEqual(segment.status, "error")
+        self.assertEqual(segment.finished_at, now)
+        self.assertEqual(archive.last_error, "temporary yt-dlp error")
+        self.assertEqual(
+            archive.capture_retry_at,
+            now + timedelta(seconds=450),
+        )
+
+    def test_default_archive_retry_window_is_five_to_ten_minutes(self):
+        self.assertEqual(
+            archive_lib.DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
+            300,
+        )
         self.assertEqual(
             archive_lib.DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS,
-            1800,
+            600,
         )
-        self.assertEqual(
-            archive_lib.error_retry_backoff_seconds(10),
-            1800,
-        )
+        with patch.object(archive_lib.random, "randint", return_value=450) as randint:
+            self.assertEqual(
+                archive_lib.error_retry_backoff_seconds(10),
+                450,
+            )
+        randint.assert_called_once_with(300, 600)
 
 
 class UploadMappingTestCase(unittest.TestCase):
