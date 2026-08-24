@@ -21,6 +21,7 @@ from models import (
     Event,
     Match,
     MatchParticipant,
+    Medal,
     Team,
 )
 from test_db import TestDbMixin
@@ -120,6 +121,15 @@ class HighlightsResearchApiTestCase(TestDbMixin, unittest.TestCase):
 
         db.session.add_all(
             [
+                Medal(
+                    happened_at=datetime(2026, 1, 2),
+                    event_id=tournament.id,
+                    division_id=division.id,
+                    athlete_id=athlete.id,
+                    team_id=team.id,
+                    place=1,
+                    default_gold=False,
+                ),
                 AthleteRatingAverage(
                     gender=MALE,
                     age=ADULT,
@@ -201,6 +211,9 @@ class HighlightsResearchApiTestCase(TestDbMixin, unittest.TestCase):
         profile_json = profile.get_json()
         self.assertEqual("Public Athlete", profile_json["athlete"]["display_name"])
         self.assertEqual(1, profile_json["ranks"][0]["rank"])
+        self.assertEqual(str(self.athlete_id), profile_json["ranks"][0]["athlete_id"])
+        self.assertEqual(str(self.athlete_id), profile_json["medals"][0]["athlete_id"])
+        self.assertEqual("valid", profile_json["medals"][0]["status"])
         self.assertTrue(profile_json["athlete"]["photo"]["available"])
 
         matches = self.client.get(
@@ -216,7 +229,17 @@ class HighlightsResearchApiTestCase(TestDbMixin, unittest.TestCase):
 
         detail = self.client.get(f"/api/highlights/v1/matches/{self.match_id}")
         self.assertEqual(200, detail.status_code)
-        self.assertEqual(str(self.match_id), detail.get_json()["match"]["match_id"])
+        detail_json = detail.get_json()
+        self.assertEqual(str(self.match_id), detail_json["match"]["match_id"])
+        self.assertEqual(1, detail_json["match_card"]["contract_version"])
+        self.assertEqual(
+            ["red", "blue"],
+            [row["bracket_position"] for row in detail_json["match_card"]["rows"]],
+        )
+        self.assertEqual(
+            detail_json["match"]["result"]["score"]["top"],
+            detail_json["match_card"]["rows"][0]["score"],
+        )
 
         rankings = self.client.get(
             "/api/highlights/v1/rankings"

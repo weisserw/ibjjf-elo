@@ -217,6 +217,7 @@ def athlete_profile(athlete_id):
     )
     ranks = [
         {
+            "athlete_id": str(athlete.id),
             "rank": row["rank"],
             "rating": row["rating"],
             "percentile": row["percentile"],
@@ -232,11 +233,22 @@ def athlete_profile(athlete_id):
 
     medals = [
         {
+            "athlete_id": str(athlete.id),
             "place": row["place"],
             "date": row["happened_at"],
             "event_id": row["event_id"],
             "event_name": row["event_name"],
             "division": row["division"],
+            "status": (
+                "forfeited"
+                if any(
+                    suspension["start_date"]
+                    <= row["happened_at"]
+                    <= suspension["end_date"]
+                    for suspension in profile["suspensions"]
+                )
+                else "valid"
+            ),
         }
         for row in profile["medals"]
     ]
@@ -355,6 +367,36 @@ def _participant_payload(participant):
     }
 
 
+def _match_card_row(participant, score):
+    instagram = participant.athlete.instagram_profile
+    return {
+        "bracket_position": "red" if participant.red else "blue",
+        "scoreboard_position": participant.scoreboard_position,
+        "athlete_id": str(participant.athlete_id),
+        "slug": participant.athlete.slug,
+        "display_name": _display_name(participant.athlete),
+        "team": participant.team.name,
+        "country": participant.athlete.country or None,
+        "instagram_url": (
+            f"https://www.instagram.com/{instagram}/" if instagram else None
+        ),
+        "rating": (
+            round(participant.start_rating)
+            if participant.start_rating is not None
+            else None
+        ),
+        # Historical elite percentile is not stored on MatchParticipant. Keep the
+        # badge absent rather than mixing a current profile badge into old results.
+        "elite_badge": None,
+        "winner": participant.winner,
+        "score": (
+            score.get(participant.scoreboard_position)
+            if participant.scoreboard_position
+            else None
+        ),
+    }
+
+
 def _score_payload(match):
     return {
         "top": {
@@ -397,6 +439,41 @@ def _serialize_match(match, archive_links, livestreams):
             "score": _score_payload(match),
         },
         "video": _video_reference(match, archive_links, livestreams),
+    }
+
+
+def _serialize_match_card(match, as_of):
+    ending = _ending_method(match, match.final_match_time_seconds)
+    scores = _score_payload(match)
+    return {
+        "contract_version": 1,
+        "match_id": str(match.id),
+        "as_of": as_of,
+        "event": {
+            "event_id": str(match.event.id),
+            "slug": match.event.slug,
+            "name": match.event.name,
+        },
+        "date": match.happened_at.date().isoformat(),
+        "division": {
+            "gi": match.division.gi,
+            "gender": match.division.gender,
+            "age": match.division.age,
+            "belt": match.division.belt,
+            "weight": match.division.weight,
+        },
+        "match_number": match.match_number,
+        "match_location": match.match_location,
+        "scheduled_at": None,
+        "rows": [
+            _match_card_row(participant, scores)
+            for participant in _ordered_participants(match)
+        ],
+        "result": {
+            "method": ending["category"],
+            "amount": ending["amount"],
+            "match_time_seconds": match.final_match_time_seconds,
+        },
     }
 
 
@@ -467,7 +544,15 @@ def match_detail(match_id):
     if match is None:
         return _error("not_found", "Match not found", 404)
     archive_links, livestreams = _public_video_context([match])
-    return jsonify(_envelope(match=_serialize_match(match, archive_links, livestreams)))
+    as_of = _as_of()
+    return jsonify(
+        {
+            "schema_version": SCHEMA_VERSION,
+            "as_of": as_of,
+            "match": _serialize_match(match, archive_links, livestreams),
+            "match_card": _serialize_match_card(match, as_of),
+        }
+    )
 
 
 @highlights_route.route("/api/highlights/v1/rankings")

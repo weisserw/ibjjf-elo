@@ -28,6 +28,21 @@ Profile facts delegate to `get_athlete_data` without materializing a presigned
 photo URL. Match results reuse match-detail ending semantics and the same
 livestream/archive visibility helpers used by the Database view.
 
+Athlete-profile rank and medal rows repeat the canonical `athlete_id` so the
+worker can normalize them into independent, ownership-checked entities. Medal
+rows carry `status: valid|forfeited|suspended`; a medal dated inside an
+anti-doping suspension is `forfeited` and must not be presented as an ordinary
+valid medal.
+
+Match detail also returns `match_card`, a `contract_version: 1` card snapshot.
+It contains one explicit `red` and one explicit `blue` bracket row, each row's
+`top|bottom|null` scoreboard position, match-time rating, optional public
+country/Instagram fields, winner semantics, and the score selected through that
+scoreboard position. Historical Elite badges stay null because the database does
+not store a match-time percentile; the API does not mix current profile status
+into an archived match. The card repeats result method/time semantics so `SUB`
+can only be shown for a researched Submission result.
+
 Athlete profile Elo history reuses its existing match, division, and team joins
 to avoid per-row relationship loads. Athlete search resolves current teams with
 one ranked query that returns only the latest team row per result rather than

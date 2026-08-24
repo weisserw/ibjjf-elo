@@ -20,7 +20,7 @@ export type SeedHighlight = 'swap' | 'tied' | 'swap-tied' | 'hypothetical';
 type NumberMode = 'rating' | 'seed';
 type ScoreboardPosition = 'top' | 'bottom';
 
-interface BracketTreeMatchProps {
+export interface BracketTreeMatchProps {
   match: Match;
   belt: string;
   showSeed: boolean;
@@ -136,7 +136,7 @@ const renderBracketScore = (score: ReturnType<typeof scoreForPosition>, showSubm
   );
 }
 
-function BracketTreeMatch(props: BracketTreeMatchProps) {
+export function BracketTreeMatch(props: BracketTreeMatchProps) {
   const { match, levelIndex, matchIndex, belt } = props;
   const { language } = useAppContext();
 
