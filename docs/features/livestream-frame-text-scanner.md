@@ -57,6 +57,9 @@ Browser/admin routes:
     event counts are loaded only for the current page.
   - Event-date sorting uses descending maximum day number and then descending
     maximum mat number within each event date.
+  - `Update Front Page Video Counter` creates a tracked background task and
+    redirects to `/tasks/<id>`; scan mutations do not update the count
+    automatically.
   - `queue_ready`: queue successful archives that do not already have text scans.
   - `queue_selected`: queue checked archives.
   - `retry_failed`: requeue failed scan segments.

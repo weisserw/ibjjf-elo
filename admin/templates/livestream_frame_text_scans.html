@@ -4,7 +4,12 @@
 <div class="container mt-5">
     <div class="is-flex is-justify-content-space-between is-align-items-center mb-4">
         <h1 class="title is-4">Livestream Frame Text Scans</h1>
-        <a class="button is-light" href="{{ url_for('index') }}">Back to Dashboard</a>
+        <div class="buttons">
+            <form method="POST" action="{{ url_for('update_front_page_video_counter') }}">
+                <button class="button is-link" type="submit">Update Front Page Video Counter</button>
+            </form>
+            <a class="button is-light" href="{{ url_for('index') }}">Back to Dashboard</a>
+        </div>
     </div>
 
     {% if message %}

@@ -101,10 +101,11 @@ Automatic pipeline flow:
 8. Writes event links and match summary fields, then returns a summary with
    `linked`, `windows`, `candidates`, and optional `skipped`.
 
-Successful automatic and manual admin linking queues a homepage covered-match
-count refresh. The standalone CLI refreshes that cached count synchronously
-when `--commit` is used. The count follows linked OCR events to the archive's
-visible YouTube URL, so mat-less links contribute without a stored mat number.
+Successful automatic and manual admin linking does not refresh the homepage
+covered-match count. The standalone CLI also leaves that cached count unchanged
+when `--commit` is used. Operators refresh it explicitly from either livestream
+list page. The count follows linked OCR events to the archive's visible YouTube
+URL, so mat-less links contribute without a stored mat number.
 Database rows and archive brackets use the same association to expose a timed
 YouTube link; this makes their video icon and score-detail control available
 without backfilling the mat. Archive visibility is resolved per configured

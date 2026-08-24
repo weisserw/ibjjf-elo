@@ -24,6 +24,7 @@ sys.path.insert(
 
 from extensions import db  # noqa: E402
 from models import (  # noqa: E402
+    BackgroundTask,
     Event,
     LiveStream,
     LivestreamFrameArchive,
@@ -884,6 +885,7 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
         self.app_context.push()
         LivestreamFrameCaptureSegment.query.delete()
         LivestreamFrameArchive.query.delete()
+        BackgroundTask.query.delete()
         db.session.commit()
 
     def tearDown(self):
@@ -1276,6 +1278,60 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
                 )
             ).delete(synchronize_session=False)
             db.session.commit()
+
+    def test_admin_livestream_pages_offer_video_counter_update(self):
+        client = self._admin_client()
+        with client.session_transaction() as session_data:
+            session_data["logged_in"] = True
+
+        for path in ("/livestream_frame_archives", "/livestream_frame_text_scans"):
+            with self.subTest(path=path):
+                response = client.get(path)
+                self.assertEqual(response.status_code, 200)
+                html = response.get_data(as_text=True)
+                self.assertIn("Update Front Page Video Counter", html)
+                self.assertIn(
+                    'action="/tasks/update-front-page-video-counter"',
+                    html,
+                )
+
+    def test_video_counter_update_creates_logged_task_and_redirects_to_it(self):
+        client = self._admin_client()
+        with client.session_transaction() as session_data:
+            session_data["logged_in"] = True
+
+        with patch.object(self.admin_module.threading, "Thread") as thread_type:
+            response = client.post("/tasks/update-front-page-video-counter")
+
+        task = BackgroundTask.query.filter_by(
+            task_type="update_front_page_video_counter"
+        ).one()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.location, f"/tasks/{task.id}")
+        self.assertEqual(task.status, "queued")
+        thread_type.return_value.start.assert_called_once_with()
+        self.assertIs(
+            thread_type.call_args.kwargs["target"],
+            self.admin_module._run_update_front_page_video_counter_task,
+        )
+        self.assertEqual(thread_type.call_args.kwargs["args"], (task.id,))
+
+        with patch.object(
+            self.admin_module,
+            "refresh_covered_match_count",
+            return_value=12345,
+        ) as refresh_count:
+            self.admin_module._run_update_front_page_video_counter_task(task.id)
+
+        db.session.expire_all()
+        task = db.session.get(BackgroundTask, task.id)
+        refresh_count.assert_called_once()
+        self.assertEqual(task.status, "success")
+        self.assertEqual(task.exit_code, 0)
+        self.assertIsNotNone(task.started_at)
+        self.assertIsNotNone(task.finished_at)
+        self.assertIn("Updating front page video counter.", task.log_text)
+        self.assertIn("Updated front page video counter to 12,345.", task.log_text)
 
     def test_admin_queue_missing_uses_selected_dashboard_sort_order(self):
         db.session.add(

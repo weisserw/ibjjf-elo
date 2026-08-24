@@ -32,11 +32,11 @@ This is the first part of the livestream match pipeline:
 
 `sync_archives_from_livestreams()` discovers YouTube IDs from `LiveStream.link` rows and creates one `LivestreamFrameArchive` per video ID. `queue_archive_capture()` creates missing `LivestreamFrameCaptureSegment` rows. If duration is unknown, the first queued segment is `0..DEFAULT_SEGMENT_SECONDS`; after probe completes, `create_missing_segments()` fills gaps across the discovered duration.
 
-The admin page's `sync` action also starts an untracked background refresh of
-the cached homepage count of YouTube-covered matches. The expensive count no
-longer runs inside the Sync HTTP request or creates an admin task-history row.
-This provides the initial backfill after the `site_statistics` migration and
-keeps the counter aligned when operators sync newly configured streams.
+The archive and text-scan list pages each provide an explicit `Update Front Page
+Video Counter` button. It creates a tracked background task, redirects to that
+task's log page, and updates the cached homepage count of YouTube-covered
+matches. Archive sync and the other pipeline mutations do not refresh the count
+automatically.
 
 The capture worker can run in two modes:
 
@@ -95,6 +95,8 @@ Browser/admin routes:
     current page are loaded during normal list views.
   - Event-date sorting uses descending maximum day number and then descending
     maximum mat number within each event date.
+  - `Update Front Page Video Counter` posts to the shared tracked task route and
+    redirects to `/tasks/<id>`.
   - `sync`: discover archive rows from livestreams.
   - `queue_missing`: queue every non-success archive.
   - `queue_selected`: queue checked YouTube IDs.
@@ -112,6 +114,7 @@ Browser/admin routes:
   - uploads a custom S3 preview and saves draggable scoreboard/timer crop rectangles.
   - `requeue_completed`: requeues successful/skipped capture segments and clears upload metadata.
 - `GET/POST /livestream_frame_text_scans`
+  - `Update Front Page Video Counter` posts to the same tracked task route.
   - `queue_ready`: queue scans for successful archives with successful capture segments and no scan yet.
   - `queue_selected`: queue selected successful archives.
   - `retry_failed`, `retry_cancelled`, `cancel_queued`, `cancel_running`.

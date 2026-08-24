@@ -50,36 +50,28 @@ expensive coverage scan from a public request.
 ## Refresh Paths
 
 `refresh_covered_match_count()` recalculates the total in Python and updates the
-cached row in the caller's transaction. Because the production scan is too long
-for an HTTP request, admin mutations start an untracked background thread with a
-fresh Flask app context, following the registration-import pattern. Refresh
-requests within one web process are coalesced, and a change made during an
-active scan causes one follow-up scan. A PostgreSQL advisory lock prevents scans
-from overlapping across web workers.
+cached row in the caller's transaction. A PostgreSQL advisory lock prevents
+manual scans from overlapping.
 
-A background refresh is queued after:
+The count is updated only when an operator explicitly requests it. The
+`Livestream Frame Archives` and `Livestream Frame Text Scans` pages both show an
+`Update Front Page Video Counter` button. The button creates a tracked
+`BackgroundTask`, runs the refresh with a fresh Flask app context, writes the
+result or traceback to the task log, and redirects to `/tasks/<id>`.
 
-- adding, editing, or deleting a livestream or changing its event's Flo tag in
-  the admin event page;
-- syncing the livestream frame archive page;
-- saving individual match video links from the athlete matches page; and
-- importing individual videos from the YouTube match scanner.
-- automatically or manually linking a completed livestream text scan, or
-  clearing linked text-scan events.
+Livestream, individual-video, archive-sync, OCR-linking, and import mutations do
+not update or queue an update automatically. The standalone
+`scripts/link_livestream_matches.py --commit` command also persists only its
+match-linking changes.
 
-The standalone `scripts/link_livestream_matches.py --commit` path refreshes the
-counter synchronously in the same transaction and prints the new value.
-
-After deploying the migration, populate the row once with the archive page's
-Sync action. Sync returns immediately while the count runs in the background;
-it does not create a tracked admin task. The direct shell equivalent is:
+The direct shell equivalent remains:
 
 ```bash
 cd app
 flask refresh-site-statistics
 ```
 
-No scheduled process is required after that initial refresh.
+No scheduled process updates the count.
 
 ## Main Code Paths
 
@@ -91,11 +83,12 @@ No scheduled process is required after that initial refresh.
   upload; ambiguous mixed-visibility associations are suppressed.
 - `app/models.py` defines `SiteStatistic`.
 - `app/routes/top.py` serves `GET /api/site-statistics`.
-- `admin/app.py` starts untracked refresh threads after livestream and
-  match-link changes, including YouTube match imports.
+- `admin/app.py` creates and logs the explicit background refresh task.
 - `app/frontend/src/App.tsx` loads and renders the banner.
 - `app/frontend/src/global.css` styles the banner.
 - `app/tests/test_site_statistics.py` covers the count and API.
+- `app/tests/test_livestream_frame_archive.py` covers the admin buttons,
+  tracked task, redirect, and task log.
 
 ## Tests To Run
 
@@ -103,7 +96,7 @@ For focused coverage:
 
 ```bash
 cd app/tests
-python3 -m unittest test_site_statistics test_youtube_match_import_lib
+python3 -m unittest test_site_statistics test_livestream_frame_archive
 ```
 
 For the full non-OCR suite:

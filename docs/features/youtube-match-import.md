@@ -33,5 +33,6 @@ single import.
 
 ## Related behavior
 
-Successful imports schedule a refresh of the cached homepage covered-match
-count. See [Homepage Video Count](homepage-video-count.md).
+Successful imports do not refresh the cached homepage covered-match count.
+Operators can run its tracked update task from either livestream list page. See
+[Homepage Video Count](homepage-video-count.md).

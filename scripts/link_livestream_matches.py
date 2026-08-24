@@ -32,7 +32,6 @@ from livestream_match_linking import (  # noqa: E402
     load_candidates_for_archive,
 )
 from models import LivestreamFrameArchive, LivestreamFrameTextEvent  # noqa: E402
-from site_statistics import refresh_covered_match_count  # noqa: E402
 
 
 def _format_second(value: int | None) -> str:
@@ -570,14 +569,12 @@ def main() -> int:
 
         if args.commit:
             summary = link_completed_text_scan(db.session, scan_or_archive_id)
-            covered_count = refresh_covered_match_count(db.session)
             db.session.commit()
             print(
                 "committed "
                 f"linked={summary.linked} windows={summary.windows} "
                 f"candidates={summary.candidates} skipped={summary.skipped}"
             )
-            print(f"refreshed covered-match count={covered_count}")
         else:
             db.session.rollback()
             print("dry-run only; pass --commit to persist links")

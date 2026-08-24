@@ -4125,16 +4125,11 @@ class LivestreamFrameTextScanAdminApiTestCase(TestDbMixin, unittest.TestCase):
             return_value=summary,
         ) as link_scan, mock.patch.object(
             self.admin_module.db.session, "commit"
-        ) as commit, mock.patch.object(
-            self.admin_module, "_queue_site_statistics_refresh"
-        ) as queue_statistics_refresh:
+        ) as commit:
             self.admin_module._run_livestream_match_linking(scan.id)
 
         self.assertEqual(link_scan.call_args.args[1], scan.id)
         commit.assert_called_once_with()
-        queue_statistics_refresh.assert_called_once_with(
-            f"livestream match linking completed for scan {scan.id}"
-        )
 
     def test_worker_reset_text_scan_api_requeues_segments_and_deletes_events(self):
         archive, _ = self._archive_with_segment()
