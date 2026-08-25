@@ -830,6 +830,63 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(personal.get_json()["count"], 0)
         self.assertEqual(partial.get_json()["count"], 0)
 
+    def test_highlights_athlete_id_filter_is_exact_and_validated(self):
+        selected, scan, scan_segment, capture_segment, _archive = (
+            self._create_linked_match(
+                youtube_url="https://www.youtube.com/watch?v=athleteid01",
+                happened_at=datetime.utcnow() - timedelta(days=1),
+                final_match_time_seconds=120,
+            )
+        )
+        self._attach_match_events(
+            match=selected,
+            scan=scan,
+            scan_segment=scan_segment,
+            capture_segment=capture_segment,
+            start_second=80,
+            end_second=120,
+        )
+        other, other_scan, other_scan_segment, other_capture_segment, _archive = (
+            self._create_linked_match(
+                youtube_url="https://www.youtube.com/watch?v=athleteid02",
+                happened_at=datetime.utcnow() - timedelta(days=1),
+                final_match_time_seconds=120,
+            )
+        )
+        self._attach_match_events(
+            match=other,
+            scan=other_scan,
+            scan_segment=other_scan_segment,
+            capture_segment=other_capture_segment,
+            start_second=140,
+            end_second=180,
+        )
+        athlete_id = next(
+            participant.athlete_id
+            for participant in selected.participants
+            if participant.red
+        )
+        db.session.commit()
+
+        client = self._admin_client()
+        headers = {"X-Admin-Password": self.admin_password}
+        exact = client.get(
+            f"/api/highlights/score-events?athlete_id={athlete_id}",
+            headers=headers,
+        )
+        invalid = client.get(
+            "/api/highlights/score-events?athlete_id=athlete_01",
+            headers=headers,
+        )
+
+        self.assertEqual(exact.status_code, 200)
+        payload = exact.get_json()
+        self.assertEqual(payload["filters"]["athlete_id"], str(athlete_id))
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["events"][0]["match_id"], str(selected.id))
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(invalid.get_json()["error"], "athlete_id must be a UUID")
+
     def test_highlights_match_id_filter_is_exact_and_validated(self):
         selected, scan, scan_segment, capture_segment, _archive = (
             self._create_linked_match(

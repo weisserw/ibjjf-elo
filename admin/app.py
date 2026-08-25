@@ -2478,6 +2478,10 @@ def highlights_score_events():
         request.args.get("athlete_name") or request.args.get("athlete") or ""
     ).strip()
     try:
+        athlete_id_filter = _parse_uuid(request.args.get("athlete_id"), "athlete_id")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    try:
         match_id_filter = _parse_uuid(request.args.get("match_id"), "match_id")
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -2536,6 +2540,15 @@ def highlights_score_events():
                     Event.normalized_name == normalized_event_name_filter
                 )
             )
+        )
+    if athlete_id_filter is not None:
+        matches_query = matches_query.filter(
+            db.session.query(MatchParticipant.id)
+            .filter(
+                MatchParticipant.match_id == Match.id,
+                MatchParticipant.athlete_id == athlete_id_filter,
+            )
+            .exists()
         )
     if normalized_athlete_name_filter:
         matches_query = matches_query.filter(
@@ -2662,6 +2675,11 @@ def highlights_score_events():
             continue
         if normalized_athlete_name_filter and not any(
             normalize(participant.athlete.name or "") == normalized_athlete_name_filter
+            for participant in match.participants
+        ):
+            continue
+        if athlete_id_filter is not None and not any(
+            participant.athlete_id == athlete_id_filter
             for participant in match.participants
         ):
             continue
@@ -2795,6 +2813,7 @@ def highlights_score_events():
                 "belt": belt_filter or None,
                 "event_name": event_name_filter or None,
                 "athlete_name": athlete_name_filter or None,
+                "athlete_id": str(athlete_id_filter) if athlete_id_filter else None,
                 "match_id": str(match_id_filter) if match_id_filter else None,
                 "gender": gender_filter.lower() or None,
                 "elite": elite_filter or None,
