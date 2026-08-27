@@ -6,7 +6,15 @@ from types import SimpleNamespace
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from constants import ADULT, BLACK, MASTER_1
-from elo import DEFAULT_RATINGS, RATING_VERY_IMMATURE_COUNT, compute_start_rating
+from elo import (
+    DEFAULT_RATINGS,
+    RATING_VERY_IMMATURE_COUNT,
+    compute_start_rating,
+    division_default_rating,
+    elite_tier,
+    rating_maturity,
+    rating_top_percent,
+)
 
 
 class ComputeStartRatingTestCase(unittest.TestCase):
@@ -41,6 +49,25 @@ class ComputeStartRatingTestCase(unittest.TestCase):
 
         self.assertEqual(rating, self.previous_rating)
         self.assertIsNone(note)
+
+
+class RatingResearchSemanticsTestCase(unittest.TestCase):
+    def test_rating_maturity_boundaries(self):
+        self.assertEqual("provisional", rating_maturity(4))
+        self.assertEqual("semi_provisional", rating_maturity(5))
+        self.assertEqual("semi_provisional", rating_maturity(6))
+        self.assertEqual("established", rating_maturity(7))
+
+    def test_division_default_rating_uses_configured_table(self):
+        self.assertEqual(2000, division_default_rating(BLACK, ADULT))
+        self.assertIsNone(division_default_rating("UNKNOWN", ADULT))
+
+    def test_top_percent_and_elite_tier_boundaries(self):
+        self.assertEqual(3.4, rating_top_percent(0.034))
+        self.assertEqual("tier1", elite_tier(0.02))
+        self.assertEqual("tier2", elite_tier(0.05))
+        self.assertEqual("tier3", elite_tier(0.10))
+        self.assertIsNone(elite_tier(0.101))
 
 
 if __name__ == "__main__":

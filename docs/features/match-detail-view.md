@@ -213,35 +213,38 @@ interface MatchDetailAction {
   less, 8 seconds for submissions with a final points difference greater than
   2, and 10 seconds for other final rows. The backend is the sole owner of this
   calculation; the frontend consumes the required field directly.
-- The authenticated admin `GET /api/highlights/score-events` candidate contract
-  exposes this value as `video_lead_seconds` for match-start, score, submission,
-  and decision rows so downstream highlight tools use the same pre-roll as Match
-  Detail.
+- The authenticated admin `GET /api/highlights/score-events` schema-v2 discovery
+  contract exposes this value as `video_lead_seconds` on each grouped match moment,
+  so downstream highlight tools use the same pre-roll as Match Detail.
 - Its `event_type` filter accepts `submission` (the default), `match_start`,
   `decision`, `score`, and `all`. Match-start rows use the linked match's first
   running-clock video offset. Decision rows are non-DQ final events at `0:00`;
   `all` returns match starts and score actions together with submission and
   decision finals.
 - The optional `days` filter limits candidates to the previous 1–90 days. When
-  omitted, candidates are not date-limited. The default result `limit` is 30.
+  omitted, candidates are not date-limited. The default moment `limit` is 30 and
+  the maximum is 100.
 - The `gi` filter defaults to `true`; callers can explicitly request `false` or
   `all`.
 - Candidate filters support exact canonical athlete UUID matching through
   `athlete_id`, plus exact, case-insensitive `Athlete.name` matching through
   `athlete_name` (never `personal_name`). Invalid athlete UUIDs return `400`.
-  They also support exact division `gender` and `elite` values `tier3`, `tier2`,
-  or `tier1`. Elite matching uses the participant's
-  current Gi/No-Gi rating, requires a mature ranked adult/juvenile badge on an
-  eligible belt, excludes masters badges, and applies strict percentile cutoffs
-  of `.10`, `.05`, and `.02` respectively.
+  They also support exact division `gender`. The former any-participant `elite`
+  filter is not part of schema v2; current subject/opponent standing is returned
+  explicitly so the consumer can apply role-aware editorial criteria.
 - The optional `match_id` filter accepts one canonical match UUID and limits the
   response to linked highlight moments from that exact match. Invalid UUIDs return
   `400`.
-- Candidate match selection applies linked-event, exact match/event/athlete, division,
-  Gi/No-Gi, gender, and elite filters in SQL before loading match rows. Remaining
-  event-type and score-action checks are derived from OCR details while candidate
-  matches stream in batches of 100. Thus even an unfiltered all-time request does
-  not materialize the full match database in application memory.
+- Candidate match selection applies linked-event, exact match/event/athlete,
+  division, Gi/No-Gi, and gender filters before loading at most 500 candidate
+  matches. Linked OCR events, exact-category current ratings, and division averages
+  are loaded in bounded bulk queries; participant, event, division, athlete, and
+  team relationships are eager-loaded.
+- The response groups moments by match and includes canonical participant IDs,
+  subject/opponent roles for `athlete_id` searches, match-time rating and maturity,
+  division default/current-average context, clearly current standing, normalized
+  stage, result, score-effect flags, and a coverage summary. Unknown query fields
+  fail closed.
 - `videoSourceUrl` prefers the OCR event archive's `canonical_url`; if no
   archive URL is available, it falls back to the match's `video_link`.
 

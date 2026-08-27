@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event as sqlalchemy_event
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, REPO_ROOT)
@@ -21,6 +21,7 @@ from normalize import normalize  # noqa: E402
 from models import (  # noqa: E402
     Athlete,
     AthleteRating,
+    AthleteRatingAverage,
     Division,
     Event,
     LivestreamFrameArchive,
@@ -50,6 +51,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         LivestreamFrameArchive.query.delete()
         MatchParticipant.query.delete()
         Match.query.delete()
+        AthleteRatingAverage.query.delete()
         AthleteRating.query.delete()
         Athlete.query.delete()
         Team.query.delete()
@@ -223,6 +225,44 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             )
         )
 
+    def _flat_events(self, payload):
+        rows = []
+        for match in payload["matches"]:
+            participants = {row["athlete_id"]: row for row in match["participants"]}
+            winner = participants.get(match["result"]["winner_athlete_id"])
+            loser = next(
+                (
+                    row
+                    for athlete_id, row in participants.items()
+                    if winner is not None and athlete_id != winner["athlete_id"]
+                ),
+                None,
+            )
+            for moment in match["moments"]:
+                action = participants.get(moment["action_athlete_id"])
+                rows.append(
+                    {
+                        **moment,
+                        "event_name": match["event"]["name"],
+                        "happened_at": match["happened_at"],
+                        "division_gender": match["division"]["gender"],
+                        "division_gi": match["division"]["gi"],
+                        "division_age": match["division"]["age"],
+                        "division_belt": match["division"]["belt"],
+                        "division_weight": match["division"]["weight"],
+                        "youtube_url": match["video"]["source_url"],
+                        "winner": winner["display_name"] if winner else None,
+                        "loser": loser["display_name"] if loser else None,
+                        "ending_method": (
+                            moment["ending"]["method"] if moment["ending"] else None
+                        ),
+                        "action_athlete_name": (
+                            action["display_name"] if action else None
+                        ),
+                    }
+                )
+        return rows
+
     def _attach_match_events(
         self,
         *,
@@ -304,8 +344,9 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        self.assertEqual(payload["count"], 1)
-        event = payload["events"][0]
+        self.assertEqual(payload["schema_version"], 2)
+        self.assertEqual(payload["moment_count"], 1)
+        event = self._flat_events(payload)[0]
         self.assertEqual(event["event_type"], "submission")
         self.assertEqual(
             event["youtube_url"], "https://www.youtube.com/watch?v=submission01"
@@ -350,13 +391,13 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(yield_sizes, [100])
+        self.assertEqual(yield_sizes, [])
         payload = response.get_json()
         self.assertEqual(payload["filters"]["days"], None)
         self.assertEqual(payload["filters"]["limit"], 30)
         self.assertEqual(payload["filters"]["gi"], True)
-        self.assertEqual(payload["count"], 1)
-        event = payload["events"][0]
+        self.assertEqual(payload["moment_count"], 1)
+        event = self._flat_events(payload)[0]
         self.assertEqual(event["event_type"], "match_start")
         self.assertEqual(event["match_time"], "5:00")
         self.assertEqual(event["video_offset_seconds"], 100)
@@ -369,7 +410,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             headers={"X-Admin-Password": self.admin_password},
         )
         self.assertEqual(all_response.get_json()["filters"]["gi"], None)
-        self.assertEqual(all_response.get_json()["count"], 1)
+        self.assertEqual(all_response.get_json()["moment_count"], 1)
 
     def test_highlights_submission_filters_by_adult_black_belt(self):
         (
@@ -422,8 +463,8 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        self.assertEqual(payload["count"], 1)
-        event = payload["events"][0]
+        self.assertEqual(payload["moment_count"], 1)
+        event = self._flat_events(payload)[0]
         self.assertEqual(
             event["youtube_url"], "https://www.youtube.com/watch?v=adultblack01"
         )
@@ -485,8 +526,8 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        self.assertEqual(payload["count"], 1)
-        event = payload["events"][0]
+        self.assertEqual(payload["moment_count"], 1)
+        event = self._flat_events(payload)[0]
         self.assertEqual(
             event["youtube_url"], "https://www.youtube.com/watch?v=eventname001"
         )
@@ -520,7 +561,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        self.assertEqual(payload["count"], 0)
+        self.assertEqual(payload["moment_count"], 0)
 
     def test_highlights_submission_results_are_ordered_by_happened_at(self):
         earlier_match, earlier_scan, earlier_segment, earlier_capture, _archive = (
@@ -568,9 +609,18 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        self.assertEqual(payload["count"], 2)
-        happened_ats = [event["happened_at"] for event in payload["events"]]
-        self.assertEqual(happened_ats, sorted(happened_ats))
+        self.assertEqual(payload["moment_count"], 2)
+        happened_ats = [event["happened_at"] for event in self._flat_events(payload)]
+        self.assertEqual(happened_ats, sorted(happened_ats, reverse=True))
+
+        limited = client.get(
+            "/api/highlights/score-events?event_type=submission&days=9&event_name=IBJJF%20Worlds%202026&limit=1",
+            headers={"X-Admin-Password": self.admin_password},
+        ).get_json()
+        self.assertEqual(1, limited["match_count"])
+        self.assertEqual(1, limited["moment_count"])
+        self.assertEqual(1, limited["omitted_match_count"])
+        self.assertEqual(1, limited["omitted_moment_count"])
 
     def test_highlights_score_events_can_filter_for_two_point_scores(self):
         match, scan, scan_segment, capture_segment, _archive = (
@@ -634,16 +684,31 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        self.assertEqual(payload["count"], 1)
-        event = payload["events"][0]
+        self.assertEqual(payload["moment_count"], 1)
+        event = self._flat_events(payload)[0]
         self.assertEqual(event["event_type"], "score")
         self.assertEqual(event["score_category"], "points")
         self.assertEqual(event["score_delta"], 2)
+        self.assertEqual(
+            str(next(row for row in match.participants if row.red).athlete_id),
+            event["action_athlete_id"],
+        )
+        self.assertIsNone(event["action_role"])
+        self.assertTrue(event["significance"]["took_lead"])
         self.assertEqual(event["video_lead_seconds"], 15)
-        self.assertEqual(event["action_athlete_name"], "Top")
+        self.assertEqual(event["action_athlete_name"], "Top Athlete")
         self.assertEqual(
             event["youtube_url"], "https://www.youtube.com/watch?v=points000001"
         )
+
+        subject_id = next(row for row in match.participants if row.red).athlete_id
+        scoped = client.get(
+            f"/api/highlights/score-events?event_type=score&athlete_id={subject_id}",
+            headers={"X-Admin-Password": self.admin_password},
+        )
+        scoped_event = self._flat_events(scoped.get_json())[0]
+        self.assertEqual("subject", scoped_event["action_role"])
+        self.assertTrue(scoped_event["action_by_subject"])
 
     def test_highlights_decision_and_all_event_types(self):
         match, scan, scan_segment, capture_segment, _archive = (
@@ -696,16 +761,17 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(decision_response.status_code, 200)
         decision_payload = decision_response.get_json()
-        self.assertEqual(decision_payload["count"], 1)
-        self.assertEqual(decision_payload["events"][0]["event_type"], "decision")
-        self.assertEqual(decision_payload["events"][0]["match_time"], "0:00")
-        self.assertEqual(decision_payload["events"][0]["ending_method"], "points")
+        self.assertEqual(decision_payload["moment_count"], 1)
+        decision_event = self._flat_events(decision_payload)[0]
+        self.assertEqual(decision_event["event_type"], "decision")
+        self.assertEqual(decision_event["match_time"], "0:00")
+        self.assertEqual(decision_event["ending_method"], "points")
 
         self.assertEqual(all_response.status_code, 200)
         all_payload = all_response.get_json()
         self.assertEqual(
             {"decision", "score", "submission"},
-            {event["event_type"] for event in all_payload["events"]},
+            {event["event_type"] for event in self._flat_events(all_payload)},
         )
 
     def test_highlights_dq_uses_final_match_detail_video_window(self):
@@ -759,9 +825,8 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         db.session.commit()
 
         client = self._admin_client()
-        with patch.object(
-            self.admin_module,
-            "build_match_detail_payload",
+        with patch(
+            "highlight_discovery.build_match_detail_payload",
             wraps=self.admin_module.build_match_detail_payload,
         ) as build_payload:
             response = client.get(
@@ -775,8 +840,8 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             [call.args[0].id for call in build_payload.call_args_list],
         )
         payload = response.get_json()
-        self.assertEqual(payload["count"], 1)
-        event = payload["events"][0]
+        self.assertEqual(payload["moment_count"], 1)
+        event = self._flat_events(payload)[0]
         self.assertEqual(event["event_type"], "dq")
         self.assertEqual(event["ending_method"], "DQ")
         self.assertEqual(event["video_offset_seconds"], 90)
@@ -826,9 +891,9 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             headers=headers,
         )
 
-        self.assertEqual(exact.get_json()["count"], 1)
-        self.assertEqual(personal.get_json()["count"], 0)
-        self.assertEqual(partial.get_json()["count"], 0)
+        self.assertEqual(exact.get_json()["moment_count"], 1)
+        self.assertEqual(personal.get_json()["moment_count"], 0)
+        self.assertEqual(partial.get_json()["moment_count"], 0)
 
     def test_highlights_athlete_id_filter_is_exact_and_validated(self):
         selected, scan, scan_segment, capture_segment, _archive = (
@@ -882,8 +947,8 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(exact.status_code, 200)
         payload = exact.get_json()
         self.assertEqual(payload["filters"]["athlete_id"], str(athlete_id))
-        self.assertEqual(payload["count"], 1)
-        self.assertEqual(payload["events"][0]["match_id"], str(selected.id))
+        self.assertEqual(payload["moment_count"], 1)
+        self.assertEqual(self._flat_events(payload)[0]["match_id"], str(selected.id))
         self.assertEqual(invalid.status_code, 400)
         self.assertEqual(invalid.get_json()["error"], "athlete_id must be a UUID")
 
@@ -932,11 +997,11 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         )
 
         self.assertEqual(exact.status_code, 200)
-        self.assertGreater(exact.get_json()["count"], 0)
+        self.assertGreater(exact.get_json()["moment_count"], 0)
         self.assertTrue(
             all(
                 row["match_id"] == str(selected.id)
-                for row in exact.get_json()["events"]
+                for row in self._flat_events(exact.get_json())
             )
         )
         self.assertEqual(invalid.status_code, 400)
@@ -985,26 +1050,81 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        self.assertEqual(payload["count"], 1)
-        self.assertEqual(payload["events"][0]["division_gender"], FEMALE)
+        self.assertEqual(payload["moment_count"], 1)
+        self.assertEqual(self._flat_events(payload)[0]["division_gender"], FEMALE)
 
-    def test_highlights_elite_filter_uses_non_masters_badge_tiers(self):
-        cases = (
-            ("tier3", 0.09, ADULT),
-            ("tier2", 0.04, ADULT),
-            ("tier1", 0.01, ADULT),
-            ("masters", 0.001, MASTER_1),
-            ("boundary", 0.10, ADULT),
+    def test_highlights_rejects_unknown_query_parameters(self):
+        response = self._admin_client().get(
+            "/api/highlights/score-events?elite=tier2",
+            headers={"X-Admin-Password": self.admin_password},
         )
-        for index, (_name, percentile, rating_age) in enumerate(cases):
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.get_json()["error"], "unknown query parameter(s): elite"
+        )
+
+    def test_highlights_subject_rating_and_current_standing_context(self):
+        match, scan, scan_segment, capture_segment, _archive = (
+            self._create_linked_match(
+                youtube_url="https://www.youtube.com/watch?v=rating00001",
+                happened_at=datetime.utcnow() - timedelta(days=1),
+                final_match_time_seconds=100,
+            )
+        )
+        subject = next(row for row in match.participants if row.red)
+        opponent = next(row for row in match.participants if not row.red)
+        subject.start_rating = 2051
+        subject.start_match_count = 7
+        opponent.start_rating = 2147
+        opponent.start_match_count = 5
+        self._add_rating(match, percentile=0.034)
+        db.session.add(
+            AthleteRatingAverage(
+                gender=match.division.gender,
+                age=match.division.age,
+                belt=match.division.belt,
+                gi=match.division.gi,
+                weight=match.division.weight,
+                avg_rating=1987,
+            )
+        )
+        self._attach_match_events(
+            match=match,
+            scan=scan,
+            scan_segment=scan_segment,
+            capture_segment=capture_segment,
+            start_second=60,
+            end_second=100,
+        )
+        db.session.commit()
+
+        response = self._admin_client().get(
+            f"/api/highlights/score-events?athlete_id={subject.athlete_id}",
+            headers={"X-Admin-Password": self.admin_password},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        row = response.get_json()["matches"][0]
+        self.assertEqual(str(subject.athlete_id), row["subject"]["athlete_id"])
+        self.assertEqual(str(opponent.athlete_id), row["opponent"]["athlete_id"])
+        self.assertEqual(2051, row["subject"]["rating_at_match"])
+        self.assertEqual("established", row["subject"]["rating_maturity"])
+        self.assertEqual("semi_provisional", row["opponent"]["rating_maturity"])
+        self.assertEqual(-96, row["rating_difference"])
+        self.assertEqual(1987, row["rating_context"]["current_division_average_rating"])
+        self.assertEqual(3.4, row["subject"]["current_standing"]["top_percent"])
+        self.assertEqual("tier2", row["subject"]["current_standing"]["elite_tier"])
+
+    def test_highlights_query_count_is_constant_for_bounded_matches(self):
+        def add_match(index):
             match, scan, scan_segment, capture_segment, _archive = (
                 self._create_linked_match(
-                    youtube_url=f"https://www.youtube.com/watch?v=elite{index:06d}",
+                    youtube_url=f"https://www.youtube.com/watch?v=query{index:06d}",
                     happened_at=datetime.utcnow() - timedelta(days=1),
                     final_match_time_seconds=100 + index,
                 )
             )
-            self._add_rating(match, percentile=percentile, age=rating_age)
             self._attach_match_events(
                 match=match,
                 scan=scan,
@@ -1012,21 +1132,33 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
                 capture_segment=capture_segment,
                 start_second=60,
                 end_second=100 + index,
-                stopped_timer=f"1:{40 - index:02d}",
             )
-        db.session.commit()
+            db.session.commit()
 
-        client = self._admin_client()
-        headers = {"X-Admin-Password": self.admin_password}
-        expected_counts = {"tier3": 3, "tier2": 2, "tier1": 1}
-        for elite, expected_count in expected_counts.items():
-            with self.subTest(elite=elite):
-                response = client.get(
-                    f"/api/highlights/score-events?days=3&elite={elite}",
-                    headers=headers,
+        def request_query_count():
+            statements = []
+            engine = db.session.get_bind()
+
+            def record(_connection, _cursor, statement, _parameters, _context, _many):
+                statements.append(statement)
+
+            sqlalchemy_event.listen(engine, "before_cursor_execute", record)
+            try:
+                response = self._admin_client().get(
+                    "/api/highlights/score-events?event_type=submission",
+                    headers={"X-Admin-Password": self.admin_password},
                 )
-                self.assertEqual(response.status_code, 200)
-                self.assertEqual(response.get_json()["count"], expected_count)
+            finally:
+                sqlalchemy_event.remove(engine, "before_cursor_execute", record)
+            self.assertEqual(response.status_code, 200)
+            return len(statements)
+
+        add_match(1)
+        one_match_queries = request_query_count()
+        add_match(2)
+        two_match_queries = request_query_count()
+
+        self.assertEqual(one_match_queries, two_match_queries)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,14 @@ reject unknown parameters and bound searches and pages. Canonical entity IDs
 are UUID strings; public display names follow the existing hidden-name and
 personal-name behavior.
 
+The authenticated admin `GET /api/highlights/score-events` route is the separate
+schema-v2 discovery hot path for the same worker. It groups clip moments by match
+and returns canonical subject/opponent identity, match-time rating/maturity,
+division baselines, exact-category current standing, stage/result context,
+scoreboard significance, and coverage. This private route has one consumer and
+is changed in lockstep with the worker's strict parser; it does not carry a legacy
+flat response or version fallback.
+
 ## Routes
 
 - `GET /api/highlights/v1/athletes?query=...&limit=...`
@@ -68,13 +76,16 @@ Missing objects return `404`; invalid or unavailable upstream objects fail close
 - `app/routes/matches.py` owns result and ending-method semantics.
 - `app/livestreams.py` owns visible public video-link resolution.
 - `app/photos.py` owns the logical athlete-photo storage key.
+- `app/highlight_discovery.py` owns the private grouped discovery query and
+  schema-v2 serialization.
+- `admin/app.py` owns authentication and the thin private discovery route.
 
 ## Tests
 
 Run the focused contract suite from `app/tests`:
 
 ```sh
-python3 -m unittest test_highlights_research_api
+python3 -m unittest test_highlights_research_api test_admin_highlights_api test_elo
 ```
 
 The suite covers schema/version envelopes, strict query bounds, hidden-name
@@ -100,8 +111,9 @@ raw private payloads, or downloaded image bytes in its research catalog.
 ## Editing notes
 
 - Keep unknown-field behavior strict because the private worker parses exact DTOs.
-- Update the private worker parser and its fixtures in the same change as a v1
-  response-shape change. Use a new version for incompatible deployed changes.
+- Update the private worker parser and its fixtures in the same change as a private
+  discovery response-shape change. The private endpoint and its sole consumer cut
+  over together; do not add dual response shapes or fallback parsing.
 - Do not return presigned asset URLs, admin fields, hidden names, or internal UI
   payloads.
 - Preserve SQLite/Postgres behavior and constant query counts for bounded lists.

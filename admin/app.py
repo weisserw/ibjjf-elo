@@ -104,6 +104,7 @@ from livestream_frame_text_scan import (
 from youtube_utils import canonical_youtube_url
 from site_statistics import refresh_covered_match_count
 from livestream_match_linking import link_completed_text_scan
+from highlight_discovery import HighlightDiscoveryQueryError, build_highlight_discovery
 from normalize import normalize
 from constants import ADULT, JUVENILE, NON_ELITE_BELTS
 from elo import RATING_VERY_IMMATURE_COUNT, WINNER_NOT_RECORDED
@@ -2411,6 +2412,13 @@ def _participant_summary(payload):
 
 @app.route("/api/highlights/score-events")
 def highlights_score_events():
+    try:
+        return jsonify(build_highlight_discovery(request.args))
+    except HighlightDiscoveryQueryError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+def _legacy_highlights_score_events():
     event_type = (request.args.get("event_type") or "submission").strip().lower()
     if event_type not in {
         "all",

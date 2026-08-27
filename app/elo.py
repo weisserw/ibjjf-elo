@@ -254,6 +254,40 @@ RATING_VERY_IMMATURE_COUNT = 4
 RATING_IMMATURE_COUNT = 6
 
 
+def rating_maturity(match_count: int) -> str:
+    """Return the canonical confidence band for a rating sample."""
+    if match_count <= RATING_VERY_IMMATURE_COUNT:
+        return "provisional"
+    if match_count <= RATING_IMMATURE_COUNT:
+        return "semi_provisional"
+    return "established"
+
+
+def division_default_rating(belt: str, age: str) -> float | None:
+    """Return the configured starting-rating reference for a division."""
+    return DEFAULT_RATINGS.get(belt, {}).get(age)
+
+
+def rating_top_percent(percentile: float | None) -> float | None:
+    """Convert the stored top-fraction value to an agent-facing percentage."""
+    if percentile is None or percentile < 0 or percentile > 1:
+        return None
+    return round(percentile * 100, 1)
+
+
+def elite_tier(percentile: float | None) -> str | None:
+    """Return the strongest current Elite tier met by a stored percentile."""
+    if percentile is None or percentile < 0:
+        return None
+    if percentile <= 0.02:
+        return "tier1"
+    if percentile <= 0.05:
+        return "tier2"
+    if percentile <= 0.10:
+        return "tier3"
+    return None
+
+
 def compute_k_factor(num_matches: int, unknown_open: bool, age: str) -> float:
     if unknown_open:
         k_factor = 32
