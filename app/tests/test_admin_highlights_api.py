@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 sys.path.insert(0, os.path.abspath(os.path.join(REPO_ROOT, "scripts")))
 sys.path.insert(0, os.path.abspath(os.path.join(REPO_ROOT, "admin")))
 
-from constants import ADULT, BLACK, FEMALE, LIGHT, MALE, MASTER_1  # noqa: E402
+from constants import ADULT, BLACK, FEMALE, LIGHT, MALE  # noqa: E402
 from extensions import db  # noqa: E402
 from livestream_frame_text_scan import queue_text_scan  # noqa: E402
 from normalize import normalize  # noqa: E402
