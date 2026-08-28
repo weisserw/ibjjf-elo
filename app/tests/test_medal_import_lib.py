@@ -681,6 +681,34 @@ class LibDbTestCase(TestDbMixin, unittest.TestCase):
             )
             self.assertEqual(t, datetime(2018, 1, 1))
 
+    def test_result_medal_name_matches_preserve_accented_names(self):
+        with self.app_module.app.app_context():
+            fredson = ResultMedal(
+                id=uuid.uuid4(),
+                event_name="World Jiu-Jitsu IBJJF Championship 2001",
+                event_ibjjf_id=None,
+                division="BLACK / Adult / Male / Feather",
+                team_name="Equipe Iii",
+                athlete_name="Fredson Paixão",
+                place=1,
+                source="ibjjf",
+                scraped_at=datetime(2025, 1, 1),
+            )
+            db.session.add(fredson)
+            db.session.flush()
+
+            try:
+                accented = lib.find_result_medal_name_matches(
+                    db.session, "Fredson Paixão"
+                )
+                unaccented = lib.find_result_medal_name_matches(
+                    db.session, "Fredson Paixao"
+                )
+                self.assertEqual(accented[0], ("Fredson Paixão", 100.0))
+                self.assertEqual(unaccented[0], ("Fredson Paixão", 100.0))
+            finally:
+                db.session.rollback()
+
     # ---- medal_already_exists ----
 
     def test_medal_already_exists_true(self):

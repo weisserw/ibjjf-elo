@@ -4325,37 +4325,18 @@ def athlete_medals_find_missing():
 
     candidates = []
     if has_searched:
-        from rapidfuzz import fuzz, process
-
-        # Bound the work: require the first AND last 3+-char tokens of the
-        # query to both appear in the candidate's name (substring). This
-        # mirrors the first/last identity guard used elsewhere — it keeps
-        # "Carlos Gracie" → "Carlos Eduardo Gracie" matches but drops the
-        # flood of unrelated rows that share a single common token.
-        normalized_q = medal_lib.normalize(query_name)
-        tokens = [t for t in normalized_q.split() if len(t) >= 3]
-        rm_query = db.session.query(medal_lib.ResultMedal)
-        if tokens:
-            from sqlalchemy import func
-
-            anchor_tokens = {tokens[0], tokens[-1]} if len(tokens) > 1 else {tokens[0]}
-            for t in anchor_tokens:
-                rm_query = rm_query.filter(
-                    func.lower(medal_lib.ResultMedal.athlete_name).contains(t)
-                )
-
-        candidate_rms = rm_query.all()
+        scored = medal_lib.find_result_medal_name_matches(db.session, query_name)
+        scored_names = [name for name, _ in scored]
+        candidate_rms = (
+            db.session.query(medal_lib.ResultMedal)
+            .filter(medal_lib.ResultMedal.athlete_name.in_(scored_names))
+            .all()
+            if scored_names
+            else []
+        )
         name_to_rows = {}
         for rm in candidate_rms:
             name_to_rows.setdefault(rm.athlete_name, []).append(rm)
-        all_names = list(name_to_rows.keys())
-
-        if all_names:
-            scored = process.extract(
-                query_name, all_names, scorer=fuzz.token_ratio, limit=25
-            )
-        else:
-            scored = []
 
         # Pre-cache existing medals for this athlete (event_id, division_id).
         existing_pairs = set(
@@ -4365,7 +4346,7 @@ def athlete_medals_find_missing():
 
         event_when_cache = {}
 
-        for cand_name, score, _ in scored:
+        for cand_name, score in scored:
             if score < 75:
                 break
             for rm in name_to_rows[cand_name]:

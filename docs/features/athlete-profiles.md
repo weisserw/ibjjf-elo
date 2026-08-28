@@ -209,6 +209,8 @@ Useful focused test files while editing this feature:
   behavior.
 - `app/tests/test_athletes_batch_api.py` for batch athlete lookups,
   hidden-name handling, Instagram profile exposure, and rating fallback logic.
+- `app/tests/test_medal_import_lib.py` for the shared historical-medal import
+  helpers, including accent-insensitive per-athlete result-name matching.
 
 Do not run `make test-ocr` for athlete-profile-only changes. It is reserved for
 OCR/livestream text scan changes.
@@ -246,6 +248,10 @@ Issues that have already surfaced in git history:
   December 1, 2024 cutoff.
 - `fb79580` added the all-medals toggle and `all_medals` API parameter.
 - `255e873` fixed combined juvenile age divisions for medal bracket links.
+- The per-athlete missing-medal search must normalize both the query and the
+  distinct `result_medals.athlete_name` values before applying its first/last
+  token guard. Filtering the original database column with normalized tokens
+  drops accented names such as `Fredson Paixão`.
 - `221a55b` added athlete media coverage, including admin title fetching and
   profile rendering.
 - `07776ef` expanded media coverage types and added the Portuguese flag; keep

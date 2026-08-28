@@ -746,6 +746,50 @@ def age_is_plausible(
 # ---------------------------------------------------------------------------
 
 
+def find_result_medal_name_matches(
+    session, query_name: str, limit: int = 25, min_anchor_length: int = 3
+) -> list:
+    """Return accent-insensitive ResultMedal athlete-name matches.
+
+    ResultMedal stores only the original scraped name, so applying normalized
+    query tokens directly to that database column drops names with diacritics
+    (for example, normalized ``paixao`` is not a substring of ``Paixão``).
+    Fetch distinct names through the existing athlete-name index, apply the
+    first/last-token guard to normalized names in Python, and fuzzy-rank only
+    those names. Callers can then fetch medal rows for the small ranked set.
+    """
+    from rapidfuzz import fuzz, process
+
+    normalized_query = normalize(query_name)
+    tokens = [t for t in normalized_query.split() if len(t) >= min_anchor_length]
+    anchor_tokens = {tokens[0], tokens[-1]} if len(tokens) > 1 else set(tokens)
+
+    names = [
+        row[0]
+        for row in session.query(ResultMedal.athlete_name).distinct().all()
+        if row[0]
+    ]
+    if anchor_tokens:
+        names = [
+            name
+            for name in names
+            if all(token in normalize(name) for token in anchor_tokens)
+        ]
+    if not names:
+        return []
+
+    return [
+        (name, score)
+        for name, score, _ in process.extract(
+            query_name,
+            names,
+            scorer=fuzz.token_ratio,
+            processor=normalize,
+            limit=limit,
+        )
+    ]
+
+
 def first_and_last_match(query_name: str, candidate_name: str) -> bool:
     """Strict identity guard for the SOFT tier: the FIRST and LAST tokens of
     `query_name` and `candidate_name` (in raw order, after normalize()) must
