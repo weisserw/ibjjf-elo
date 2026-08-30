@@ -533,7 +533,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         )
         self.assertEqual(event["event_name"], "IBJJF Worlds 2026")
 
-    def test_highlights_submission_event_name_filter_is_exact(self):
+    def test_highlights_submission_event_name_filter_supports_partial_names(self):
         match, scan, scan_segment, capture_segment, _archive = (
             self._create_linked_match(
                 youtube_url="https://www.youtube.com/watch?v=eventname003",
@@ -541,7 +541,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
                 final_match_time_seconds=111,
             )
         )
-        match.event.name = "IBJJF Worlds 2026"
+        match.event.name = "Santa Cruz International Open"
         match.event.normalized_name = normalize(match.event.name)
         self._attach_match_events(
             match=match,
@@ -555,13 +555,16 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         client = self._admin_client()
         response = client.get(
-            "/api/highlights/score-events?event_type=submission&days=9&event_name=worlds",
+            "/api/highlights/score-events?event_type=submission&days=9&event_name=Santa%20Cruz%20Open",
             headers={"X-Admin-Password": self.admin_password},
         )
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        self.assertEqual(payload["moment_count"], 0)
+        self.assertEqual(payload["moment_count"], 1)
+        self.assertEqual(
+            self._flat_events(payload)[0]["event_name"], "Santa Cruz International Open"
+        )
 
     def test_highlights_submission_results_are_ordered_by_happened_at(self):
         earlier_match, earlier_scan, earlier_segment, earlier_capture, _archive = (

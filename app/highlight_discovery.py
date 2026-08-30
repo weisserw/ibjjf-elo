@@ -188,13 +188,11 @@ def _candidate_matches(filters):
             Match.happened_at >= datetime.utcnow() - timedelta(days=filters["days"])
         )
     if filters["event_name"]:
-        query = query.filter(
-            Match.event_id.in_(
-                db.session.query(Event.id).filter(
-                    Event.normalized_name == normalize(filters["event_name"])
-                )
-            )
-        )
+        event_name_tokens = normalize(filters["event_name"]).split()
+        event_query = db.session.query(Event.id)
+        for token in event_name_tokens:
+            event_query = event_query.filter(Event.normalized_name.like(f"%{token}%"))
+        query = query.filter(Match.event_id.in_(event_query))
     if filters["athlete_id"] is not None:
         query = query.filter(
             db.session.query(MatchParticipant.id)

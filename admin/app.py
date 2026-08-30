@@ -2542,13 +2542,11 @@ def _legacy_highlights_score_events():
         since = datetime.utcnow() - timedelta(days=days)
         matches_query = matches_query.filter(Match.happened_at >= since)
     if normalized_event_name_filter:
-        matches_query = matches_query.filter(
-            Match.event_id.in_(
-                db.session.query(Event.id).filter(
-                    Event.normalized_name == normalized_event_name_filter
-                )
-            )
-        )
+        event_name_tokens = normalized_event_name_filter.split()
+        event_query = db.session.query(Event.id)
+        for token in event_name_tokens:
+            event_query = event_query.filter(Event.normalized_name.like(f"%{token}%"))
+        matches_query = matches_query.filter(Match.event_id.in_(event_query))
     if athlete_id_filter is not None:
         matches_query = matches_query.filter(
             db.session.query(MatchParticipant.id)
@@ -2662,7 +2660,10 @@ def _legacy_highlights_score_events():
             normalized_event_name = normalize(
                 (match.event.name if match.event else "") or ""
             )
-            if normalized_event_name != normalized_event_name_filter:
+            if any(
+                token not in normalized_event_name
+                for token in normalized_event_name_filter.split()
+            ):
                 continue
         if gi_filter is not None and bool(division.gi) != gi_filter:
             continue
