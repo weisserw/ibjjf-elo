@@ -344,7 +344,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        self.assertEqual(payload["schema_version"], 2)
+        self.assertEqual(payload["schema_version"], 3)
         self.assertEqual(payload["moment_count"], 1)
         event = self._flat_events(payload)[0]
         self.assertEqual(event["event_type"], "submission")
@@ -1112,6 +1112,15 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(str(subject.athlete_id), row["subject"]["athlete_id"])
         self.assertEqual(str(opponent.athlete_id), row["opponent"]["athlete_id"])
         self.assertEqual(2051, row["subject"]["rating_at_match"])
+        self.assertAlmostEqual(
+            1,
+            row["subject"]["win_probability"] + row["opponent"]["win_probability"],
+        )
+        self.assertAlmostEqual(
+            0.365257,
+            row["subject"]["win_probability"],
+            places=6,
+        )
         self.assertEqual("established", row["subject"]["rating_maturity"])
         self.assertEqual("semi_provisional", row["opponent"]["rating_maturity"])
         self.assertEqual(-96, row["rating_difference"])

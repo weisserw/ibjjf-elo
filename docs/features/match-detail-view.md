@@ -213,7 +213,7 @@ interface MatchDetailAction {
   less, 8 seconds for submissions with a final points difference greater than
   2, and 10 seconds for other final rows. The backend is the sole owner of this
   calculation; the frontend consumes the required field directly.
-- The authenticated admin `GET /api/highlights/score-events` schema-v2 discovery
+- The authenticated admin `GET /api/highlights/score-events` schema-v3 discovery
   contract exposes this value as `video_lead_seconds` on each grouped match moment,
   so downstream highlight tools use the same pre-roll as Match Detail.
 - Its `event_type` filter accepts `submission` (the default), `match_start`,
@@ -230,7 +230,7 @@ interface MatchDetailAction {
   `athlete_id`, plus exact, case-insensitive `Athlete.name` matching through
   `athlete_name` (never `personal_name`). Invalid athlete UUIDs return `400`.
   They also support exact division `gender`. The former any-participant `elite`
-  filter is not part of schema v2; current subject/opponent standing is returned
+  filter is not part of schema v3; current subject/opponent standing is returned
   explicitly so the consumer can apply role-aware editorial criteria.
 - The optional `match_id` filter accepts one canonical match UUID and limits the
   response to linked highlight moments from that exact match. Invalid UUIDs return

@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from constants import NON_ELITE_BELTS
 from elo import (
+    EloCompetitor,
     division_default_rating,
     elite_tier,
     rating_maturity,
@@ -34,7 +35,7 @@ from routes.matches import (
 )
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 MAX_RESULT_MOMENTS = 100
 MAX_CANDIDATE_MATCHES = 500
 EVENT_TYPES = {"all", "decision", "dq", "match_start", "submission", "score"}
@@ -342,7 +343,13 @@ def _category_key(division):
     )
 
 
-def _participant_snapshot(participant, division, ratings, as_of):
+def _win_probability(rating, opponent_rating):
+    if rating is None or opponent_rating is None:
+        return None
+    return EloCompetitor(rating).expected_score(EloCompetitor(opponent_rating))
+
+
+def _participant_snapshot(participant, opponent, division, ratings, as_of):
     default = division_default_rating(division.belt, division.age)
     key = (participant.athlete_id, *_category_key(division))
     current = ratings.get(key)
@@ -377,6 +384,10 @@ def _participant_snapshot(participant, division, ratings, as_of):
         "display_name": _display_name(participant),
         "team": participant.team.name if participant.team else None,
         "rating_at_match": rating_at_match,
+        "win_probability": _win_probability(
+            participant.start_rating,
+            opponent.start_rating if opponent is not None else None,
+        ),
         "rating_maturity": rating_maturity(participant.start_match_count),
         "rating_above_division_default": (
             round(participant.start_rating - default, 2)
@@ -696,11 +707,21 @@ def build_highlight_discovery(args):
         omitted_total += omitted
 
         division = match.division
+        ordered_participants = sorted(
+            match.participants, key=lambda row: (not row.red, str(row.id))
+        )
         participants = [
-            _participant_snapshot(row, division, ratings, as_of)
-            for row in sorted(
-                match.participants, key=lambda row: (not row.red, str(row.id))
+            _participant_snapshot(
+                row,
+                next(
+                    (other for other in ordered_participants if other.id != row.id),
+                    None,
+                ),
+                division,
+                ratings,
+                as_of,
             )
+            for row in ordered_participants
         ]
         by_id = {row["athlete_id"]: row for row in participants}
         default = division_default_rating(division.belt, division.age)
