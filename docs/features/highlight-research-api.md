@@ -14,12 +14,15 @@ personal-name behavior.
 
 The authenticated admin `GET /api/highlights/score-events` route is the separate
 schema-v3 discovery hot path for the same worker. It groups clip moments by match
-and returns canonical subject/opponent identity, match-time rating, Elo win
-probability, rating maturity, division baselines, exact-category current standing,
-stage/result context, scoreboard significance, and coverage. Win probability is
-null when either match-time rating is unavailable; otherwise the two participant
-values are complementary numbers between 0 and 1 using the bracket-card Elo
-expected-score calculation. This private route has one consumer and
+and returns canonical subject/opponent identity, stored division size, each
+participant's eventual medal place in that event/division, match-time rating, Elo
+win probability, rating maturity, division baselines, exact-category current
+standing, stage/result context, scoreboard significance, and coverage. Medal
+place is null when no exact event/division/athlete medal exists; standard places
+are 1 for gold, 2 for silver, and 3 for bronze. Win probability is null when
+either match-time rating is unavailable; otherwise the two participant values
+are complementary numbers between 0 and 1 using the bracket-card Elo expected-score
+calculation. This private route has one consumer and
 is changed in lockstep with the worker's strict parser; it does not carry a legacy
 flat response or version fallback.
 
@@ -80,7 +83,8 @@ Missing objects return `404`; invalid or unavailable upstream objects fail close
 - `app/livestreams.py` owns visible public video-link resolution.
 - `app/photos.py` owns the logical athlete-photo storage key.
 - `app/highlight_discovery.py` owns the private grouped discovery query and
-  schema-v3 serialization.
+  schema-v3 serialization, including bounded bulk rating, division-average, and
+  medal lookups.
 - `admin/app.py` owns authentication and the thin private discovery route.
 
 ## Tests

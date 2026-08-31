@@ -31,6 +31,7 @@ from models import (  # noqa: E402
     LivestreamFrameTextScanSegment,
     Match,
     MatchParticipant,
+    Medal,
     Team,
 )
 from test_db import TestDbMixin  # noqa: E402
@@ -49,6 +50,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         LivestreamFrameTextScan.query.delete()
         LivestreamFrameCaptureSegment.query.delete()
         LivestreamFrameArchive.query.delete()
+        Medal.query.delete()
         MatchParticipant.query.delete()
         Match.query.delete()
         AthleteRatingAverage.query.delete()
@@ -128,6 +130,7 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
             division_id=division.id,
             happened_at=happened_at,
             rated=True,
+            division_size=16,
             match_location="Mat 1",
             video_link=youtube_url,
             final_match_time_seconds=final_match_time_seconds,
@@ -1081,6 +1084,28 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         subject.start_match_count = 7
         opponent.start_rating = 2147
         opponent.start_match_count = 5
+        db.session.add_all(
+            [
+                Medal(
+                    happened_at=match.happened_at,
+                    event_id=match.event_id,
+                    division_id=match.division_id,
+                    athlete_id=subject.athlete_id,
+                    team_id=subject.team_id,
+                    place=1,
+                    default_gold=False,
+                ),
+                Medal(
+                    happened_at=match.happened_at,
+                    event_id=match.event_id,
+                    division_id=match.division_id,
+                    athlete_id=opponent.athlete_id,
+                    team_id=opponent.team_id,
+                    place=2,
+                    default_gold=False,
+                ),
+            ]
+        )
         self._add_rating(match, percentile=0.034)
         db.session.add(
             AthleteRatingAverage(
@@ -1111,6 +1136,9 @@ class AdminHighlightsApiTestCase(TestDbMixin, unittest.TestCase):
         row = response.get_json()["matches"][0]
         self.assertEqual(str(subject.athlete_id), row["subject"]["athlete_id"])
         self.assertEqual(str(opponent.athlete_id), row["opponent"]["athlete_id"])
+        self.assertEqual(16, row["division_size"])
+        self.assertEqual(1, row["subject"]["medal_place"])
+        self.assertEqual(2, row["opponent"]["medal_place"])
         self.assertEqual(2051, row["subject"]["rating_at_match"])
         self.assertAlmostEqual(
             1,

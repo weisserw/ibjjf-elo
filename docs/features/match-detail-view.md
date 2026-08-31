@@ -237,14 +237,15 @@ interface MatchDetailAction {
   `400`.
 - Candidate match selection applies linked-event, exact match/event/athlete,
   division, Gi/No-Gi, and gender filters before loading at most 500 candidate
-  matches. Linked OCR events, exact-category current ratings, and division averages
-  are loaded in bounded bulk queries; participant, event, division, athlete, and
-  team relationships are eager-loaded.
+  matches. Linked OCR events, exact-category current ratings, division averages,
+  and exact event/division/athlete medals are loaded in bounded bulk queries;
+  participant, event, division, athlete, and team relationships are eager-loaded.
 - The response groups moments by match and includes canonical participant IDs,
-  subject/opponent roles for `athlete_id` searches, match-time rating and maturity,
-  division default/current-average context, clearly current standing, normalized
-  stage, result, score-effect flags, and a coverage summary. Unknown query fields
-  fail closed.
+  subject/opponent roles for `athlete_id` searches, stored division size, each
+  participant's eventual medal place, match-time rating and maturity, division
+  default/current-average context, clearly current standing, normalized stage,
+  result, score-effect flags, and a coverage summary. Unknown query fields fail
+  closed.
 - `videoSourceUrl` prefers the OCR event archive's `canonical_url`; if no
   archive URL is available, it falls back to the match's `video_link`.
 

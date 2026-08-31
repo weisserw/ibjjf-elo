@@ -5,7 +5,7 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, tuple_
 from sqlalchemy.orm import selectinload
 
 from constants import NON_ELITE_BELTS
@@ -26,6 +26,7 @@ from models import (
     LivestreamFrameTextEvent,
     Match,
     MatchParticipant,
+    Medal,
 )
 from normalize import normalize
 from routes.matches import (
@@ -306,7 +307,25 @@ def _bulk_context(matches):
         (bool(row.gi), row.gender, row.age, row.belt, row.weight): row.avg_rating
         for row in average_rows
     }
-    return raw_by_match, ratings, averages
+
+    medal_scopes = {(match.event_id, match.division_id) for match in matches}
+    medal_rows = (
+        Medal.query.filter(
+            tuple_(Medal.event_id, Medal.division_id).in_(
+                sorted(
+                    medal_scopes,
+                    key=lambda pair: (str(pair[0]), str(pair[1])),
+                )
+            ),
+            Medal.athlete_id.in_(athlete_ids),
+        ).all()
+        if medal_scopes and athlete_ids
+        else []
+    )
+    medal_places = {
+        (row.event_id, row.division_id, row.athlete_id): row.place for row in medal_rows
+    }
+    return raw_by_match, ratings, averages, medal_places
 
 
 def normalize_match_stage(raw):
@@ -349,7 +368,7 @@ def _win_probability(rating, opponent_rating):
     return EloCompetitor(rating).expected_score(EloCompetitor(opponent_rating))
 
 
-def _participant_snapshot(participant, opponent, division, ratings, as_of):
+def _participant_snapshot(participant, opponent, division, ratings, medal_place, as_of):
     default = division_default_rating(division.belt, division.age)
     key = (participant.athlete_id, *_category_key(division))
     current = ratings.get(key)
@@ -388,6 +407,7 @@ def _participant_snapshot(participant, opponent, division, ratings, as_of):
             participant.start_rating,
             opponent.start_rating if opponent is not None else None,
         ),
+        "medal_place": medal_place,
         "rating_maturity": rating_maturity(participant.start_match_count),
         "rating_above_division_default": (
             round(participant.start_rating - default, 2)
@@ -678,7 +698,7 @@ def _result(match, payload, subject, opponent):
 def build_highlight_discovery(args):
     filters = _parse_filters(args)
     matches = _candidate_matches(filters)
-    raw_by_match, ratings, averages = _bulk_context(matches)
+    raw_by_match, ratings, averages, medal_places = _bulk_context(matches)
     as_of = _iso_datetime(datetime.now(timezone.utc))
     response_matches = []
     remaining = filters["limit"]
@@ -719,6 +739,7 @@ def build_highlight_discovery(args):
                 ),
                 division,
                 ratings,
+                medal_places.get((match.event_id, match.division_id, row.athlete_id)),
                 as_of,
             )
             for row in ordered_participants
@@ -749,6 +770,7 @@ def build_highlight_discovery(args):
                     "belt": division.belt,
                     "weight": division.weight,
                 },
+                "division_size": match.division_size,
                 "rating_context": {
                     "division_default_rating": default,
                     "current_division_average_rating": (
