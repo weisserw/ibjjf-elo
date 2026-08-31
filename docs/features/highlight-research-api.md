@@ -42,6 +42,11 @@ Profile facts delegate to `get_athlete_data` without materializing a presigned
 photo URL. Match results reuse match-detail ending semantics and the same
 livestream/archive visibility helpers used by the Database view.
 
+Athlete detail includes nullable `country_note` biography context and exposes the
+existing public BJJ Heroes profile URL as `links.bjjheroes`. The worker normalizes
+that link to `bjjheroes_url` on the athlete research entity; neither field is
+returned by the bounded athlete-name search.
+
 Athlete-profile rank and medal rows repeat the canonical `athlete_id` so the
 worker can normalize them into independent, ownership-checked entities. Medal
 rows carry `status: valid|forfeited|suspended`; a medal dated inside an

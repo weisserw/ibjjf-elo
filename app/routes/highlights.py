@@ -260,6 +260,7 @@ def athlete_profile(athlete_id):
                 "slug": athlete.slug,
                 "display_name": _display_name(athlete),
                 "country": athlete.country or None,
+                "country_note": profile["athlete"].get("country_note") or None,
                 "current_team": profile["athlete"].get("team_name"),
                 "current_belt": profile["athlete"].get("belt"),
                 "current_rating": profile["athlete"].get("rating"),

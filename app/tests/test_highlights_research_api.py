@@ -40,6 +40,8 @@ class HighlightsResearchApiTestCase(TestDbMixin, unittest.TestCase):
             hide_full_name=True,
             slug="public-athlete",
             country="US",
+            country_note="Born in Brazil; represents the United States.",
+            bjjheroes_link="https://www.bjjheroes.com/bjj-fighters/public-athlete/",
             profile_image_saved_at=datetime.now(timezone.utc),
         )
         opponent = Athlete(
@@ -210,6 +212,14 @@ class HighlightsResearchApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(200, profile.status_code)
         profile_json = profile.get_json()
         self.assertEqual("Public Athlete", profile_json["athlete"]["display_name"])
+        self.assertEqual(
+            "Born in Brazil; represents the United States.",
+            profile_json["athlete"]["country_note"],
+        )
+        self.assertEqual(
+            "https://www.bjjheroes.com/bjj-fighters/public-athlete/",
+            profile_json["athlete"]["links"]["bjjheroes"],
+        )
         self.assertEqual(1, profile_json["ranks"][0]["rank"])
         self.assertEqual(str(self.athlete_id), profile_json["ranks"][0]["athlete_id"])
         self.assertEqual(str(self.athlete_id), profile_json["medals"][0]["athlete_id"])
