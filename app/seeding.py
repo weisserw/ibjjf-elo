@@ -1814,7 +1814,12 @@ def _bracket_slots(n):
 
         count_a = min(play_in_count, len(group_a))
         count_b = max(0, play_in_count - len(group_a))
-        if effective_size == 32 and play_in_count == 12:
+        if effective_size == 16 and play_in_count == 5:
+            # N=21 uses a non-sequential play-in assignment. Verified against
+            # independent IBJJF brackets with no same-team swaps: seeds 17-21
+            # enter against 13, 10, 15, 16, and 14, respectively.
+            selected_a = [13, 10, 15, 16, 14]
+        elif effective_size == 32 and play_in_count == 12:
             selected_a = [17, 18, 19, 20, 29, 30, 31, 32, 25, 26, 27, 28]
         elif effective_size == 32 and play_in_count <= 4:
             selected_a = [29, 30, 31, 32][:count_a]

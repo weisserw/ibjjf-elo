@@ -2045,6 +2045,31 @@ class BracketSlotsTestCase(unittest.TestCase):
         )
         self.assertEqual(size, 32)
 
+    def test_n21_slots_match_canonical_order(self):
+        slots, size = _bracket_slots(21)
+        self.assertEqual(
+            slots,
+            [
+                (1, None),
+                (16, 20),
+                (8, None),
+                (12, None),
+                (4, None),
+                (14, 21),
+                (6, None),
+                (10, 18),
+                (2, None),
+                (15, 19),
+                (7, None),
+                (11, None),
+                (3, None),
+                (13, 17),
+                (5, None),
+                (9, None),
+            ],
+        )
+        self.assertEqual(size, 32)
+
     def test_n33_slots_match_canonical_order(self):
         slots, size = _bracket_slots(33)
         self.assertEqual(
@@ -2496,7 +2521,7 @@ class BracketSlotsTestCase(unittest.TestCase):
         self.assertIn((1, None), slots)
 
     def test_seed_1_and_seed_2_are_in_opposite_visual_halves(self):
-        for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 32]:
+        for n in [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 21, 32]:
             with self.subTest(n=n):
                 slots, _ = _bracket_slots(n)
                 half = len(slots) // 2
@@ -2521,6 +2546,7 @@ class BracketSlotsTestCase(unittest.TestCase):
             13,
             15,
             16,
+            21,
             33,
             35,
             36,

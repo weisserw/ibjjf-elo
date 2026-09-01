@@ -134,6 +134,15 @@ bracket page rhythm.
 Observed:
 
 - `N=20`
+- `N=21`: `[(1,bye), (16,20), (8,bye), (12,bye), (4,bye),
+  (14,21), (6,bye), (10,18), (2,bye), (15,19), (7,bye),
+  (11,bye), (3,bye), (13,17), (5,bye), (9,bye)]`
+
+The `N=21` geometry was independently verified against the 2026 Asian adult
+male black light and 2026 European adult female brown feather brackets. Both
+had unique teams, so their matching play-in assignments cannot be explained by
+same-team swaps. In IBJJF match-number order, the play-ins are `14-21` (1),
+`10-18` (3), `16-20` (5), `15-19` (9), and `13-17` (13).
 
 The display order follows a 4-row block rhythm over the 32-slot bracket:
 inside each 4-row block, render `[row2, row1, row3, row4]`.
