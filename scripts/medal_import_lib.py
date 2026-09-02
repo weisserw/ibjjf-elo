@@ -175,6 +175,9 @@ MAJOR_EVENT_DATES = {
     "Pan IBJJF Jiu-Jitsu Championship": (3, 15),
     "Campeonato Brasileiro de Jiu-Jitsu": (5, 1),
 }
+SPECIFIC_EVENT_DATES = {
+    "Nacional Open Portugal 2023": datetime(2023, 12, 16),
+}
 # Longest-prefix-first so "Campeonato Brasileiro de Jiu-Jitsu Sem Kimono" wins
 # over "Campeonato Brasileiro de Jiu-Jitsu".
 _MAJOR_EVENT_KEYS_BY_LEN = sorted(MAJOR_EVENT_DATES.keys(), key=len, reverse=True)
@@ -261,15 +264,23 @@ def parse_and_resolve_division(
     )
 
 
-def find_or_create_team(session, raw_team_name: str) -> Team:
+def find_or_create_team(
+    session, raw_team_name: str, cache: Optional[dict] = None
+) -> Team:
     """Look up a team by normalized name; create it if missing. Caller commits."""
     norm = normalize(raw_team_name)
+    if cache is not None and norm in cache:
+        return cache[norm]
     team = session.query(Team).filter(Team.normalized_name == norm).first()
     if team:
+        if cache is not None:
+            cache[norm] = team
         return team
     team = Team(name=raw_team_name, normalized_name=norm)
     session.add(team)
     session.flush()
+    if cache is not None:
+        cache[norm] = team
     return team
 
 
@@ -318,7 +329,9 @@ def _make_event_slug(name: str) -> str:
     return base or "event"
 
 
-def create_medals_only_event(session, raw_event_name: str) -> Event:
+def create_medals_only_event(
+    session, raw_event_name: str, event_ibjjf_id: Optional[str] = None
+) -> Event:
     """Create an Event row with medals_only=True for a tournament we have no brackets for.
 
     Raises ValueError if the year can't be parsed from the trailing of the name.
@@ -335,6 +348,7 @@ def create_medals_only_event(session, raw_event_name: str) -> Event:
         slug = f"{base_slug}-{n}"
         n += 1
     event = Event(
+        ibjjf_id=event_ibjjf_id,
         name=raw_event_name,
         normalized_name=normalize(raw_event_name),
         slug=slug,
@@ -346,6 +360,9 @@ def create_medals_only_event(session, raw_event_name: str) -> Event:
 
 
 def _event_default_date(raw_event_name: str) -> Optional[datetime]:
+    specific_date = SPECIFIC_EVENT_DATES.get(raw_event_name)
+    if specific_date:
+        return specific_date
     year_match = YEAR_SUFFIX_RE.search(raw_event_name)
     if not year_match:
         return None
@@ -365,8 +382,8 @@ def compute_happened_at(
     1) athlete's last match in this event
     2) any athlete's last match in this event
     3) any athlete's last medal in this event
-    3) the major-event hardcoded date for this name prefix, if applicable
-    4) Jan 1 of the event's year
+    4) a known exact event date or major-event month/day, if applicable
+    5) Jan 1 of the event's year
     """
     last_match = (
         session.query(Match.happened_at)
@@ -419,7 +436,7 @@ def tentative_event_date(
     Precedence:
       1) `cache[event.id]` if hit (caller-supplied dict, e.g. per request)
       2) max(Match.happened_at) for the event (cached on miss)
-      3) hardcoded MAJOR_EVENT_DATES month/day for the name prefix
+      3) a known exact event date or MAJOR_EVENT_DATES month/day
       4) June 1 of the year suffix
       5) None if no year can be parsed
 
@@ -442,10 +459,15 @@ def tentative_event_date(
             return when
     default = _event_default_date(raw_event_name)
     if default:
+        if event is not None and cache is not None:
+            cache[event.id] = default
         return default
     year_match = YEAR_SUFFIX_RE.search(raw_event_name)
     if year_match:
-        return datetime(int(year_match.group(1)), 6, 1)
+        fallback = datetime(int(year_match.group(1)), 6, 1)
+        if event is not None and cache is not None:
+            cache[event.id] = fallback
+        return fallback
     return None
 
 

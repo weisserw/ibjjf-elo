@@ -32,6 +32,11 @@ The CSV header row is skipped by `HEADER true`; column order in the CSV
 matches the table definition, so no explicit column list is needed.
 FORCE_NOT_NULL keeps an empty CSV team_name as the empty string instead of
 NULL, since a handful of source rows list no team and team_name is NOT NULL.
+
+WARNING: the recipe above is only for a deliberate full reload. To add one
+missed tournament without touching existing rows, use update_result_medals.py
+with --championship-id (and the matching year/name filters); see
+docs/workflows/INCREMENTAL_SINGLE_TOURNAMENT_MEDALS.md.
 ------------------------------------------------------------------------------
 """
 
@@ -88,6 +93,12 @@ EXTRA_IBJJF_LINKS = [
         "tournament": "Campeonato Português de Jiu-Jitsu",
         "year": "2023",
         "url": "https://www.ibjjfdb.com/ChampionshipResults/2473/PublicResults?lang=en-US",
+        "source": "ibjjf",
+    },
+    {
+        "tournament": "Nacional Open Portugal",
+        "year": "2023",
+        "url": "https://www.ibjjfdb.com/ChampionshipResults/2354/PublicResults?lang=en-US",
         "source": "ibjjf",
     },
     {
@@ -467,11 +478,12 @@ def build_result_links(
     source="all",
     year=None,
     tournament=None,
+    championship_id=None,
     limit=None,
     session=None,
     log=log_stderr,
 ):
-    """Return result-page links after source/year/tournament filtering."""
+    """Return result-page links after source/year/tournament/championship filtering."""
     session = session or make_session()
 
     sources_to_fetch = ["ibjjf", "cbjj"] if source == "all" else [source]
@@ -494,6 +506,18 @@ def build_result_links(
         all_links = dedup_links(ibjjf_links, cbjj_links)
     else:
         all_links = ibjjf_links + cbjj_links
+
+    # Exact-ID runs must be isolated before validating unrelated index links.
+    # The public index occasionally contains broken URL collisions; those
+    # should not block or otherwise influence a one-championship update.
+    if championship_id:
+        championship_id = str(championship_id)
+        all_links = [
+            link
+            for link in all_links
+            if extract_championship_id(link["url"]) == championship_id
+        ]
+        log(f"Filtered to championship_id={championship_id}: {len(all_links)} links")
 
     # IBJJF's index page occasionally lists two different event-year entries
     # pointing to the same destination URL — typically a Kids/regional event
@@ -645,6 +669,7 @@ def scrape(args):
         source=args.source,
         year=args.year,
         tournament=args.tournament,
+        championship_id=args.championship_id,
         limit=args.limit,
         session=session,
     )
@@ -704,6 +729,10 @@ def parse_args():
     parser.add_argument(
         "--tournament",
         help="Only scrape event-years whose tournament name contains this substring (case-insensitive).",
+    )
+    parser.add_argument(
+        "--championship-id",
+        help="Only scrape the IBJJF championship with this exact numeric ID.",
     )
     parser.add_argument(
         "--limit",

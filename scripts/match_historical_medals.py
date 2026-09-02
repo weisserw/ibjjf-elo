@@ -20,6 +20,7 @@ file, jumps past the last-processed athlete, and appends to the review CSV.
 Usage:
     ./scripts/match_historical_medals.py [--dry-run] [--limit N] [--athlete-id UUID]
         [--auto-threshold 92] [--review-threshold 80] [--gap-threshold 8]
+        [--event-name NAME] [--event-ibjjf-id ID]
         [--report-csv missing_medals_review.csv]
         [--resume-file .match_historical_medals.resume] [--resume]
 """
@@ -36,6 +37,30 @@ from app import app, db  # noqa: E402
 from models import Athlete, ResultMedal  # noqa: E402
 
 import medal_import_lib as lib  # noqa: E402
+
+
+def scope_result_medals_query(query, event_name=None, event_ibjjf_id=None):
+    """Apply the same event scope to every result_medals query in this job."""
+    if event_name:
+        query = query.filter(ResultMedal.event_name.ilike(f"%{event_name}%"))
+    if event_ibjjf_id:
+        query = query.filter(ResultMedal.event_ibjjf_id == event_ibjjf_id)
+    return query
+
+
+def build_athlete_rows_query(session):
+    """Return lightweight athlete rows rather than identity-mapped ORM objects.
+
+    The job commits after athletes with imports. Keeping every Athlete ORM
+    object in the session makes each commit expire the entire population and
+    turns later attribute access into individual refresh queries.
+    """
+    return session.query(
+        Athlete.id,
+        Athlete.name,
+        Athlete.normalized_name,
+        Athlete.normalized_personal_name,
+    ).order_by(Athlete.id)
 
 
 def parse_args():
@@ -123,6 +148,12 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--event-ibjjf-id",
+        type=str,
+        default=None,
+        help="Restrict matching to result_medals with this exact event_ibjjf_id.",
+    )
+    parser.add_argument(
         "--report-csv",
         type=str,
         default="missing_medals_review.csv",
@@ -179,20 +210,30 @@ def main():
         )
 
     with app.app_context():
+        # This is a single-purpose batch process. Static division/event/team
+        # objects do not need refreshing after each per-athlete commit.
+        db.session().expire_on_commit = False
         print("Building division cache...", flush=True)
         division_cache = lib.build_division_cache(db.session)
         print(f"  {len(division_cache)} divisions cached", flush=True)
         event_when_cache = {}
+        event_cache = {}
+        team_cache = {}
+        happened_at_cache = {}
+        default_gold_cache = {}
         print("Loading distinct athlete names from result_medals...", flush=True)
         # Don't load full ORM rows — with ~850k result_medals that's gigabytes.
         # Keep only the distinct name strings in memory for process.extract;
         # fetch the actual rows on demand for the few top-candidate names per athlete.
-        names_q = db.session.query(ResultMedal.athlete_name).distinct()
+        names_q = scope_result_medals_query(
+            db.session.query(ResultMedal.athlete_name).distinct(),
+            event_name=args.event_name,
+            event_ibjjf_id=args.event_ibjjf_id,
+        )
         if args.event_name:
-            names_q = names_q.filter(
-                ResultMedal.event_name.ilike(f"%{args.event_name}%")
-            )
             print(f"  filtering to event_name ILIKE %{args.event_name}%", flush=True)
+        if args.event_ibjjf_id:
+            print(f"  filtering to event_ibjjf_id={args.event_ibjjf_id}", flush=True)
         all_names = sorted(n for (n,) in names_q.all())
         print(f"  {len(all_names)} distinct names", flush=True)
 
@@ -207,7 +248,7 @@ def main():
 
         # Ordering by id is required so --resume picks up deterministically
         # after an interruption.
-        athletes_q = db.session.query(Athlete).order_by(Athlete.id)
+        athletes_q = build_athlete_rows_query(db.session)
         if args.athlete_id:
             athletes_q = athletes_q.filter(Athlete.id == args.athlete_id)
         if resume_from_id is not None:
@@ -283,7 +324,12 @@ def main():
             # use it — but rollback nukes the WHOLE transaction, taking out
             # earlier flushed inserts for this athlete. Defer creation until
             # we're certain we'll insert a Medal.
-            event = lib.find_event(db.session, rm.event_name, rm.event_ibjjf_id)
+            event_key = (rm.event_ibjjf_id, rm.event_name)
+            if event_key not in event_cache:
+                event_cache[event_key] = lib.find_event(
+                    db.session, rm.event_name, rm.event_ibjjf_id
+                )
+            event = event_cache[event_key]
 
             tentative_date = lib.tentative_event_date(
                 db.session, rm.event_name, event=event, cache=event_when_cache
@@ -311,15 +357,28 @@ def main():
                     if event is None:
                         try:
                             event = lib.create_medals_only_event(
-                                db.session, rm.event_name
+                                db.session,
+                                rm.event_name,
+                                event_ibjjf_id=rm.event_ibjjf_id,
                             )
+                            event_cache[event_key] = event
                         except ValueError:
                             return "skipped"
-                    team = lib.find_or_create_team(db.session, rm.team_name)
-                    happened_at = lib.compute_happened_at(
-                        db.session, athlete.id, event, rm.event_name
+                    team = lib.find_or_create_team(
+                        db.session, rm.team_name, cache=team_cache
                     )
-                    default_gold = lib.compute_default_gold(db.session, rm)
+                    happened_at_key = (athlete.id, event.id)
+                    if happened_at_key not in happened_at_cache:
+                        happened_at_cache[happened_at_key] = lib.compute_happened_at(
+                            db.session, athlete.id, event, rm.event_name
+                        )
+                    happened_at = happened_at_cache[happened_at_key]
+                    default_gold_key = (rm.event_name, rm.division, rm.place)
+                    if default_gold_key not in default_gold_cache:
+                        default_gold_cache[default_gold_key] = lib.compute_default_gold(
+                            db.session, rm
+                        )
+                    default_gold = default_gold_cache[default_gold_key]
                     lib.insert_medal(
                         db.session,
                         athlete_id=athlete.id,
@@ -383,13 +442,13 @@ def main():
 
             # ---- Pass 1: known-alias matches ----
             for cand_name in alias_raw_names:
-                rms_q = db.session.query(ResultMedal).filter(
-                    ResultMedal.athlete_name == cand_name
+                rms_q = scope_result_medals_query(
+                    db.session.query(ResultMedal).filter(
+                        ResultMedal.athlete_name == cand_name
+                    ),
+                    event_name=args.event_name,
+                    event_ibjjf_id=args.event_ibjjf_id,
                 )
-                if args.event_name:
-                    rms_q = rms_q.filter(
-                        ResultMedal.event_name.ilike(f"%{args.event_name}%")
-                    )
                 rms_for_name = rms_q.all()
                 for rm in rms_for_name:
                     result = try_import_rm(
@@ -440,11 +499,13 @@ def main():
                         break
                     is_auto = cand_name in auto_names
 
-                    rms_for_name = (
-                        db.session.query(ResultMedal)
-                        .filter(ResultMedal.athlete_name == cand_name)
-                        .all()
-                    )
+                    rms_for_name = scope_result_medals_query(
+                        db.session.query(ResultMedal).filter(
+                            ResultMedal.athlete_name == cand_name
+                        ),
+                        event_name=args.event_name,
+                        event_ibjjf_id=args.event_ibjjf_id,
+                    ).all()
                     for rm in rms_for_name:
                         result = try_import_rm(
                             rm,

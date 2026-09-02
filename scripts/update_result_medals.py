@@ -33,8 +33,18 @@ def parse_args():
         help="Four-digit result year to scrape. Default: current UTC year.",
     )
     parser.add_argument(
+        "--source",
+        choices=["all", "ibjjf", "cbjj"],
+        default="all",
+        help="Which result index(es) to scrape. Default: all.",
+    )
+    parser.add_argument(
         "--tournament",
         help="Only scrape event-years whose tournament name contains this substring.",
+    )
+    parser.add_argument(
+        "--championship-id",
+        help="Only scrape the IBJJF championship with this exact numeric ID.",
     )
     parser.add_argument(
         "--limit",
@@ -105,13 +115,21 @@ def insert_new_rows(session, rows):
     return len(new_rows), len(rows) - len(new_rows)
 
 
-def run_update(year, tournament=None, limit=None, batch_size=DEFAULT_BATCH_SIZE):
-    print(f"Updating result_medals for {year} from IBJJF and CBJJ.", flush=True)
+def run_update(
+    year,
+    source="all",
+    tournament=None,
+    championship_id=None,
+    limit=None,
+    batch_size=DEFAULT_BATCH_SIZE,
+):
+    print(f"Updating result_medals for {year} from source={source}.", flush=True)
     scrape_session = get_medals.make_session()
     links = get_medals.build_result_links(
-        source="all",
+        source=source,
         year=str(year),
         tournament=tournament,
+        championship_id=championship_id,
         limit=limit,
         session=scrape_session,
     )
@@ -168,7 +186,9 @@ def main():
     with app.app_context():
         run_update(
             year=args.year,
+            source=args.source,
             tournament=args.tournament,
+            championship_id=args.championship_id,
             limit=args.limit,
             batch_size=args.batch_size,
         )

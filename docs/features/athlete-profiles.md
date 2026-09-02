@@ -64,6 +64,11 @@ Admin:
 - `scripts/get_all_photos.py` finds athletes with `instagram_profile` but no
   `profile_image_saved_at`, downloads Instagram profile photos, uploads them to
   S3, and logs failures to `get_all_photos_errors.log`.
+- `scripts/get_medals.py`, `scripts/update_result_medals.py`, and
+  `scripts/match_historical_medals.py` scrape medal source rows, append new
+  `result_medals`, and create high-confidence historical `medals`. For an
+  isolated historical event, follow
+  `docs/workflows/INCREMENTAL_SINGLE_TOURNAMENT_MEDALS.md`.
 
 ## Frontend APIs
 
@@ -252,6 +257,14 @@ Issues that have already surfaced in git history:
   distinct `result_medals.athlete_name` values before applying its first/last
   token guard. Filtering the original database column with normalized tokens
   drops accented names such as `Fredson Paixão`.
+- Historical matcher event scoping must be applied to the initial distinct-name
+  query and to both the alias and fuzzy row queries. Filtering only the name
+  index can let a fuzzy candidate pull same-named rows from unrelated events.
+- The historical batch matcher must keep its full athlete scan out of the ORM
+  identity map. It commits after athletes with imports; loading every `Athlete`
+  ORM object causes each commit to expire the full population and makes a real
+  run dramatically slower than its no-commit dry run. Keep the lightweight
+  selected-column rows and the non-expiring static caches in place.
 - `221a55b` added athlete media coverage, including admin title fetching and
   profile rendering.
 - `07776ef` expanded media coverage types and added the Portuguese flag; keep

@@ -39,6 +39,12 @@ import medal_import_lib as lib
 
 
 class PureFunctionTestCase(unittest.TestCase):
+    def test_nacional_open_portugal_uses_known_event_date(self):
+        self.assertEqual(
+            lib.tentative_event_date(None, "Nacional Open Portugal 2023"),
+            datetime(2023, 12, 16),
+        )
+
     def test_is_no_gi_event_matches_variants(self):
         self.assertTrue(
             lib.is_no_gi_event("World IBJJF Jiu-Jitsu No-Gi Championship 2024")
@@ -622,6 +628,17 @@ class LibDbTestCase(TestDbMixin, unittest.TestCase):
             db.session.commit()
             self.assertEqual(db.session.query(Team).count(), before)
 
+    def test_find_or_create_team_reuses_optional_cache(self):
+        with self.app_module.app.app_context():
+            cache = {}
+            first = lib.find_or_create_team(db.session, "Test Team", cache=cache)
+            db.session.expunge(first)
+
+            second = lib.find_or_create_team(db.session, "Test Team", cache=cache)
+
+            self.assertIs(second, first)
+            self.assertEqual(cache["test team"].id, self.team_id)
+
     def test_find_or_create_team_creates_new(self):
         with self.app_module.app.app_context():
             t = lib.find_or_create_team(db.session, "Brand New Academy")
@@ -959,9 +976,12 @@ class LibDbTestCase(TestDbMixin, unittest.TestCase):
 
     def test_create_medals_only_event(self):
         with self.app_module.app.app_context():
-            evt = lib.create_medals_only_event(db.session, "Some Fresh Open 2017")
+            evt = lib.create_medals_only_event(
+                db.session, "Some Fresh Open 2017", event_ibjjf_id="fresh-2017"
+            )
             db.session.commit()
             self.assertTrue(evt.medals_only)
+            self.assertEqual(evt.ibjjf_id, "fresh-2017")
             self.assertEqual(evt.name, "Some Fresh Open 2017")
             self.assertEqual(evt.normalized_name, "some fresh open 2017")
             self.assertTrue(evt.slug.startswith("some-fresh-open-2017"))

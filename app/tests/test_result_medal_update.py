@@ -12,7 +12,7 @@ sys.path.insert(
 )
 
 from extensions import db
-from models import ResultMedal
+from models import Athlete, ResultMedal
 from test_db import TestDbMixin
 
 import get_medals
@@ -34,6 +34,20 @@ NEW_FORMAT_HTML = """
 
 
 class ResultMedalScraperTestCase(unittest.TestCase):
+    def test_build_result_links_can_target_one_exact_championship(self):
+        with mock.patch("get_medals.fetch", return_value="<html></html>"):
+            links = get_medals.build_result_links(
+                source="ibjjf",
+                year="2023",
+                championship_id="2354",
+                session=mock.Mock(),
+                log=lambda _msg: None,
+            )
+
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0]["tournament"], "Nacional Open Portugal")
+        self.assertEqual(get_medals.extract_championship_id(links[0]["url"]), "2354")
+
     def test_iter_result_medal_rows_uses_link_metadata_and_stable_id(self):
         links = [
             {
@@ -103,3 +117,63 @@ class ResultMedalUpdateTestCase(TestDbMixin, unittest.TestCase):
             medal = db.session.get(ResultMedal, row_id)
             self.assertIsNotNone(medal)
             self.assertEqual(medal.scraped_at, datetime(2026, 5, 27, 12, 0, 0))
+
+    def test_historical_match_scope_filters_exact_event_id(self):
+        import match_historical_medals
+
+        shared = {
+            "event_name": "Nacional Open Portugal 2023",
+            "division": "BLACK / Adult / Male / Feather",
+            "athlete_name": "Scoped Athlete",
+            "team_name": "Scoped Team",
+            "place": 1,
+            "source": "ibjjf",
+            "scraped_at": datetime(2026, 9, 2, 12, 0, 0),
+        }
+        with self.app_module.app.app_context():
+            db.session.add_all(
+                [
+                    ResultMedal(id=uuid.uuid4(), event_ibjjf_id="2354", **shared),
+                    ResultMedal(id=uuid.uuid4(), event_ibjjf_id="other", **shared),
+                ]
+            )
+            db.session.flush()
+
+            rows = match_historical_medals.scope_result_medals_query(
+                db.session.query(ResultMedal),
+                event_name="Nacional Open Portugal 2023",
+                event_ibjjf_id="2354",
+            ).all()
+
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].event_ibjjf_id, "2354")
+
+    def test_historical_match_athlete_scan_is_not_identity_mapped(self):
+        import match_historical_medals
+
+        athlete_id = uuid.uuid4()
+        with self.app_module.app.app_context():
+            db.session.add(
+                Athlete(
+                    id=athlete_id,
+                    name="Lightweight Query Athlete",
+                    normalized_name="lightweight query athlete",
+                    slug=f"lightweight-query-athlete-{athlete_id}",
+                )
+            )
+            db.session.commit()
+            db.session.expunge_all()
+
+            rows = (
+                match_historical_medals.build_athlete_rows_query(db.session)
+                .filter(Athlete.id == athlete_id)
+                .all()
+            )
+
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].id, athlete_id)
+            self.assertFalse(
+                any(
+                    isinstance(obj, Athlete) for obj in db.session.identity_map.values()
+                )
+            )
