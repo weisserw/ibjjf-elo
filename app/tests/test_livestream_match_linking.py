@@ -1257,6 +1257,80 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(positions["Franklin Armando Lopez Chavez"], "top")
         self.assertEqual(positions["Robert Wilson Peters"], "bottom")
 
+    def test_positions_use_consensus_after_timer_starts(self):
+        matches = self._match_setup(
+            pairs=[("Pablo Mesples", "Brandon Sean Epps")],
+            match_offsets=[30],
+        )
+        _, scan = self._stored_events(
+            [
+                self._event_data(
+                    10,
+                    scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                    timer_state="stopped",
+                    timer_value="5:00",
+                    top_points=0,
+                    top_advantages=0,
+                    top_penalties=0,
+                    bottom_points=0,
+                    bottom_advantages=0,
+                    bottom_penalties=0,
+                    top_athlete_name="Rable Meapies",
+                    bottom_athlete_name="Brapden Saan Frps",
+                ),
+                self._event_data(
+                    31,
+                    timer_state="running",
+                    timer_value="4:59",
+                    top_athlete_name="Rable Meapies",
+                    bottom_athlete_name="Brapden Saan Frps",
+                ),
+                self._event_data(
+                    41,
+                    top_athlete_name="Braeden Saan Frps",
+                    bottom_athlete_name="Rabln Mesples",
+                ),
+                self._event_data(
+                    51,
+                    top_athlete_name="Brandon Sean Epps",
+                    bottom_athlete_name="Pabln Mesples",
+                ),
+                self._event_data(
+                    90,
+                    timer_state="stopped",
+                    timer_value="3:59",
+                    bottom_points=3,
+                    top_athlete_name="Rable Meapies",
+                    bottom_athlete_name="Brapden Saan Frps",
+                ),
+                self._event_data(
+                    100,
+                    top_athlete_name="Pabln Mespies",
+                    bottom_athlete_name="Braeden Saan Frps",
+                ),
+                self._event_data(
+                    110,
+                    top_athlete_name="Pabln Mesples",
+                    bottom_athlete_name="Brandon Sean Epps",
+                ),
+            ]
+        )
+
+        summary = link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        linked_match = db.session.get(Match, matches[0].id)
+        positions = {
+            participant.athlete.name: participant.scoreboard_position
+            for participant in MatchParticipant.query.filter_by(
+                match_id=linked_match.id
+            ).all()
+        }
+        self.assertEqual(summary.linked, 1)
+        self.assertEqual(linked_match.final_bottom_points, 3)
+        self.assertEqual(positions["Brandon Sean Epps"], "top")
+        self.assertEqual(positions["Pablo Mesples"], "bottom")
+
     def test_ambiguous_repeated_athlete_without_bottom_name_is_not_linked(self):
         matches = self._match_setup()
         _, scan = self._stored_events(

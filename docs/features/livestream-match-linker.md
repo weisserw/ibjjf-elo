@@ -12,12 +12,15 @@ windows, chooses the most likely scheduled match for each window, and stores:
 - `Match.final_top_*` and `Match.final_bottom_*` score fields.
 - `MatchParticipant.scoreboard_position` as `top` or `bottom`.
 
-Participant positions are inferred from the first sufficiently confident pair
-of names OCR observes after the timer starts. Pre-start name history remains
-available for identifying the scheduled match, but it cannot override a
-scoreboard-side correction made before the clock begins. Once the initial
-window stores the positions, continuation windows do not rewrite them from
-later OCR noise.
+Participant positions are inferred from the consensus of sufficiently
+confident name pairs OCR observes while the timer is running. If no running
+observation is confident enough, the linker falls back to all post-start name
+pairs. Pre-start name history remains available for identifying the scheduled
+match, but it cannot override a scoreboard-side correction made before the
+clock begins. A single stale pair carried across the timer transition also
+cannot outweigh repeated running-clock observations; chronological order
+breaks a tied vote. Once the initial window stores the positions, continuation
+windows do not rewrite them from later OCR noise.
 
 For older tournaments whose matches contain no parseable mat numbers, candidate
 loading automatically switches to mat-less mode for that event. The linker
@@ -183,8 +186,10 @@ Useful flags:
 - `events`.
 - Deduped `top_names` and `bottom_names`.
 - Chronological `position_name_pairs` from name-bearing OCR events observed
-  after the timer starts, used to choose the first confident orientation and
-  detect repeated contradictory pairs.
+  after the timer starts, plus the subset observed while the timer is running.
+  Running-clock pairs choose the consensus confident orientation, with all
+  post-start pairs as a fallback, and chronological order breaks a tied vote.
+  The full list also detects repeated contradictory pairs.
 - `final_state`, `final_timer_seconds`, and `has_running_timer`.
 
 Final timer selection follows timer transitions rather than carried state. A
@@ -279,7 +284,9 @@ Existing real-world fixtures cover stopped score updates, linking until blank
 windows, and repeated athlete names split by blank resets. A production
 decision-stream reconstruction also covers a stale Millene / Amanda broadcast
 graphic followed by repeated Gustavo / Hyago observations. Synthetic
-regressions cover a pre-start top/bottom correction, reject later
+regressions cover a pre-start top/bottom correction, prefer repeated running-
+clock position observations over stale timer-transition and stopped-clock
+pairs, reject later
 continuation-window OCR swaps after positions have been locked, allow a
 slightly degraded exact-next match only after a confirmed predecessor, retain
 long pre-start delays with confirming or swapped names, and require more than

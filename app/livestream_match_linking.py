@@ -71,6 +71,7 @@ class MatchWindow:
     top_names: list[str]
     bottom_names: list[str]
     position_name_pairs: list[tuple[str | None, str | None]]
+    running_position_name_pairs: list[tuple[str | None, str | None]]
     final_state: TextState
     final_timer_seconds: int | None
     has_running_timer: bool
@@ -287,6 +288,8 @@ def _score_state_from_window(points: list[TimelinePoint]) -> TextState:
 
 def _position_name_pairs_from_window(
     points: list[TimelinePoint],
+    *,
+    running_only: bool = False,
 ) -> list[tuple[str | None, str | None]]:
     pairs = []
     timer_started = False
@@ -299,6 +302,8 @@ def _position_name_pairs_from_window(
             if not timer_started:
                 continue
         if not _event_has_any_name(point.event):
+            continue
+        if running_only and point.state.timer_state != "running":
             continue
 
         top_name = point.state.top_athlete_name
@@ -421,6 +426,9 @@ def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchW
                 top_names=_dedupe(names_top),
                 bottom_names=_dedupe(names_bottom),
                 position_name_pairs=_position_name_pairs_from_window(points),
+                running_position_name_pairs=_position_name_pairs_from_window(
+                    points, running_only=True
+                ),
                 final_state=final_state,
                 final_timer_seconds=final_timer_seconds,
                 has_running_timer=running_timer_start_second is not None,
@@ -481,12 +489,13 @@ def _oriented_name_scores(
     )
 
 
-def _locked_participant_orientation(
-    window: MatchWindow,
+def _confident_participant_orientation(
+    position_name_pairs: list[tuple[str | None, str | None]],
     first: MatchParticipant,
     second: MatchParticipant,
 ) -> tuple[MatchParticipant, MatchParticipant] | None:
-    for top_name, bottom_name in window.position_name_pairs:
+    first_top_votes = []
+    for top_name, bottom_name in position_name_pairs:
         if not top_name or not bottom_name:
             continue
 
@@ -506,10 +515,31 @@ def _locked_participant_orientation(
             continue
         if abs(first_top_score - second_top_score) < MIN_SCORE_MARGIN:
             continue
-        if first_top_score > second_top_score:
-            return first, second
-        return second, first
-    return None
+        first_top_votes.append(first_top_score > second_top_score)
+
+    if not first_top_votes:
+        return None
+
+    first_top_count = sum(first_top_votes)
+    second_top_count = len(first_top_votes) - first_top_count
+    if first_top_count == second_top_count:
+        first_is_top = first_top_votes[0]
+    else:
+        first_is_top = first_top_count > second_top_count
+    return (first, second) if first_is_top else (second, first)
+
+
+def _locked_participant_orientation(
+    window: MatchWindow,
+    first: MatchParticipant,
+    second: MatchParticipant,
+) -> tuple[MatchParticipant, MatchParticipant] | None:
+    running_orientation = _confident_participant_orientation(
+        window.running_position_name_pairs, first, second
+    )
+    if running_orientation is not None:
+        return running_orientation
+    return _confident_participant_orientation(window.position_name_pairs, first, second)
 
 
 def _choice_for_candidate(window: MatchWindow, candidate: Candidate) -> MatchChoice:
