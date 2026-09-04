@@ -148,3 +148,7 @@ Do not run `make test-ocr` unless OCR/livestream text scan code changed. Do not 
 - If adding response fields, update `BracketUtils.ts` and both routes.
 - If changing bracket slot geometry, add exact regression tests to `app/tests/test_seeding.py` using observed IBJJF rows.
 - If changing hypothetical behavior, update or extend `app/tests/test_brackets_hypothetical_seed_api.py`.
+- Keep registration calculation changes inside
+  `build_registration_prediction()` in `app/routes/brackets.py`. The public API
+  and live bracket audit both use this service so their reference date, medal
+  cutoff, criteria, side swaps, and bracket geometry do not drift.

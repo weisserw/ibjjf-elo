@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Bracket Audit — {{ run.tournament_name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='bracket_audit.css') }}">
+<div class="container mt-6 mb-6">
+    <div class="is-flex is-justify-content-space-between is-align-items-start mb-4">
+        <div>
+            <h1 class="title is-3 mb-2">{{ run.tournament_name }}</h1>
+            <p class="subtitle is-6 mt-3">Live bracket seeding and layout audit · {{ run.status }}</p>
+        </div>
+        <div class="buttons">
+            {% if run.background_task_id %}<a class="button is-link is-light" href="{{ url_for('task_detail', task_id=run.background_task_id) }}">Task log</a>{% endif %}
+            {% if run.registration_link %}<a class="button is-link is-light" href="{{ run.registration_link.link }}" target="_blank" rel="noopener">Registration source</a>{% endif %}
+            <a class="button is-light" href="{{ url_for('bracket_audits') }}">All audits</a>
+            {% if run.background_task and run.background_task.status in ['queued', 'running'] %}
+            <button class="button is-danger is-light" type="button" disabled title="Wait for the audit task to finish before deleting this report.">Delete report</button>
+            {% else %}
+            <form method="POST" action="{{ url_for('delete_bracket_audit', run_id=run.id) }}" onsubmit="return confirm('Delete this bracket audit report? This cannot be undone.');">
+                <button class="button is-danger is-light" type="submit">Delete report</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if run.fatal_error %}<div class="notification is-danger">{{ run.fatal_error }}</div>{% endif %}
+    <div class="field is-grouped mb-4 bracket-audit-filters">
+        <div class="control">
+            <label class="checkbox"><input id="show-pending-audits" type="checkbox"> Show pending</label>
+        </div>
+        <div class="control">
+            <label class="checkbox"><input id="show-correct-audits" type="checkbox"> Show correct</label>
+        </div>
+    </div>
+
+    <div class="columns is-multiline bracket-audit-summary">
+        {% set cards = [
+            ('Clean', run.clean_category_count, 'is-success'),
+            ('Points mismatch', run.criteria_mismatch_count, 'is-danger'),
+            ('Tie only', run.tie_only_count, 'is-info'),
+            ('Layout mismatch', run.layout_mismatch_count, 'is-warning'),
+            ('Missing table', run.missing_table_count, 'is-light'),
+            ('Unresolved', run.unresolved_category_count, 'is-dark'),
+            ('Errors', run.error_category_count, 'is-danger')
+        ] %}
+        {% for label, value, color in cards %}
+        <div class="column is-one-seventh">
+            <div class="box has-text-centered p-3 bracket-audit-summary-box"><p class="heading">{{ label }}</p><span class="tag {{ color }} is-medium">{{ value }}</span></div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="box">
+        <div class="is-flex is-justify-content-space-between">
+            <h2 class="title is-4">Categories</h2>
+            <span>{{ run.processed_category_count }}/{{ run.total_category_count }} processed</span>
+        </div>
+        <div class="table-container">
+            <table class="table is-fullwidth is-striped is-hoverable">
+                <thead><tr><th>Division</th><th>Ranking</th><th>Points</th><th>Layout</th><th>Counts</th><th>Evidence</th></tr></thead>
+                <tbody>
+                    {% for category in categories %}
+                    {% set report = reports.get(category.id, {}) %}
+                    {% set category_is_pending = category.status in ['pending', 'running'] %}
+                    {% set category_is_correct = category.status == 'complete' and category.criteria_status in ['match', 'tie_order_only'] and category.layout_status == 'exact' %}
+                    {% set points_status = 'points_mismatch' if category.criteria_status == 'criteria_mismatch' else category.criteria_status %}
+                    <tr data-audit-category-row data-audit-state="{% if category_is_pending %}pending{% elif category_is_correct %}correct{% else %}attention{% endif %}"{% if category_is_pending or category_is_correct %} hidden{% endif %}>
+                        <td>
+                            <strong>{{ category.gender or category.raw_gender }} / {{ category.age or category.raw_age }}</strong><br>
+                            {{ category.belt or category.raw_belt }} / {{ category.weight or category.raw_weight }}
+                            {% if category.error_text %}<span class="admin-error-preview has-text-danger" title="{{ category.error_text }}">{{ category.error_text }}</span>{% endif %}
+                        </td>
+                        <td><span class="tag">{{ category.ranking_status or category.status }}</span></td>
+                        <td><span class="tag {% if category.criteria_status == 'match' %}is-success{% elif category.criteria_status == 'tie_order_only' %}is-info{% elif category.criteria_status == 'criteria_mismatch' %}is-danger{% else %}is-light{% endif %}">{{ points_status or 'pending' }}</span></td>
+                        <td><span class="tag {% if category.layout_status == 'exact' %}is-success{% elif category.layout_status in ['pairing_mismatch', 'seed_coverage_mismatch'] %}is-danger{% else %}is-light{% endif %}">{{ category.layout_status or 'pending' }}</span></td>
+                        <td>
+                            {{ category.matched_competitor_count }} matched{% if category.unresolved_row_count %} · {{ category.unresolved_row_count }} unresolved{% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ category.category_url }}" target="_blank" rel="noopener">Live bracket</a>
+                            {% if report %} / <a href="#category-{{ category.id }}">Details</a>{% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6">{% if run.status in ['complete', 'partial'] %}No categories with at least four athletes.{% else %}Categories have not been discovered yet. Refresh this page for progress.{% endif %}</td></tr>
+                    {% endfor %}
+                    {% if categories %}
+                    <tr id="audit-filter-empty" hidden><td colspan="6">All categories are hidden by the current filters.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% for category in categories %}
+    {% set report = reports.get(category.id, {}) %}
+    {% set category_is_pending = category.status in ['pending', 'running'] %}
+    {% set category_is_correct = category.status == 'complete' and category.criteria_status in ['match', 'tie_order_only'] and category.layout_status == 'exact' %}
+    {% set points_status = 'points_mismatch' if category.criteria_status == 'criteria_mismatch' else category.criteria_status %}
+    {% if report %}
+    <details class="box" id="category-{{ category.id }}" data-audit-category-detail data-audit-state="{% if category_is_pending %}pending{% elif category_is_correct %}correct{% else %}attention{% endif %}"{% if category_is_pending or category_is_correct %} hidden{% endif %}>
+        <summary class="is-clickable"><strong>{{ category.gender }} / {{ category.age }} / {{ category.belt }} / {{ category.weight }}</strong> — {{ points_status }}; {{ category.layout_status }}</summary>
+        {% set criteria = report.get('criteria', {}) %}
+        {% if criteria.get('rows') %}
+        <h3 class="title is-6 mt-4">Competitor comparison</h3>
+        <div class="table-container">
+            <table class="table is-fullwidth is-narrow">
+                <thead><tr><th>Official</th><th>Registration prediction</th><th>Status</th><th>Differences</th><th>Links</th></tr></thead>
+                <tbody>
+                    {% for row in criteria.get('rows', []) %}
+                    {% set official = row.get('official') or {} %}
+                    {% set predicted = row.get('predicted') or {} %}
+                    <tr class="{% if row.get('differences') %}has-background-danger-light{% endif %}">
+                        <td>{% if official %}#{{ official.get('official_rank') }} {{ official.get('name') }}<br><small>{{ official.get('team') }}</small>{% else %}—{% endif %}</td>
+                        <td>{% if predicted %}#{{ predicted.get('est_seed', '?') }} {{ predicted.get('name') }}<br><small>{{ predicted.get('team') }}</small>{% else %}—{% endif %}</td>
+                        <td>{{ row.get('comparison_status') or row.get('status') }}</td>
+                        <td>
+                            {% for difference in row.get('differences', []) %}
+                            <div><strong>{{ difference.get('field') }}</strong>: {{ difference.get('official') }} → {{ difference.get('predicted') }}</div>
+                            {% else %}—{% endfor %}
+                            {% if row.get('reason') %}<div class="has-text-danger">{{ row.get('reason') }}</div>{% endif %}
+                        </td>
+                        <td>
+                            {% if predicted.get('slug') %}<a href="/athlete/{{ predicted.get('slug') }}" target="_blank">Athlete</a>{% endif %}
+                            {% if predicted.get('id') %}<a href="{{ url_for('athlete_medals', id=predicted.get('id')) }}">Current medals</a>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% set layout = report.get('layout', {}) %}
+        {% if category.layout_status != 'exact' %}
+        <h3 class="title is-6 mt-4">First-round layout evidence</h3>
+        {% if layout.get('reason') %}<p class="has-text-danger mb-2">{{ layout.get('reason') }}</p>{% endif %}
+        <div class="columns">
+            <div class="column"><p class="has-text-weight-semibold">Expected</p><pre>{{ layout.get('expected_slots', []) | tojson(indent=2) }}</pre></div>
+            <div class="column"><p class="has-text-weight-semibold">Actual after swaps</p><pre>{{ layout.get('actual_slots', []) | tojson(indent=2) }}</pre></div>
+        </div>
+        {% endif %}
+    </details>
+    {% endif %}
+    {% endfor %}
+</div>
+<script>
+(function () {
+    const showPending = document.getElementById('show-pending-audits');
+    const showCorrect = document.getElementById('show-correct-audits');
+    const categoryRows = Array.from(document.querySelectorAll('[data-audit-category-row]'));
+    const categoryDetails = Array.from(document.querySelectorAll('[data-audit-category-detail]'));
+    const emptyRow = document.getElementById('audit-filter-empty');
+
+    function isVisible(element) {
+        if (element.dataset.auditState === 'pending') return showPending.checked;
+        if (element.dataset.auditState === 'correct') return showCorrect.checked;
+        return true;
+    }
+
+    function applyFilters() {
+        categoryRows.forEach((row) => { row.hidden = !isVisible(row); });
+        categoryDetails.forEach((details) => { details.hidden = !isVisible(details); });
+        if (emptyRow) {
+            emptyRow.hidden = categoryRows.some((row) => !row.hidden);
+        }
+    }
+
+    showPending.addEventListener('change', applyFilters);
+    showCorrect.addEventListener('change', applyFilters);
+    applyFilters();
+})();
+</script>
+{% endblock %}

@@ -48,6 +48,8 @@ from models import (
     FloEventTag,
     FloMatLink,
     BackgroundTask,
+    BracketAuditCategory,
+    BracketAuditRun,
     LivestreamFrameArchive,
     LivestreamFrameCaptureSegment,
     LivestreamFrameTextEvent,
@@ -57,6 +59,7 @@ from models import (
     TeamNameMapping,
     AthleteMediaCoverage,
 )
+from bracket_audit import sort_layout_evidence_slots
 from livestream_frame_archive import (
     DEFAULT_ERROR_RETRY_BACKOFF_SECONDS,
     DEFAULT_FRESH_SEGMENTS_PER_ERROR_RETRY,
@@ -993,6 +996,44 @@ def _run_update_youtube_match_videos_task(task_id, args):
             db.session.commit()
 
 
+def _run_bracket_audit_task(task_id, run_id):
+    with app.app_context():
+        task = db.session.get(BackgroundTask, task_id)
+        if not task:
+            return
+        task.status = "running"
+        task.started_at = datetime.utcnow()
+        db.session.commit()
+
+        try:
+            command = [
+                "python3",
+                "scripts/audit_live_brackets.py",
+                "--run-id",
+                str(run_id),
+            ]
+            _append_task_log(task, f"$ {' '.join(command)}\n")
+            db.session.commit()
+            return_code = _run_logged_process(task, command, env=os.environ.copy())
+            task.exit_code = return_code
+            task.finished_at = datetime.utcnow()
+            task.status = "success" if return_code == 0 else "error"
+            task.pid = None
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            task = db.session.get(BackgroundTask, task_id)
+            if not task:
+                return
+            _append_task_log(task, f"\nUnexpected error: {exc}\n")
+            _append_task_log(task, traceback.format_exc())
+            task.exit_code = -1
+            task.finished_at = datetime.utcnow()
+            task.status = "error"
+            task.pid = None
+            db.session.commit()
+
+
 def _run_update_front_page_video_counter_task(task_id):
     with app.app_context():
         task = db.session.get(BackgroundTask, task_id)
@@ -1285,6 +1326,139 @@ def tasks_index():
         selected_task_type=selected_task_type,
         task_types=task_types,
     )
+
+
+@app.route("/bracket_audits", methods=["GET", "POST"])
+def bracket_audits():
+    error = None
+    if request.method == "POST":
+        tournament_id = (request.form.get("tournament_id") or "").strip()
+        tournament_name = (request.form.get("tournament_name") or "").strip()
+        gi = request.form.get("gi_mode", "gi") == "gi"
+        registration_link_id = request.form.get("registration_link_id")
+
+        registration_link = None
+        if registration_link_id:
+            try:
+                registration_link = db.session.get(
+                    RegistrationLink, uuid.UUID(registration_link_id)
+                )
+            except ValueError:
+                registration_link = None
+        elif tournament_id:
+            candidates = RegistrationLink.query.filter_by(event_id=tournament_id).all()
+            if len(candidates) == 1:
+                registration_link = candidates[0]
+
+        if not tournament_id or not tournament_name:
+            error = "Tournament ID and name are required."
+        elif registration_link is None:
+            error = "Select a registration source for this tournament."
+        elif registration_link.event_id and registration_link.event_id != tournament_id:
+            error = "The registration source belongs to a different tournament."
+
+        if error is None:
+            task = BackgroundTask(task_type="bracket_audit", status="queued")
+            db.session.add(task)
+            db.session.flush()
+            run = BracketAuditRun(
+                background_task_id=task.id,
+                registration_link_id=registration_link.id,
+                tournament_id=tournament_id,
+                tournament_name=tournament_name,
+                gi=gi,
+                status="pending",
+                registration_source_at=registration_link.updated_at,
+            )
+            db.session.add(run)
+            db.session.flush()
+            task.params_json = json.dumps(
+                {
+                    "run_id": str(run.id),
+                    "tournament_id": tournament_id,
+                    "tournament_name": tournament_name,
+                    "registration_link_id": str(registration_link.id),
+                }
+            )
+            db.session.commit()
+            thread = threading.Thread(
+                target=_run_bracket_audit_task,
+                args=(task.id, run.id),
+                daemon=True,
+            )
+            thread.start()
+            return redirect(url_for("bracket_audit_detail", run_id=run.id))
+
+    runs = (
+        BracketAuditRun.query.order_by(BracketAuditRun.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    registration_links = (
+        RegistrationLink.query.filter(RegistrationLink.hidden.isnot(True))
+        .order_by(RegistrationLink.updated_at.desc())
+        .limit(250)
+        .all()
+    )
+    return render_template(
+        "bracket_audits.html",
+        runs=runs,
+        registration_links=registration_links,
+        error=error,
+    )
+
+
+@app.route("/bracket_audits/<run_id>")
+def bracket_audit_detail(run_id):
+    try:
+        parsed_id = uuid.UUID(run_id)
+    except ValueError:
+        abort(404)
+    run = db.session.get(BracketAuditRun, parsed_id)
+    if run is None:
+        abort(404)
+    categories = (
+        BracketAuditCategory.query.filter_by(run_id=run.id)
+        .filter(BracketAuditCategory.status != "skipped")
+        .order_by(
+            BracketAuditCategory.gender,
+            BracketAuditCategory.age,
+            BracketAuditCategory.belt,
+            BracketAuditCategory.weight,
+        )
+        .all()
+    )
+    reports = {}
+    for category in categories:
+        report = category.report
+        layout = report.get("layout", {})
+        for key in ("expected_slots", "actual_slots"):
+            if layout.get(key) is not None:
+                layout[key] = sort_layout_evidence_slots(layout[key])
+        reports[category.id] = report
+    return render_template(
+        "bracket_audit_detail.html",
+        run=run,
+        categories=categories,
+        reports=reports,
+    )
+
+
+@app.route("/bracket_audits/<run_id>/delete", methods=["POST"])
+def delete_bracket_audit(run_id):
+    try:
+        parsed_id = uuid.UUID(run_id)
+    except ValueError:
+        abort(404)
+    run = db.session.get(BracketAuditRun, parsed_id)
+    if run is None:
+        abort(404)
+    if run.background_task and run.background_task.status in {"queued", "running"}:
+        abort(409, description="A running bracket audit cannot be deleted.")
+
+    db.session.delete(run)
+    db.session.commit()
+    return redirect(url_for("bracket_audits"))
 
 
 @app.route("/tasks/update-front-page-video-counter", methods=["POST"])

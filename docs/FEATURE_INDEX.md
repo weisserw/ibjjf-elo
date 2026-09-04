@@ -3,6 +3,7 @@
 - [Athlete Profiles](features/athlete-profiles.md) - End-user athlete pages, profile payload APIs, admin edits, Instagram/S3 photos, medals, media coverage, tests, and regression history.
 - [Athlete Rankings](features/athlete-rankings.md) - Stored athlete ranking boards, EloTable APIs, profile/bracket rating consumers, generation flow, tests, and regression history.
 - [Bracket Predictor](features/bracket-predictor.md) - Registration-based bracket previews, hypothetical athlete seeding, side swaps, and bracket layout.
+- [Live Bracket Audits](features/bracket-audits.md) - Admin-only immutable comparisons of official seeding criteria and first-round geometry against registration predictions.
 - [Bracket Tree](features/bracket-tree.md) - Shared zoomable tree rendering for live, registration, and archive bracket views.
 - [Bracket Views](features/bracket-views.md) - Live, registration, and archive tournament bracket views, their APIs, shared data shapes, tests, and regression history.
 - [Database View](features/database-view.md) - End-user match results tab, filters, row links, responsive table/card rendering, and match detail entry points.

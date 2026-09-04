@@ -289,3 +289,6 @@ Git history shows several recurring risk areas:
   `docs/workflows/BRACKET_LAYOUT_REVERSE_ENGINEERING.md`.
 - When changing score/video links, check the livestream match-linking docs and
   tests because archive/live brackets expose those links directly.
+- Published same-team swaps must be composed in document order. The shared
+  helpers in `app/bracket_audit.py` replace the old flat two-way dictionary,
+  which lost seed coverage when a seed appeared in multiple swaps.

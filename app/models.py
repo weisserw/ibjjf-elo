@@ -445,6 +445,119 @@ class BracketPage(db.Model):
     )
 
 
+class BracketAuditRun(db.Model):
+    __tablename__ = "bracket_audit_runs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    background_task_id = Column(
+        UUID(as_uuid=True), ForeignKey("background_tasks.id"), nullable=True
+    )
+    registration_link_id = Column(
+        UUID(as_uuid=True), ForeignKey("registration_links.id"), nullable=True
+    )
+    tournament_id = Column(String, nullable=False)
+    tournament_name = Column(String, nullable=False)
+    gi = Column(Boolean, nullable=False)
+    status = Column(String, nullable=False, default="pending")
+    registration_source_at = Column(DateTime, nullable=True)
+    seeding_reference_date = Column(DateTime, nullable=True)
+    medal_cutoff = Column(DateTime, nullable=True)
+    total_category_count = Column(Integer, nullable=False, default=0)
+    discovered_category_count = Column(Integer, nullable=False, default=0)
+    processed_category_count = Column(Integer, nullable=False, default=0)
+    error_category_count = Column(Integer, nullable=False, default=0)
+    clean_category_count = Column(Integer, nullable=False, default=0)
+    criteria_mismatch_count = Column(Integer, nullable=False, default=0)
+    tie_only_count = Column(Integer, nullable=False, default=0)
+    layout_mismatch_count = Column(Integer, nullable=False, default=0)
+    missing_table_count = Column(Integer, nullable=False, default=0)
+    unresolved_category_count = Column(Integer, nullable=False, default=0)
+    fatal_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    background_task = relationship("BackgroundTask")
+    registration_link = relationship("RegistrationLink")
+    categories = relationship(
+        "BracketAuditCategory",
+        back_populates="run",
+        cascade="all, delete-orphan",
+        order_by="BracketAuditCategory.id",
+    )
+
+    __table_args__ = (
+        Index("ix_bracket_audit_runs_created_at", "created_at"),
+        Index("ix_bracket_audit_runs_status", "status"),
+        Index("ix_bracket_audit_runs_tournament", "tournament_id"),
+    )
+
+
+class BracketAuditCategory(db.Model):
+    __tablename__ = "bracket_audit_categories"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("bracket_audit_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    external_category_id = Column(String, nullable=True)
+    category_url = Column(String, nullable=False)
+    gender = Column(String, nullable=True)
+    age = Column(String, nullable=True)
+    belt = Column(String, nullable=True)
+    weight = Column(String, nullable=True)
+    raw_gender = Column(String, nullable=True)
+    raw_age = Column(String, nullable=True)
+    raw_belt = Column(String, nullable=True)
+    raw_weight = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="pending")
+    cache_saved_at = Column(DateTime, nullable=True)
+    error_text = Column(Text, nullable=True)
+    seeding_variant = Column(String, nullable=True)
+    normalized_headers_json = Column(Text, nullable=True)
+    unmapped_headers_json = Column(Text, nullable=True)
+    official_competitor_count = Column(Integer, nullable=True)
+    parsed_bracket_size = Column(Integer, nullable=True)
+    theoretical_bracket_size = Column(Integer, nullable=True)
+    ranking_status = Column(String, nullable=True)
+    reconciliation_status = Column(String, nullable=True)
+    criteria_status = Column(String, nullable=True)
+    layout_status = Column(String, nullable=True)
+    matched_competitor_count = Column(Integer, nullable=False, default=0)
+    mismatched_competitor_count = Column(Integer, nullable=False, default=0)
+    unresolved_row_count = Column(Integer, nullable=False, default=0)
+    differing_criteria_count = Column(Integer, nullable=False, default=0)
+    report_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    run = relationship("BracketAuditRun", back_populates="categories")
+
+    __table_args__ = (
+        UniqueConstraint("run_id", "category_url", name="uq_bracket_audit_run_url"),
+        Index("ix_bracket_audit_categories_run", "run_id"),
+        Index("ix_bracket_audit_categories_status", "status"),
+    )
+
+    @property
+    def report(self):
+        try:
+            return json.loads(self.report_json or "{}")
+        except (TypeError, json.JSONDecodeError):
+            return {}
+
+    @report.setter
+    def report(self, value):
+        self.report_json = json.dumps(value, cls=JSONEncoder, default=str)
+
+
 class RegistrationLink(db.Model):
     __tablename__ = "registration_links"
 

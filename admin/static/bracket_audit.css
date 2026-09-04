@@ -1,0 +1,17 @@
+[data-audit-category-detail][hidden] {
+    display: none;
+}
+
+.bracket-audit-filters .checkbox {
+    font-size: 1.1rem;
+}
+
+@media screen and (min-width: 769px) and (max-width: 1407px) {
+    .bracket-audit-summary-box {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 94px;
+    }
+}

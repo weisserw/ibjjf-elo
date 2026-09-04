@@ -82,6 +82,7 @@ from seeding import (
     add_side_swaps,
     collect_athlete_medal_details,
 )
+from bracket_audit import composed_seed_swap_mapping, parse_team_swaps
 
 log = logging.getLogger("ibjjf")
 
@@ -93,7 +94,6 @@ validibjjfdblink = re.compile(
     r"^(https://www.ibjjfdb.com/ChampionshipResults/\d+/PublicRegistrations)(\?lang=[a-zA-Z-]*)?$"
 )
 weightre = re.compile(r"\s+\(.*\)$")
-swap_seed_re = re.compile(r"^\s*(\d+)\b")
 
 
 def format_division(divdata):
@@ -1496,6 +1496,75 @@ def _optional_s3_client():
     return get_s3_client()
 
 
+def build_registration_prediction(
+    link,
+    division,
+    gi,
+    s3_client=None,
+    now=None,
+    registration_link_record=None,
+):
+    """Build the registration bracket payload used by both the API and audits."""
+    divdata = parse_division(division)
+    use_persisted_rows = registration_link_record is not None and divdata[
+        "weight"
+    ] not in {OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY}
+    if use_persisted_rows:
+        rows = internal_registration_competitors(
+            registration_link_record.link, divdata, gi
+        )
+    else:
+        rows, divdata = _registration_rows_for_division(link, division, gi)
+    event_start_date = _registration_seeding_start_date(link)
+    reference_now = now or datetime.now()
+    seeding_reference_date = (
+        min(reference_now, event_start_date) if event_start_date else reference_now
+    )
+
+    get_ratings(
+        rows,
+        None,
+        gi,
+        seeding_reference_date,
+        False,
+        s3_client,
+    )
+
+    if divdata["age"] in {JUVENILE, JUVENILE_1, JUVENILE_2}:
+        swap_info = {"swaps": [], "bailout_teams": []}
+    else:
+        add_seeding_data(
+            rows,
+            divdata,
+            gi,
+            now=seeding_reference_date,
+            medal_cutoff=event_start_date,
+        )
+        add_estimated_seeds(rows, divdata)
+        swap_info = add_side_swaps(rows)
+
+    slots, bracket_size = _bracket_slots(len(rows))
+    payload = {
+        "competitors": rows,
+        "side_swaps": swap_info["swaps"],
+        "side_swap_bailout_teams": swap_info["bailout_teams"],
+        "bracket_slots": slots,
+        "bracket_match_count": bracket_size - 1 if bracket_size else None,
+    }
+    provenance = {
+        "divdata": divdata,
+        "seeding_reference_date": seeding_reference_date,
+        "medal_cutoff": event_start_date,
+        "registration_link_id": (
+            registration_link_record.id if registration_link_record else None
+        ),
+        "registration_source_kind": (
+            "persisted_import" if use_persisted_rows else "cached_registration_page"
+        ),
+    }
+    return payload, provenance
+
+
 def _latest_athlete_team_name(athlete_id):
     row = (
         db.session.query(Team.name)
@@ -1523,58 +1592,15 @@ def registration_competitors():
     s3_client = _optional_s3_client()
 
     try:
-        rows, divdata = _registration_rows_for_division(link, division, gi)
+        payload, _ = build_registration_prediction(
+            link, division, gi, s3_client=s3_client
+        )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": str(e)})
 
-    event_start_date, rating_date = _registration_rating_date(link)
-
-    get_ratings(
-        rows,
-        None,
-        gi,
-        rating_date,
-        False,
-        s3_client,
-    )
-
-    seeding_reference_date = _registration_seeding_reference_date(event_start_date)
-
-    if divdata["age"] in {JUVENILE, JUVENILE_1, JUVENILE_2}:
-        slots, bracket_size = _bracket_slots(len(rows))
-        return jsonify(
-            {
-                "competitors": rows,
-                "side_swaps": [],
-                "side_swap_bailout_teams": [],
-                "bracket_slots": slots,
-                "bracket_match_count": bracket_size - 1 if bracket_size else None,
-            }
-        )
-
-    add_seeding_data(
-        rows,
-        divdata,
-        gi,
-        now=seeding_reference_date,
-        medal_cutoff=event_start_date,
-    )
-    add_estimated_seeds(rows, divdata)
-
-    swap_info = add_side_swaps(rows)
-
-    slots, bracket_size = _bracket_slots(len(rows))
-    return jsonify(
-        {
-            "competitors": rows,
-            "side_swaps": swap_info["swaps"],
-            "side_swap_bailout_teams": swap_info["bailout_teams"],
-            "bracket_slots": slots,
-            "bracket_match_count": bracket_size - 1 if bracket_size else None,
-        }
-    )
+    return jsonify(payload)
 
 
 @brackets_route.route("/api/brackets/registrations/hypothetical_seed")
@@ -2245,21 +2271,7 @@ def parse_match(match, weight):
 
 
 def parse_seed_swaps(soup):
-    seed_swaps = {}
-    for swap_list in soup.select("ul.tournament-category__swap"):
-        for item in swap_list.find_all("li", recursive=False):
-            seeds = []
-            for span in item.find_all("span"):
-                match = swap_seed_re.match(span.get_text(strip=True))
-                if match:
-                    seeds.append(int(match.group(1)))
-
-            if len(seeds) >= 2:
-                first, second = seeds[0], seeds[1]
-                seed_swaps[first] = second
-                seed_swaps[second] = first
-
-    return seed_swaps
+    return composed_seed_swap_mapping(parse_team_swaps(soup))
 
 
 def _match_side_seed(match, side, seed_swaps=None):

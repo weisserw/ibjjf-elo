@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Live Bracket Audits{% endblock %}
+{% block content %}
+<div class="container mt-6 mb-6">
+    <div class="columns">
+        <div class="column is-one-third">
+            <div class="box">
+                <h1 class="title is-4">New Live Bracket Audit</h1>
+                {% if error %}<div class="notification is-danger">{{ error }}</div>{% endif %}
+                <form method="POST">
+                    <div class="field">
+                        <label class="label">Published tournament</label>
+                        <div class="select is-fullwidth">
+                            <select id="bjjcompsystem_tournament">
+                                <option value="">Loading tournaments…</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label">Tournament ID</label>
+                        <input class="input" name="tournament_id" required>
+                    </div>
+                    <div class="field">
+                        <label class="label">Tournament name</label>
+                        <input class="input" name="tournament_name" required>
+                    </div>
+                    <div class="field">
+                        <label class="label">Registration source</label>
+                        <div class="select is-fullwidth">
+                            <select name="registration_link_id" required>
+                                <option value="">Select a source…</option>
+                                {% for link in registration_links %}
+                                <option value="{{ link.id }}" data-event-id="{{ link.event_id or '' }}">
+                                    {{ link.name }}{% if link.updated_at %} ({{ link.updated_at.strftime('%Y-%m-%d') }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <p class="help">A matching source is selected automatically when one is available.</p>
+                    </div>
+                    <div class="field">
+                        <label class="radio"><input type="radio" name="gi_mode" value="gi" checked> Gi</label>
+                        <label class="radio"><input type="radio" name="gi_mode" value="nogi"> No-Gi</label>
+                    </div>
+                    <div class="field is-grouped">
+                        <button class="button is-primary" type="submit">Start audit</button>
+                        <a class="button is-light" href="{{ url_for('index') }}">Dashboard</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="column">
+            <div class="box">
+                <h2 class="title is-4">Recent audits</h2>
+                <div class="table-container">
+                    <table class="table is-fullwidth is-striped">
+                        <thead><tr><th>Created</th><th>Tournament</th><th>Status</th><th>Progress</th><th>Differences</th><th></th></tr></thead>
+                        <tbody>
+                            {% for run in runs %}
+                            <tr>
+                                <td>{{ run.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>{{ run.tournament_name }}</td>
+                                <td>{{ run.status }}</td>
+                                <td>{{ run.processed_category_count }}/{{ run.total_category_count }}</td>
+                                <td>{{ run.criteria_mismatch_count + run.layout_mismatch_count + run.error_category_count }}</td>
+                                <td>
+                                    <div class="buttons are-small">
+                                        <a class="button is-link is-light" href="{{ url_for('bracket_audit_detail', run_id=run.id) }}">Report</a>
+                                        {% if run.background_task and run.background_task.status in ['queued', 'running'] %}
+                                        <button class="button is-danger is-light" type="button" disabled title="Wait for the audit task to finish before deleting this report.">Delete</button>
+                                        {% else %}
+                                        <form method="POST" action="{{ url_for('delete_bracket_audit', run_id=run.id) }}" onsubmit="return confirm('Delete this bracket audit report? This cannot be undone.');">
+                                            <button class="button is-danger is-light" type="submit">Delete</button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="6">No bracket audits yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    const tournament = document.getElementById('bjjcompsystem_tournament');
+    const idInput = document.querySelector('input[name="tournament_id"]');
+    const nameInput = document.querySelector('input[name="tournament_name"]');
+    const source = document.querySelector('select[name="registration_link_id"]');
+    const giInputs = document.querySelectorAll('input[name="gi_mode"]');
+
+    function selectRegistrationSource(eventId) {
+        const matches = Array.from(source.options).filter((option) => option.dataset.eventId === eventId);
+        source.value = matches.length === 1 ? matches[0].value : '';
+    }
+    function selectGi(name) {
+        const noGi = /no[ -]?gi|sem kimono/i.test(name);
+        giInputs.forEach((input) => { input.checked = input.value === (noGi ? 'nogi' : 'gi'); });
+    }
+    tournament.addEventListener('change', function () {
+        const option = tournament.options[tournament.selectedIndex];
+        idInput.value = option.value || '';
+        nameInput.value = option.value ? option.textContent.trim() : '';
+        selectRegistrationSource(option.value || '');
+        selectGi(option.textContent || '');
+    });
+    fetch('{{ url_for("bjjcompsystem_tournaments") }}')
+        .then((response) => response.json())
+        .then((data) => {
+            tournament.innerHTML = '<option value="">Select a tournament…</option>';
+            (data.tournaments || []).forEach((item) => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.name;
+                tournament.appendChild(option);
+            });
+        })
+        .catch(() => { tournament.innerHTML = '<option value="">Unable to load tournaments</option>'; });
+})();
+</script>
+{% endblock %}
