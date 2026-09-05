@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Tooltip } from 'react-tooltip'
 import { useAppContext } from '../AppContext'
 import { t, translateMulti } from '../translate'
 import { errorText, localDate, WatchData, WatchError, watchRequest, watchStatus } from './WatchlistShared'
@@ -12,8 +13,10 @@ const REFRESH_INTERVAL_MS = 3 * 60 * 1000
 
 export default function WatchlistView() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { setBracketSelectedEvent, setBracketSelectedCategory, setBracketCategories,
-    setBracketCompetitors, setBracketMatches, setBracketMatLinks } = useAppContext()
+    setBracketCompetitors, setBracketMatches, setBracketMatLinks,
+    setCalcFirstAthlete, setCalcSecondAthlete } = useAppContext()
   const [data, setData] = useState<WatchData | null>(null)
   const [error, setError] = useState('')
   const [unavailable, setUnavailable] = useState(false)
@@ -94,10 +97,7 @@ export default function WatchlistView() {
       {groups.map(([date, rows]) => <section className="watch-day" key={date || 'unscheduled'}>
       {date && <h2 className="title is-5 mb-3">{watchDay(date)}</h2>}
       <div className="watch-cards">
-        {rows.map(row => <article key={row.athlete.id || `name:${row.athlete.selection_name}`} className={`watch-card ${row.state === 'not_on_schedule' ? 'watch-gray' : ''} ${row.match?.mat_link ? 'watch-card-with-mat-link' : ''} ${row.match ? watchMatchUrgency(row.match.local_date, row.match.local_time, now) : ''} ${pulseBright ? 'watch-pulse-bright' : ''}`}>
-          {row.match?.mat_link && <a className="watch-mat-link" href={row.match.mat_link.link} target="_blank" rel="noopener noreferrer" aria-label={t('Mat Link')} title={t('Mat Link')}>
-            <img className={row.match.mat_link.type === 'flo' ? 'watch-flo-logo' : ''} src={row.match.mat_link.type === 'flo' ? floLogo : youtubeLogo} alt="" />
-          </a>}
+        {rows.map(row => <article key={row.athlete.id || `name:${row.athlete.selection_name}`} className={`watch-card ${row.state === 'not_on_schedule' ? 'watch-gray' : ''} ${row.match ? watchMatchUrgency(row.match.local_date, row.match.local_time, now) : ''} ${pulseBright ? 'watch-pulse-bright' : ''}`}>
           <h3>
             <WatchName name={row.athlete.name} profile_url={row.athlete.profile_url} />
             {row.match && <> <WatchRating side={row.competitor} />{' vs'}{watchOpponentName(row.opponent) === t('TBD') ? ' ' : <br />}
@@ -106,7 +106,21 @@ export default function WatchlistView() {
             </>}
           </h3>
           {row.match ? <>
-            <div className="watch-when"><strong>{watchTime(row.match.local_time)} · {t('Mat')} {row.match.mat}</strong></div>
+            <div className="watch-when">
+              <strong>{watchTime(row.match.local_time)} · {t('Mat')} {row.match.mat}</strong>
+              <div className="watch-match-actions">
+                {row.match.mat_link && <a className="watch-mat-link" href={row.match.mat_link.link} target="_blank" rel="noopener noreferrer" aria-label={t('Mat Link')} title={t('Mat Link')}>
+                  <img className={row.match.mat_link.type === 'flo' ? 'watch-flo-logo' : ''} src={row.match.mat_link.type === 'flo' ? floLogo : youtubeLogo} alt="" />
+                </a>}
+                {row.opponent?.name && <button className="button is-small watch-calc-link" aria-label={t('Research')} title={t('Research')} onClick={() => {
+                  setCalcFirstAthlete(row.athlete.name)
+                  setCalcSecondAthlete(row.opponent!.name!)
+                  navigate('/research')
+                }}>
+                  <span className="icon is-small has-text-info"><i className="fas fa-calculator" /></span>
+                </button>}
+              </div>
+            </div>
             <p>{row.match.bracket_category ? <Link to="/tournaments" onClick={() => {
               setBracketCategories(null); setBracketCompetitors(null)
               setBracketMatches(null); setBracketMatLinks(null)
@@ -119,5 +133,6 @@ export default function WatchlistView() {
       </div>
       </section>)}
     </>}
+    <Tooltip id="watchlist-rating-tooltip" className="tooltip-multiline" />
   </section>
 }

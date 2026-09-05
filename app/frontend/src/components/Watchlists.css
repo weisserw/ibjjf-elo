@@ -15,12 +15,14 @@
 .watch-result button { flex-shrink: 0; }
 .watch-save { position: sticky; bottom: 0; padding: .75rem 0 max(.75rem, env(safe-area-inset-bottom)); margin-top: 1rem; background: var(--bulma-scheme-main); border-top: 1px solid var(--bulma-border); z-index: 2; }
 .watch-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
-.watch-cards { display: grid; gap: .75rem; }
-.watch-card { position: relative; padding: 1rem; border: 1px solid var(--bulma-border); border-radius: .65rem; background: var(--bulma-scheme-main); }
-.watch-card-with-mat-link { padding-right: 3rem; }
-.watch-mat-link { position: absolute; top: 1rem; right: 1rem; display: inline-flex; width: 20px; height: 20px; align-items: center; justify-content: center; }
+.watch-cards { display: grid; justify-items: start; gap: .75rem; }
+.watch-card { width: 600px; max-width: 100%; padding: 1rem; border: 1px solid var(--bulma-border); border-radius: .65rem; background: var(--bulma-scheme-main); }
+.watch-mat-link { display: inline-flex; flex: 0 0 20px; width: 20px; height: 20px; align-items: center; justify-content: center; }
 .watch-mat-link img { display: block; width: 20px; height: 20px; object-fit: contain; }
 .watch-mat-link .watch-flo-logo { width: 14px; height: 14px; }
+.watch-match-actions { display: flex; align-items: center; gap: .5rem; }
+.watch-calc-link { min-height: 30px !important; width: 30px; height: 30px; padding: 0; border-color: transparent; box-shadow: none; }
+.watch-calc-link:hover, .watch-calc-link:active { border-color: transparent; box-shadow: none; }
 .watch-card.watch-soon { outline: 2px solid rgb(210 160 35 / 15%); transition: outline-color 750ms ease-in-out; }
 .watch-card.watch-imminent { outline: 2px solid rgb(210 65 65 / 15%); transition: outline-color 750ms ease-in-out; }
 .watch-card.watch-soon.watch-pulse-bright { outline-color: rgb(210 160 35 / 85%); }
@@ -28,9 +30,10 @@
 @media (prefers-reduced-motion: reduce) { .watch-card.watch-soon { transition: none; outline-color: rgb(210 160 35 / 85%); } .watch-card.watch-imminent { transition: none; outline-color: rgb(210 65 65 / 90%); } }
 .watch-card h3 { font-size: 1.15rem; font-weight: 700; }
 .watch-day + .watch-day { margin-top: 1.5rem; }
-.watch-when { font-size: 1.15rem; margin: .5rem 0; }
+.watch-when { display: flex; align-items: center; justify-content: space-between; gap: .75rem; font-size: 1.15rem; margin: .5rem 0; }
 .watch-gray { background: var(--bulma-scheme-main-ter); border-color: var(--bulma-border); }
 .watch-rating { display: inline-block; white-space: nowrap; }
 .watch-tournament { margin-top: .75rem; }
 .watch-refresh-status { min-height: 3rem; font-size: .9rem; }
+@media (max-width: 768px) { .watch-card { width: 100%; } }
 @media (max-width: 430px) { .watchlist .notification { padding: .85rem; } .watch-card { padding: .75rem; } }

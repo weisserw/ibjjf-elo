@@ -46,7 +46,8 @@ the selection.
 
 Each selected athlete has exactly one card, showing their earliest listed next
 match across all selected events and divisions, including open class. Both
-watched sides of a match retain their own cards. Published dates and clock times
+watched sides of a match retain their own cards. Cards use a consistent 600px
+desktop width and expand to the available width on mobile. Published dates and clock times
 are preserved as calendar strings without timezone conversion. Timed matches
 sort first; listed matches with unknown time show **Time pending**. A browser
 supplies its current local calendar date when reducing cached schedules.
@@ -56,8 +57,11 @@ listed time passes. All cards share one pulse phase so their outlines stay in
 sync. Reduced-motion users see the same urgency colors as steady outlines.
 
 Card headings combine athlete and opponent names, parenthesized division-based
-ratings (including open-class adjustments), and win percentages.
+ratings (including open-class adjustments), and win percentages. Provisional
+rating dots use the same match-count tooltip as the bracket views.
 The heading breaks after "vs" for named opponents; "vs TBD" stays on the same line.
+Cards with a named opponent include a calculator action beside the livestream
+link. It opens the research page with both athlete names filled in.
 Provisional and semi-provisional ratings use normal text with the existing colored provisional dot
 inside the parentheses, without gray styling on the rating text.
 Cards are grouped by calendar date under a weekday heading, with unscheduled cards
@@ -66,7 +70,7 @@ numeric date or timezone conversion. Time and mat appear together on the left,
 separated by a dot, in the same font size as the athlete heading. Cards show mat
 and division, with the tournament name at the bottom. When a tournament has a
 configured per-mat YouTube or Flo stream, its icon links to that stream in the
-upper-right corner of the scheduled match card. Division links select the
+right side of the time/mat row. Division links select the
 event and category in app context and open `/tournaments`, matching the athlete
 profile registration table's live-bracket navigation. The API supplies canonical
 `bracket_category` text in belt/age/gender/weight order even when source schedule

@@ -50,8 +50,11 @@ export function WatchName({ name, profile_url }: { name: string; profile_url: st
 export function WatchRating({ side }: { side?: WatchSide }) {
   if (!side || side.rating === null) return null
   const immature = immatureClass(side.match_count)
+  const provisionalTooltip = immature === 'very-immature'
+    ? `${t("Athlete's rating is provisional due to insufficient matches within three years")} (${side.match_count})`
+    : `${t("Athlete's rating is semi-provisional due to insufficient matches within three years")} (${side.match_count})`
   return <span className="watch-rating">
-    ({Math.round(side.rating)}{immature && <> <span className={`${immature}-bullet`} title={t('Provisional rating')} aria-label={t('Provisional rating')}>{'\u00a0'}</span></>})
+    ({Math.round(side.rating)}{immature && <> <span className="has-cursor-pointer" data-tooltip-id="watchlist-rating-tooltip" data-tooltip-content={provisionalTooltip} aria-label={provisionalTooltip}> <span className={`${immature}-bullet`}>{'\u00a0'}</span></span></>})
     {side.win_probability !== null && <> {Math.round(side.win_probability * 100)}%</>}
   </span>
 }
