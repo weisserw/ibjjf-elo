@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { t } from '../translate'
 import { errorText, WatchAthlete, WatchSelection, WatchTournament, watchRequest } from './WatchlistShared'
 import './Watchlists.css'
@@ -13,6 +13,7 @@ interface SearchResults {
 }
 
 export default function WatchlistEditor() {
+  const navigate = useNavigate()
   const [params] = useSearchParams()
   const edit = params.get('edit')
   const [tournaments, setTournaments] = useState<WatchTournament[]>([])
@@ -131,11 +132,11 @@ export default function WatchlistEditor() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event_ids: eventIds, athlete_ids: selected.map(a => a.id) }),
       })
-      const url = new URL(response.url, window.location.origin).href
-      window.location.assign(url)
+      navigate(response.url)
     } catch (e) {
       setError(errorText(e))
-    } finally { setSaving(false) }
+      setSaving(false)
+    }
   }
 
   return <section className="watchlist watch-editor">

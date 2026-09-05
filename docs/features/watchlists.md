@@ -22,7 +22,10 @@ with helper text and no redundant page heading. The selected-athletes area shows
 "None" when empty.
 Expiry text is not displayed in the builder or saved page; expiry remains enforced.
 
-Saving opens `/watchlists/:id` in the current tab after the create request succeeds.
+Saving opens `/watchlists/:id` through client-side navigation in the current tab
+after the create request succeeds.
+The submit button remains disabled and loading until that navigation completes;
+failed create requests restore it so the user can retry.
 The builder does not display a saved-watchlist link after saving. Bookmark
 guidance appears only on the saved page as "Bookmark this page to quickly access your watchlist",
 in an info-colored box with Edit this watchlist below it and no Copy link button. The

@@ -1,0 +1,99 @@
+Synthetic dataset: 50,000 athletes; 100 events; 200,000 registration rows.
+Two selected events. No production data was accessed.
+
+name search: ''
+Limit  (cost=6832.63..6832.71 rows=31 width=472) (actual time=12.228..12.233 rows=31 loops=1)
+  Buffers: shared hit=874
+  ->  Sort  (cost=6832.63..6842.61 rows=3992 width=472) (actual time=12.228..12.230 rows=31 loops=1)
+        Sort Key: (COALESCE(NULLIF((athletes.personal_name)::text, ''::text), (athletes.name)::text)), athletes.id
+        Sort Method: top-N heapsort  Memory: 30kB
+        Buffers: shared hit=874
+        ->  Hash Semi Join  (cost=5269.14..6713.78 rows=3992 width=472) (actual time=1.043..11.209 rows=4000 loops=1)
+              Hash Cond: ((athletes.name)::text = (registration_link_competitors.athlete_name)::text)
+              Buffers: shared hit=874
+              ->  Seq Scan on athletes  (cost=0.00..1259.00 rows=50000 width=440) (actual time=0.003..3.753 rows=50000 loops=1)
+                    Buffers: shared hit=759
+              ->  Hash  (cost=5219.14..5219.14 rows=4000 width=21) (actual time=1.033..1.034 rows=4000 loops=1)
+                    Buckets: 4096  Batches: 1  Memory Usage: 238kB
+                    Buffers: shared hit=115
+                    ->  Nested Loop  (cost=119.92..5219.14 rows=4000 width=21) (actual time=0.080..0.659 rows=4000 loops=1)
+                          Buffers: shared hit=115
+                          ->  Seq Scan on registration_links  (cost=0.00..5.25 rows=2 width=16) (actual time=0.004..0.019 rows=2 loops=1)
+                                Filter: ((hidden IS NOT TRUE) AND ((event_id)::text = ANY ('{1,2}'::text[])) AND (((link)::text ~~ 'https://www.ibjjfdb.com/%%'::text) OR ((link)::text ~~ 'https://ibjjfdb.com/%%'::text) OR ((link)::text ~~ 'https://www.ibjjf.com/%%'::text) OR ((link)::text ~~ 'https://ibjjf.com/%%'::text)))
+                                Rows Removed by Filter: 98
+                                Buffers: shared hit=3
+                          ->  Bitmap Heap Scan on registration_link_competitors  (cost=119.92..2586.95 rows=2000 width=37) (actual time=0.072..0.185 rows=2000 loops=2)
+                                Recheck Cond: (registration_link_id = registration_links.id)
+                                Heap Blocks: exact=59
+                                Buffers: shared hit=112
+                                ->  Bitmap Index Scan on ix_registration_competitors_link_name  (cost=0.00..119.42 rows=2000 width=0) (actual time=0.067..0.067 rows=2000 loops=2)
+                                      Index Cond: (registration_link_id = registration_links.id)
+                                      Buffers: shared hit=53
+Planning Time: 1.974 ms
+Execution Time: 12.273 ms
+
+name search: 'fixture athlete 10'
+Limit  (cost=6784.31..6784.39 rows=31 width=472) (actual time=8.525..8.530 rows=31 loops=1)
+  Buffers: shared hit=874
+  ->  Sort  (cost=6784.31..6784.51 rows=81 width=472) (actual time=8.525..8.527 rows=31 loops=1)
+        Sort Key: (COALESCE(NULLIF((athletes.personal_name)::text, ''::text), (athletes.name)::text)), athletes.id
+        Sort Method: top-N heapsort  Memory: 30kB
+        Buffers: shared hit=874
+        ->  Hash Semi Join  (cost=5269.14..6781.90 rows=81 width=472) (actual time=1.037..8.487 rows=111 loops=1)
+              Hash Cond: ((athletes.name)::text = (registration_link_competitors.athlete_name)::text)
+              Buffers: shared hit=874
+              ->  Seq Scan on athletes  (cost=0.00..1509.00 rows=1010 width=440) (actual time=0.005..7.310 rows=1111 loops=1)
+                    Filter: (((normalized_name)::text ~~ '%%fixture athlete 10%%'::text) OR ((normalized_personal_name)::text ~~ '%%fixture athlete 10%%'::text))
+                    Rows Removed by Filter: 48889
+                    Buffers: shared hit=759
+              ->  Hash  (cost=5219.14..5219.14 rows=4000 width=21) (actual time=1.028..1.029 rows=4000 loops=1)
+                    Buckets: 4096  Batches: 1  Memory Usage: 238kB
+                    Buffers: shared hit=115
+                    ->  Nested Loop  (cost=119.92..5219.14 rows=4000 width=21) (actual time=0.077..0.655 rows=4000 loops=1)
+                          Buffers: shared hit=115
+                          ->  Seq Scan on registration_links  (cost=0.00..5.25 rows=2 width=16) (actual time=0.003..0.017 rows=2 loops=1)
+                                Filter: ((hidden IS NOT TRUE) AND ((event_id)::text = ANY ('{1,2}'::text[])) AND (((link)::text ~~ 'https://www.ibjjfdb.com/%%'::text) OR ((link)::text ~~ 'https://ibjjfdb.com/%%'::text) OR ((link)::text ~~ 'https://www.ibjjf.com/%%'::text) OR ((link)::text ~~ 'https://ibjjf.com/%%'::text)))
+                                Rows Removed by Filter: 98
+                                Buffers: shared hit=3
+                          ->  Bitmap Heap Scan on registration_link_competitors  (cost=119.92..2586.95 rows=2000 width=37) (actual time=0.071..0.185 rows=2000 loops=2)
+                                Recheck Cond: (registration_link_id = registration_links.id)
+                                Heap Blocks: exact=59
+                                Buffers: shared hit=112
+                                ->  Bitmap Index Scan on ix_registration_competitors_link_name  (cost=0.00..119.42 rows=2000 width=0) (actual time=0.067..0.067 rows=2000 loops=2)
+                                      Index Cond: (registration_link_id = registration_links.id)
+                                      Buffers: shared hit=53
+Planning Time: 0.446 ms
+Execution Time: 8.565 ms
+
+team search: 'Fixture Team 10'
+Limit  (cost=5305.59..5305.67 rows=31 width=472) (actual time=1.331..1.334 rows=31 loops=1)
+  Buffers: shared hit=275
+  ->  Sort  (cost=5305.59..5305.69 rows=40 width=472) (actual time=1.331..1.332 rows=31 loops=1)
+        Sort Key: (COALESCE(NULLIF((athletes.personal_name)::text, ''::text), (athletes.name)::text)), athletes.id
+        Sort Method: quicksort  Memory: 30kB
+        Buffers: shared hit=275
+        ->  Nested Loop  (cost=5189.07..5304.53 rows=40 width=472) (actual time=1.194..1.312 rows=40 loops=1)
+              Buffers: shared hit=275
+              ->  HashAggregate  (cost=5188.65..5189.05 rows=40 width=21) (actual time=1.188..1.192 rows=40 loops=1)
+                    Group Key: (registration_link_competitors.athlete_name)::text
+                    Buffers: shared hit=115
+                    ->  Nested Loop  (cost=119.42..5188.55 rows=40 width=21) (actual time=0.081..1.178 rows=40 loops=1)
+                          Buffers: shared hit=115
+                          ->  Seq Scan on registration_links  (cost=0.00..5.25 rows=2 width=16) (actual time=0.005..0.019 rows=2 loops=1)
+                                Filter: ((hidden IS NOT TRUE) AND ((event_id)::text = ANY ('{1,2}'::text[])) AND (((link)::text ~~ 'https://www.ibjjfdb.com/%%'::text) OR ((link)::text ~~ 'https://ibjjfdb.com/%%'::text) OR ((link)::text ~~ 'https://www.ibjjf.com/%%'::text) OR ((link)::text ~~ 'https://ibjjf.com/%%'::text)))
+                                Rows Removed by Filter: 98
+                                Buffers: shared hit=3
+                          ->  Bitmap Heap Scan on registration_link_competitors  (cost=119.42..2591.45 rows=20 width=37) (actual time=0.072..0.577 rows=20 loops=2)
+                                Recheck Cond: (registration_link_id = registration_links.id)
+                                Filter: ((team_name)::text ~~* '%%Fixture Team 10%%'::text)
+                                Rows Removed by Filter: 1980
+                                Heap Blocks: exact=59
+                                Buffers: shared hit=112
+                                ->  Bitmap Index Scan on ix_registration_competitors_link_name  (cost=0.00..119.42 rows=2000 width=0) (actual time=0.065..0.065 rows=2000 loops=2)
+                                      Index Cond: (registration_link_id = registration_links.id)
+                                      Buffers: shared hit=53
+              ->  Index Scan using ix_athletes_name on athletes  (cost=0.41..2.87 rows=1 width=440) (actual time=0.003..0.003 rows=1 loops=40)
+                    Index Cond: ((name)::text = (registration_link_competitors.athlete_name)::text)
+                    Buffers: shared hit=160
+Planning Time: 0.478 ms
+Execution Time: 1.365 ms
