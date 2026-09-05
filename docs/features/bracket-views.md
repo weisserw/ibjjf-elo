@@ -2,11 +2,14 @@
 
 ## User-Facing Behavior
 
-The `Tournaments` navbar entry opens a three-tab bracket area:
+The `Tournaments` navbar entry opens the bracket area:
 
 - `/tournaments` renders live brackets from the IBJJF/BJJ Compsystem bracket site.
 - `/tournaments/registrations` renders registration-based preview brackets from IBJJF registration pages.
 - `/tournaments/archive` renders past-event brackets from the local match archive.
+- `/tournaments/watchlists` follows Archive and opens the [Watchlist editor](watchlists.md).
+  Saved watchlist division links normalize schedule text to the live category's
+  belt/age/gender/weight order and clear cached bracket results before navigation.
 
 All three views share the same broad workflow: choose an event or registration
 link, choose a division/category, fetch competitors and optional matches, then
@@ -137,6 +140,12 @@ Shared backend logic:
 - `format_division(...)` and `parse_division(...)` normalize division labels.
 - `get_ratings(...)` attaches rating/ranking context and has special handling for
   live ratings, registration timing, open classes, juvenile divisions, and medals.
+  Watchlists opt into `strict_ids=True` to resolve only exact IBJJF athlete IDs;
+  other callers retain the existing default name-resolution behavior. Watchlists
+  reuse `compute_match_ratings` for predictions without synthesizing results or
+  writing live ratings. Registration persistence now records
+  `registrations_imported_at`, including successful empty imports, so the watchlist
+  editor distinguishes unavailable registration data from an empty registration.
 - Seeding/bracket-slot behavior is shared with `app/seeding.py`, especially
   `_bracket_slots(...)`.
 

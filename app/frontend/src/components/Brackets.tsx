@@ -2,12 +2,13 @@ import classNames from 'classnames'
 import BracketLive from './BracketLive'
 import BracketRegistration from './BracketRegistration'
 import BracketArchive from './BracketArchive'
+import WatchlistEditor from './WatchlistEditor'
 import { t } from '../translate'
 import { Link, useNavigate } from 'react-router-dom'
 
 import "./Brackets.css"
 
-export type Tabs = 'Live' | 'Registrations' | 'Archive'
+export type Tabs = 'Live' | 'Registrations' | 'Archive' | 'Watchlist'
 
 interface BracketsProps {
   tab?: Tabs
@@ -23,6 +24,7 @@ function Brackets({ tab }: BracketsProps) {
           <li onClick={() => navigate('/tournaments')} className={classNames({"is-active": tab === 'Live'})}><a>{t("Live Brackets")}</a></li>
           <li onClick={() => navigate('/tournaments/registrations')} className={classNames({"is-active": tab === 'Registrations'})}><a>{t("Registrations")}</a></li>
           <li onClick={() => navigate('/tournaments/archive')} className={classNames({"is-active": tab === 'Archive'})}><a>{t("Archive")}</a></li>
+          <li className={classNames({"is-active": tab === 'Watchlist'})}><Link to="/tournaments/watchlists">{t('Watchlists')}</Link></li>
         </ul>
       </div>
       {
@@ -65,6 +67,7 @@ function Brackets({ tab }: BracketsProps) {
           <BracketArchive />
         )
       }
+      {tab === 'Watchlist' && <WatchlistEditor />}
       {
         (tab === 'Live' || tab === 'Registrations') &&
           <div className="notification mt-5 content bracket-notification">

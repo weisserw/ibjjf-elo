@@ -2,6 +2,7 @@ import os
 import logging
 from flask import Flask, request, send_from_directory
 from extensions import db, migrate
+from routes.watchlists import watchlists_route
 from seo import (
     render_index_with_fallback,
     render_index_with_snippet,
@@ -96,6 +97,19 @@ def tournaments_archive():
     return render_index_with_snippet(app, "tournaments_archive.html")
 
 
+@app.route("/tournaments/watchlists")
+@app.route("/watchlists/<identity>")
+def watchlist_page(identity=None):
+    return render_index_with_fallback(app)
+
+
+@app.cli.command("purge-expired-watchlists")
+def purge_expired_watchlists():
+    from watchlists import purge
+
+    print(f"Deleted {purge()} expired watchlists.")
+
+
 @app.route("/tournaments/awards")
 def tournaments_awards():
     return render_index_with_snippet(app, "tournaments_archive.html")
@@ -149,6 +163,7 @@ app.register_blueprint(matches_route)
 app.register_blueprint(athletes_route)
 app.register_blueprint(events_route)
 app.register_blueprint(brackets_route)
+app.register_blueprint(watchlists_route)
 app.register_blueprint(awards_route)
 app.register_blueprint(news_route)
 app.register_blueprint(teams_route)

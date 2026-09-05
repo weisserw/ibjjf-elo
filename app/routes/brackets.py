@@ -218,6 +218,7 @@ def get_ratings(
     use_live_ratings,
     s3_client,
     elite_only=False,
+    strict_ids=False,
 ):
     youth_age_divisions = {
         TEEN_1,
@@ -251,8 +252,11 @@ def get_ratings(
                         if result["ibjjf_id"] is not None
                     ]
                 ),
-                Athlete.normalized_name.in_(
-                    [normalize(result["name"]) for result in results]
+                and_(
+                    not strict_ids,
+                    Athlete.normalized_name.in_(
+                        [normalize(result["name"]) for result in results]
+                    ),
                 ),
             )
         )
@@ -353,7 +357,7 @@ def get_ratings(
             result["country"] = athlete.country
             result["country_note"] = athlete.country_note
             result["country_note_pt"] = athlete.country_note_pt
-        elif normalize(result["name"]) in athletes_by_name:
+        elif not strict_ids and normalize(result["name"]) in athletes_by_name:
             matched_athlete = None
             candidates = sorted(
                 athletes_by_name[normalize(result["name"])],
@@ -1018,6 +1022,7 @@ def save_competitors_thread(link_id, json_data, division_set):
 
 def save_competitors(link_id, json_data, division_set):
     link = db.session.query(RegistrationLink).get(link_id)
+    added_row = False
     if link is not None:
         gi = is_gi(link.name)
 
@@ -1070,6 +1075,8 @@ def save_competitors(link_id, json_data, division_set):
                     )
                 )
                 added_row = True
+        link.registrations_imported_at = datetime.utcnow()
+        added_row = True
     if added_row:
         db.session.commit()
 

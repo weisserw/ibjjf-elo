@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import Ratings from './components/Ratings';
 import Database from './components/Database';
 import Brackets from './components/Brackets';
+import WatchlistView from './components/WatchlistView';
 import Teams from './components/Teams';
 import YearlyTeamAwards from './components/YearlyTeamAwards';
 import Research from './components/Research';
@@ -94,6 +95,8 @@ function AppShell() {
           <Route path="/tournaments" element={<Brackets tab="Live" />} />
           <Route path="/tournaments/registrations" element={<Brackets tab="Registrations" />} />
           <Route path="/tournaments/archive" element={<Brackets tab="Archive" />} />
+          <Route path="/tournaments/watchlists" element={<Brackets tab="Watchlist" />} />
+          <Route path="/watchlists/:id" element={<WatchlistView />} />
           <Route path="/awards" element={<Navigate to="/teams" replace />} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/teams/yearly/2026" element={<YearlyTeamAwards />} />

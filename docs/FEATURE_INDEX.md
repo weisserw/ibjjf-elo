@@ -6,6 +6,7 @@
 - [Live Bracket Audits](features/bracket-audits.md) - Admin-only immutable comparisons of official seeding criteria and first-round geometry against registration predictions.
 - [Bracket Tree](features/bracket-tree.md) - Shared zoomable tree rendering for live, registration, and archive bracket views.
 - [Bracket Views](features/bracket-views.md) - Live, registration, and archive tournament bracket views, their APIs, shared data shapes, tests, and regression history.
+- [Watchlists](features/watchlists.md) - Public saved tournament/athlete selections, registration search, shared live schedules, refresh leases, expiry, mobile view, and tests.
 - [Database View](features/database-view.md) - End-user match results tab, filters, row links, responsive table/card rendering, and match detail entry points.
 - [Homepage Video Count](features/homepage-video-count.md) - Cached count of free YouTube-covered matches, refresh paths, public API, and homepage banner.
 - [Highlight Research API](features/highlight-research-api.md) - Versioned public athlete, ranking, match, event, and logical-image contracts for the private highlight worker.

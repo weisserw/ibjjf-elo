@@ -15,6 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     CheckConstraint,
     BigInteger,
+    JSON,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP, TSVECTOR
@@ -111,6 +112,7 @@ class Athlete(db.Model):
 
     __table_args__ = (
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),
+        Index("ix_athletes_name", "name"),
         Index("ix_athletes_normalized_name_covering", "normalized_name", "id"),
         Index(
             "ix_athletes_normalized_personal_name_covering",
@@ -570,6 +572,7 @@ class RegistrationLink(db.Model):
     hidden = Column(Boolean, nullable=True)
     event_start_date = Column(DateTime, nullable=True)
     event_end_date = Column(DateTime, nullable=True)
+    registrations_imported_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         Index("ix_registration_links_link", "link", unique=True),
@@ -965,12 +968,48 @@ class RegistrationLinkCompetitor(db.Model):
 
     __table_args__ = (
         Index(
+            "ix_registration_competitors_link_name",
+            "registration_link_id",
+            "athlete_name",
+        ),
+        Index(
             "ix_registration_link_competitors_all",
             "athlete_name",
             "registration_link_id",
             "division_id",
         ),
     )
+
+
+class Watchlist(db.Model):
+    __tablename__ = "watchlists"
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    schema_version = Column(Integer, nullable=False, default=1)
+    canonical_selection = Column(JSON, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+
+
+class WatchlistSchedule(db.Model):
+    __tablename__ = "watchlist_schedules"
+    event_id = Column(String, primary_key=True)
+    snapshot = Column(JSON, nullable=True)
+    snapshot_version = Column(UUID(as_uuid=True), nullable=True)
+    fetched_at = Column(DateTime(timezone=True), nullable=True)
+    coverage = Column(JSON, nullable=True)
+    discovery = Column(JSON, nullable=True)
+    refresh_token = Column(UUID(as_uuid=True), nullable=True)
+    lease_until = Column(DateTime(timezone=True), nullable=True)
+    next_attempt_at = Column(DateTime(timezone=True), nullable=True)
+    failure_count = Column(Integer, nullable=False, default=0)
+    last_error_code = Column(String, nullable=True)
+
+
+class WatchlistRefreshSlot(db.Model):
+    __tablename__ = "watchlist_refresh_slots"
+    id = Column(Integer, primary_key=True)
+    owner_token = Column(UUID(as_uuid=True), nullable=True)
+    lease_until = Column(DateTime(timezone=True), nullable=True)
 
 
 class Suspension(db.Model):

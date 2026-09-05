@@ -1,0 +1,26 @@
+.watchlist { max-width: 48rem; margin: 1rem auto; overflow-wrap: anywhere; }
+.watchlist fieldset { min-width: 0; border: 0; padding: 0; }
+.watchlist small { display: block; font-size: .85rem; }
+.watchlist button, .watchlist .button, .watch-choice { min-height: 44px; }
+.watch-picker { max-height: 18rem; overflow-y: auto; border: 1px solid var(--bulma-border); border-radius: .5rem; }
+.watch-choice { display: flex; gap: .75rem; align-items: flex-start; padding: .65rem; cursor: pointer; }
+.watch-choice input { margin-top: .3rem; flex-shrink: 0; width: 1.15rem; height: 1.15rem; }
+.watch-choice:focus-within { outline: 2px solid var(--bulma-primary); outline-offset: -2px; }
+.watch-search-controls { display: flex; gap: .5rem; }
+.watch-search-controls .input { min-width: 0; font-size: 16px; }
+.watch-search-controls input[type="search"]::-webkit-search-cancel-button { cursor: pointer; }
+.watch-result { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 0; border-bottom: 1px solid var(--bulma-border); }
+.watch-result > div, .watch-result > span { min-width: 0; }
+.watch-result button { flex-shrink: 0; }
+.watch-save { position: sticky; bottom: 0; padding: .75rem 0 max(.75rem, env(safe-area-inset-bottom)); margin-top: 1rem; background: var(--bulma-scheme-main); border-top: 1px solid var(--bulma-border); z-index: 2; }
+.watch-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
+.watch-cards { display: grid; gap: .75rem; }
+.watch-card { padding: 1rem; border: 1px solid var(--bulma-border); border-radius: .65rem; background: var(--bulma-scheme-main); }
+.watch-card h3 { font-size: 1.15rem; font-weight: 700; }
+.watch-day + .watch-day { margin-top: 1.5rem; }
+.watch-when { font-size: 1.15rem; margin: .5rem 0; }
+.watch-gray { background: var(--bulma-scheme-main-ter); border-color: var(--bulma-border); }
+.watch-rating { display: inline-block; white-space: nowrap; }
+.watch-tournament { margin-top: .75rem; }
+.watch-refresh-status { min-height: 3rem; font-size: .9rem; }
+@media (max-width: 430px) { .watchlist .notification { padding: .85rem; } .watch-card { padding: .75rem; } }
