@@ -1,6 +1,8 @@
 .watchlist { max-width: 48rem; margin: 1rem auto; overflow-wrap: anywhere; }
 .watchlist fieldset { min-width: 0; border: 0; padding: 0; }
 .watchlist small { display: block; font-size: .85rem; }
+.watch-editor .label { font-size: 1.1rem; }
+.watch-selected-heading { margin-top: 1.25rem; margin-bottom: .25rem; }
 .watchlist button, .watchlist .button, .watch-choice { min-height: 44px; }
 .watch-picker { max-height: 18rem; overflow-y: auto; border: 1px solid var(--bulma-border); border-radius: .5rem; }
 .watch-choice { display: flex; gap: .75rem; align-items: flex-start; padding: .65rem; cursor: pointer; }

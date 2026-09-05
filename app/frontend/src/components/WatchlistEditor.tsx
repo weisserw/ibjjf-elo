@@ -198,7 +198,7 @@ export default function WatchlistEditor() {
         </div>)}
       </div>
       {!!query.trim() && nextCursor && <button className="button mt-2" disabled={loading} onClick={() => setCursor(nextCursor)}>{t('Load more')}</button>}
-      <h2 className="label mt-4">{t('Selected athletes')}</h2>
+      <h2 className="label watch-selected-heading">{t('Selected athletes')}</h2>
       <div className="watch-selected">
         {!selected.length && <p>{t('None')}</p>}
         {selected.map(athlete => <div className="watch-result" key={athleteKey(athlete)}>
