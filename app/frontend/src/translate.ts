@@ -476,6 +476,7 @@ const translations = {
     "Yes": "Sim",
     "No": "Não",
     "Sub": "Fin",
+    "Mat Link": "Link do Mat"
 };
 
 export type translationKeys = keyof typeof translations;
