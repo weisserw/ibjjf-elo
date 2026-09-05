@@ -24,6 +24,7 @@ from models import (
 from normalize import normalize
 from constants import age_order_all, translate_age_keep_juvenile
 from watchlist_refresh import database_now, trigger, utc
+from livestreams import load_livestream_links, per_mat_livestream_links
 
 NAMESPACE = uuid.UUID("56e85f1e-d720-5d40-a186-bcc82e02d311")
 SCHEMA_VERSION = 2
@@ -877,6 +878,16 @@ def data(row, events, today=None):
         )
     }
     enrich(list(chosen.values()), events)
+    livestream_data = load_livestream_links(
+        db.session, selection["event_ids"], registrations=True
+    )
+    mat_links = per_mat_livestream_links(livestream_data, selection["event_ids"])
+    for match in chosen.values():
+        match["mat_link"] = (
+            mat_links.get(match["event_id"], {})
+            .get(match["local_date"], {})
+            .get(str(match["mat"]))
+        )
     rows = []
     coverage_uncertain = any(coverage_uncertainties)
     for athlete in base["athletes"]:

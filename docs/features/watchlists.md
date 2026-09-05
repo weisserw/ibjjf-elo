@@ -64,7 +64,9 @@ Cards are grouped by calendar date under a weekday heading, with unscheduled car
 after the dated groups. Times use compact am/pm (for example, `9:30am`), without a
 numeric date or timezone conversion. Time and mat appear together on the left,
 separated by a dot, in the same font size as the athlete heading. Cards show mat
-and division, with the tournament name at the bottom. Division links select the
+and division, with the tournament name at the bottom. When a tournament has a
+configured per-mat YouTube or Flo stream, its icon links to that stream in the
+upper-right corner of the scheduled match card. Division links select the
 event and category in app context and open `/tournaments`, matching the athlete
 profile registration table's live-bracket navigation. The API supplies canonical
 `bracket_category` text in belt/age/gender/weight order even when source schedule

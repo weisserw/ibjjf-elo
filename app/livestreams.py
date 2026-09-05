@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 import uuid
 from urllib.parse import quote
@@ -407,6 +407,39 @@ def load_livestream_links(session, event_ids, registrations=False):
         "flo_mat_links": flo_mat_links,
         "special_search_names": special_search_names,
     }
+
+
+def per_mat_livestream_links(livestream_data, event_ids):
+    """Return the date/mat links shared by live brackets and watchlists."""
+    event_ids = set(event_ids)
+    mat_links = {}
+    for (event_id, day_number, mat_number), livestream_info in livestream_data[
+        "live_streams"
+    ].items():
+        if event_id not in event_ids:
+            continue
+        link_date = livestream_data["tournament_days"][event_id] + timedelta(
+            days=day_number - 1
+        )
+        mat_links.setdefault(event_id, {}).setdefault(
+            link_date.strftime("%Y-%m-%d"), {}
+        )[str(mat_number)] = {"link": livestream_info[0][0], "type": "youtube"}
+
+    for (event_id, mat_number), link in livestream_data.get(
+        "flo_mat_links", {}
+    ).items():
+        if event_id not in event_ids:
+            continue
+        start_date = livestream_data["tournament_days"][event_id]
+        end_date = livestream_data.get("tournament_end_days", {}).get(
+            event_id, start_date
+        )
+        for offset in range((end_date - start_date).days + 1):
+            date_iso = (start_date + timedelta(days=offset)).strftime("%Y-%m-%d")
+            mat_links.setdefault(event_id, {}).setdefault(date_iso, {}).setdefault(
+                str(mat_number), {"link": link, "type": "flo"}
+            )
+    return mat_links
 
 
 def name_components(name):

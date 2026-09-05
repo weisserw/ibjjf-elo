@@ -39,7 +39,7 @@ export interface WatchSide {
 export interface WatchRow {
   athlete: WatchAthlete
   state: string
-  match: { local_date: string; local_time: string | null; mat: number; division: string; bracket_category?: string | null; event_id: string } | null
+  match: { local_date: string; local_time: string | null; mat: number; division: string; bracket_category?: string | null; event_id: string; mat_link?: { link: string; type: 'flo' | 'youtube' } | null } | null
   competitor?: WatchSide
   opponent?: WatchSide
 }

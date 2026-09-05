@@ -1,14 +1,37 @@
 import os
 import sys
 import unittest
-from datetime import datetime
+from datetime import date, datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from livestreams import get_livestream_link, get_search_name, is_quarterfinal_or_above
+from livestreams import (
+    get_livestream_link,
+    get_search_name,
+    is_quarterfinal_or_above,
+    per_mat_livestream_links,
+)
 
 
 class LivestreamsTestCase(unittest.TestCase):
+    def test_per_mat_links_prefer_youtube_and_apply_flo_to_each_event_day(self):
+        links = per_mat_livestream_links(
+            {
+                "tournament_days": {"1": date(2026, 9, 4)},
+                "tournament_end_days": {"1": date(2026, 9, 5)},
+                "live_streams": {("1", 2, 1): [("https://youtube.test/mat-1",)]},
+                "flo_mat_links": {
+                    ("1", 1): "https://flo.test/mat-1",
+                    ("1", 2): "https://flo.test/mat-2",
+                },
+            },
+            ["1"],
+        )
+
+        self.assertEqual(links["1"]["2026-09-04"]["1"]["type"], "flo")
+        self.assertEqual(links["1"]["2026-09-05"]["1"]["type"], "youtube")
+        self.assertEqual(links["1"]["2026-09-05"]["2"]["type"], "flo")
+
     def test_search_name_prefers_special_mapping_over_personal_name(self):
         self.assertEqual(
             get_search_name(

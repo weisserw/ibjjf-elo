@@ -16,6 +16,7 @@ from livestreams import (
     get_livestream_link,
     load_linked_archive_video_links,
     load_livestream_links,
+    per_mat_livestream_links,
 )
 import re
 import json
@@ -2860,33 +2861,7 @@ def competitors():
                 m.get("video_start_offset_seconds"),
             )
 
-    mat_links = {}
-    tournament_start_date = livestream_data["tournament_days"][event_id]
-    for livestream_key, livestream_info in livestream_data["live_streams"].items():
-        _, day_number, mat_number = livestream_key
-
-        link_date = tournament_start_date + timedelta(days=day_number - 1)
-
-        link = livestream_info[0][0]
-
-        mat_links.setdefault(link_date.strftime("%Y-%m-%d"), {})[str(mat_number)] = {
-            "link": link,
-            "type": "youtube",
-        }
-
-    tournament_end_date = livestream_data.get("tournament_end_days", {}).get(
-        event_id, tournament_start_date
-    )
-    day_count = (tournament_end_date - tournament_start_date).days + 1
-    for (ev_id, mat_number), link in livestream_data.get("flo_mat_links", {}).items():
-        if ev_id != event_id:
-            continue
-        for offset in range(day_count):
-            link_date = tournament_start_date + timedelta(days=offset)
-            date_iso = link_date.strftime("%Y-%m-%d")
-            mat_links.setdefault(date_iso, {}).setdefault(
-                str(mat_number), {"link": link, "type": "flo"}
-            )
+    mat_links = per_mat_livestream_links(livestream_data, [event_id]).get(event_id, {})
 
     if len(last_match_whens) and division is not None:
         thread = threading.Thread(
