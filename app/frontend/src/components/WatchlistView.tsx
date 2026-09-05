@@ -18,11 +18,16 @@ export default function WatchlistView() {
   const [refreshing, setRefreshing] = useState(false)
   const [nextRefreshAt, setNextRefreshAt] = useState(0)
   const [now, setNow] = useState(Date.now())
+  const [pulseBright, setPulseBright] = useState(false)
   const [retry, setRetry] = useState(0)
   const groups = useMemo(() => watchDayGroups(data?.rows || []), [data])
   const initializing = Boolean(data && data.tournaments.every(tournament => !tournament.fetched_at))
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  useEffect(() => {
+    const timer = setInterval(() => setPulseBright(bright => !bright), 750)
     return () => clearInterval(timer)
   }, [])
   useEffect(() => { setData(null); setError(''); setUnavailable(false) }, [id])
@@ -87,7 +92,7 @@ export default function WatchlistView() {
       {groups.map(([date, rows]) => <section className="watch-day" key={date || 'unscheduled'}>
       {date && <h2 className="title is-5 mb-3">{watchDay(date)}</h2>}
       <div className="watch-cards">
-        {rows.map(row => <article key={row.athlete.id || `name:${row.athlete.selection_name}`} className={`watch-card ${row.state === 'not_on_schedule' ? 'watch-gray' : ''} ${row.match ? watchMatchUrgency(row.match.local_date, row.match.local_time, now) : ''}`}>
+        {rows.map(row => <article key={row.athlete.id || `name:${row.athlete.selection_name}`} className={`watch-card ${row.state === 'not_on_schedule' ? 'watch-gray' : ''} ${row.match ? watchMatchUrgency(row.match.local_date, row.match.local_time, now) : ''} ${pulseBright ? 'watch-pulse-bright' : ''}`}>
           <h3>
             <WatchName name={row.athlete.name} profile_url={row.athlete.profile_url} />
             {row.match && <> <WatchRating side={row.competitor} />{' vs'}{watchOpponentName(row.opponent) === t('TBD') ? ' ' : <br />}

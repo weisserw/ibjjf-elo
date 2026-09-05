@@ -15,11 +15,11 @@
 .watch-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
 .watch-cards { display: grid; gap: .75rem; }
 .watch-card { padding: 1rem; border: 1px solid var(--bulma-border); border-radius: .65rem; background: var(--bulma-scheme-main); }
-.watch-card.watch-soon { animation: watch-pulse-yellow 1.5s ease-in-out infinite; }
-.watch-card.watch-imminent { animation: watch-pulse-red 1.5s ease-in-out infinite; }
-@keyframes watch-pulse-yellow { 0%, 100% { outline: 2px solid rgb(210 160 35 / 15%); } 50% { outline: 2px solid rgb(210 160 35 / 85%); } }
-@keyframes watch-pulse-red { 0%, 100% { outline: 2px solid rgb(210 65 65 / 15%); } 50% { outline: 2px solid rgb(210 65 65 / 90%); } }
-@media (prefers-reduced-motion: reduce) { .watch-card.watch-soon { animation: none; outline: 2px solid rgb(210 160 35 / 85%); } .watch-card.watch-imminent { animation: none; outline: 2px solid rgb(210 65 65 / 90%); } }
+.watch-card.watch-soon { outline: 2px solid rgb(210 160 35 / 15%); transition: outline-color 750ms ease-in-out; }
+.watch-card.watch-imminent { outline: 2px solid rgb(210 65 65 / 15%); transition: outline-color 750ms ease-in-out; }
+.watch-card.watch-soon.watch-pulse-bright { outline-color: rgb(210 160 35 / 85%); }
+.watch-card.watch-imminent.watch-pulse-bright { outline-color: rgb(210 65 65 / 90%); }
+@media (prefers-reduced-motion: reduce) { .watch-card.watch-soon { transition: none; outline-color: rgb(210 160 35 / 85%); } .watch-card.watch-imminent { transition: none; outline-color: rgb(210 65 65 / 90%); } }
 .watch-card h3 { font-size: 1.15rem; font-weight: 700; }
 .watch-day + .watch-day { margin-top: 1.5rem; }
 .watch-when { font-size: 1.15rem; margin: .5rem 0; }

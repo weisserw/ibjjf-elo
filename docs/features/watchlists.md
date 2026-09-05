@@ -50,10 +50,10 @@ watched sides of a match retain their own cards. Published dates and clock times
 are preserved as calendar strings without timezone conversion. Timed matches
 sort first; listed matches with unknown time show **Time pending**. A browser
 supplies its current local calendar date when reducing cached schedules.
-Cards pulse with a warm yellow outline during the 20 minutes before their local
+Cards pulse with a warm yellow outline during the 25 minutes before their local
 clock time, switching to red for the final 10 minutes and remaining red after the
-listed time passes. Reduced-motion users see the same urgency colors as steady
-outlines.
+listed time passes. All cards share one pulse phase so their outlines stay in
+sync. Reduced-motion users see the same urgency colors as steady outlines.
 
 Card headings combine athlete and opponent names, parenthesized division-based
 ratings (including open-class adjustments), and win percentages.

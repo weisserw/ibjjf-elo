@@ -20,7 +20,7 @@ export function watchMatchUrgency(localDate: string, localTime: string | null, n
   if (![year, month, day, hour, minute].every(Number.isFinite)) return ''
   const scheduledAt = new Date(year, month - 1, day, hour, minute).getTime()
   const remaining = scheduledAt - now
-  if (remaining > 20 * 60 * 1000) return ''
+  if (remaining > 25 * 60 * 1000) return ''
   return remaining <= 10 * 60 * 1000 ? 'watch-imminent' : 'watch-soon'
 }
 
