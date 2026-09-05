@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useAppContext } from '../AppContext'
 import { t, translateMulti } from '../translate'
 import { errorText, localDate, WatchData, WatchError, watchRequest, watchStatus } from './WatchlistShared'
-import { WatchName, WatchRating, watchOpponentName, watchTime, watchDay, watchDayGroups, watchCountdown } from './WatchlistParts'
+import { WatchName, WatchRating, watchOpponentName, watchTime, watchDay, watchDayGroups, watchCountdown, watchMatchUrgency } from './WatchlistParts'
 import './Watchlists.css'
 
 const REFRESH_INTERVAL_MS = 3 * 60 * 1000
@@ -87,7 +87,7 @@ export default function WatchlistView() {
       {groups.map(([date, rows]) => <section className="watch-day" key={date || 'unscheduled'}>
       {date && <h2 className="title is-5 mb-3">{watchDay(date)}</h2>}
       <div className="watch-cards">
-        {rows.map(row => <article key={row.athlete.id || `name:${row.athlete.selection_name}`} className={`watch-card ${row.state === 'not_on_schedule' ? 'watch-gray' : ''}`}>
+        {rows.map(row => <article key={row.athlete.id || `name:${row.athlete.selection_name}`} className={`watch-card ${row.state === 'not_on_schedule' ? 'watch-gray' : ''} ${row.match ? watchMatchUrgency(row.match.local_date, row.match.local_time, now) : ''}`}>
           <h3>
             <WatchName name={row.athlete.name} profile_url={row.athlete.profile_url} />
             {row.match && <> <WatchRating side={row.competitor} />{' vs'}{watchOpponentName(row.opponent) === t('TBD') ? ' ' : <br />}

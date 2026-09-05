@@ -13,6 +13,17 @@ export function watchTime(time: string | null) {
   return `${hour % 12 || 12}:${String(minute).padStart(2, '0')}${hour < 12 ? 'am' : 'pm'}`
 }
 
+export function watchMatchUrgency(localDate: string, localTime: string | null, now: number) {
+  if (!localTime) return ''
+  const [year, month, day] = localDate.split('-').map(Number)
+  const [hour, minute] = localTime.split(':').map(Number)
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return ''
+  const scheduledAt = new Date(year, month - 1, day, hour, minute).getTime()
+  const remaining = scheduledAt - now
+  if (remaining > 20 * 60 * 1000) return ''
+  return remaining <= 10 * 60 * 1000 ? 'watch-imminent' : 'watch-soon'
+}
+
 export function watchDayGroups(rows: WatchRow[]) {
   const groups = new Map<string, WatchRow[]>()
   for (const row of rows) {
