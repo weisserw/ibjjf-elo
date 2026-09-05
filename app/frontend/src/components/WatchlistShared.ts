@@ -1,7 +1,8 @@
 import { t, translationKeys } from '../translate'
 
 export interface WatchAthlete {
-  id: string
+  id: string | null
+  selection_name: string | null
   ibjjf_id: string | null
   name: string
   profile_url: string | null
@@ -22,7 +23,7 @@ export interface WatchTournament {
 }
 export interface WatchSelection {
   id: string
-  selection: { event_ids: string[]; athlete_ids: string[] }
+  selection: { event_ids: string[]; athlete_ids: string[]; athlete_names?: string[] }
   expires_at: string
   tournaments: WatchTournament[]
   athletes: WatchAthlete[]

@@ -5,7 +5,6 @@
 .watch-picker { max-height: 18rem; overflow-y: auto; border: 1px solid var(--bulma-border); border-radius: .5rem; }
 .watch-choice { display: flex; gap: .75rem; align-items: flex-start; padding: .65rem; cursor: pointer; }
 .watch-choice input { margin-top: .3rem; flex-shrink: 0; width: 1.15rem; height: 1.15rem; }
-.watch-choice:focus-within { outline: 2px solid var(--bulma-primary); outline-offset: -2px; }
 .watch-search-controls { display: flex; gap: .5rem; }
 .watch-search-controls .input { min-width: 0; font-size: 16px; }
 .watch-search-controls input[type="search"]::-webkit-search-cancel-button { cursor: pointer; }

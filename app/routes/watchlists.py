@@ -40,6 +40,7 @@ def athletes():
             request.args.get("mode", "all"),
             request.args.get("cursor"),
             request.args.getlist("selected_id"),
+            request.args.getlist("selected_name"),
         )
     )
 
@@ -50,7 +51,11 @@ def save():
     if not isinstance(payload, dict):
         raise watchlists.WatchlistError("invalid_selection")
     return jsonify(
-        watchlists.save(payload.get("event_ids"), payload.get("athlete_ids"))
+        watchlists.save(
+            payload.get("event_ids"),
+            payload.get("athlete_ids"),
+            payload.get("athlete_names"),
+        )
     )
 
 

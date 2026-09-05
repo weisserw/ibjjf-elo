@@ -9,8 +9,11 @@ interface SearchResults {
   teams: string[]
   next_cursor: string | null
   eligible_selected_ids: string[]
+  eligible_selected_names: string[]
   registration_ready: boolean
 }
+
+const athleteKey = (athlete: WatchAthlete) => athlete.id ? `id:${athlete.id}` : `name:${athlete.selection_name}`
 
 export default function WatchlistEditor() {
   const navigate = useNavigate()
@@ -20,6 +23,7 @@ export default function WatchlistEditor() {
   const [eventIds, setEventIds] = useState<string[]>([])
   const [selected, setSelected] = useState<WatchAthlete[]>([])
   const [validIds, setValidIds] = useState<string[]>([])
+  const [validNames, setValidNames] = useState<string[]>([])
   const [query, setQuery] = useState('')
   const [teams, setTeams] = useState<string[]>([])
   const [addingTeam, setAddingTeam] = useState(false)
@@ -37,7 +41,7 @@ export default function WatchlistEditor() {
   const [loadRetry, setLoadRetry] = useState(0)
   const [initialFailed, setInitialFailed] = useState(false)
   const eventKey = [...eventIds].sort().join(',')
-  const selectedKey = selected.map(a => a.id).sort().join(',')
+  const selectedKey = selected.map(athleteKey).sort().join('\u0000')
 
   useEffect(() => () => teamRequest.current?.abort(), [edit])
 
@@ -66,7 +70,7 @@ export default function WatchlistEditor() {
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout>
     if (!eventKey) {
-      setResults([]); setTeams([]); setValidIds([]); setLoading(false); setNextCursor(null)
+      setResults([]); setTeams([]); setValidIds([]); setValidNames([]); setLoading(false); setNextCursor(null)
       return
     }
     if (!query.trim()) { setResults([]); setTeams([]); setNextCursor(null) }
@@ -75,35 +79,39 @@ export default function WatchlistEditor() {
     const run = async () => {
       const search = new URLSearchParams({ q: query })
       eventKey.split(',').forEach(id => search.append('event_id', id))
-      selectedKey.split(',').filter(Boolean).forEach(id => search.append('selected_id', id))
+      selected.forEach(athlete => {
+        if (athlete.id) search.append('selected_id', athlete.id)
+        else if (athlete.selection_name) search.append('selected_name', athlete.selection_name)
+      })
       if (cursor) search.set('cursor', cursor)
       try {
         const response = await watchRequest<SearchResults>('/athletes?' + search, { signal: controller.signal })
         if (controller.signal.aborted) return
-        setResults(previous => cursor ? [...new Map([...previous, ...response.athletes].map(a => [a.id, a])).values()] : response.athletes)
+        setResults(previous => cursor ? [...new Map([...previous, ...response.athletes].map(a => [athleteKey(a), a])).values()] : response.athletes)
         setNextCursor(response.next_cursor)
         setTeams(response.teams || [])
         setValidIds(response.eligible_selected_ids)
+        setValidNames(response.eligible_selected_names)
         setReady(response.registration_ready)
         if (!response.registration_ready) timer = setTimeout(run, 5000)
       } catch (e) {
-        if (!controller.signal.aborted) { setSearchError(errorText(e)); setValidIds([]) }
+        if (!controller.signal.aborted) { setSearchError(errorText(e)); setValidIds([]); setValidNames([]) }
       } finally {
         if (!controller.signal.aborted) setLoading(false)
       }
     }
     timer = setTimeout(run, 350)
     return () => { controller.abort(); clearTimeout(timer) }
-  }, [eventKey, selectedKey, query, cursor, retry])
+  }, [eventKey, selectedKey, query, cursor, retry, selected])
 
-  const invalid = selected.filter(a => !validIds.includes(a.id))
+  const invalid = selected.filter(a => a.id ? !validIds.includes(a.id) : !validNames.includes(a.selection_name || ''))
   const selectedEvents = tournaments.filter(e => eventIds.includes(e.event_id))
 
   async function addTeam(team: string) {
     const controller = new AbortController()
     teamRequest.current = controller
     setAddingTeam(true); setError('')
-    const additions = new Map(selected.map(a => [a.id, a]))
+    const additions = new Map(selected.map(a => [athleteKey(a), a]))
     let page: string | null = null
     try {
       do {
@@ -113,7 +121,7 @@ export default function WatchlistEditor() {
         const response = await watchRequest<SearchResults>('/athletes?' + search, { signal: controller.signal })
         if (controller.signal.aborted) return
         for (const athlete of response.athletes) {
-          if (athlete.trackable && additions.size < 200) additions.set(athlete.id, athlete)
+          if (athlete.trackable && additions.size < 200) additions.set(athleteKey(athlete), athlete)
         }
         page = response.next_cursor
       } while (page && additions.size < 200)
@@ -130,7 +138,11 @@ export default function WatchlistEditor() {
     try {
       const response = await watchRequest<{ url: string }>('', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_ids: eventIds, athlete_ids: selected.map(a => a.id) }),
+        body: JSON.stringify({
+          event_ids: eventIds,
+          athlete_ids: selected.flatMap(a => a.id ? [a.id] : []),
+          athlete_names: selected.flatMap(a => a.selection_name ? [a.selection_name] : []),
+        }),
       })
       navigate(response.url)
     } catch (e) {
@@ -149,7 +161,7 @@ export default function WatchlistEditor() {
         {tournaments.map(event => <label className="watch-choice" key={event.event_id}>
           <input type="checkbox" checked={eventIds.includes(event.event_id)}
             disabled={!eventIds.includes(event.event_id) && (!event.selectable || eventIds.length >= 10)}
-            onChange={() => { setEventIds(ids => ids.includes(event.event_id) ? ids.filter(id => id !== event.event_id) : [...ids, event.event_id]); setCursor(null); setValidIds([]) }} />
+            onChange={() => { setEventIds(ids => ids.includes(event.event_id) ? ids.filter(id => id !== event.event_id) : [...ids, event.event_id]); setCursor(null); setValidIds([]); setValidNames([]) }} />
           <span>{event.name}<small>{event.start_date} – {event.end_date}</small>
             {!event.selectable && <small>{t('Tournament unavailable or dates missing')}</small>}
           </span>
@@ -176,24 +188,24 @@ export default function WatchlistEditor() {
           <button className={`button ${addingTeam ? 'is-loading' : ''}`} disabled={loading || addingTeam || selected.length >= 200}
             onClick={() => void addTeam(team)}>{t('ADD ALL')}</button>
         </div>)}
-        {(query.trim() ? results : []).map(athlete => <div className="watch-result" key={athlete.id}>
+        {(query.trim() ? results : []).map(athlete => <div className="watch-result" key={athleteKey(athlete)}>
           <div><strong>{athlete.name}</strong>
             {athlete.registrations?.map((r, i) => <small key={i}>{r.team} · {r.tournament}</small>)}
             {!athlete.trackable && <small>{t('Live tracking is unavailable without an IBJJF athlete ID.')}</small>}
           </div>
-          <button className="button" disabled={loading || !athlete.trackable || selected.some(a => a.id === athlete.id) || selected.length >= 200}
-            onClick={() => { setSelected(a => [...a, athlete]); setCursor(null) }}>{selected.some(a => a.id === athlete.id) ? t('Added') : t('Add')}</button>
+          <button className="button" disabled={loading || !athlete.trackable || selected.some(a => athleteKey(a) === athleteKey(athlete)) || selected.length >= 200}
+            onClick={() => { setSelected(a => [...a, athlete]); setCursor(null) }}>{selected.some(a => athleteKey(a) === athleteKey(athlete)) ? t('Added') : t('Add')}</button>
         </div>)}
       </div>
       {!!query.trim() && nextCursor && <button className="button mt-2" disabled={loading} onClick={() => setCursor(nextCursor)}>{t('Load more')}</button>}
       <h2 className="label mt-4">{t('Selected athletes')}</h2>
       <div className="watch-selected">
         {!selected.length && <p>{t('None')}</p>}
-        {selected.map(athlete => <div className="watch-result" key={athlete.id}>
+        {selected.map(athlete => <div className="watch-result" key={athleteKey(athlete)}>
           <span>{athlete.name || t('Athlete unavailable')}
-            {!loading && !searchError && !validIds.includes(athlete.id) && <small>{t('No longer eligible for the selected tournaments')}</small>}
+            {!loading && !searchError && (athlete.id ? !validIds.includes(athlete.id) : !validNames.includes(athlete.selection_name || '')) && <small>{t('No longer eligible for the selected tournaments')}</small>}
           </span>
-          <button className="button" aria-label={`${t('Remove')} ${athlete.name}`} onClick={() => { setSelected(a => a.filter(s => s.id !== athlete.id)); setCursor(null) }}>{t('Remove')}</button>
+          <button className="button" aria-label={`${t('Remove')} ${athlete.name}`} onClick={() => { setSelected(a => a.filter(s => athleteKey(s) !== athleteKey(athlete))); setCursor(null) }}>{t('Remove')}</button>
         </div>)}
       </div>
     </fieldset>

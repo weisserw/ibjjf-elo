@@ -26,7 +26,7 @@ from constants import age_order_all, translate_age_keep_juvenile
 from watchlist_refresh import database_now, trigger, utc
 
 NAMESPACE = uuid.UUID("56e85f1e-d720-5d40-a186-bcc82e02d311")
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class WatchlistError(ValueError):
@@ -35,15 +35,13 @@ class WatchlistError(ValueError):
         self.code, self.status, self.details = code, status, details
 
 
-def canonical_selection(event_ids, athlete_ids):
-    if not isinstance(event_ids, list) or not isinstance(athlete_ids, list):
+def canonical_selection(event_ids, athlete_ids, athlete_names=None):
+    if athlete_names is None:
+        athlete_names = []
+    if not all(
+        isinstance(values, list) for values in (event_ids, athlete_ids, athlete_names)
+    ):
         raise WatchlistError("invalid_selection")
-    if not event_ids or not athlete_ids:
-        raise WatchlistError("selection_required")
-    if len(event_ids) > current_app.config.get("WATCHLIST_MAX_TOURNAMENTS", 10) or len(
-        athlete_ids
-    ) > current_app.config.get("WATCHLIST_MAX_ATHLETES", 200):
-        raise WatchlistError("selection_too_large")
     try:
         if any(
             not isinstance(e, str) or not re.fullmatch(r"[0-9]{1,12}", e)
@@ -52,9 +50,21 @@ def canonical_selection(event_ids, athlete_ids):
             raise ValueError()
         events = sorted({str(int(e)) for e in event_ids})
         athletes = sorted({str(uuid.UUID(a)) for a in athlete_ids})
+        if any(
+            not isinstance(name, str) or not name.strip() or len(name.strip()) > 300
+            for name in athlete_names
+        ):
+            raise ValueError()
+        names = sorted({name.strip() for name in athlete_names})
     except (ValueError, TypeError, AttributeError):
         raise WatchlistError("invalid_selection")
-    return {"event_ids": events, "athlete_ids": athletes}
+    if not events or not athletes and not names:
+        raise WatchlistError("selection_required")
+    if len(events) > current_app.config.get("WATCHLIST_MAX_TOURNAMENTS", 10) or len(
+        athletes
+    ) + len(names) > current_app.config.get("WATCHLIST_MAX_ATHLETES", 200):
+        raise WatchlistError("selection_too_large")
+    return {"event_ids": events, "athlete_ids": athletes, "athlete_names": names}
 
 
 def selection_id(selection):
@@ -166,11 +176,24 @@ def event_summary(event):
 def athlete_summary(athlete):
     return {
         "id": str(athlete.id),
+        "selection_name": None,
         "ibjjf_id": athlete.ibjjf_id,
         "name": athlete.personal_name or athlete.name,
         "full_name": None if athlete.hide_full_name else athlete.name,
         "profile_url": "/athlete/" + (athlete.slug or str(athlete.id)),
         "trackable": athlete.ibjjf_id is not None,
+    }
+
+
+def name_summary(name):
+    return {
+        "id": None,
+        "selection_name": name,
+        "ibjjf_id": None,
+        "name": name,
+        "full_name": name,
+        "profile_url": None,
+        "trackable": True,
     }
 
 
@@ -226,7 +249,59 @@ def eligible(event_ids, q="", mode="name"):
     return query
 
 
-def search(event_ids, q, mode, cursor=None, selected_ids=None):
+def registration_names(event_ids, q="", mode="name", provisional_only=False):
+    query = (
+        db.session.query(RegistrationLinkCompetitor.athlete_name)
+        .join(RegistrationLink)
+        .join(Division, Division.id == RegistrationLinkCompetitor.division_id)
+        .filter(
+            RegistrationLink.event_id.in_(event_ids),
+            RegistrationLink.hidden.isnot(True),
+            public_registration_rows(),
+            Division.age.in_(age_order_all),
+        )
+    )
+    pattern = (
+        "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    )
+    if mode == "team_exact":
+        query = query.filter(RegistrationLinkCompetitor.team_name == q)
+    elif mode == "team":
+        query = query.filter(
+            RegistrationLinkCompetitor.team_name.ilike(pattern, escape="\\")
+        )
+    elif mode in {"name", "all"} and q:
+        value = "".join(
+            part if part in {"%", "_", "\\"} else normalize(part)
+            for part in re.split(r"([%_\\])", q)
+        )
+        value = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        matched_athlete_names = db.session.query(Athlete.name).filter(
+            or_(
+                Athlete.normalized_name.like("%" + value + "%", escape="\\"),
+                Athlete.normalized_personal_name.like("%" + value + "%", escape="\\"),
+            )
+        )
+        name_match = or_(
+            RegistrationLinkCompetitor.athlete_name.ilike(pattern, escape="\\"),
+            RegistrationLinkCompetitor.athlete_name.in_(matched_athlete_names),
+        )
+        if mode == "all":
+            name_match = or_(
+                name_match,
+                RegistrationLinkCompetitor.team_name.ilike(pattern, escape="\\"),
+            )
+        query = query.filter(name_match)
+    if provisional_only:
+        query = query.filter(
+            ~RegistrationLinkCompetitor.athlete_name.in_(
+                db.session.query(Athlete.name).filter(Athlete.ibjjf_id.isnot(None))
+            )
+        )
+    return query.distinct()
+
+
+def search(event_ids, q, mode, cursor=None, selected_ids=None, selected_names=None):
     if mode not in {"name", "team", "all", "team_exact"} or len(q) > 200:
         raise WatchlistError("invalid_search")
     if not event_ids or len(event_ids) > current_app.config.get(
@@ -241,29 +316,66 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None):
     for event in events.values():
         if not event["registration_ready"]:
             trigger(event, registrations=True)
-    query = eligible(event_ids, q, mode)
-    if mode == "team_exact":
-        query = query.filter(Athlete.ibjjf_id.isnot(None))
+    query = eligible(event_ids, q, mode).filter(Athlete.ibjjf_id.isnot(None))
     display = func.coalesce(func.nullif(Athlete.personal_name, ""), Athlete.name)
+    cursor_phase, cursor_name, cursor_identity = "athlete", None, None
     if cursor:
         try:
-            name, identity = json.loads(base64.urlsafe_b64decode(cursor).decode())
-            identity = uuid.UUID(identity)
-            if not isinstance(name, str):
+            cursor_values = json.loads(base64.urlsafe_b64decode(cursor).decode())
+            cursor_phase = cursor_values[0]
+            cursor_name = cursor_values[1]
+            if cursor_phase == "athlete":
+                cursor_identity = uuid.UUID(cursor_values[2])
+            if cursor_phase not in {"athlete", "name"} or not isinstance(
+                cursor_name, str
+            ):
                 raise ValueError()
-        except (ValueError, TypeError, UnicodeError):
+        except (ValueError, TypeError, UnicodeError, IndexError):
             raise WatchlistError("invalid_cursor")
+    if cursor_phase == "athlete" and cursor_name is not None:
         query = query.filter(
-            or_(display > name, (display == name) & (Athlete.id > identity))
+            or_(
+                display > cursor_name,
+                (display == cursor_name) & (Athlete.id > cursor_identity),
+            )
         )
-    rows = query.order_by(display, Athlete.id).limit(31).all() if q.strip() else []
+    rows = (
+        query.order_by(display, Athlete.id).limit(31).all()
+        if q.strip() and cursor_phase == "athlete"
+        else []
+    )
     next_cursor = None
     if len(rows) > 30:
         last = rows[29]
         next_cursor = base64.urlsafe_b64encode(
-            json.dumps([last.personal_name or last.name, str(last.id)]).encode()
+            json.dumps(
+                ["athlete", last.personal_name or last.name, str(last.id)]
+            ).encode()
         ).decode()
     rows = rows[:30]
+    provisional_names = []
+    if q.strip() and next_cursor is None:
+        remaining = 30 - len(rows)
+        names_query = registration_names(event_ids, q, mode, provisional_only=True)
+        if cursor_phase == "name" and cursor_name is not None:
+            names_query = names_query.filter(
+                RegistrationLinkCompetitor.athlete_name > cursor_name
+            )
+        if remaining:
+            name_rows = (
+                names_query.order_by(RegistrationLinkCompetitor.athlete_name)
+                .limit(remaining + 1)
+                .all()
+            )
+            provisional_names = [name for (name,) in name_rows[:remaining]]
+            if len(name_rows) > remaining:
+                next_cursor = base64.urlsafe_b64encode(
+                    json.dumps(["name", provisional_names[-1]]).encode()
+                ).decode()
+        elif names_query.first() is not None:
+            next_cursor = base64.urlsafe_b64encode(
+                json.dumps(["name", ""]).encode()
+            ).decode()
     contexts = defaultdict(set)
     for name, team, event_id in (
         db.session.query(
@@ -276,7 +388,9 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None):
             RegistrationLink.event_id.in_(event_ids),
             RegistrationLink.hidden.isnot(True),
             public_registration_rows(),
-            RegistrationLinkCompetitor.athlete_name.in_([a.name for a in rows]),
+            RegistrationLinkCompetitor.athlete_name.in_(
+                [a.name for a in rows] + provisional_names
+            ),
             RegistrationLinkCompetitor.division_id.in_(
                 db.session.query(Division.id).filter(Division.age.in_(age_order_all))
             ),
@@ -300,6 +414,22 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None):
         }
         for a in rows
     ]
+    result.extend(
+        {
+            **name_summary(name),
+            "registrations": [
+                {
+                    "team": team,
+                    "event_id": event_id,
+                    "tournament": events[event_id]["name"],
+                }
+                for team, event_id in sorted(
+                    contexts[name], key=lambda c: (c[1], c[0] or "")
+                )
+            ],
+        }
+        for name in provisional_names
+    )
     valid_ids = None
     if selected_ids is not None:
         try:
@@ -312,6 +442,23 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None):
             str(a.id)
             for a in eligible(event_ids)
             .filter(Athlete.id.in_(ids), Athlete.ibjjf_id.isnot(None))
+            .all()
+        ]
+    valid_names = None
+    if selected_names is not None:
+        try:
+            if len(selected_names) > 200 or any(
+                not isinstance(name, str) or not name.strip() or len(name.strip()) > 300
+                for name in selected_names
+            ):
+                raise ValueError()
+            names = {name.strip() for name in selected_names}
+        except (ValueError, TypeError):
+            raise WatchlistError("invalid_selection")
+        valid_names = [
+            name
+            for (name,) in registration_names(event_ids)
+            .filter(RegistrationLinkCompetitor.athlete_name.in_(names))
             .all()
         ]
     teams = []
@@ -333,9 +480,6 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None):
                         Division.age.in_(age_order_all)
                     )
                 ),
-                RegistrationLinkCompetitor.athlete_name.in_(
-                    db.session.query(Athlete.name)
-                ),
             )
             .distinct()
             .order_by(RegistrationLinkCompetitor.team_name)
@@ -346,6 +490,7 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None):
         "teams": teams,
         "next_cursor": next_cursor,
         "eligible_selected_ids": valid_ids,
+        "eligible_selected_names": valid_names,
         "registration_ready": all(e["registration_ready"] for e in events.values()),
         "tournaments": [event_summary(e) for e in events.values()],
     }
@@ -366,8 +511,8 @@ def creation_capacity(identity):
     return row
 
 
-def save(event_ids, athlete_ids):
-    selection = canonical_selection(event_ids, athlete_ids)
+def save(event_ids, athlete_ids, athlete_names=None):
+    selection = canonical_selection(event_ids, athlete_ids, athlete_names)
     identity = selection_id(selection)
     row = creation_capacity(identity)
     events = tournaments(selection["event_ids"], available=True)
@@ -385,8 +530,19 @@ def save(event_ids, athlete_ids):
         .all()
     }
     invalid = sorted(set(selection["athlete_ids"]) - valid)
-    if invalid:
-        raise WatchlistError("athletes_no_longer_eligible", athlete_ids=invalid)
+    valid_names = {
+        name
+        for (name,) in registration_names(selection["event_ids"])
+        .filter(RegistrationLinkCompetitor.athlete_name.in_(selection["athlete_names"]))
+        .all()
+    }
+    invalid_names = sorted(set(selection["athlete_names"]) - valid_names)
+    if invalid or invalid_names:
+        raise WatchlistError(
+            "athletes_no_longer_eligible",
+            athlete_ids=invalid,
+            athlete_names=invalid_names,
+        )
     if row is None:
         try:
             with db.session.begin_nested():
@@ -437,6 +593,7 @@ def load(identity):
 
 def summaries(row, events):
     ids = [uuid.UUID(a) for a in row.canonical_selection["athlete_ids"]]
+    names = row.canonical_selection.get("athlete_names", [])
     athletes = {
         str(a.id): athlete_summary(a)
         for a in db.session.query(Athlete).filter(Athlete.id.in_(ids)).all()
@@ -451,6 +608,7 @@ def summaries(row, events):
                 str(a),
                 {
                     "id": str(a),
+                    "selection_name": None,
                     "name": "",
                     "trackable": False,
                     "ibjjf_id": None,
@@ -458,7 +616,8 @@ def summaries(row, events):
                 },
             )
             for a in ids
-        ],
+        ]
+        + [name_summary(name) for name in names],
     }
 
 
@@ -669,38 +828,85 @@ def data(row, events, today=None):
         m for m in matches if supported_schedule_division(m["division"])
     ]
     supported_ids = {s["ibjjf_id"] for m in supported_matches for s in m["sides"]}
+    supported_names = {
+        normalize(s["name"]) for m in supported_matches for s in m["sides"] if s["name"]
+    }
     hidden_ids = {
         s["ibjjf_id"]
         for m in matches
         if not supported_schedule_division(m["division"])
         for s in m["sides"]
     } - supported_ids
-    base["athletes"] = [a for a in base["athletes"] if a["ibjjf_id"] not in hidden_ids]
+    hidden_names = {
+        normalize(s["name"])
+        for m in matches
+        if not supported_schedule_division(m["division"])
+        for s in m["sides"]
+        if s["name"]
+    } - supported_names
+    base["athletes"] = [
+        a
+        for a in base["athletes"]
+        if a["ibjjf_id"] not in hidden_ids
+        and (
+            not a.get("selection_name")
+            or normalize(a["selection_name"]) not in hidden_names
+        )
+    ]
     matches = supported_matches
     by_id = {}
+    by_name = {}
+    side_indexes_by_name = {}
     for match in sorted(matches, key=match_order):
-        for side in match["sides"]:
+        for side_index, side in enumerate(match["sides"]):
             if side["ibjjf_id"]:
                 by_id.setdefault(side["ibjjf_id"], match)
+            if side["name"]:
+                normalized_name = normalize(side["name"])
+                by_name.setdefault(normalized_name, match)
+                side_indexes_by_name[(id(match), normalized_name)] = side_index
     chosen = {
-        id(by_id[a["ibjjf_id"]]): by_id[a["ibjjf_id"]]
+        id(match): match
         for a in base["athletes"]
-        if a["ibjjf_id"] in by_id
+        if (
+            match := (
+                by_id.get(a["ibjjf_id"])
+                if a["ibjjf_id"]
+                else by_name.get(normalize(a.get("selection_name") or ""))
+            )
+        )
     }
     enrich(list(chosen.values()), events)
     rows = []
     coverage_uncertain = any(coverage_uncertainties)
     for athlete in base["athletes"]:
-        match = by_id.get(athlete["ibjjf_id"])
+        match = (
+            by_id.get(athlete["ibjjf_id"])
+            if athlete["ibjjf_id"]
+            else by_name.get(normalize(athlete.get("selection_name") or ""))
+        )
         if match:
-            side_index = next(
-                i
-                for i, s in enumerate(match["sides"])
-                if s["ibjjf_id"] == athlete["ibjjf_id"]
+            side_index = (
+                next(
+                    i
+                    for i, s in enumerate(match["sides"])
+                    if s["ibjjf_id"] == athlete["ibjjf_id"]
+                )
+                if athlete["ibjjf_id"]
+                else side_indexes_by_name[
+                    (id(match), normalize(athlete["selection_name"]))
+                ]
             )
+            displayed_athlete = athlete
+            if athlete.get("selection_name"):
+                displayed_athlete = {
+                    **athlete,
+                    "ibjjf_id": match["sides"][side_index]["ibjjf_id"],
+                    "profile_url": match["sides"][side_index]["profile_url"],
+                }
             rows.append(
                 {
-                    "athlete": athlete,
+                    "athlete": displayed_athlete,
                     "state": "scheduled",
                     "match": match,
                     "competitor": match["sides"][side_index],
@@ -730,13 +936,17 @@ def data(row, events, today=None):
             )
     rows.sort(
         key=lambda r: (
-            (0, match_order(r["match"]), r["athlete"]["id"])
+            (
+                0,
+                match_order(r["match"]),
+                r["athlete"]["id"] or r["athlete"].get("selection_name", ""),
+            )
             if r["match"]
             else (
                 2 if r["state"] == "not_on_schedule" else 1,
                 (),
                 r["athlete"]["name"],
-                r["athlete"]["id"],
+                r["athlete"]["id"] or r["athlete"].get("selection_name", ""),
             )
         )
     )

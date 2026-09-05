@@ -984,7 +984,7 @@ class RegistrationLinkCompetitor(db.Model):
 class Watchlist(db.Model):
     __tablename__ = "watchlists"
     id = Column(UUID(as_uuid=True), primary_key=True)
-    schema_version = Column(Integer, nullable=False, default=1)
+    schema_version = Column(Integer, nullable=False, default=2)
     canonical_selection = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)

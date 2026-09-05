@@ -9,14 +9,14 @@ Tournaments that have ended are excluded. Users select up to
 10 tournaments, then registered
 athletes. A unified search matches official names, personal names, and registration
 team names. Matching teams appear above athlete results with an "ADD ALL" button.
-This adds trackable members of that exact team across all result pages for the
-selected tournaments, deduplicates athletes, and stops at the 200-athlete limit.
-Eligibility always
-joins the official athlete name to the selected tournaments' registration rows.
-Team search uses those registration teams, never match-history teams. Equal names
-with different local UUIDs remain separate choices. Athletes without an IBJJF ID
-are visible but cannot be tracked. Missing tournament dates are shown explicitly
-and prevent selection. Tournaments without a start date are omitted from the picker.
+This adds members of that exact team across all result pages for the selected
+tournaments, deduplicates athlete choices, and stops at the 200-athlete limit.
+Eligibility always comes from the selected tournaments' registration rows. Team
+search uses those registration teams, never match-history teams. Registered
+athletes with a result-backed database record are selected by local UUID. A
+registration-only athlete is selected by their stripped official registration
+name and can be tracked before they have competed. Missing tournament dates are
+shown explicitly and prevent selection. Tournaments without a start date are omitted from the picker.
 Selection limits remain enforced without displaying counters. The editor starts
 with helper text and no redundant page heading. The selected-athletes area shows
 "None" when empty.
@@ -37,10 +37,12 @@ result actions stay disabled until the response arrives. Clearing the query stil
 hides results. The edit button has padding below it, followed by the update counter
 and then the results.
 
-Selections contain only sorted, distinct event IDs and athlete UUIDs. A fixed
-application namespace and versioned canonical JSON produce a UUIDv5. Identical
-submissions reuse the same mapping; canonical payloads are compared on conflict.
-Names, ratings, divisions and schedules are never frozen in the selection.
+Version 2 selections contain sorted, distinct event IDs, result-backed athlete
+UUIDs and registration-only athlete names. Version 1 UUID-only selections remain
+readable. A fixed application namespace and versioned canonical JSON produce a
+UUIDv5. Identical submissions reuse the same mapping; canonical payloads are
+compared on conflict. Team, division, ratings and schedules are never frozen in
+the selection.
 
 Each selected athlete has exactly one card, showing their earliest listed next
 match across all selected events and divisions, including open class. Both
@@ -64,9 +66,12 @@ profile registration table's live-bracket navigation. The API supplies canonical
 `bracket_category` text in belt/age/gender/weight order even when source schedule
 text is in age/gender/belt/weight order. Navigation clears previously loaded bracket
 data so another tournament's bracket cannot remain visible during loading.
-Profile links open separately. Exact IBJJF IDs resolve live identities; similarly
-named local people are not substituted. Actual unknown opponents receive default
-ratings and zero matches. Winner-of-fight placeholders retain their descriptions
+Profile links open separately. Result-backed selections use exact IBJJF IDs;
+similarly named local people are not substituted. Registration-only selections
+match normalized schedule competitor names. A schedule competitor ID is used
+opportunistically for ratings and profile links without changing the saved
+selection. Actual unknown opponents receive default ratings and zero matches.
+Winner-of-fight placeholders retain their descriptions
 and do not get invented identities or predictions. Placeholder opponents display
 "TBD" while their underlying descriptions remain unchanged. Kids divisions below
 Teen 1 are excluded from registration eligibility, team search/bulk-add, and
@@ -155,8 +160,9 @@ with a user-facing message. Expired rows count until deleted by a read or purge.
 - `GET /api/watchlists/tournaments`: deduplicated structured event choices,
   registration availability and missing-date explanations.
 - `GET /api/watchlists/athletes?event_id=...&q=...&mode=all|name|team|team_exact&cursor=...`:
-  30 distinct athletes per page, ordered by display name and UUID. Repeated
-  `selected_id` parameters return eligible selected IDs for editor validation.
+  up to 30 athlete choices per page. Result-backed choices are ordered by display
+  name and UUID, followed by registration-only names. Repeated `selected_id` and
+  `selected_name` parameters return eligible selections for editor validation.
   Queries bind parameters and escape literal wildcard input. Missing local imports
   are initiated in background, not synchronously on a keystroke.
   Empty or whitespace-only searches return no athletes or pagination cursor;
@@ -164,8 +170,9 @@ with a user-facing message. Expired rows count until deleted by a read or purge.
   not invalidate the selection. The editor hides results immediately on clearing.
   The default `all` mode returns matching team names alongside the combined athlete
   results. `team_exact` paginates trackable members for the bulk-add action.
-- `POST /api/watchlists`: `event_ids` and `athlete_ids`; validates current
-  registration eligibility and live IDs and returns `id`, `url`, `expires_at`.
+- `POST /api/watchlists`: `event_ids`, `athlete_ids` and `athlete_names`; validates
+  current registration eligibility, including live IDs for UUID selections, and
+  returns `id`, `url`, `expires_at`.
 - `GET /api/watchlists/:id`: current selection and athlete/event summaries.
 - `GET /api/watchlists/:id/data?local_date=YYYY-MM-DD`: rows, source freshness,
   coverage, refresh state and `poll_after_seconds`. May claim background work.
@@ -195,7 +202,8 @@ Run `make test` from the root in the repository Python environment. No OCR tests
 or SEO-generating frontend build are needed. Focused tests:
 
 - `app/tests/test_watchlists.py`: source parsing, anonymized source-shaped fixture,
-  identity/search, canonical saves, expiry, ratings, reduction, coverage states,
+  UUID and registration-only name identity/search, canonical saves, expiry,
+  ratings, reduction, coverage states,
   lease renewal/loss, timeout retention and failed thread startup.
 - `app/tests/test_watchlist_postgres.py`: opt-in independent-process contention,
   global capacity, stale publication and migration upgrade/downgrade. Set

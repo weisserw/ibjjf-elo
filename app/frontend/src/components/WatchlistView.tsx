@@ -87,7 +87,7 @@ export default function WatchlistView() {
       {groups.map(([date, rows]) => <section className="watch-day" key={date || 'unscheduled'}>
       {date && <h2 className="title is-5 mb-3">{watchDay(date)}</h2>}
       <div className="watch-cards">
-        {rows.map(row => <article key={row.athlete.id} className={`watch-card ${row.state === 'not_on_schedule' ? 'watch-gray' : ''}`}>
+        {rows.map(row => <article key={row.athlete.id || `name:${row.athlete.selection_name}`} className={`watch-card ${row.state === 'not_on_schedule' ? 'watch-gray' : ''}`}>
           <h3>
             <WatchName name={row.athlete.name} profile_url={row.athlete.profile_url} />
             {row.match && <> <WatchRating side={row.competitor} />{' vs'}{watchOpponentName(row.opponent) === t('TBD') ? ' ' : <br />}

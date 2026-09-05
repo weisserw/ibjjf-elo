@@ -289,6 +289,7 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
             (2, "Alex Example", "Excluded Team"),
             (0, "Other Person", "Selected Team"),
             (0, "Untracked Person", "Selected Team"),
+            (0, "Brand New Person", "New Team"),
         ]:
             db.session.add(
                 RegistrationLinkCompetitor(
@@ -304,12 +305,15 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
         db.session.remove()
         self.context.pop()
 
-    def save(self, event_ids=None, athlete_ids=None):
+    def save(self, event_ids=None, athlete_ids=None, athlete_names=None):
+        if athlete_ids is None and athlete_names is None:
+            athlete_ids = [str(self.athletes[0].id)]
         return self.client.post(
             "/api/watchlists",
             json={
                 "event_ids": event_ids or ["1"],
-                "athlete_ids": athlete_ids or [str(self.athletes[0].id)],
+                "athlete_ids": athlete_ids or [],
+                "athlete_names": athlete_names or [],
             },
         )
 
@@ -453,10 +457,38 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
             "/api/watchlists/athletes", query_string=params
         ).get_json()
         members = first["athletes"] + second["athletes"]
-        self.assertEqual(len({a["id"] for a in members}), 42)
+        self.assertEqual(len({a["id"] or a["selection_name"] for a in members}), 43)
         self.assertTrue(all(a["trackable"] for a in members))
         self.assertNotIn(str(self.athletes[2].id), {a["id"] for a in members})
         self.assertIsNone(second["next_cursor"])
+
+    def test_registration_only_athlete_can_be_saved_and_matched_by_name(self):
+        result = self.client.get(
+            "/api/watchlists/athletes?event_id=1&q=Brand%20New"
+        ).get_json()
+        self.assertEqual(len(result["athletes"]), 1)
+        athlete = result["athletes"][0]
+        self.assertIsNone(athlete["id"])
+        self.assertEqual(athlete["selection_name"], "Brand New Person")
+        self.assertTrue(athlete["trackable"])
+
+        identity = self.save(
+            athlete_ids=[], athlete_names=["Brand New Person"]
+        ).get_json()["id"]
+        match = self.match()
+        match["sides"][0].update({"ibjjf_id": "999", "name": "Brand New Person"})
+        self.snapshot([match])
+
+        result = self.client.get("/api/watchlists/" + identity + "/data").get_json()
+        self.assertEqual(result["selection"]["athlete_names"], ["Brand New Person"])
+        self.assertEqual(len(result["rows"]), 1)
+        self.assertEqual(result["rows"][0]["state"], "scheduled")
+        self.assertEqual(result["rows"][0]["athlete"]["ibjjf_id"], "999")
+
+    def test_unregistered_name_cannot_be_saved(self):
+        response = self.save(athlete_ids=[], athlete_names=["Missing Person"])
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["athlete_names"], ["Missing Person"])
 
     def test_selection_canonical_and_edits_immutable(self):
         a = str(self.athletes[0].id)
