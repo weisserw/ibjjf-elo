@@ -82,6 +82,7 @@ class Division(db.Model):
 
 class SqliteTSVECTOR(TypeDecorator):
     impl = Text
+    cache_ok = True
 
     def load_dialect_impl(self, dialect):
         if dialect.name == "postgresql":
