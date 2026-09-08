@@ -32,6 +32,7 @@ from constants import (
 from extensions import db
 from models import Athlete, Division, Event, Match, Medal, RegistrationLink, Team
 from seeding import (
+    _IBJJF_PLAY_IN_PAIR_OVERRIDES,
     _bracket_slots,
     _side,
     add_estimated_seeds,
@@ -2547,14 +2548,32 @@ class BracketSlotsTestCase(unittest.TestCase):
             15,
             16,
             21,
+            22,
+            23,
+            27,
+            29,
+            30,
             33,
             35,
             36,
+            37,
+            38,
+            39,
             40,
+            41,
+            43,
             44,
+            45,
+            46,
+            47,
             52,
+            53,
+            54,
             55,
+            58,
             66,
+            69,
+            70,
             72,
         ]:
             with self.subTest(n=n):
@@ -2566,6 +2585,43 @@ class BracketSlotsTestCase(unittest.TestCase):
                     if b is not None:
                         seen.add(b)
                 self.assertEqual(seen, set(range(1, n + 1)))
+
+    def test_reviewed_play_in_overrides_are_applied_exactly(self):
+        reviewed_sizes = {
+            22,
+            23,
+            27,
+            29,
+            30,
+            37,
+            38,
+            39,
+            41,
+            43,
+            45,
+            46,
+            47,
+            53,
+            54,
+            58,
+            69,
+            70,
+        }
+        self.assertTrue(reviewed_sizes <= _IBJJF_PLAY_IN_PAIR_OVERRIDES.keys())
+
+        for n in reviewed_sizes:
+            with self.subTest(n=n):
+                slots, bracket_size = _bracket_slots(n)
+                actual = {
+                    tuple(sorted((a, b)))
+                    for a, b in slots
+                    if a is not None and b is not None
+                }
+                expected = {
+                    tuple(sorted(pair)) for pair in _IBJJF_PLAY_IN_PAIR_OVERRIDES[n]
+                }
+                self.assertEqual(actual, expected)
+                self.assertEqual(len(actual), n - bracket_size // 2)
 
     def test_bracket_match_count(self):
         # bracket_match_count = bracket_size - 1

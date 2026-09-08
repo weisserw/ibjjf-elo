@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.sql import func, or_
 
+from bracket_layouts import _IBJJF_PLAY_IN_PAIR_OVERRIDES, _IBJJF_SEED_LAYOUTS
 from extensions import db
 from models import Medal, Match, Division, Event, RegistrationLink, Suspension
 from constants import (
@@ -1703,74 +1704,6 @@ def add_estimated_seeds(rows, divdata):
         r["est_seed_tied"] = key_counts[k] > 1
 
 
-_IBJJF_SEED_LAYOUTS = {
-    4: [(1, 4), (2, 3)],
-    8: [(1, 8), (6, 4), (3, 5), (2, 7)],
-    16: [
-        (1, 16),
-        (8, 12),
-        (4, 14),
-        (6, 10),
-        (2, 15),
-        (7, 11),
-        (3, 13),
-        (5, 9),
-    ],
-    32: [
-        (1, 32),
-        (16, 24),
-        (8, 28),
-        (12, 20),
-        (4, 30),
-        (14, 22),
-        (6, 26),
-        (10, 18),
-        (2, 31),
-        (15, 23),
-        (7, 27),
-        (11, 19),
-        (3, 29),
-        (13, 21),
-        (5, 25),
-        (9, 17),
-    ],
-    64: [
-        (1, 64),
-        (32, 48),
-        (16, 56),
-        (24, 40),
-        (8, 60),
-        (28, 44),
-        (12, 52),
-        (20, 36),
-        (4, 62),
-        (30, 46),
-        (14, 54),
-        (22, 38),
-        (6, 58),
-        (26, 42),
-        (10, 50),
-        (18, 34),
-        (2, 63),
-        (31, 47),
-        (15, 55),
-        (23, 39),
-        (7, 59),
-        (27, 43),
-        (11, 51),
-        (19, 35),
-        (3, 61),
-        (29, 45),
-        (13, 53),
-        (21, 37),
-        (5, 57),
-        (25, 41),
-        (9, 49),
-        (17, 33),
-    ],
-}
-
-
 def _bracket_slots(n):
     """Return ``(first_round, bracket_size)`` for an n-person IBJJF bracket.
 
@@ -1804,7 +1737,22 @@ def _bracket_slots(n):
         return None, None
 
     play_in_pairs = {}
-    if play_in_count > 0 and not use_power_up_layout:
+    override_pairs = _IBJJF_PLAY_IN_PAIR_OVERRIDES.get(n)
+    if override_pairs is not None:
+        if len(override_pairs) != play_in_count:
+            raise ValueError(
+                f"N={n} has {len(override_pairs)} play-in overrides; "
+                f"expected {play_in_count}"
+            )
+        for left, right in override_pairs:
+            established, newcomer = sorted((left, right))
+            if not (
+                1 <= established <= effective_size < newcomer <= n
+                and established not in play_in_pairs
+            ):
+                raise ValueError(f"Invalid N={n} play-in override: {(left, right)}")
+            play_in_pairs[established] = newcomer
+    elif play_in_count > 0 and not use_power_up_layout:
         normalized = sorted(
             [(min(a, b), max(a, b)) for a, b in effective_layout],
             key=lambda p: p[0],
@@ -1814,25 +1762,8 @@ def _bracket_slots(n):
 
         count_a = min(play_in_count, len(group_a))
         count_b = max(0, play_in_count - len(group_a))
-        if effective_size == 16 and play_in_count == 5:
-            # N=21 uses a non-sequential play-in assignment. Verified against
-            # independent IBJJF brackets with no same-team swaps: seeds 17-21
-            # enter against 13, 10, 15, 16, and 14, respectively.
-            selected_a = [13, 10, 15, 16, 14]
-        elif effective_size == 32 and play_in_count == 12:
-            selected_a = [17, 18, 19, 20, 29, 30, 31, 32, 25, 26, 27, 28]
-        elif effective_size == 32 and play_in_count <= 4:
-            selected_a = [29, 30, 31, 32][:count_a]
-        elif effective_size == 64 and play_in_count == 8:
-            selected_a = [57, 58, 59, 60, 61, 62, 63, 64]
-        elif effective_size == 64 and play_in_count == 2:
-            selected_a = [57, 58]
-        else:
-            selected_a = sorted(group_a[:count_a])
-        if effective_size == 32 and play_in_count == 23:
-            selected_b = [13, 10, 11, 12, 15, 14, 16]
-        else:
-            selected_b = sorted(group_b[:count_b])
+        selected_a = sorted(group_a[:count_a])
+        selected_b = sorted(group_b[:count_b])
 
         if effective_size <= 4:
             for i, s in enumerate(selected_a):

@@ -111,6 +111,11 @@ Changing the event, category, or reloading competitors clears `hypotheticalRegis
 
 `bracket_slots` comes from `_bracket_slots(n)` and is an ordered list of first-round `(red_seed, blue_seed)` pairs. `null` means a bye. `bracket_match_count` is `bracket_size - 1`.
 
+Power-of-two trees and irregular, empirically verified play-in assignments live
+declaratively in `app/bracket_layouts.py`. Unverified sizes continue to use the
+generic inference in `app/seeding.py`; `_bracket_slots(n)` inserts either set of
+play-ins into the canonical tree and derives the bye rows.
+
 The frontend turns backend slots into matches with `createMatchesFromSeeds(...)`. For the idealized comparison view, it builds a snake layout with `createSnakeBracketSlots(...)` instead of using IBJJF slots.
 
 ## Tests To Run

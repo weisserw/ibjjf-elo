@@ -22,7 +22,8 @@ the actual low seed used for play-ins.
 
 ## Current Implementation Shape
 
-The implementation is in `app/seeding.py`:
+The declarative layout data is in `app/bracket_layouts.py`, and construction is
+in `app/seeding.py`:
 
 - `_IBJJF_SEED_LAYOUTS` stores canonical power-of-two seed layouts.
 - `_bracket_slots(n)` builds canonical first-round rows for the requested `n`.
@@ -54,6 +55,37 @@ The current data-collection workflow is:
    to their original seed slots, which keeps the output useful for bracket
    generation analysis.
 5. Paste the script output into the agent conversation for analysis.
+
+For historical match data, export `queries/bracket_layout_examples.sql`, add
+`url` and `swaps` columns, and record official swaps as `N-M;N-M` (blank means
+none). Then run:
+
+```bash
+python3 scripts/audit_archive_bracket_layouts.py bracket_layout_review.csv
+```
+
+The script writes `bracket_layout_review.audit.txt`. It treats stored
+`Match.division_size` as bracket match capacity, identifies sparse first-round
+matches within `1..(division_size + 1) / 2`, composes the official swaps in
+listed order, and compares non-bye pairings against `_bracket_slots(N)` while
+ignoring pair orientation and display order.
+
+For completed brackets that are no longer available as useful live HTML,
+`queries/bracket_layout_examples.sql` selects one archived event/division per
+requested athlete count and exports every seed's first match and team ID. It
+prefers divisions with the most distinct teams but permits repeated teams.
+Export the result as CSV, then run:
+
+```bash
+python3 scripts/archive_bracket_initial_pairings.py query_results.csv
+```
+
+The helper applies the production same-team swap rules and prints corrected
+play-in pairs in archived match-number order. A team with more than two
+athletes is reported as ambiguous because the production swap logic also bails
+out in that case. This inference uses the current `_side(seed, n)` behavior;
+when investigating a layout that may change seed halves, verify the inferred
+swaps against official bracket HTML before treating the result as canonical.
 
 When the user provides a bracket:
 
