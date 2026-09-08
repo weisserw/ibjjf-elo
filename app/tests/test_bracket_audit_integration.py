@@ -403,6 +403,41 @@ class BracketAuditAdminRouteTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(expected, [[1, 4], [2, 3]])
         self.assertEqual(actual, [[1, 3], [2, 4]])
 
+    def test_report_athlete_link_uses_public_app_host(self):
+        run = BracketAuditRun(
+            tournament_id="123",
+            tournament_name="Test Open",
+            gi=True,
+            status="complete",
+        )
+        category = BracketAuditCategory(
+            run=run,
+            category_url="https://example.test/categories/1",
+            status="complete",
+            criteria_status="criteria_mismatch",
+            layout_status="exact",
+        )
+        category.report = {
+            "criteria": {
+                "rows": [
+                    {"predicted": {"slug": "test-athlete"}},
+                ],
+            },
+            "layout": {},
+        }
+        db.session.add(run)
+        db.session.commit()
+
+        response = self.client.get(f"/bracket_audits/{run.id}")
+
+        self.assertEqual(response.status_code, 200)
+        soup = BeautifulSoup(response.data, "html.parser")
+        athlete_link = soup.find("a", string="Athlete")
+        self.assertEqual(
+            athlete_link["href"], "https://jiujitsu.net/athlete/test-athlete"
+        )
+        self.assertEqual(athlete_link["rel"], ["noopener"])
+
     def test_delete_report_removes_run_and_categories_but_keeps_task_log(self):
         link = RegistrationLink(
             name="Test Open",

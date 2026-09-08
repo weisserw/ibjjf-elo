@@ -120,8 +120,8 @@
                             {% if row.get('reason') %}<div class="has-text-danger">{{ row.get('reason') }}</div>{% endif %}
                         </td>
                         <td>
-                            {% if predicted.get('slug') %}<a href="/athlete/{{ predicted.get('slug') }}" target="_blank">Athlete</a>{% endif %}
-                            {% if predicted.get('id') %}<a href="{{ url_for('athlete_medals', id=predicted.get('id')) }}">Current medals</a>{% endif %}
+                            {% if predicted.get('slug') %}<a href="https://jiujitsu.net/athlete/{{ predicted.get('slug') }}" target="_blank" rel="noopener">Athlete</a>{% endif %}
+                            {% if predicted.get('id') %} / <a href="{{ url_for('athlete_medals', id=predicted.get('id')) }}">Current medals</a>{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
