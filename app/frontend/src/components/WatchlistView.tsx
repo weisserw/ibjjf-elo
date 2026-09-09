@@ -132,12 +132,16 @@ export default function WatchlistView() {
                 </button>}
               </div>
             </div>
+            <p className="watch-matches-ahead">{row.match.matches_ahead > 0
+              ? <>{row.match.matches_ahead} {t(row.match.matches_ahead === 1 ? 'match to go' : 'matches to go')}</>
+              : t('up next / in progress')}
+            </p>
             <p>{row.match.bracket_category ? <Link to="/tournaments" onClick={() => {
               setBracketCategories(null); setBracketCompetitors(null)
               setBracketMatches(null); setBracketMatLinks(null)
               setBracketSelectedEvent(row.match!.event_id)
               setBracketSelectedCategory(row.match!.bracket_category!)
-            }}>{translateMulti(row.match.division)}</Link> : translateMulti(row.match.division)}</p>
+            }}>{translateMulti(row.match.division)}</Link> : translateMulti(row.match.division)}{row.match.match_level && <> ({row.match.match_level})</>}</p>
           </> : <p>{watchStatus(row.state)}</p>}
           {row.match && <p className="watch-tournament">{data.tournaments.find(e => e.event_id === row.match?.event_id)?.name}</p>}
         </article>)}

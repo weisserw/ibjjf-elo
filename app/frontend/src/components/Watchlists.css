@@ -32,6 +32,7 @@
 .watch-card h3 { font-size: 1.15rem; font-weight: 700; }
 .watch-day + .watch-day { margin-top: 1.5rem; }
 .watch-when { display: flex; align-items: center; justify-content: space-between; gap: .75rem; font-size: 1.15rem; margin: .5rem 0; }
+.watch-matches-ahead { margin-top: -.35rem; margin-bottom: .75rem; }
 .watch-gray { background: var(--bulma-scheme-main-ter); border-color: var(--bulma-border); }
 .watch-rating { display: inline-block; white-space: nowrap; }
 .watch-tournament { margin-top: .75rem; }

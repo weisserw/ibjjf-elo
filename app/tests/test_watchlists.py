@@ -53,9 +53,10 @@ def card(
     fight=1,
     when="09:30 AM",
     category="BLACK / Adult / Male / Light",
+    phase="",
 ):
     return f"""<li><span class="match-header__fight">FIGHT {fight}</span>
-      <span class="match-header__when">{when}</span><span class="match-header__category-name">{category}</span>
+      <span class="match-header__when">{when}</span><span class="match-header__phase">{phase}</span><span class="match-header__category-name">{category}</span>
       <div class="match-card__competitor" id="competitor-{athlete}"><span class="match-card__competitor-name">Alex Example</span></div>
       <div class="match-card__competitor" id="competitor-{opponent}"><span class="match-card__competitor-name">Opponent</span></div></li>"""
 
@@ -79,6 +80,13 @@ class WatchlistParserTests(unittest.TestCase):
     def test_24_hour_clock_from_schedule_is_parsed(self):
         result = parse_page(page(card(when="13:19: FIGHT 24")), self.url, "1", self.day)
         self.assertEqual(result["matches"][0]["local_time"], "13:19")
+
+    def test_match_level_comes_from_order_of_fights_phase(self):
+        match = parse_page(page(card(phase="(SF)")), self.url, "1", self.day)[
+            "matches"
+        ][0]
+
+        self.assertEqual(match["match_level"], "SF")
 
     def test_search_widget_does_not_count_as_presence(self):
         result = parse_page(
@@ -1042,6 +1050,37 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
         ][0]
         self.assertIsNone(row["match"]["local_time"])
         self.assertEqual(row["state"], "scheduled")
+
+    def test_match_reports_current_position_on_its_mat(self):
+        identity = self.save().get_json()["id"]
+        ahead = self.match(opponent="201", fight=41)
+        ahead["sides"][0]["ibjjf_id"] = "301"
+        ahead["sides"][0]["name"] = "Earlier Person"
+        watched = self.match(fight=54)
+        other_mat = self.match(opponent="202", fight=1)
+        other_mat["mat"] = 2
+        unsupported = self.match(
+            opponent="203", fight=50, division="Junior 1 / Male / GREY / Light"
+        )
+        unsupported["sides"][0]["ibjjf_id"] = "302"
+        unsupported["sides"][0]["name"] = "Junior Person"
+        self.snapshot([watched, other_mat, unsupported, ahead])
+
+        row = self.client.get("/api/watchlists/" + identity + "/data").get_json()[
+            "rows"
+        ][0]
+
+        self.assertEqual(row["match"]["matches_ahead"], 2)
+
+    def test_first_match_on_mat_reports_zero_matches_ahead(self):
+        identity = self.save().get_json()["id"]
+        self.snapshot([self.match(fight=54)])
+
+        row = self.client.get("/api/watchlists/" + identity + "/data").get_json()[
+            "rows"
+        ][0]
+
+        self.assertEqual(row["match"]["matches_ahead"], 0)
 
     def test_routine_refresh_keeps_complete_snapshot_with_regular_polling(self):
         identity = self.save().get_json()["id"]

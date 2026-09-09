@@ -480,7 +480,10 @@ const translations = {
     "Yes": "Sim",
     "No": "Não",
     "Sub": "Fin",
-    "Mat Link": "Link do Mat"
+    "Mat Link": "Link do Mat",
+    "match to go": "luta restante",
+    "matches to go": "lutas restantes",
+    "up next / in progress": "a seguir / em andamento"
 };
 
 export type translationKeys = keyof typeof translations;

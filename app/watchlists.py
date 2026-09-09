@@ -912,6 +912,14 @@ def data(row, events, today=None):
     supported_matches = [
         m for m in matches if supported_schedule_division(m["division"])
     ]
+    matches_by_mat = defaultdict(list)
+    for match in matches:
+        matches_by_mat[(match["event_id"], match["day_id"], match["mat"])].append(match)
+    for mat_matches in matches_by_mat.values():
+        for matches_ahead, match in enumerate(
+            sorted(mat_matches, key=lambda m: m["fight_number"])
+        ):
+            match["matches_ahead"] = matches_ahead
     supported_ids = {s["ibjjf_id"] for m in supported_matches for s in m["sides"]}
     supported_names = {
         normalize(s["name"]) for m in supported_matches for s in m["sides"] if s["name"]

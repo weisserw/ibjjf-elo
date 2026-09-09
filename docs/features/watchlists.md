@@ -76,9 +76,17 @@ Cards are grouped by calendar date under a weekday heading, with unscheduled car
 after the dated groups. Times use compact am/pm (for example, `9:30am`), without a
 numeric date or timezone conversion. Time and mat appear together on the left,
 separated by a dot, in the same font size as the athlete heading. Cards show mat
-and division, with the tournament name at the bottom. When a tournament has a
-configured per-mat YouTube or Flo stream, its icon links to that stream in the
-right side of the time/mat row. Division links select the
+and division, with the tournament name at the bottom. When other fights remain
+ahead of a watched match in the current order for the same tournament day and mat,
+the card shows that count as “N match(es) to go”; the first
+listed match instead shows “up next / in progress.”
+The count includes all listed fights, including divisions not otherwise displayed
+by watchlists, and is recalculated from each refreshed schedule snapshot. Match
+levels such as `(EL1)`, `(QF)`, and `(SF)` come directly from the Order of Fights
+card phase and appear after the division text. Queue-position text is spaced with the
+time/mat metadata rather than the division. When a
+tournament has a configured per-mat YouTube or Flo stream, its icon links to that
+stream in the right side of the time/mat row. Division links select the
 event and category in app context and open `/tournaments`, matching the athlete
 profile registration table's live-bracket navigation. The API supplies canonical
 English `division` and `bracket_category` text in belt/age/gender/weight order,

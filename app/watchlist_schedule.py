@@ -137,6 +137,12 @@ def parse_page(html, url, event_id, day):
             )
             sides = card.select(".match-card__competitor")
             category = text_at(card, ".match-header__category-name")
+            phase = text_at(card, ".match-header__phase").strip()
+            match_level = (
+                phase[1:-1].strip()
+                if phase.startswith("(") and phase.endswith(")")
+                else phase
+            )
             if not fight or len(sides) != 2 or not category:
                 raise SourceError("invalid_fight")
             when = text_at(card, ".match-header__when")
@@ -160,6 +166,7 @@ def parse_page(html, url, event_id, day):
                     "fight_number": int(fight[1]),
                     "local_time": local_time,
                     "division": category,
+                    "match_level": match_level or None,
                     "sides": [parse_side(s) for s in sides],
                     "source_order": len(matches),
                 }
