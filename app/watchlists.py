@@ -9,12 +9,13 @@ from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 
 from flask import current_app
-from sqlalchemy import func, or_
+from sqlalchemy import case, func, or_
 from sqlalchemy.exc import IntegrityError
 
 from extensions import db
 from models import (
     Athlete,
+    AthleteRating,
     Division,
     RegistrationLink,
     RegistrationLinkCompetitor,
@@ -22,7 +23,13 @@ from models import (
     WatchlistSchedule,
 )
 from normalize import normalize
-from constants import age_order_all, translate_age_keep_juvenile
+from constants import (
+    ADULT,
+    JUVENILE_AGES,
+    age_order_all,
+    belt_order,
+    translate_age_keep_juvenile,
+)
 from watchlist_refresh import database_now, trigger, utc
 from livestreams import load_livestream_links, per_mat_livestream_links
 
@@ -302,7 +309,15 @@ def registration_names(event_ids, q="", mode="name", provisional_only=False):
     return query.distinct()
 
 
-def search(event_ids, q, mode, cursor=None, selected_ids=None, selected_names=None):
+def search(
+    event_ids,
+    q,
+    mode,
+    cursor=None,
+    selected_ids=None,
+    selected_names=None,
+    show_elite=False,
+):
     if mode not in {"name", "team", "all", "team_exact"} or len(q) > 200:
         raise WatchlistError("invalid_search")
     if not event_ids or len(event_ids) > current_app.config.get(
@@ -319,6 +334,40 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None, selected_names=No
             trigger(event, registrations=True)
     query = eligible(event_ids, q, mode).filter(Athlete.ibjjf_id.isnot(None))
     display = func.coalesce(func.nullif(Athlete.personal_name, ""), Athlete.name)
+    elite_percentiles = (
+        db.session.query(
+            AthleteRating.athlete_id.label("athlete_id"),
+            func.min(AthleteRating.percentile).label("percentile"),
+        )
+        .filter(
+            AthleteRating.age.in_((*JUVENILE_AGES, ADULT)),
+            AthleteRating.percentile.isnot(None),
+        )
+        .group_by(AthleteRating.athlete_id)
+        .subquery()
+    )
+    registered_belts = (
+        db.session.query(
+            RegistrationLinkCompetitor.athlete_name.label("athlete_name"),
+            func.max(
+                case(
+                    {belt: rank for rank, belt in enumerate(belt_order)},
+                    value=Division.belt,
+                    else_=-1,
+                )
+            ).label("belt_rank"),
+        )
+        .join(RegistrationLink)
+        .join(Division, Division.id == RegistrationLinkCompetitor.division_id)
+        .filter(
+            RegistrationLink.event_id.in_(event_ids),
+            RegistrationLink.hidden.isnot(True),
+            public_registration_rows(),
+            Division.age.in_(age_order_all),
+        )
+        .group_by(RegistrationLinkCompetitor.athlete_name)
+        .subquery()
+    )
     cursor_phase, cursor_name, cursor_identity = "athlete", None, None
     if cursor:
         try:
@@ -340,13 +389,28 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None, selected_names=No
                 (display == cursor_name) & (Athlete.id > cursor_identity),
             )
         )
-    rows = (
-        query.order_by(display, Athlete.id).limit(31).all()
-        if q.strip() and cursor_phase == "athlete"
-        else []
-    )
+    if show_elite and cursor_phase == "athlete":
+        rows = (
+            query.join(elite_percentiles, elite_percentiles.c.athlete_id == Athlete.id)
+            .join(registered_belts, registered_belts.c.athlete_name == Athlete.name)
+            .filter(elite_percentiles.c.percentile <= 0.1)
+            .order_by(
+                registered_belts.c.belt_rank.desc(),
+                elite_percentiles.c.percentile,
+                display,
+                Athlete.id,
+            )
+            .limit(30)
+            .all()
+        )
+    else:
+        rows = (
+            query.order_by(display, Athlete.id).limit(31).all()
+            if q.strip() and cursor_phase == "athlete"
+            else []
+        )
     next_cursor = None
-    if len(rows) > 30:
+    if not show_elite and len(rows) > 30:
         last = rows[29]
         next_cursor = base64.urlsafe_b64encode(
             json.dumps(
@@ -355,7 +419,7 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None, selected_names=No
         ).decode()
     rows = rows[:30]
     provisional_names = []
-    if q.strip() and next_cursor is None:
+    if q.strip() and not show_elite and next_cursor is None:
         remaining = 30 - len(rows)
         names_query = registration_names(event_ids, q, mode, provisional_only=True)
         if cursor_phase == "name" and cursor_name is not None:
@@ -378,13 +442,15 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None, selected_names=No
                 json.dumps(["name", ""]).encode()
             ).decode()
     contexts = defaultdict(set)
-    for name, team, event_id in (
+    for name, belt, team, event_id in (
         db.session.query(
             RegistrationLinkCompetitor.athlete_name,
+            Division.belt,
             RegistrationLinkCompetitor.team_name,
             RegistrationLink.event_id,
         )
         .join(RegistrationLink)
+        .join(Division, Division.id == RegistrationLinkCompetitor.division_id)
         .filter(
             RegistrationLink.event_id.in_(event_ids),
             RegistrationLink.hidden.isnot(True),
@@ -392,24 +458,39 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None, selected_names=No
             RegistrationLinkCompetitor.athlete_name.in_(
                 [a.name for a in rows] + provisional_names
             ),
-            RegistrationLinkCompetitor.division_id.in_(
-                db.session.query(Division.id).filter(Division.age.in_(age_order_all))
-            ),
+            Division.age.in_(age_order_all),
         )
         .all()
     ):
-        contexts[name].add((team, event_id))
+        contexts[name].add((belt, team, event_id))
+    ratings = {}
+    if rows:
+        for rating in (
+            db.session.query(AthleteRating)
+            .filter(
+                AthleteRating.athlete_id.in_([a.id for a in rows]),
+                AthleteRating.age.in_((*JUVENILE_AGES, ADULT)),
+                AthleteRating.percentile.isnot(None),
+            )
+            .order_by(AthleteRating.percentile, AthleteRating.id)
+            .all()
+        ):
+            ratings.setdefault(rating.athlete_id, rating)
     result = [
         {
             **athlete_summary(a),
+            "elite_percentile": ratings[a.id].percentile if a.id in ratings else None,
+            "elite_belt": ratings[a.id].belt if a.id in ratings else None,
+            "elite_age": ratings[a.id].age if a.id in ratings else None,
             "registrations": [
                 {
+                    "belt": belt,
                     "team": team,
                     "event_id": event_id,
                     "tournament": events[event_id]["name"],
                 }
-                for team, event_id in sorted(
-                    contexts[a.name], key=lambda c: (c[1], c[0] or "")
+                for belt, team, event_id in sorted(
+                    contexts[a.name], key=lambda c: (c[2], c[0] or "", c[1] or "")
                 )
             ],
         }
@@ -420,12 +501,13 @@ def search(event_ids, q, mode, cursor=None, selected_ids=None, selected_names=No
             **name_summary(name),
             "registrations": [
                 {
+                    "belt": belt,
                     "team": team,
                     "event_id": event_id,
                     "tournament": events[event_id]["name"],
                 }
-                for team, event_id in sorted(
-                    contexts[name], key=lambda c: (c[1], c[0] or "")
+                for belt, team, event_id in sorted(
+                    contexts[name], key=lambda c: (c[2], c[0] or "", c[1] or "")
                 )
             ],
         }

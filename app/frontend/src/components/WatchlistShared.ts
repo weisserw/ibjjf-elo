@@ -7,7 +7,10 @@ export interface WatchAthlete {
   name: string
   profile_url: string | null
   trackable: boolean
-  registrations?: { team: string; event_id: string; tournament: string }[]
+  elite_percentile?: number | null
+  elite_belt?: string | null
+  elite_age?: string | null
+  registrations?: { belt: string; team: string; event_id: string; tournament: string }[]
 }
 export interface WatchTournament {
   event_id: string

@@ -11,6 +11,12 @@ athletes. A unified search matches official names, personal names, and registrat
 team names. Matching teams appear above athlete results with an "ADD ALL" button.
 This adds members of that exact team across all result pages for the selected
 tournaments, deduplicates athlete choices, and stops at the 200-athlete limit.
+"Search Elite Athletes" lists up to 30 registered Adult or Juvenile athletes whose
+best current rating percentile is at most 0.1, even when the search input is empty.
+The input continues to filter that list, which is ordered by registered belt
+descending and then rating percentile. Elite badges also appear beside elite
+athletes in ordinary search results.
+Each athlete result shows the localized registered belt before its team and tournament.
 Eligibility always comes from the selected tournaments' registration rows. Team
 search uses those registration teams, never match-history teams. Registered
 athletes with a result-backed database record are selected by local UUID. A
@@ -32,9 +38,9 @@ in an info-colored box with Edit this watchlist below it and no Copy link button
 saved page is headed "Saved Watchlist" and has no separate tournament-freshness panel. Editing preloads the selection at
 `/tournaments/watchlists?edit=:id`; changing it creates another ID and preserves
 the original. Invalid selections remain visible for correction after failures.
-Search keeps the previous results visible while a nonblank query is loading;
+Search keeps the previous results visible while a nonblank query or elite listing is loading;
 result actions stay disabled until the response arrives. Clearing the query still
-hides results. The edit button has padding below it, followed by the update counter
+hides results unless the elite checkbox is selected. The edit button has padding below it, followed by the update counter
 and then the results.
 
 Version 2 selections contain sorted, distinct event IDs, result-backed athlete

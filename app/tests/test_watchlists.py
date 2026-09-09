@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from extensions import db
 from models import (
     Athlete,
+    AthleteRating,
     Division,
     RegistrationLink,
     RegistrationLinkCompetitor,
@@ -18,7 +19,7 @@ from models import (
     WatchlistSchedule,
     WatchlistRefreshSlot,
 )
-from constants import ADULT, BLACK, MALE, LIGHT
+from constants import ADULT, BLACK, BROWN, MALE, LIGHT
 from test_db import TestDbMixin
 from watchlist_schedule import (
     BASE,
@@ -369,6 +370,7 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
         self.assertEqual(len(result["athletes"]), 1)
         self.assertIsNone(result["athletes"][0]["full_name"])
         self.assertEqual(result["athletes"][0]["name"], "Private Alex")
+        self.assertEqual(result["athletes"][0]["registrations"][0]["belt"], BLACK)
         self.athletes[0].name = "Not Registered"
         db.session.commit()
         self.assertEqual(
@@ -377,6 +379,92 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
             ],
             [],
         )
+
+    def test_elite_search_allows_empty_query_filters_and_sorts_by_tier(self):
+        now = datetime.now()
+        brown_division = Division(
+            gi=True, gender=MALE, age=ADULT, belt=BROWN, weight=LIGHT
+        )
+        db.session.add(brown_division)
+        db.session.flush()
+        other_registration = (
+            db.session.query(RegistrationLinkCompetitor)
+            .filter_by(
+                registration_link_id=self.events[0].id,
+                athlete_name="Other Person",
+            )
+            .one()
+        )
+        other_registration.division_id = brown_division.id
+        db.session.add_all(
+            [
+                AthleteRating(
+                    athlete_id=self.athletes[0].id,
+                    gender=MALE,
+                    age=ADULT,
+                    belt=BLACK,
+                    gi=True,
+                    weight=LIGHT,
+                    rating=1500,
+                    match_happened_at=now,
+                    percentile=0.06,
+                    match_count=10,
+                ),
+                AthleteRating(
+                    athlete_id=self.athletes[1].id,
+                    gender=MALE,
+                    age=ADULT,
+                    belt=BLACK,
+                    gi=True,
+                    weight=LIGHT,
+                    rating=1700,
+                    match_happened_at=now,
+                    percentile=0.01,
+                    match_count=10,
+                ),
+                AthleteRating(
+                    athlete_id=self.athletes[2].id,
+                    gender=MALE,
+                    age=ADULT,
+                    belt=BLACK,
+                    gi=True,
+                    weight=LIGHT,
+                    rating=1600,
+                    match_happened_at=now,
+                    percentile=0.04,
+                    match_count=10,
+                ),
+            ]
+        )
+        db.session.commit()
+
+        result = self.client.get(
+            "/api/watchlists/athletes?event_id=1&show_elite=true"
+        ).get_json()
+        self.assertEqual(
+            [athlete["elite_percentile"] for athlete in result["athletes"]],
+            [0.01, 0.06, 0.04],
+        )
+        self.assertTrue(
+            all(athlete["elite_age"] == ADULT for athlete in result["athletes"])
+        )
+        self.assertTrue(
+            all(athlete["elite_belt"] == BLACK for athlete in result["athletes"])
+        )
+        self.assertIsNone(result["next_cursor"])
+
+        filtered = self.client.get(
+            "/api/watchlists/athletes?event_id=1&show_elite=true&q=Other"
+        ).get_json()
+        self.assertEqual(
+            [athlete["name"] for athlete in filtered["athletes"]],
+            ["Other Person"],
+        )
+
+        regular = self.client.get(
+            "/api/watchlists/athletes?event_id=1&q=Private"
+        ).get_json()["athletes"][0]
+        self.assertEqual(regular["elite_percentile"], 0.06)
 
     def test_team_search_scoped_and_distinct_by_uuid(self):
         result = self.client.get(

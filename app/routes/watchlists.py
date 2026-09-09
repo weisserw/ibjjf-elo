@@ -41,6 +41,7 @@ def athletes():
             request.args.get("cursor"),
             request.args.getlist("selected_id"),
             request.args.getlist("selected_name"),
+            request.args.get("show_elite", "").lower() in {"1", "true", "yes"},
         )
     )
 

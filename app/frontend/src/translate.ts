@@ -100,6 +100,7 @@ const translations = {
     "Weight": "Peso",
     "Country": "País",
     "Elite Only": "Somente Elite",
+    "Search Elite Athletes": "Pesquisar atletas de elite",
     "Male": "Masculino",
     "Female": "Feminino",
     "Teen": "Infanto Juvenil",

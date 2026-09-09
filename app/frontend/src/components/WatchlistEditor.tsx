@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { t } from '../translate'
+import { t, translationKeys } from '../translate'
 import { errorText, WatchAthlete, WatchSelection, WatchTournament, watchRequest } from './WatchlistShared'
+import { badgeForPercentile } from '../utils'
 import './Watchlists.css'
 
 interface SearchResults {
@@ -25,6 +26,7 @@ export default function WatchlistEditor() {
   const [validIds, setValidIds] = useState<string[]>([])
   const [validNames, setValidNames] = useState<string[]>([])
   const [query, setQuery] = useState('')
+  const [showElite, setShowElite] = useState(false)
   const [teams, setTeams] = useState<string[]>([])
   const [addingTeam, setAddingTeam] = useState(false)
   const teamRequest = useRef<AbortController | null>(null)
@@ -73,11 +75,12 @@ export default function WatchlistEditor() {
       setResults([]); setTeams([]); setValidIds([]); setValidNames([]); setLoading(false); setNextCursor(null)
       return
     }
-    if (!query.trim()) { setResults([]); setTeams([]); setNextCursor(null) }
+    if (!query.trim() && !showElite) { setResults([]); setTeams([]); setNextCursor(null) }
     setLoading(true)
     setSearchError('')
     const run = async () => {
       const search = new URLSearchParams({ q: query })
+      if (showElite) search.set('show_elite', 'true')
       eventKey.split(',').forEach(id => search.append('event_id', id))
       selected.forEach(athlete => {
         if (athlete.id) search.append('selected_id', athlete.id)
@@ -102,7 +105,7 @@ export default function WatchlistEditor() {
     }
     timer = setTimeout(run, 350)
     return () => { controller.abort(); clearTimeout(timer) }
-  }, [eventKey, selectedKey, query, cursor, retry, selected])
+  }, [eventKey, selectedKey, query, showElite, cursor, retry, selected])
 
   const invalid = selected.filter(a => a.id ? !validIds.includes(a.id) : !validNames.includes(a.selection_name || ''))
   const selectedEvents = tournaments.filter(e => eventIds.includes(e.event_id))
@@ -178,26 +181,33 @@ export default function WatchlistEditor() {
             placeholder={t('Search selected tournament registrations')}
             onChange={e => { setQuery(e.target.value); setCursor(null) }} />
         </div>
+        <label className="checkbox mt-2">
+          <input type="checkbox" checked={showElite} disabled={!eventIds.length}
+            onChange={e => { setShowElite(e.target.checked); setCursor(null) }} />{' '}
+          {t('Search Elite Athletes')}
+        </label>
       </div>
       <p role="status" aria-live="polite">{loading ? t('Loading…') : searchError || (!ready && eventIds.length ? t('Registration data is not ready. Importing, please wait…') : '')}</p>
       {!!searchError && <button className="button" onClick={() => setRetry(r => r + 1)}>{t('Try again')}</button>}
-      {!!query.trim() && !loading && !searchError && ready && !!eventIds.length && !results.length && !teams.length && <p>{t('No matching athletes in these registrations.')}</p>}
+      {(!!query.trim() || showElite) && !loading && !searchError && ready && !!eventIds.length && !results.length && !teams.length && <p>{t('No matching athletes in these registrations.')}</p>}
       <div className="watch-results" aria-busy={loading}>
         {(query.trim() ? teams : []).map(team => <div className="watch-result" key={team}>
           <div><strong>{team}</strong><small>{t('Team')}</small></div>
           <button className={`button ${addingTeam ? 'is-loading' : ''}`} disabled={loading || addingTeam || selected.length >= 200}
             onClick={() => void addTeam(team)}>{t('ADD ALL')}</button>
         </div>)}
-        {(query.trim() ? results : []).map(athlete => <div className="watch-result" key={athleteKey(athlete)}>
-          <div><strong>{athlete.name}</strong>
-            {athlete.registrations?.map((r, i) => <small key={i}>{r.team} · {r.tournament}</small>)}
+        {(query.trim() || showElite ? results : []).map(athlete => {
+          const [badge, badgeDescription] = badgeForPercentile(athlete.elite_percentile ?? null, athlete.elite_belt ?? '', athlete.elite_age ?? null)
+          return <div className="watch-result" key={athleteKey(athlete)}>
+          <div><span className="watch-result-name"><strong>{athlete.name}</strong>{badge && <figure className="image is-24x24 athlete-elite-badge" title={badgeDescription}><img src={badge} alt={badgeDescription} /></figure>}</span>
+            {athlete.registrations?.map((r, i) => <small key={i}>{t(r.belt as translationKeys)} · {r.team} · {r.tournament}</small>)}
             {!athlete.trackable && <small>{t('Live tracking is unavailable without an IBJJF athlete ID.')}</small>}
           </div>
           <button className="button" disabled={loading || !athlete.trackable || selected.some(a => athleteKey(a) === athleteKey(athlete)) || selected.length >= 200}
             onClick={() => { setSelected(a => [...a, athlete]); setCursor(null) }}>{selected.some(a => athleteKey(a) === athleteKey(athlete)) ? t('Added') : t('Add')}</button>
-        </div>)}
+        </div>})}
       </div>
-      {!!query.trim() && nextCursor && <button className="button mt-2" disabled={loading} onClick={() => setCursor(nextCursor)}>{t('Load more')}</button>}
+      {!!query.trim() && !showElite && nextCursor && <button className="button mt-2" disabled={loading} onClick={() => setCursor(nextCursor)}>{t('Load more')}</button>}
       <h2 className="label watch-selected-heading">{t('Selected athletes')}</h2>
       <div className="watch-selected">
         {!selected.length && <p>{t('None')}</p>}
