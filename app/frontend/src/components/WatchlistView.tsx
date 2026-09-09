@@ -11,6 +11,12 @@ import floLogo from '/src/assets/flo.png'
 
 const REFRESH_INTERVAL_MS = 3 * 60 * 1000
 
+const fetchedTime = (value: string): string => {
+  const fetched = new Date(value)
+  const hours = fetched.getHours()
+  return `${hours % 12 || 12}:${String(fetched.getMinutes()).padStart(2, '0')}:${String(fetched.getSeconds()).padStart(2, '0')}${hours < 12 ? 'am' : 'pm'}`
+}
+
 export default function WatchlistView() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -27,6 +33,10 @@ export default function WatchlistView() {
   const [retry, setRetry] = useState(0)
   const groups = useMemo(() => watchDayGroups(data?.rows || []), [data])
   const initializing = Boolean(data && data.tournaments.every(tournament => !tournament.fetched_at))
+  const fetchedAt = data?.tournaments.reduce<string | null>((latest, tournament) => {
+    if (!tournament.fetched_at) return latest
+    return !latest || tournament.fetched_at > latest ? tournament.fetched_at : latest
+  }, null)
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(timer)
@@ -86,6 +96,7 @@ export default function WatchlistView() {
     <div className="watch-actions pb-3">
       <Link className="button" to={`/tournaments/watchlists?edit=${encodeURIComponent(id || '')}`}>{t('Edit this watchlist')}</Link>
     </div>
+    {fetchedAt && <p className="watch-refresh-status"><strong>{t('Fetched from')} <a href="https://www.bjjcompsystem.com" target="_blank" rel="noopener noreferrer">BJJCOMPSYSTEM Ⓡ</a> {t('at')} {fetchedTime(fetchedAt)}</strong></p>}
     <p className="watch-refresh-status" role="timer" aria-live="off">{!unavailable && (refreshing ? t('Refreshing…') : nextRefreshAt ? `${t('Updates in')} ${watchCountdown(nextRefreshAt, now)}...` : '')}</p>
     {error && <div className="notification is-warning" role="alert">{error}
       {data && <p>{t('Showing last successful data')}</p>}

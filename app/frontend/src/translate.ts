@@ -19,6 +19,8 @@ const translations = {
     "Bookmark this page": "Adicione esta página aos favoritos",
     "TBD": "A definir",
     "Updates in": "Atualiza em",
+    "Fetched from": "Dados obtidos do",
+    "at": "às",
     "Watchlist capacity has been reached. Please try again later.": "O limite de listas de acompanhamento foi atingido. Tente novamente mais tarde.",
     "Saved Watchlist": "Lista salva",
     "Bookmark this page to quickly access your watchlist": "Adicione esta página aos favoritos para acessar rapidamente sua lista de acompanhamento",

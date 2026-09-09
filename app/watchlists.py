@@ -760,7 +760,9 @@ def enrich(matches, events):
             division = parse_division(match["division"])
         except ValueError:
             continue
-        match["bracket_category"] = format_division(division)
+        canonical_division = format_division(division)
+        match["division"] = canonical_division
+        match["bracket_category"] = canonical_division
         if division["age"] not in rated_ages or division[
             "age"
         ] not in DEFAULT_RATINGS.get(division["belt"], {}):

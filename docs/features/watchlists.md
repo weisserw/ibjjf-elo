@@ -57,6 +57,8 @@ desktop width and expand to the available width on mobile. Published dates and c
 are preserved as calendar strings without timezone conversion. Timed matches
 sort first; listed matches with unknown time show **Time pending**. A browser
 supplies its current local calendar date when reducing cached schedules.
+Schedule parsing accepts both 12-hour clocks with am/pm and 24-hour clocks from
+the source.
 Cards pulse with a warm yellow outline during the 25 minutes before their local
 clock time, switching to red for the final 10 minutes and remaining red after the
 listed time passes. All cards share one pulse phase so their outlines stay in
@@ -79,9 +81,11 @@ configured per-mat YouTube or Flo stream, its icon links to that stream in the
 right side of the time/mat row. Division links select the
 event and category in app context and open `/tournaments`, matching the athlete
 profile registration table's live-bracket navigation. The API supplies canonical
-`bracket_category` text in belt/age/gender/weight order even when source schedule
-text is in age/gender/belt/weight order. Navigation clears previously loaded bracket
-data so another tournament's bracket cannot remain visible during loading.
+English `division` and `bracket_category` text in belt/age/gender/weight order,
+even when source schedule text is Portuguese or uses age/gender/belt/weight order.
+The frontend translates that canonical display text when Portuguese is selected.
+Navigation clears previously loaded bracket data so another tournament's bracket
+cannot remain visible during loading.
 Profile links open separately. Result-backed selections use exact IBJJF IDs;
 similarly named local people are not substituted. Registration-only selections
 match normalized schedule competitor names. A schedule competitor ID is used
@@ -147,13 +151,21 @@ groups, follows remaining pagination and checks advertised mat coverage. Missing
 or duplicate mats and changed topology prevent publication. Failed generations
 retain the last successful snapshot. A one-calendar-day scan margin accommodates
 viewers whose local date is behind the server; reduction excludes their past days.
+Day discovery accepts both English `Day`/`Mats` month-day navigation and Portuguese
+`Dia`/`Área(s)` day-month navigation because the source can return Portuguese even
+when its URL requests `locale=en`.
+The initial schedule response is authoritative for day discovery. Later pagination
+responses are allowed to omit the repeated day navigation, but when they include it
+the scanner still requires it to match the discovered topology.
 
 Successful schedules have a 180-second TTL. Failure backoff starts at 30 seconds,
 doubles up to five minutes, adds jitter and honors a longer Retry-After. The view
 always polls every 180 seconds, including during initial population and after
 errors. Polling pauses while hidden and checks overdue data on return.
-Below the edit button, the page shows "Updates in m:ss...", counting down to the actual next
-request, and "Refreshing…" while the request runs. Loaded watchlists keep a
+Below the edit button, the page shows the most recent successful tournament fetch
+time in the viewer's local clock with a new-tab link to bjjcompsystem, followed by
+"Updates in m:ss..." counting down to the actual next request and "Refreshing…"
+while the request runs. Loaded watchlists keep a
 180-second polling interval even during a scan or near the next refresh deadline.
 Worker failure backoff does not alter the browser interval. A successful, complete snapshot remains usable while a refresh lease
 is active, including scans taking more than a minute. Reaching the cache TTL

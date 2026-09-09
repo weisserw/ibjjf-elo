@@ -46,10 +46,14 @@ def day_date(label, start, end):
     match = re.search(r"\b(\d{2})/(\d{2})\b", label)
     if not match:
         raise SourceError("missing_day_date")
+    first, second = int(match[1]), int(match[2])
+    month, day = (
+        (second, first) if re.search(r"\bDia\s+\d+", label, re.I) else (first, second)
+    )
     candidates = []
     for year in range(start.year, end.year + 1):
         try:
-            value = datetime(year, int(match[1]), int(match[2])).date()
+            value = datetime(year, month, day).date()
             if start.date() <= value <= end.date():
                 candidates.append(value)
         except ValueError:
@@ -64,10 +68,10 @@ def discover_days(soup, event_id, start, end):
     for a in soup.select("a[href]"):
         url = source_url(a["href"], event_id)
         label = a.get_text(" ", strip=True)
-        if not url or not re.search(r"\bDay\s+\d+", label, re.I):
+        if not url or not re.search(r"\b(?:Day|Dia)\s+\d+", label, re.I):
             continue
         day_id = urlsplit(url).path.split("/")[-1]
-        mats = re.search(r"\((\d+)\s+Mats?\)", label, re.I)
+        mats = re.search(r"\((\d+)\s+(?:Mats?|[ÁA]reas?)\)", label, re.I)
         value = {
             "day_id": day_id,
             "date": day_date(label, start, end).isoformat(),
@@ -136,14 +140,15 @@ def parse_page(html, url, event_id, day):
             if not fight or len(sides) != 2 or not category:
                 raise SourceError("invalid_fight")
             when = text_at(card, ".match-header__when")
-            clock = re.search(r"\b(\d{1,2}:\d{2}\s*[AP]M)\b", when, re.I)
+            clock = re.search(
+                r"\b((?:[01]?\d|2[0-3]):[0-5]\d(?:\s*[AP]M)?)\b", when, re.I
+            )
             local_time = None
             if clock:
                 try:
-                    local_time = datetime.strptime(
-                        re.sub(r"\s*([AP]M)$", r" \1", clock[1].upper()),
-                        "%I:%M %p",
-                    ).strftime("%H:%M")
+                    value = re.sub(r"\s*([AP]M)$", r" \1", clock[1].upper())
+                    pattern = "%I:%M %p" if value.endswith(("AM", "PM")) else "%H:%M"
+                    local_time = datetime.strptime(value, pattern).strftime("%H:%M")
                 except ValueError as exc:
                     raise SourceError("invalid_time") from exc
             matches.append(
@@ -231,12 +236,18 @@ def _scan(fetch, initial_url, event, today, fetch_many=None):
             html_by_url[initial_url] = first
             for url in batch:
                 page = parse_page(html_by_url[url], url, event["event_id"], day)
-                if (
-                    discover_days(
+                try:
+                    page_days = discover_days(
                         page["soup"], event["event_id"], event["start"], event["end"]
                     )
-                    != days
-                ):
+                except SourceError as exc:
+                    # Some otherwise valid pagination responses omit the shared day
+                    # navigation. The first page remains the authoritative discovery
+                    # response; validate repeated navigation whenever it is present.
+                    if exc.code != "missing_days":
+                        raise
+                    page_days = None
+                if page_days is not None and page_days != days:
                     raise SourceError("changed_days")
                 if mats.intersection(page["mats"]):
                     raise SourceError("duplicate_mat")

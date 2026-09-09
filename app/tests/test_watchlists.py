@@ -76,6 +76,10 @@ class WatchlistParserTests(unittest.TestCase):
         self.assertEqual(result["matches"][0]["local_date"], "2026-09-04")
         self.assertNotIn("scheduled_at", result["matches"][0])
 
+    def test_24_hour_clock_from_schedule_is_parsed(self):
+        result = parse_page(page(card(when="13:19: FIGHT 24")), self.url, "1", self.day)
+        self.assertEqual(result["matches"][0]["local_time"], "13:19")
+
     def test_search_widget_does_not_count_as_presence(self):
         result = parse_page(
             page() + '<div id="competitor-100">search widget</div>',
@@ -114,6 +118,27 @@ class WatchlistParserTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(len(matches), 1)
         self.assertEqual(coverage[0]["state"], "complete")
+
+    def test_pagination_page_without_day_navigation_is_accepted(self):
+        day_link = (
+            "<a href='/tournaments/1/tournament_days/2'>"
+            "Day 1 Friday, 09/04 (8 Mats)</a>"
+        )
+
+        def fetch(url):
+            if "page=2&" in url:
+                return page(mats=(5, 6, 7, 8), count=8).replace(day_link, "")
+            return page(
+                mats=(1, 2, 3, 4),
+                count=8,
+                page_links="<a href='?page=2'>Next</a>",
+            )
+
+        matches, coverage, _ = scan_tournament(
+            fetch, self.url, self.event, date(2026, 9, 4)
+        )
+        self.assertEqual(matches, [])
+        self.assertEqual(coverage[0]["mats"], list(range(1, 9)))
 
     def test_missing_and_duplicate_mats_fail_closed(self):
         for html in [page(count=2), page(mats=(1, 1))]:
@@ -181,6 +206,18 @@ class WatchlistParserTests(unittest.TestCase):
             day_date("Day 2 01/01", datetime(2026, 12, 31), datetime(2027, 1, 2)),
             date(2027, 1, 1),
         )
+
+    def test_portuguese_day_navigation_uses_day_month_and_area_count(self):
+        html = page(mats=(1, 2), count=2).replace(
+            "Day 1 Friday, 09/04 (2 Mats)",
+            "Dia 1 Sexta-feira, 04/09 (2 Áreas)",
+        )
+        _, coverage, days = scan_tournament(
+            lambda _: html, self.url, self.event, date(2026, 9, 4)
+        )
+        self.assertEqual(days["2"]["date"], "2026-09-04")
+        self.assertEqual(days["2"]["mats"], 2)
+        self.assertEqual(coverage[0]["mats"], [1, 2])
 
     def test_fetch_urls_restricted(self):
         for value in [
@@ -701,7 +738,18 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
         self.assertEqual(
             row["match"]["bracket_category"], "BLUE / Master 1 / Male / Feather"
         )
-        self.assertEqual(row["match"]["division"], "Master 1 / Male / BLUE / Feather")
+        self.assertEqual(row["match"]["division"], "BLUE / Master 1 / Male / Feather")
+
+    def test_schedule_division_is_normalized_from_portuguese_for_display(self):
+        identity = self.save().get_json()["id"]
+        self.snapshot([self.match(division="Adulto / Masculino / PRETA / Médio")])
+        row = self.client.get("/api/watchlists/" + identity + "/data").get_json()[
+            "rows"
+        ][0]
+        self.assertEqual(row["match"]["division"], "BLACK / Adult / Male / Middle")
+        self.assertEqual(
+            row["match"]["bracket_category"], "BLACK / Adult / Male / Middle"
+        )
 
     def test_pagination_stable(self):
         # Same registered name resolves to many distinct local UUIDs.
