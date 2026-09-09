@@ -95,11 +95,20 @@ def main():
             action="store_true",
             help="Upload files to 'ibjjf_historical_data' prefix",
         )
-        parser.add_argument(
-            "--no-sheets",
+        sheets_group = parser.add_mutually_exclusive_group()
+        sheets_group.add_argument(
+            "--sheets",
+            dest="create_sheets",
             action="store_true",
-            help="Do not create Google Sheets",
+            help="Create Google Sheets (disabled by default)",
         )
+        sheets_group.add_argument(
+            "--no-sheets",
+            dest="create_sheets",
+            action="store_false",
+            help=argparse.SUPPRESS,
+        )
+        parser.set_defaults(create_sheets=False)
         args = parser.parse_args()
 
         s3_client = get_s3_client()
@@ -112,7 +121,7 @@ def main():
             except Exception as e:
                 print(f"Failed to upload {csv_file_path}: {e}")
 
-            if not args.historical and not args.no_sheets:
+            if not args.historical and args.create_sheets:
                 with open(csv_file_path, "r") as file:
                     reader = csv.reader(file)
                     data = list(reader)
