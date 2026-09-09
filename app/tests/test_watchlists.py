@@ -456,6 +456,18 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
                     match_count=10,
                 ),
                 AthleteRating(
+                    athlete_id=self.athletes[0].id,
+                    gender=MALE,
+                    age=ADULT,
+                    belt=BLACK,
+                    gi=False,
+                    weight=LIGHT,
+                    rating=1800,
+                    match_happened_at=now,
+                    percentile=0.001,
+                    match_count=10,
+                ),
+                AthleteRating(
                     athlete_id=self.athletes[1].id,
                     gender=MALE,
                     age=ADULT,
@@ -498,6 +510,30 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
         )
         self.assertIsNone(result["next_cursor"])
 
+        other_rating = (
+            db.session.query(AthleteRating)
+            .filter_by(athlete_id=self.athletes[2].id)
+            .one()
+        )
+        other_rating.gi = False
+        db.session.commit()
+        gi_only = self.client.get(
+            "/api/watchlists/athletes?event_id=1&show_elite=true"
+        ).get_json()
+        self.assertNotIn(
+            "Other Person", [athlete["name"] for athlete in gi_only["athletes"]]
+        )
+
+        self.events[0].name = "Open 1 No-Gi"
+        db.session.commit()
+        no_gi_only = self.client.get(
+            "/api/watchlists/athletes?event_id=1&show_elite=true"
+        ).get_json()
+        self.assertEqual(
+            {athlete["name"] for athlete in no_gi_only["athletes"]},
+            {"Private Alex", "Other Person"},
+        )
+
         filtered = self.client.get(
             "/api/watchlists/athletes?event_id=1&show_elite=true&q=Other"
         ).get_json()
@@ -509,7 +545,7 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
         regular = self.client.get(
             "/api/watchlists/athletes?event_id=1&q=Private"
         ).get_json()["athletes"][0]
-        self.assertEqual(regular["elite_percentile"], 0.06)
+        self.assertEqual(regular["elite_percentile"], 0.001)
 
     def test_team_search_scoped_and_distinct_by_uuid(self):
         result = self.client.get(

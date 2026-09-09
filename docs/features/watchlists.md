@@ -13,6 +13,8 @@ This adds members of that exact team across all result pages for the selected
 tournaments, deduplicates athlete choices, and stops at the 200-athlete limit.
 "Search Elite Athletes" lists up to 30 registered Adult or Juvenile athletes whose
 best current rating percentile is at most 0.1, even when the search input is empty.
+An athlete's elite rating must match the gi/no-gi discipline of a selected
+tournament in which that athlete is registered.
 The input continues to filter that list, which is ordered by registered belt
 descending and then rating percentile. Elite badges also appear beside elite
 athletes in ordinary search results.

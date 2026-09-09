@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 
 from flask import current_app
-from sqlalchemy import case, func, or_
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.exc import IntegrityError
 
 from extensions import db
@@ -334,21 +334,16 @@ def search(
             trigger(event, registrations=True)
     query = eligible(event_ids, q, mode).filter(Athlete.ibjjf_id.isnot(None))
     display = func.coalesce(func.nullif(Athlete.personal_name, ""), Athlete.name)
-    elite_percentiles = (
+    normalized_event_name = func.lower(RegistrationLink.name)
+    no_gi_event = or_(
+        normalized_event_name.like("%no-gi%"),
+        normalized_event_name.like("%no gi%"),
+        normalized_event_name.like("%sem kimono%"),
+    )
+    elite_candidates = (
         db.session.query(
             AthleteRating.athlete_id.label("athlete_id"),
             func.min(AthleteRating.percentile).label("percentile"),
-        )
-        .filter(
-            AthleteRating.age.in_((*JUVENILE_AGES, ADULT)),
-            AthleteRating.percentile.isnot(None),
-        )
-        .group_by(AthleteRating.athlete_id)
-        .subquery()
-    )
-    registered_belts = (
-        db.session.query(
-            RegistrationLinkCompetitor.athlete_name.label("athlete_name"),
             func.max(
                 case(
                     {belt: rank for rank, belt in enumerate(belt_order)},
@@ -357,6 +352,11 @@ def search(
                 )
             ).label("belt_rank"),
         )
+        .join(Athlete, Athlete.id == AthleteRating.athlete_id)
+        .join(
+            RegistrationLinkCompetitor,
+            RegistrationLinkCompetitor.athlete_name == Athlete.name,
+        )
         .join(RegistrationLink)
         .join(Division, Division.id == RegistrationLinkCompetitor.division_id)
         .filter(
@@ -364,8 +364,14 @@ def search(
             RegistrationLink.hidden.isnot(True),
             public_registration_rows(),
             Division.age.in_(age_order_all),
+            AthleteRating.age.in_((*JUVENILE_AGES, ADULT)),
+            AthleteRating.percentile.isnot(None),
+            or_(
+                and_(AthleteRating.gi.is_(True), ~no_gi_event),
+                and_(AthleteRating.gi.is_(False), no_gi_event),
+            ),
         )
-        .group_by(RegistrationLinkCompetitor.athlete_name)
+        .group_by(AthleteRating.athlete_id)
         .subquery()
     )
     cursor_phase, cursor_name, cursor_identity = "athlete", None, None
@@ -391,12 +397,11 @@ def search(
         )
     if show_elite and cursor_phase == "athlete":
         rows = (
-            query.join(elite_percentiles, elite_percentiles.c.athlete_id == Athlete.id)
-            .join(registered_belts, registered_belts.c.athlete_name == Athlete.name)
-            .filter(elite_percentiles.c.percentile <= 0.1)
+            query.join(elite_candidates, elite_candidates.c.athlete_id == Athlete.id)
+            .filter(elite_candidates.c.percentile <= 0.1)
             .order_by(
-                registered_belts.c.belt_rank.desc(),
-                elite_percentiles.c.percentile,
+                elite_candidates.c.belt_rank.desc(),
+                elite_candidates.c.percentile,
                 display,
                 Athlete.id,
             )
@@ -465,6 +470,13 @@ def search(
         contexts[name].add((belt, team, event_id))
     ratings = {}
     if rows:
+        registered_disciplines = defaultdict(set)
+        for athlete in rows:
+            for _, _, event_id in contexts[athlete.name]:
+                event_name = events[event_id]["name"].lower()
+                registered_disciplines[athlete.id].add(
+                    not re.search(r"no[ -]gi|sem kimono", event_name)
+                )
         for rating in (
             db.session.query(AthleteRating)
             .filter(
@@ -475,6 +487,8 @@ def search(
             .order_by(AthleteRating.percentile, AthleteRating.id)
             .all()
         ):
+            if rating.gi not in registered_disciplines[rating.athlete_id]:
+                continue
             ratings.setdefault(rating.athlete_id, rating)
     result = [
         {
