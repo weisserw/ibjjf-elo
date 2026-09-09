@@ -1532,6 +1532,7 @@ def clear_livestream_match_links(session, archive_id) -> dict[str, int]:
                 "final_bottom_points": None,
                 "final_bottom_advantages": None,
                 "final_bottom_penalties": None,
+                "has_retraction": None,
             },
             synchronize_session="fetch",
         )
@@ -1673,6 +1674,7 @@ def _clear_stored_choice(window: MatchWindow, choice: MatchChoice) -> None:
     match.final_bottom_points = None
     match.final_bottom_advantages = None
     match.final_bottom_penalties = None
+    match.has_retraction = None
     choice.top_participant.scoreboard_position = None
     choice.bottom_participant.scoreboard_position = None
     for event in window.events:
@@ -1887,6 +1889,20 @@ def _store_choice(
         event.match_id = match.id
 
 
+def set_match_has_retraction(session, match: Match) -> bool:
+    """Set the persisted flag with the same algorithm used by score details."""
+    from routes.matches import has_score_retraction
+
+    raw_events = (
+        session.query(LivestreamFrameTextEvent)
+        .filter(LivestreamFrameTextEvent.match_id == match.id)
+        .order_by(LivestreamFrameTextEvent.frame_second)
+        .all()
+    )
+    match.has_retraction = has_score_retraction(raw_events)
+    return match.has_retraction
+
+
 def link_completed_text_scan(
     session, scan_or_archive_id, dry_run: bool = False
 ) -> SimpleNamespace:
@@ -2006,6 +2022,12 @@ def link_completed_text_scan(
             None if _window_closes_active_match(window) else choice.candidate
         )
         linked += 1
+    if not dry_run:
+        for match_id in used_match_ids:
+            match = session.get(Match, match_id)
+            if match is not None:
+                set_match_has_retraction(session, match)
+
     return SimpleNamespace(
         linked=linked,
         windows=len(windows),

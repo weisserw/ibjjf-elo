@@ -6,7 +6,10 @@ from types import SimpleNamespace
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from routes.matches import build_match_detail_payload  # noqa: E402
+from routes.matches import (
+    build_match_detail_payload,
+    has_score_retraction,
+)  # noqa: E402
 
 
 SCORE_FIELDS = (
@@ -217,14 +220,15 @@ class MatchDetailEventsTestCase(unittest.TestCase):
         self.assertEqual(score_events[0]["totals"]["red"]["points"], 2)
 
     def test_score_dip_recovery_outside_grace_period_remains_visible(self):
+        events = [
+            text_event(0, "5:00", timer_state="running", top_points=0),
+            text_event(10, top_points=2),
+            text_event(50, top_points=1),
+            text_event(57, top_points=3),
+        ]
         payload = build_match_detail_payload(
             match(final_top_points=3),
-            [
-                text_event(0, "5:00", timer_state="running", top_points=0),
-                text_event(10, top_points=2),
-                text_event(50, top_points=1),
-                text_event(57, top_points=3),
-            ],
+            events,
         )
 
         score_events = [
@@ -235,6 +239,7 @@ class MatchDetailEventsTestCase(unittest.TestCase):
         self.assertEqual(score_events[1]["actions"][0]["kind"], "retraction")
         self.assertEqual(score_events[1]["actions"][0]["delta"], -1)
         self.assertEqual(score_events[2]["actions"][0]["delta"], 2)
+        self.assertTrue(has_score_retraction(events))
 
     def test_score_change_in_other_field_does_not_restore_dip(self):
         payload = build_match_detail_payload(

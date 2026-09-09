@@ -400,6 +400,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
         target = db.session.get(Match, matches[1].id)
         self.assertEqual(target.video_start_offset_seconds, 600)
         self.assertEqual(target.final_top_points, 2)
+        self.assertIs(target.has_retraction, False)
         self.assertEqual(self._linked_seconds(target), [590, 600, 630, 650])
 
         rerun_summary = link_completed_text_scan(db.session, scan)

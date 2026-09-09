@@ -176,6 +176,9 @@ interface MatchDetailAction {
 - Negative deltas normally cancel prior score events. Long-delay negative deltas
   are treated as review retractions and leave the original award visible with a
   retraction event.
+- The same semantic event builder supplies `Match.has_retraction` during
+  livestream linking and its resumable backfill, so the stored boolean follows
+  the detail view's transient-dip and 30-frame-second rules exactly.
 - Consecutive score changes for the same participant are combined into one
   response event when each change occurs no more than 6 frame seconds after the
   previous change. This can form an indefinite chain; the match timer is not

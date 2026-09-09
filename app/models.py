@@ -295,6 +295,7 @@ class Match(db.Model):
     final_bottom_points = Column(Integer, nullable=True)
     final_bottom_advantages = Column(Integer, nullable=True)
     final_bottom_penalties = Column(Integer, nullable=True)
+    has_retraction = Column(Boolean, nullable=True)
 
     participants = relationship("MatchParticipant", lazy="select", viewonly=True)
     division = relationship("Division", lazy="select", viewonly=True)

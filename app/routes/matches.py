@@ -559,6 +559,22 @@ def _build_match_detail_score_events(raw_events, participants_by_position):
     return response_events, match_time
 
 
+def has_score_retraction(raw_events) -> bool:
+    """Return whether the detail-view score algorithm emits a retraction."""
+    participants_by_position = {
+        "top": {"key": "red", "name": "top"},
+        "bottom": {"key": "blue", "name": "bottom"},
+    }
+    score_events, _match_time = _build_match_detail_score_events(
+        raw_events, participants_by_position
+    )
+    return any(
+        action["kind"] == "retraction"
+        for event in score_events
+        for action in event["actions"]
+    )
+
+
 def _match_detail_video_source_url(match, raw_events):
     for raw_event in raw_events:
         archive = getattr(raw_event, "archive", None)

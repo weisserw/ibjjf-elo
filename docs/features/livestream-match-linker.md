@@ -10,6 +10,9 @@ windows, chooses the most likely scheduled match for each window, and stores:
 - `Match.video_start_offset_seconds`.
 - `Match.final_match_time_seconds`.
 - `Match.final_top_*` and `Match.final_bottom_*` score fields.
+- `Match.has_retraction`, set to true when the match-detail score algorithm
+  identifies a delayed score, advantage, or penalty retraction, and false when
+  no such retraction is present.
 - `MatchParticipant.scoreboard_position` as `top` or `bottom`.
 
 Participant positions are inferred from the consensus of sufficiently
@@ -103,6 +106,15 @@ Automatic pipeline flow:
    fallback for split windows.
 8. Writes event links and match summary fields, then returns a summary with
    `linked`, `windows`, `candidates`, and optional `skipped`.
+
+After all windows are linked, the linker evaluates each linked match's complete
+event sequence with the match-detail score algorithm and always stores a
+non-null `has_retraction` value. Clearing an archive's links resets the field to
+null. Existing linked rows can be filled or resumed in committed batches with:
+
+```bash
+python3 scripts/backfill_match_has_retraction.py --batch-size 500
+```
 
 Successful automatic and manual admin linking does not refresh the homepage
 covered-match count. The standalone CLI also leaves that cached count unchanged
