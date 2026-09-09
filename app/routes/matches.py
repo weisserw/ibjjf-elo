@@ -908,6 +908,7 @@ def matches():
     dq_type_technical = request.args.get("dq_type_technical")
     dq_type_disciplinary = request.args.get("dq_type_disciplinary")
     has_score = request.args.get("has_score")
+    has_retracted = request.args.get("has_retracted")
     submission = request.args.get("submission")
     comeback_submission = request.args.get("comeback_submission")
     minimum_points = request.args.get("minimum_points")
@@ -1013,6 +1014,7 @@ def matches():
     dq_type_technical = (dq_type_technical or "").lower() == "true"
     dq_type_disciplinary = (dq_type_disciplinary or "").lower() == "true"
     has_score = (has_score or "").lower() == "true"
+    has_retracted = (has_retracted or "").lower() == "true"
     submission = (submission or "").lower() == "true"
     comeback_submission = (comeback_submission or "").lower() == "true"
     referee_decision = (referee_decision or "").lower() == "true"
@@ -1314,6 +1316,9 @@ def matches():
             OR m.final_bottom_penalties IS NOT NULL
         )
         """
+
+    if has_retracted:
+        filters += "AND m.has_retraction IS TRUE\n"
 
     if submission:
         filters += """AND m.final_match_time_seconds > 0

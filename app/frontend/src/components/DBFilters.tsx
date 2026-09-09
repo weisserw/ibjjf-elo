@@ -81,6 +81,7 @@ export interface FilterValues {
   dq_type_technical?: boolean;
   dq_type_disciplinary?: boolean;
   has_score?: boolean;
+  has_retracted?: boolean;
   submission?: boolean;
   comeback_submission?: boolean;
   minimum_points?: number;
@@ -543,6 +544,7 @@ function DBFilters() {
                      setIsOpen={(isOpen: boolean) => setOpenFilters({ ...openFilters, score: isOpen })}
                      isBold={
                         !!filters.has_score ||
+                        !!filters.has_retracted ||
                         !!filters.submission ||
                         !!filters.comeback_submission ||
                         filters.minimum_points !== undefined ||
@@ -586,6 +588,14 @@ function DBFilters() {
                   />
                   {t("Referee Decision")}
                 </label>
+                <label className="checkbox checkbox-filter">
+                  <input
+                    type="checkbox"
+                    checked={!!filters.has_retracted}
+                    onChange={(e) => onChange('has_retracted', e.target.checked)}
+                  />
+                  {t("Has Retraction")}
+                </label>
                 <button
                   className="button is-small is-light"
                   onClick={onClearOrAll.bind(null, [
@@ -593,9 +603,10 @@ function DBFilters() {
                     'submission',
                     'comeback_submission',
                     'referee_decision',
+                    'has_retracted',
                   ])}
                 >
-                  {(filters.has_score || filters.submission || filters.comeback_submission || filters.referee_decision) ? t("Clear") : t("All")}
+                  {(filters.has_score || filters.submission || filters.comeback_submission || filters.referee_decision || filters.has_retracted) ? t("Clear") : t("All")}
                 </button>
               </div>
               <div className="score-number-filters">
@@ -627,6 +638,7 @@ function DBFilters() {
                     'minimum_penalties',
                     'score_differential',
                     'referee_decision',
+                    'has_retracted',
                   ])}
                 >
                   {t("Clear")}

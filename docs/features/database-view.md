@@ -179,6 +179,7 @@ returned.
 - DQ filters inspect participant notes and distinguish technical and
   disciplinary DQ note text.
 - `has_score` includes matches with at least one non-null final score field.
+- `has_retracted` includes matches whose stored `Match.has_retraction` flag is true.
 - `submission` includes matches with a positive `final_match_time_seconds` and
   excludes DQ notes, matching the visible Sub column.
 - `comeback_submission` applies the submission rules and also requires the

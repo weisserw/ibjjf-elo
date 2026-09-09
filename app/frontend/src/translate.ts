@@ -189,6 +189,7 @@ const translations = {
     "Technical DQ": "Desclassificação técnica",
     "Disciplinary DQ": "Desclassificação disciplinar",
     "Has Score": "Com placar",
+    "Has Retraction": "Com retração",
     "Comeback Submission": "Finalização de virada",
     "Minimum Points": "Mínimo de pontos",
     "Minimum Advantages": "Mínimo de vantagens",
