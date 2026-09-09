@@ -630,15 +630,10 @@ function DBFilters() {
                 <button
                   className="button is-small is-light score-filter-clear"
                   onClick={onClearProps.bind(null, [
-                    'has_score',
-                    'submission',
-                    'comeback_submission',
                     'minimum_points',
                     'minimum_advantages',
                     'minimum_penalties',
                     'score_differential',
-                    'referee_decision',
-                    'has_retracted',
                   ])}
                 >
                   {t("Clear")}
