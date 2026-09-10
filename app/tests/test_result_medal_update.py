@@ -34,6 +34,34 @@ NEW_FORMAT_HTML = """
 
 
 class ResultMedalScraperTestCase(unittest.TestCase):
+    def test_build_result_links_skips_bad_juiz_de_fora_kids_link(self):
+        index_html = """
+        <a class="event-year-result"
+           data-n="Juiz de Fora International Open IBJJF Jiu-Jitsu No-Gi Championship"
+           data-y="2026" href="/ChampionshipResults/3342/PublicResults"></a>
+        <a class="event-year-result"
+           data-n="Juiz de Fora Kids International Open IBJJF Jiu-Jitsu Championship"
+           data-y="2026" href="/ChampionshipResults/3342/PublicResults"></a>
+        """
+
+        with mock.patch("get_medals.fetch", return_value=index_html):
+            links = get_medals.build_result_links(
+                source="ibjjf",
+                session=mock.Mock(),
+                log=lambda _msg: None,
+            )
+
+        links_3342 = [
+            link
+            for link in links
+            if get_medals.extract_championship_id(link["url"]) == "3342"
+        ]
+        self.assertEqual(len(links_3342), 1)
+        self.assertEqual(
+            links_3342[0]["tournament"],
+            "Juiz de Fora International Open IBJJF Jiu-Jitsu No-Gi Championship",
+        )
+
     def test_build_result_links_skips_known_bad_2026_links_to_3328(self):
         index_html = """
         <a class="event-year-result"

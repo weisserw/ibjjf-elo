@@ -193,6 +193,13 @@ KNOWN_BAD_LINKS = {
         "2026",
         "3328",
     ),
+    # The Juiz de Fora Kids 2026 button points at the adult No-Gi results page.
+    # Keep the legitimate No-Gi label for 3342 and discard the Kids label.
+    (
+        "Juiz de Fora Kids International Open IBJJF Jiu-Jitsu Championship",
+        "2026",
+        "3342",
+    ),
 }
 
 
