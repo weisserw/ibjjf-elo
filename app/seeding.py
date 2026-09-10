@@ -463,10 +463,10 @@ def _event_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
         return {}
 
     all_ids = [eid for eids in events_by_year.values() for eid in eids]
-    # Earliest match per event = the day that edition started. Latest match
-    # is a fallback effective date when we do not have a registration end
-    # date. Aggregation collapses to one row per event.
-    date_rows = (
+    # Prefer match timestamps for edition dates, but some historical imports
+    # contain medals without any Match rows. Fall back to medal timestamps so
+    # those editions still occupy their proper rolling-window slot.
+    match_date_rows = (
         db.session.query(
             Match.event_id,
             func.min(Match.happened_at).label("start"),
@@ -476,9 +476,24 @@ def _event_year_groups(base, today, lookback=_EVENT_YEAR_LOOKBACK):
         .group_by(Match.event_id)
         .all()
     )
-    eid_to_dates = {
-        r.event_id: (r.start, r.end) for r in date_rows if r.start is not None
+    medal_date_rows = (
+        db.session.query(
+            Medal.event_id,
+            func.min(Medal.happened_at).label("start"),
+            func.max(Medal.happened_at).label("end"),
+        )
+        .filter(Medal.event_id.in_(all_ids))
+        .group_by(Medal.event_id)
+        .all()
+    )
+    eid_to_medal_dates = {
+        r.event_id: (r.start, r.end) for r in medal_date_rows if r.start is not None
     }
+    eid_to_dates = {
+        r.event_id: (r.start, r.end) for r in match_date_rows if r.start is not None
+    }
+    for event_id, dates in eid_to_medal_dates.items():
+        eid_to_dates.setdefault(event_id, dates)
     link_anchor_dates = _registration_link_anchor_dates_by_year(base, today, lookback)
 
     result = {}

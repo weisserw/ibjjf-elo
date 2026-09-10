@@ -157,3 +157,6 @@ Do not run `make test-ocr` unless OCR/livestream text scan code changed. Do not 
   `build_registration_prediction()` in `app/routes/brackets.py`. The public API
   and live bracket audit both use this service so their reference date, medal
   cutoff, criteria, side swaps, and bracket geometry do not drift.
+- Grand Slam edition discovery prefers match timestamps but falls back to medal
+  timestamps for historical imports that contain medals without match rows.
+  This ensures such editions occupy the correct rolling three-edition window.

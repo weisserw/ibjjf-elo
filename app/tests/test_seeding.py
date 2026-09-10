@@ -741,6 +741,65 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         row = self._seed_and_run(seed, _divdata(), gi=True)
         self.assertEqual(row["grand_slam_points"], 72)
 
+    def test_grand_slam_window_uses_medal_dates_when_matches_are_missing(self):
+        # No-Gi Brasileiros 2024 has medals but no Match rows, matching the
+        # historical-import shape in production. It must still occupy the 1x
+        # slot after the completed 2026 edition advances the window, pushing
+        # the 2023 edition out: 2026 / 2025 / 2024.
+        def seed(t):
+            events = []
+            for year in (2023, 2024, 2025):
+                event = Event(
+                    name=f"Campeonato Brasileiro de Jiu-Jitsu Sem Kimono {year}",
+                    normalized_name=(
+                        f"campeonato brasileiro de jiu-jitsu sem kimono {year}"
+                    ),
+                    slug=f"brasileiros-no-gi-{year}-medal-date-fallback",
+                    medals_only=False,
+                )
+                db.session.add(event)
+                db.session.flush()
+                started_at = datetime(year, 9, 24)
+                if year != 2024:
+                    db.session.add(
+                        Match(
+                            event_id=event.id,
+                            division_id=t.anchor_div_id,
+                            happened_at=started_at,
+                            rated=True,
+                        )
+                    )
+                events.append(_EventRef(event.id, started_at))
+
+            db.session.add(
+                RegistrationLink(
+                    name="Campeonato Brasileiro de Jiu-Jitsu Sem Kimono 2026",
+                    normalized_name=(
+                        "campeonato brasileiro de jiu-jitsu sem kimono 2026"
+                    ),
+                    updated_at=datetime(2026, 6, 1),
+                    link="internal:brasileiros-no-gi-2026-fallback-test",
+                    hidden=False,
+                    event_start_date=datetime(2026, 6, 27),
+                    event_end_date=datetime(2026, 6, 28),
+                )
+            )
+
+            athlete = t._make_athlete("no-gi-brasileiros-medal-date-fallback")
+            for event in events:
+                t._add_medal(athlete, event, place=1, gi=False)
+            return athlete
+
+        row = self._seed_and_run(
+            seed,
+            _divdata(),
+            gi=False,
+            now=datetime(2026, 9, 9),
+        )
+        # Brasileiros is 4 stars. Only 2025 at 2x and 2024 at 1x count;
+        # 2023 is outside the three-edition window.
+        self.assertEqual(row["grand_slam_points"], 9 * 4 * (2 + 1))
+
     def test_master_grand_slam_uses_world_master_not_world(self):
         # For master tournaments, the GS Worlds slot is World Master.
         # An adult-Worlds gold won by a master is NOT in the master GS pool.
