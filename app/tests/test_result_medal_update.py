@@ -34,6 +34,37 @@ NEW_FORMAT_HTML = """
 
 
 class ResultMedalScraperTestCase(unittest.TestCase):
+    def test_build_result_links_skips_known_bad_2026_links_to_3328(self):
+        index_html = """
+        <a class="event-year-result"
+           data-n="Jiu-Jitsu CON International" data-y="2026"
+           href="/ChampionshipResults/3328/PublicResults"></a>
+        <a class="event-year-result"
+           data-n="Los Angeles Summer International Open IBJJF Jiu-Jitsu Championship"
+           data-y="2026" href="/ChampionshipResults/3328/PublicResults"></a>
+        <a class="event-year-result"
+           data-n="Masters International IBJJF Jiu-Jitsu Championship - South America"
+           data-y="2026" href="/ChampionshipResults/3328/PublicResults"></a>
+        """
+
+        with mock.patch("get_medals.fetch", return_value=index_html):
+            links = get_medals.build_result_links(
+                source="ibjjf",
+                session=mock.Mock(),
+                log=lambda _msg: None,
+            )
+
+        links_3328 = [
+            link
+            for link in links
+            if get_medals.extract_championship_id(link["url"]) == "3328"
+        ]
+        self.assertEqual(len(links_3328), 1)
+        self.assertEqual(
+            links_3328[0]["tournament"],
+            "Masters International IBJJF Jiu-Jitsu Championship - South America",
+        )
+
     def test_build_result_links_can_target_one_exact_championship(self):
         with mock.patch("get_medals.fetch", return_value="<html></html>"):
             links = get_medals.build_result_links(

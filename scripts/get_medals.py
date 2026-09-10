@@ -184,6 +184,15 @@ KNOWN_BAD_LINKS = {
         "2026",
         "3121",
     ),
+    # The Jiu-Jitsu CON International and Los Angeles Summer Open 2026 buttons
+    # both mistakenly point at 3328. Their real result pages are 3028 and 3228,
+    # respectively; 3328 belongs to the Masters International South America.
+    ("Jiu-Jitsu CON International", "2026", "3328"),
+    (
+        "Los Angeles Summer International Open IBJJF Jiu-Jitsu Championship",
+        "2026",
+        "3328",
+    ),
 }
 
 
