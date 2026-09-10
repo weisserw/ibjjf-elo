@@ -190,6 +190,7 @@ def _build_star_table(entries):
 _EVENT_BASE_ALIASES_BY_CANONICAL = {
     "Campeonato Brasileiro de Jiu-Jitsu Sem Kimono": [
         "Brazilian National Jiu-Jitsu No-Gi Championship",
+        "Brazilian Nationals No Gi",
     ],
 }
 

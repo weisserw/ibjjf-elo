@@ -749,11 +749,14 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         def seed(t):
             events = []
             for year in (2023, 2024, 2025):
+                name = (
+                    "Brazilian Nationals No Gi 2024 (Archive)"
+                    if year == 2024
+                    else f"Campeonato Brasileiro de Jiu-Jitsu Sem Kimono {year}"
+                )
                 event = Event(
-                    name=f"Campeonato Brasileiro de Jiu-Jitsu Sem Kimono {year}",
-                    normalized_name=(
-                        f"campeonato brasileiro de jiu-jitsu sem kimono {year}"
-                    ),
+                    name=name,
+                    normalized_name=name.lower(),
                     slug=f"brasileiros-no-gi-{year}-medal-date-fallback",
                     medals_only=False,
                 )

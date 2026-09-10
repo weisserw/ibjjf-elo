@@ -160,3 +160,7 @@ Do not run `make test-ocr` unless OCR/livestream text scan code changed. Do not 
 - Grand Slam edition discovery prefers match timestamps but falls back to medal
   timestamps for historical imports that contain medals without match rows.
   This ensures such editions occupy the correct rolling three-edition window.
+- Historical event-name aliases, including `Brazilian Nationals No Gi ...
+  (Archive)`, are canonicalized before Grand Slam grouping and star lookup.
+- Migration `c5a1e8d42f70` consolidates the split 2024 no-gi Brasileiros rows by
+  retaining the Archive event and moving the medals-only event's medals onto it.
