@@ -54,6 +54,9 @@ hide a layout problem.
   two lists can be compared row by row.
 - Each launch creates a new immutable run. Category failures are committed and
   produce a partial report rather than discarding completed results.
+- The admin launch form resolves the non-hidden registration source from the
+  selected BJJCompsystem tournament ID. There is no separate source selector;
+  launching is rejected when the tournament has no corresponding registration.
 - Normal-weight divisions use persisted `RegistrationLinkCompetitor` rows.
   Open-class registrations are not stored by the existing importer, so those
   divisions use the ten-minute cached registration page and record

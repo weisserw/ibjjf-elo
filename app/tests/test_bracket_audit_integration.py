@@ -295,7 +295,6 @@ class BracketAuditAdminRouteTestCase(TestDbMixin, unittest.TestCase):
                 data={
                     "tournament_id": "123",
                     "tournament_name": "Test Open",
-                    "registration_link_id": str(link.id),
                     "gi_mode": "gi",
                 },
             )
@@ -310,6 +309,22 @@ class BracketAuditAdminRouteTestCase(TestDbMixin, unittest.TestCase):
         report = self.client.get(f"/bracket_audits/{run.id}")
         self.assertEqual(report.status_code, 200)
         self.assertIn(b"Live bracket seeding and layout audit", report.data)
+
+    def test_launch_rejects_tournament_without_registration_source(self):
+        with patch.object(self.admin_module.threading, "Thread") as thread:
+            response = self.client.post(
+                "/bracket_audits",
+                data={
+                    "tournament_id": "missing",
+                    "tournament_name": "Missing Open",
+                    "gi_mode": "gi",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"No registration source exists", response.data)
+        self.assertEqual(BracketAuditRun.query.count(), 0)
+        thread.assert_not_called()
 
     def test_report_hides_pending_and_correct_categories_by_default(self):
         run = BracketAuditRun(

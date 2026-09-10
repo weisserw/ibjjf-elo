@@ -1335,27 +1335,20 @@ def bracket_audits():
         tournament_id = (request.form.get("tournament_id") or "").strip()
         tournament_name = (request.form.get("tournament_name") or "").strip()
         gi = request.form.get("gi_mode", "gi") == "gi"
-        registration_link_id = request.form.get("registration_link_id")
 
         registration_link = None
-        if registration_link_id:
-            try:
-                registration_link = db.session.get(
-                    RegistrationLink, uuid.UUID(registration_link_id)
-                )
-            except ValueError:
-                registration_link = None
-        elif tournament_id:
-            candidates = RegistrationLink.query.filter_by(event_id=tournament_id).all()
-            if len(candidates) == 1:
-                registration_link = candidates[0]
+        if tournament_id:
+            registration_link = (
+                RegistrationLink.query.filter_by(event_id=tournament_id)
+                .filter(RegistrationLink.hidden.isnot(True))
+                .order_by(RegistrationLink.updated_at.desc())
+                .first()
+            )
 
         if not tournament_id or not tournament_name:
             error = "Tournament ID and name are required."
         elif registration_link is None:
-            error = "Select a registration source for this tournament."
-        elif registration_link.event_id and registration_link.event_id != tournament_id:
-            error = "The registration source belongs to a different tournament."
+            error = "No registration source exists for this tournament."
 
         if error is None:
             task = BackgroundTask(task_type="bracket_audit", status="queued")
@@ -1394,16 +1387,18 @@ def bracket_audits():
         .limit(50)
         .all()
     )
-    registration_links = (
-        RegistrationLink.query.filter(RegistrationLink.hidden.isnot(True))
-        .order_by(RegistrationLink.updated_at.desc())
-        .limit(250)
+    registration_event_ids = [
+        row.event_id
+        for row in db.session.query(RegistrationLink.event_id)
+        .filter(RegistrationLink.hidden.isnot(True))
+        .filter(RegistrationLink.event_id.isnot(None))
+        .distinct()
         .all()
-    )
+    ]
     return render_template(
         "bracket_audits.html",
         runs=runs,
-        registration_links=registration_links,
+        registration_event_ids=registration_event_ids,
         error=error,
     )
 
