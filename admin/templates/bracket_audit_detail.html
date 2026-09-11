@@ -115,7 +115,7 @@
                         <td>{{ row.get('comparison_status') or row.get('status') }}</td>
                         <td>
                             {% for difference in row.get('differences', []) %}
-                            <div><strong>{{ difference.get('field') }}</strong>: {{ difference.get('official') }} → {{ difference.get('predicted') }}</div>
+                            <div><strong>{{ difference.get('field') }}</strong>: Ours: {{ difference.get('predicted') }} → Official: {{ difference.get('official') }}</div>
                             {% else %}—{% endfor %}
                             {% if row.get('reason') %}<div class="has-text-danger">{{ row.get('reason') }}</div>{% endif %}
                         </td>

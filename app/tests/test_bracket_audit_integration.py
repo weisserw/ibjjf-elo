@@ -382,6 +382,21 @@ class BracketAuditAdminRouteTestCase(TestDbMixin, unittest.TestCase):
                 "actual_slots": [[3, 1], [4, 2]],
             },
         }
+        categories[3].report = {
+            "criteria": {
+                "rows": [
+                    {
+                        "official": {"official_rank": 1, "name": "Athlete"},
+                        "predicted": {"est_seed": 1, "name": "Athlete"},
+                        "comparison_status": "matched",
+                        "differences": [
+                            {"field": "points", "official": 30, "predicted": 20}
+                        ],
+                    }
+                ]
+            },
+            "layout": {},
+        }
         db.session.add(run)
         db.session.commit()
 
@@ -406,6 +421,8 @@ class BracketAuditAdminRouteTestCase(TestDbMixin, unittest.TestCase):
         self.assertIn("Points mismatch", response_text)
         self.assertIn("points_mismatch", response_text)
         self.assertNotIn("criteria_mismatch", response_text)
+        self.assertIn("Ours: 20 → Official: 30", soup.get_text(" ", strip=True))
+        self.assertNotIn("30 → 20", soup.get_text(" ", strip=True))
         self.assertNotIn("categories/skipped", response_text)
         mismatch_detail = next(
             detail
