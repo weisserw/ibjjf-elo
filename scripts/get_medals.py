@@ -103,6 +103,12 @@ EXTRA_IBJJF_LINKS = [
     },
     {
         "tournament": "Nacional Open Portugal No-Gi",
+        "year": "2023",
+        "url": "https://www.ibjjfdb.com/ChampionshipResults/2355/PublicResults?lang=en-US",
+        "source": "ibjjf",
+    },
+    {
+        "tournament": "Nacional Open Portugal No-Gi",
         "year": "2024",
         "url": "https://www.ibjjfdb.com/ChampionshipResults/2661/PublicResults?lang=en-US",
         "source": "ibjjf",
