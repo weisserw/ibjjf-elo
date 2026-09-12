@@ -145,6 +145,8 @@ coverage titles. The server limits title fetches with `MAX_MEDIA_TITLE_SCAN_BYTE
 - `Athlete.slug`: unique, non-null public identifier used in `/athlete/<slug>`
   links.
 - `Athlete.name` / `normalized_name`: canonical imported/full name.
+  The admin athlete edit form updates both fields in the same transaction, with
+  `normalized_name` derived from `normalize(name)`; blank full names are rejected.
 - `Athlete.personal_name` / `normalized_personal_name`: display/search name
   usually sourced from Instagram or admin edits.
 - `Athlete.hide_full_name`: when true and `personal_name` exists, APIs expose

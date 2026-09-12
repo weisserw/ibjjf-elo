@@ -3705,6 +3705,13 @@ def athlete_edit():
     if athlete_id:
         athlete = Athlete.query.get(uuid.UUID(athlete_id))
     if request.method == "POST" and athlete:
+        full_name = request.form.get("name", "").strip()
+        if not full_name:
+            error_message = "Full name is required."
+        else:
+            athlete.name = full_name
+            athlete.normalized_name = normalize(full_name)
+
         instagram_profile = request.form.get("instagram_profile", "")
         # Sanitize input: remove URL and @
         instagram_profile = instagram_profile.strip()

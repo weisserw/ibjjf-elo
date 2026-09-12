@@ -9,6 +9,12 @@
           <h1 class="title is-4 has-text-centered">{{ athlete.name }}</h1>
           <form method="post" enctype="multipart/form-data" class="mt-4">
             <div class="field">
+              <label class="label">Full Name</label>
+              <div class="control">
+                <input class="input" type="text" name="name" value="{{ athlete.name }}" required>
+              </div>
+            </div>
+            <div class="field">
               <label class="label">Current Profile Photo</label>
               {% if photo_url %}
                 <figure class="image is-128x128">
