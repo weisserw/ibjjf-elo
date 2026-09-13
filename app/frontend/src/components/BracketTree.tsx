@@ -27,6 +27,7 @@ export interface BracketTreeMatchProps {
   levelIndex: number;
   matchIndex: number;
   showRatings: boolean;
+  showMatchDate?: boolean;
   seedHighlights?: Map<string, SeedHighlight>;
   seedSwapDescriptions?: Map<string, string>;
   calculateEnabled: (match: Match) => boolean;
@@ -202,7 +203,9 @@ export function BracketTreeMatch(props: BracketTreeMatchProps) {
         }
         <div className="bracket-tree-match-description">
           <div className="bracket-tree-match-description-when">
-            {match.when && dayjs(match.when).locale(language).format('ddd h:mma')}
+            {match.when && dayjs(match.when).locale(language).format(
+              props.showMatchDate ? 'MMM D h:mma' : 'ddd h:mma'
+            )}
             {
               match.when && (match.where || match.fight_num) && <span> - </span>
             }
@@ -432,6 +435,7 @@ interface BracketTreeProps {
   hasMatchNums: boolean;
   showRefresh: boolean;
   showRatings: boolean;
+  showMatchDate?: boolean;
   belt: string;
   isRefreshing?: boolean;
   numberMode?: NumberMode;
@@ -559,6 +563,7 @@ function BracketTree(props: BracketTreeProps) {
                       showSeed={props.showSeed}
                       levelIndex={levelIndex}
                       showRatings={props.showRatings}
+                      showMatchDate={props.showMatchDate}
                       calculateClicked={props.calculateClicked}
                       calculateEnabled={props.calculateEnabled}
                       belt={props.belt}

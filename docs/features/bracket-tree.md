@@ -12,6 +12,9 @@ zoom controls. It is a shared subcomponent used by the three bracket-based views
 Users can zoom the tree, scroll around the wide bracket, open match detail from
 score controls when a stored match has detail data, follow external video links,
 and use view-specific controls such as refresh or rating-vs-seed number toggles.
+Match headers use abbreviated weekdays in live and registration trees. Archive
+trees enable `showMatchDate` to show the abbreviated month and day instead,
+while retaining locale-aware month names.
 The same underlying match/competitor data also feeds `BracketTable`, but the tree
 has different layout and tree-building code because matches need to be placed by
 round and visual position instead of sorted into table rows.

@@ -196,6 +196,8 @@ class BracketsArchiveCategoriesApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         self.assertEqual(data["total"], 5)
+        self.assertEqual(data["event_start_date"], "2024-01-01")
+        self.assertEqual(data["event_end_date"], "2026-06-06")
         categories = data["categories"]
         self.assertEqual(len(categories), 4)
         self.assertEqual(categories[0]["age"], JUVENILE_1)

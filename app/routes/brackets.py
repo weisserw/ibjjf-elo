@@ -2982,6 +2982,20 @@ def archive_categories():
     if event_name.startswith('"') and event_name.endswith('"'):
         event_name = event_name[1:-1]
 
+    event_start, event_end = (
+        db.session.query(func.min(Match.happened_at), func.max(Match.happened_at))
+        .join(Event)
+        .filter(Event.name == event_name)
+        .one()
+    )
+
+    def event_date(value):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = datetime.fromisoformat(value)
+        return value.date().isoformat()
+
     division_ids = (
         db.session.query(Match.division_id)
         .join(Event)
@@ -2997,7 +3011,16 @@ def archive_categories():
     )
 
     if not division_ids:
-        return jsonify({"categories": []}), 200
+        return (
+            jsonify(
+                {
+                    "categories": [],
+                    "event_start_date": event_date(event_start),
+                    "event_end_date": event_date(event_end),
+                }
+            ),
+            200,
+        )
 
     divisions = (
         db.session.query(Division)
@@ -3035,6 +3058,8 @@ def archive_categories():
                 for division in divisions
             ],
             "total": total_competitors,
+            "event_start_date": event_date(event_start),
+            "event_end_date": event_date(event_end),
         }
     )
 

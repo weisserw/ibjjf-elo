@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree from './BracketTree'
 import Autosuggest from 'react-autosuggest'
-import { axiosErrorToast, isHistorical } from '../utils';
+import { axiosErrorToast, formatEventDates, isHistorical } from '../utils';
 import debounce from 'lodash/debounce';
 import { isGi, handleError, nearestPowerOfTwo } from './BracketUtils'
 import { translateMulti, t } from '../translate'
@@ -22,6 +22,8 @@ interface CategoriesResponse {
   error?: string
   categories?: Category[]
   total: number
+  event_start_date?: string | null
+  event_end_date?: string | null
 }
 
 
@@ -31,6 +33,8 @@ function BracketArchive() {
   const [eventSuggestions, setEventSuggestions] = useState<string[]>([])
   const [recentEvents, setRecentEvents] = useState<string[]>([])
   const [recentEventSelection, setRecentEventSelection] = useState('')
+  const [eventStartDate, setEventStartDate] = useState<string | null>(null)
+  const [eventEndDate, setEventEndDate] = useState<string | null>(null)
 
   const {
     bracketArchiveEventName: eventName,
@@ -58,6 +62,7 @@ function BracketArchive() {
     setCalcFirstWeight,
     setCalcSecondWeight,
     setCalcCustomInfo,
+    language,
   } = useAppContext()
 
   const navigate = useNavigate()
@@ -112,6 +117,8 @@ function BracketArchive() {
 
   const getCategories = async () => {
     setLoading(true)
+    setEventStartDate(null)
+    setEventEndDate(null)
     try {
       const { data } = await axios.get<CategoriesResponse>('/api/brackets/archive/categories', {
         params: {
@@ -122,10 +129,14 @@ function BracketArchive() {
       if (data.error) {
         setCategories(null)
         setEventTotal(null)
+        setEventStartDate(null)
+        setEventEndDate(null)
         setError(data.error)
       } else if (data.categories) {
         setCategories(data.categories)
         setEventTotal(data.total)
+        setEventStartDate(data.event_start_date ?? null)
+        setEventEndDate(data.event_end_date ?? null)
         setError(null)
 
         const category = data.categories.find(c => categoryString(c) === selectedCategory)
@@ -295,6 +306,13 @@ function BracketArchive() {
     return Math.round(sum / ratings.length)
   }, [competitors])
 
+  const eventDates = useMemo(() => {
+    if (!eventStartDate || !eventEndDate) {
+      return ''
+    }
+    return formatEventDates(eventStartDate, eventEndDate, language)
+  }, [eventStartDate, eventEndDate, language])
+
   const calculateMatch = async (match: BracketMatch) => {
     if (!match.red_name || !match.blue_name || !selectedCategory || !eventNameFetch) {
       return
@@ -415,6 +433,11 @@ function BracketArchive() {
                 categories.length > 0 && (
                   <div className="columns no-bottom-margin">
                     <div className="column is-narrow is-vcentered">
+                      {eventDates && (
+                        <span className="mr-4">
+                          {`${eventStartDate === eventEndDate ? t("Date") : t("Dates")}: ${eventDates}`}
+                        </span>
+                      )}
                       {eventTotal !== null &&
                         <span>Total Competitors: {eventTotal.toLocaleString()}</span>
                       }
@@ -433,11 +456,9 @@ function BracketArchive() {
                       </div>
                     </div>
                     <div className="column is-vcentered">
-                    {
-                      (showRatings && averageRating !== undefined) && (
+                      {(showRatings && averageRating !== undefined) && (
                         <span>{`${t("Average rating")}: ${averageRating}`}</span>
-                      )
-                    }
+                      )}
                     </div>
                   </div>
                 )
@@ -464,6 +485,7 @@ function BracketArchive() {
                          showSeed={usableSortColumn === 'seed'}
                          showRefresh={false}
                          showRatings={showRatings}
+                         showMatchDate={true}
                          belt={belt}
                          calculateClicked={calculateMatch}
                          calculateEnabled={calculateEnabled}/>

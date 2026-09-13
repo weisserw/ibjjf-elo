@@ -395,6 +395,7 @@ const translations = {
     "Show only earned medals": "Mostrar apenas medalhas conquistadas",
     "Team History": "Histórico de Equipes",
     "Date": "Data",
+    "Dates": "Datas",
     "Current Team": "Equipe Atual",
     "Elite adult athletes who have represented or currently represent this team:": "Atletas adultos de elite que representaram ou atualmente representam esta equipe:",
     "No elite competitors found for this team.": "Nenhum competidor de elite encontrado para esta equipe.",

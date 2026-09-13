@@ -98,6 +98,11 @@ event choices from `GET /api/awards/events/recent`, division categories from
 `GET /api/brackets/archive/categories`, and competitors/matches from
 `GET /api/brackets/archive/competitors`.
 
+The archive categories response also includes the event-wide first and last
+match dates at day resolution. The archive header displays that range beside
+the selected division's average rating, using localized month names and a
+single date when both endpoints fall on the same day.
+
 Archive competitors and matches are DB-backed. The match payloads can include
 match IDs, score summaries, video links, and offsets used by the match detail and
 livestream-linking features. A segment-visible OCR-linked YouTube archive
