@@ -103,11 +103,30 @@ const amountText = (action: MatchDetailAction) => {
 const combineAdditiveActions = (actions: MatchDetailAction[]) => {
   const combined: MatchDetailAction[] = [];
   const additiveActions = new Map<ScoreCategory, MatchDetailAction>();
+  let latestPointScore: MatchDetailAction | null = null;
+  let leadingOnePointScore: MatchDetailAction | null = null;
 
   actions.forEach(action => {
-    const isAdditiveOnePointScore = action.category === 'points' && action.delta === 1;
-    if (action.category === 'points' && !isAdditiveOnePointScore) {
-      combined.push(action);
+    if (action.category === 'points') {
+      if (action.delta === 1 && latestPointScore) {
+        latestPointScore.delta += action.delta;
+        return;
+      }
+
+      if (leadingOnePointScore) {
+        leadingOnePointScore.delta += action.delta;
+        latestPointScore = leadingOnePointScore;
+        leadingOnePointScore = null;
+        return;
+      }
+
+      const pointScore = { ...action };
+      combined.push(pointScore);
+      if (action.delta === 1) {
+        leadingOnePointScore = pointScore;
+      } else {
+        latestPointScore = pointScore;
+      }
       return;
     }
 

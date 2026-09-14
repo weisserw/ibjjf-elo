@@ -193,10 +193,11 @@ interface MatchDetailAction {
   group. The group also includes either penalty's adjacent automatic advantage
   or point award when present. Its text starts with "Double penalties received"
   and then lists any included awards by participant.
-- Combined-event text preserves each points action separately, except that
-  repeated 1-point actions for the same participant are added together because
-  BJJ has no standalone 1-point score. Repeated advantage actions and repeated
-  penalty actions for the same participant are also added together.
+- Combined-event text preserves each legitimate points action separately. An
+  impossible 1-point delta is added to the adjacent points action for the same
+  participant (preferring the preceding action), so actions of 2, 3, and 1 are
+  displayed as 2 and 4 points. Repeated advantage actions and repeated penalty
+  actions for the same participant are also added together.
 - Every emitted score event includes running totals for both participants.
 - Event match times count down from the latest running-timer snapshot. A stopped
   timer invalidates that running anchor, so subsequent events keep the stopped
