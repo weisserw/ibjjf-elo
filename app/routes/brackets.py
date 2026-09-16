@@ -105,9 +105,14 @@ def registration_competitor_count(registration_link_id=None, event_id=None):
     if (registration_link_id is None) == (event_id is None):
         raise ValueError("Provide exactly one registration link ID or event ID")
 
-    query = db.session.query(
-        func.count(func.distinct(RegistrationLinkCompetitor.athlete_name))
-    ).select_from(RegistrationLinkCompetitor)
+    query = (
+        db.session.query(
+            func.count(func.distinct(RegistrationLinkCompetitor.athlete_name))
+        )
+        .select_from(RegistrationLinkCompetitor)
+        .join(Division)
+        .filter(~Division.age.in_((JUVENILE, JUVENILE_1, JUVENILE_2)))
+    )
 
     if registration_link_id is not None:
         query = query.filter(
@@ -1036,6 +1041,9 @@ def save_competitors(link_id, json_data, division_set):
             try:
                 current_divdata = parse_division(division_name_clean)
 
+                if current_divdata["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
+                    continue
+
                 if format_division(current_divdata) not in division_set:
                     continue
 
@@ -1135,6 +1143,9 @@ def import_registration_link(link, background):
         try:
             divdata = parse_division(division_name_clean)
 
+            if divdata["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
+                continue
+
             age_lower = divdata["age"].lower()
             if not (
                 "master" in age_lower
@@ -1183,7 +1194,8 @@ def internal_registration_categories(link):
     ):
         division = db.session.get(Division, competitor.division_id)
 
-        divisions.append(division)
+        if division.age not in (JUVENILE, JUVENILE_1, JUVENILE_2):
+            divisions.append(division)
 
     divisions.sort(
         key=lambda division: (
@@ -1292,6 +1304,7 @@ def internal_registration_competitors_elites(link):
         .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
         .filter(
             RegistrationLinkCompetitor.registration_link_id == db_link.id,
+            ~Division.age.in_((JUVENILE, JUVENILE_1, JUVENILE_2)),
         )
         .all()
     ):
@@ -1421,8 +1434,10 @@ def _registration_competitor_row(name, team, divdata, gi):
 
 
 def _registration_rows_for_division(link, division, gi):
+    divdata = parse_division(division)
+    if divdata["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
+        raise ValueError("Juvenile registration divisions are unavailable")
     if link.startswith("internal:"):
-        divdata = parse_division(division)
         return internal_registration_competitors(link, divdata, gi), divdata
 
     m = validibjjfdblink.search(link)
@@ -1432,7 +1447,6 @@ def _registration_rows_for_division(link, division, gi):
         )
 
     url = m.group(1) + "?lang=en-US"
-    divdata = parse_division(division)
 
     soup = BeautifulSoup(
         get_bracket_page(url, newer_than=datetime.now() - timedelta(minutes=10)),
@@ -1514,6 +1528,8 @@ def build_registration_prediction(
 ):
     """Build the registration bracket payload used by both the API and audits."""
     divdata = parse_division(division)
+    if divdata["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
+        raise ValueError("Juvenile registration divisions are unavailable")
     use_persisted_rows = registration_link_record is not None and divdata[
         "weight"
     ] not in {OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY}
@@ -1623,6 +1639,15 @@ def registration_hypothetical_seed():
 
     gi = gi.lower() == "true"
     s3_client = _optional_s3_client()
+
+    try:
+        if parse_division(division)["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
+            return (
+                jsonify({"error": "Juvenile registration divisions are unavailable"}),
+                400,
+            )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     athlete = db.session.query(Athlete).filter(Athlete.slug == athlete_slug).first()
     if athlete is None:
@@ -1764,6 +1789,12 @@ def registration_competitor_medal_breakdown():
         divdata = parse_division(division)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+    if divdata["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
+        return (
+            jsonify({"error": "Juvenile registration divisions are unavailable"}),
+            400,
+        )
 
     event_start_date = _registration_seeding_start_date(link)
     seeding_reference_date = _registration_seeding_reference_date(event_start_date)

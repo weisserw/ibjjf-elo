@@ -437,6 +437,7 @@ def get_athlete_data(
         .filter(
             RegistrationLinkCompetitor.athlete_name == athlete.name,
             RegistrationLink.event_end_date >= datetime.now(),
+            ~Division.age.in_((JUVENILE, JUVENILE_1, JUVENILE_2)),
         )
     )
     if athlete_has_adult_or_master_history:
@@ -818,6 +819,7 @@ def ratings():
                 .filter(
                     RegistrationLinkCompetitor.athlete_name == athlete.name,
                     RegistrationLink.event_end_date >= datetime.now(),
+                    ~Division.age.in_((JUVENILE, JUVENILE_1, JUVENILE_2)),
                 )
                 .all()
             )
@@ -979,6 +981,7 @@ def athletes_batch():
             .filter(
                 Athlete.id.in_(athlete_ids),
                 RegistrationLink.event_end_date >= now,
+                ~Division.age.in_((JUVENILE, JUVENILE_1, JUVENILE_2)),
             )
             .all()
         )

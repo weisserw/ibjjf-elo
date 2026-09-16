@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from bs4 import BeautifulSoup
 
 from extensions import db
-from constants import ADULT, BLACK, HEAVY, JUVENILE, JUVENILE_1, MALE
+from constants import ADULT, BLACK, HEAVY, MALE
 from models import Division, RegistrationLink, RegistrationLinkCompetitor
 from routes.brackets import (
     _registration_seeding_start_date,
@@ -22,6 +22,19 @@ from test_db import TestDbMixin
 
 
 class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
+    def test_juvenile_competitor_requests_are_rejected(self):
+        for age in ("Juvenile", "Juvenile 1", "Juvenile 2"):
+            with self.subTest(age=age):
+                response = self.client.get(
+                    "/api/brackets/registrations/competitors",
+                    query_string={
+                        "link": "internal:missing",
+                        "division": f"BLUE / {age} / Male / Feather",
+                        "gi": "true",
+                    },
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("unavailable", response.get_json()["error"])
 
     @classmethod
     def _seed_data(cls):
@@ -282,7 +295,7 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(sum(row.athlete_name == "Athlete One" for row in persisted), 2)
         self.assertIn("Former Athlete", {row.athlete_name for row in persisted})
 
-    def test_save_competitors_allows_same_athlete_in_overlapping_juvenile_divisions(
+    def test_save_competitors_skips_juvenile_divisions(
         self,
     ):
         with self.app_module.app.app_context():
@@ -331,11 +344,7 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
                 .filter(RegistrationLinkCompetitor.registration_link_id == link.id)
                 .all()
             )
-            self.assertEqual(len(rows), 2)
-            self.assertEqual({age for _, age in rows}, {JUVENILE, JUVENILE_1})
-            self.assertEqual(
-                {row.athlete_name for row, _ in rows}, {"Overlapping Juvenile"}
-            )
+            self.assertEqual(rows, [])
 
 
 if __name__ == "__main__":

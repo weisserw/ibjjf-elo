@@ -39,6 +39,16 @@ import medal_import_lib as lib
 
 
 class PureFunctionTestCase(unittest.TestCase):
+    def test_juvenile_result_divisions_are_not_matchable(self):
+        for age in ("Juvenile", "Juvenile 1", "Juvenile 2", "Juvenil 1"):
+            with self.subTest(age=age):
+                self.assertFalse(
+                    lib.is_matchable_result_division(f"BLUE / {age} / Male / Feather")
+                )
+        self.assertTrue(
+            lib.is_matchable_result_division("BLACK / Adult / Male / Feather")
+        )
+
     def test_nacional_open_portugal_uses_known_event_date(self):
         self.assertEqual(
             lib.tentative_event_date(None, "Nacional Open Portugal 2023"),

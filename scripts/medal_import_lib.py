@@ -226,6 +226,12 @@ def parse_division_parts(raw_division: str) -> Optional[tuple]:
     return belt, age, gender, weight
 
 
+def is_matchable_result_division(raw_division: str) -> bool:
+    """Juvenile result names are abbreviated and cannot identify an athlete."""
+    parts = parse_division_parts(raw_division)
+    return parts is not None and parts[1] not in JUVENILE_AGES
+
+
 def build_division_cache(session) -> dict:
     """Load every Division once into a dict keyed by (belt, age, gender, weight, gi).
 
@@ -1161,6 +1167,8 @@ def scan_event_for_missing_medals(
         return True
 
     for rm in raw_medals:
+        if not is_matchable_result_division(rm.division):
+            continue
         division = parse_and_resolve_division(
             session, rm.division, gi, division_cache=division_cache
         )

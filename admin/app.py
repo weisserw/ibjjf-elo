@@ -4276,6 +4276,9 @@ def missing_medals_scan_import():
         if not rm or not athlete:
             errors.append(f"Missing rm or athlete for {rm_id}:{athlete_id}")
             continue
+        if not medal_lib.is_matchable_result_division(rm.division):
+            skipped += 1
+            continue
 
         event = event_cache.get((rm.event_name, rm.event_ibjjf_id))
         if not event:
@@ -4541,6 +4544,8 @@ def athlete_medals_find_missing():
                     )
                     continue
                 belt, age, gender, _weight = division_parts
+                if not medal_lib.is_matchable_result_division(rm.division):
+                    continue
                 gi = not medal_lib.is_no_gi_event(rm.event_name)
                 division = medal_lib.parse_and_resolve_division(
                     db.session, rm.division, gi
@@ -4622,6 +4627,9 @@ def athlete_medals_import_candidates():
         rm = db.session.query(medal_lib.ResultMedal).get(rm_id)
         if not rm:
             errors.append(f"missing rm: {rm_id_raw}")
+            continue
+        if not medal_lib.is_matchable_result_division(rm.division):
+            errors.append(f"juvenile result division unavailable: {rm.division}")
             continue
         event = medal_lib.find_event(db.session, rm.event_name, rm.event_ibjjf_id)
         if event is None:

@@ -168,7 +168,8 @@ coverage titles. The server limits title fetches with `MAX_MEDIA_TITLE_SCAN_BYTE
 - `MatchParticipant`: source for profile Elo/rating history and latest-match
   fallback behavior.
 - `RegistrationLinkCompetitor` plus `RegistrationLink`: upcoming event cards and
-  provisional belt/team context.
+  provisional belt/team context. Juvenile, Juvenile 1, and Juvenile 2 rows are
+  excluded because IBJJF now abbreviates those registration names.
 - `ManualPromotions`: applied with registrations and latest match data to derive
   current belt/rating display.
 - `Medal`: profile medal case rows. The default view excludes `default_gold`
@@ -262,6 +263,8 @@ Issues that have already surfaced in git history:
 - Historical matcher event scoping must be applied to the initial distinct-name
   query and to both the alias and fuzzy row queries. Filtering only the name
   index can let a fuzzy candidate pull same-named rows from unrelated events.
+- Juvenile result rows remain in `result_medals` but are excluded from automatic
+  and admin medal matching; abbreviated names cannot identify an athlete.
 - The historical batch matcher must keep its full athlete scan out of the ORM
   identity map. It commits after athletes with imports; loading every `Athlete`
   ORM object causes each commit to expire the full population and makes a real

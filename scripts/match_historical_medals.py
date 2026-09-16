@@ -305,7 +305,7 @@ def main():
             or 'fuzzy' for fuzzy-matched candidates (logs score/gap).
             """
             division_parts = lib.parse_division_parts(rm.division)
-            if not division_parts:
+            if not division_parts or not lib.is_matchable_result_division(rm.division):
                 return "skipped"
             belt, age, gender, _weight = division_parts
 

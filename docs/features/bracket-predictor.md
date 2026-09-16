@@ -33,8 +33,8 @@ The route:
 
 1. Loads registration rows with `_registration_rows_for_division(link, division, gi)`.
 2. Looks up ratings with `get_ratings(...)`.
-3. For juvenile divisions, skips seeding/side-swap calculations and returns rows plus bracket slots.
-4. For other divisions, runs `add_seeding_data(...)`, `add_estimated_seeds(...)`, and `add_side_swaps(...)`.
+3. Rejects Juvenile, Juvenile 1, and Juvenile 2 divisions because IBJJF registration names are abbreviated and cannot be matched reliably.
+4. For supported divisions, runs `add_seeding_data(...)`, `add_estimated_seeds(...)`, and `add_side_swaps(...)`.
 5. Builds first-round slot layout with `_bracket_slots(len(rows))`.
 6. Returns competitors, side swaps, bailout teams, `bracket_slots`, and `bracket_match_count`.
 
@@ -141,7 +141,7 @@ Do not run `make test-ocr` unless OCR/livestream text scan code changed. Do not 
 
 - Hypothetical rows must be temporary. The dedicated API test verifies the hypothetical athlete appears in that response but does not appear in a later normal competitor response.
 - Already-registered athletes must be rejected. The route checks both registration row names and personal names to avoid adding duplicate athletes under alternate display names.
-- Juvenile divisions intentionally skip estimated seeding and side-swap details, but still return bracket slots and match count.
+- Juvenile divisions are excluded from registration categories and rejected by competitor and hypothetical APIs, including cached and internal registration links.
 - IBJJF bracket geometry and visual order have been fragile. See `docs/workflows/BRACKET_LAYOUT_REVERSE_ENGINEERING.md` before changing `_bracket_slots(n)` or `_side(seed, n)`.
 - Known bracket layout regression areas include 5-, 6-, 7-, 9-, 11-, and 13-person play-in brackets, seed 1/2 visual side mapping, all-seeds-present checks, and same-team swap behavior.
 - Same-team side swaps can create bailout teams when the algorithm cannot cleanly resolve conflicts. Preserve `side_swap_bailout_teams` in API and frontend state when changing this flow.
