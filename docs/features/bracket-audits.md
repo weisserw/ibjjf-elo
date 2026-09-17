@@ -24,6 +24,10 @@ hide a layout problem.
   public registration API and the audit snapshot calculation.
 - `BracketAuditRun` and `BracketAuditCategory` in `app/models.py` persist run
   provenance, summary fields, and category evidence JSON.
+- Category rows link to the official live bracket and to the matching
+  Jiujitsu.Net live and registration divisions. The Jiujitsu.Net links pass
+  the stored event or registration identifier and normalized division through
+  URL query parameters.
 
 ## Processing Rules
 

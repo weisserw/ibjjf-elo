@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import axios from 'axios'
 import classNames from 'classnames'
 import { useAppContext } from '../AppContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree from './BracketTree'
 import { isGi, handleError, categoryString } from './BracketUtils'
@@ -22,6 +22,7 @@ interface EventsResponse {
 function BracketLive() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [eventsLoaded, setEventsLoaded] = useState(false)
 
   const {
     bracketEvents: events,
@@ -54,6 +55,10 @@ function BracketLive() {
   } = useAppContext()
 
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const linkedEvent = searchParams.get('event')
+  const linkedEventName = searchParams.get('event_name')
+  const linkedCategory = searchParams.get('category')
 
   const columnClicked = (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => {
     ev.preventDefault()
@@ -79,14 +84,17 @@ function BracketLive() {
         setEvents(null)
         setError(data.error)
       } else if (data.events) {
-        setEvents(data.events)
+        const availableEvents = linkedEvent && !data.events.some(e => e.id === linkedEvent)
+          ? [{ id: linkedEvent, name: linkedEventName || linkedEvent }, ...data.events]
+          : data.events
+        setEvents(availableEvents)
         setError(null)
 
-        const event = data.events.find(e => e.id === selectedEvent)
+        const event = availableEvents.find(e => e.id === linkedEvent) ?? availableEvents.find(e => e.id === selectedEvent)
         if (event) {
           setSelectedEvent(event.id)
-        } else if (!event && data.events.length > 0) {
-          setSelectedEvent(data.events[0].id)
+        } else if (!event && availableEvents.length > 0) {
+          setSelectedEvent(availableEvents[0].id)
         } else {
           setSelectedEvent(null)
           setCategories(null)
@@ -97,6 +105,7 @@ function BracketLive() {
       handleError(err, setError)
     } finally {
       setLoading(false)
+      setEventsLoaded(true)
     }
   }
 
@@ -117,7 +126,7 @@ function BracketLive() {
         setEventTotal(data.total ?? null)
         setError(null)
 
-        const category = data.categories.find(c => categoryString(c) === selectedCategory)
+        const category = data.categories.find(c => selectedEvent === linkedEvent && categoryString(c) === linkedCategory) ?? data.categories.find(c => categoryString(c) === selectedCategory)
 
         if (category) {
           setSelectedCategory(categoryString(category))
@@ -185,10 +194,10 @@ function BracketLive() {
   }
 
   useEffect(() => {
-    if (selectedEvent) {
+    if (selectedEvent && (!linkedEvent || eventsLoaded)) {
       getCategories()
     }
-  }, [events, selectedEvent])
+  }, [events, selectedEvent, eventsLoaded])
 
   const viewBracket = async () => {
     setLoading(true)

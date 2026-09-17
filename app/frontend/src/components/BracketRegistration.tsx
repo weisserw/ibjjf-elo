@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import axios from 'axios'
 import classNames from 'classnames'
 import { useAppContext } from '../AppContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import BracketTable, { type SortColumn } from './BracketTable'
 import BracketTree, { type SeedHighlight } from './BracketTree'
 import EliteTable, { type EliteAthlete } from './EliteTable'
@@ -38,6 +38,7 @@ interface HypotheticalRegistrationState {
 function BracketRegistration() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [linksLoaded, setLinksLoaded] = useState(false)
   const [elitesLoading, setElitesLoading] = useState(false)
   const [elites, setElites] = useState<EliteAthlete[] | null>(null)
   const [eliteNote, setEliteNote] = useState<string | null>(null);
@@ -82,6 +83,10 @@ function BracketRegistration() {
   } = useAppContext()
 
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const linkedRegistration = searchParams.get('link')
+  const linkedRegistrationName = searchParams.get('registration_name')
+  const linkedDivision = searchParams.get('division')
 
   const getRegistrationCompetitors = async () => {
     setLoading(true)
@@ -127,10 +132,15 @@ function BracketRegistration() {
       const { data } = await axios.get<UpcomingLinksResponse>('/api/brackets/registrations/links');
 
       if (data.links) {
-        setUpcomingLinks(data.links)
+        setUpcomingLinks(linkedRegistration && !data.links.some(link => link.link === linkedRegistration)
+          ? [{ name: linkedRegistrationName || linkedRegistration, link: linkedRegistration }, ...data.links]
+          : data.links)
+        if (linkedRegistration) {
+          setSelectedUpcomingLink(linkedRegistration)
+        }
       }
     }
-    getUpcomingLinks()
+    getUpcomingLinks().finally(() => setLinksLoaded(true))
   }, [])
 
   const columnClicked = (column: SortColumn, ev: React.MouseEvent<HTMLAnchorElement>) => {
@@ -364,7 +374,9 @@ function BracketRegistration() {
         setRegistrationEventUrl(url)
         setRegistrationCategories(data.categories)
 
-        if (!selectedRegistrationCategory || !data.categories.includes(selectedRegistrationCategory)) {
+        if (selectedUpcomingLink === linkedRegistration && linkedDivision && data.categories.includes(linkedDivision)) {
+          setSelectedRegistrationCategory(linkedDivision)
+        } else if (!selectedRegistrationCategory || !data.categories.includes(selectedRegistrationCategory)) {
           let selected: string | null | undefined = null
 
           selected = data.categories.find(c => /(BLACK|PRETA) \/ (Adult|Adulto) \/ (Male|Masculino) \/ (Middle|Médio)/.test(c))
@@ -426,10 +438,10 @@ function BracketRegistration() {
   }
 
   useEffect(() => {
-    if (selectedUpcomingLink) {
+    if (selectedUpcomingLink && (!linkedRegistration || linksLoaded)) {
       getRegistrationCategories(selectedUpcomingLink)
     }
-  }, [selectedUpcomingLink])
+  }, [selectedUpcomingLink, linksLoaded])
 
   useEffect(() => {
     if (viewMode !== 'elites' || !registrationEventUrl) {

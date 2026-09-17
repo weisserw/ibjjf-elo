@@ -16,6 +16,12 @@ link, choose a division/category, fetch competitors and optional matches, then
 render the list with `BracketTable` and, when enough structure exists, a visual
 tree with `BracketTree`.
 
+The live page accepts `event`, `event_name`, and `category` query parameters;
+the registrations page accepts `link`, `registration_name`, and `division`.
+After loading the event lists and divisions, each page selects the requested
+division. The name parameters label a requested event that is no longer in the
+upcoming list, as can happen when opening an older audit report.
+
 ## Main Entry Points
 
 - `app/frontend/src/App.tsx` maps the three URLs to `Brackets` with `tab="Live"`,
