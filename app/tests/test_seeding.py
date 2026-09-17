@@ -34,7 +34,9 @@ from models import Athlete, Division, Event, Match, Medal, RegistrationLink, Tea
 from seeding import (
     _IBJJF_PLAY_IN_PAIR_OVERRIDES,
     _bracket_slots,
+    _event_tournament_type,
     _side,
+    TOURNAMENT_TYPE_NONE,
     add_estimated_seeds,
     add_seeding_data,
     add_side_swaps,
@@ -47,6 +49,14 @@ from test_db import TestDbMixin
 # the production database (mid-May 2026, after Euros 2026 but before any
 # 2026 Worlds / Pans / Brasileiros).
 NOW = datetime(2026, 5, 15)
+
+
+class EventTournamentTypeTestCase(unittest.TestCase):
+    def test_portugal_grandslam_2026_does_not_count_for_seeding(self):
+        self.assertEqual(
+            _event_tournament_type("Portugal GrandSlam 2026"),
+            TOURNAMENT_TYPE_NONE,
+        )
 
 
 # Primitive event reference — using a namedtuple instead of the SQLAlchemy

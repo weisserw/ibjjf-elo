@@ -219,7 +219,7 @@ def _bases_with_aliases(canonical_base):
 
 # Keywords that identify a tournament whose medals never count toward
 # seeding points for any other tournament.
-_NONE_EVENT_KEYWORDS = ("portugal grand slam",)
+_NONE_EVENT_KEYWORDS = ("portugal grand slam", "portugal grandslam")
 _NONE_EVENT_RE = re.compile(
     r"(?:^|\W)(?:" + "|".join(re.escape(k) for k in _NONE_EVENT_KEYWORDS) + r")(?:$|\W)"
 )
