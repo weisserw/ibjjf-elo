@@ -39,10 +39,10 @@ import medal_import_lib as lib
 
 
 class PureFunctionTestCase(unittest.TestCase):
-    def test_juvenile_result_divisions_are_not_matchable(self):
+    def test_juvenile_result_divisions_are_scanned(self):
         for age in ("Juvenile", "Juvenile 1", "Juvenile 2", "Juvenil 1"):
             with self.subTest(age=age):
-                self.assertFalse(
+                self.assertTrue(
                     lib.is_matchable_result_division(f"BLUE / {age} / Male / Feather")
                 )
         self.assertTrue(

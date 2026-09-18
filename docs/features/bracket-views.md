@@ -1,5 +1,9 @@
 # Bracket Views
 
+Registration rows with an initial and surname are resolved through the shared
+`app/result_identity.py` service. Juvenile registrations are retained and shown;
+ambiguous abbreviated names remain unmatched.
+
 ## User-Facing Behavior
 
 The `Tournaments` navbar entry opens the bracket area:

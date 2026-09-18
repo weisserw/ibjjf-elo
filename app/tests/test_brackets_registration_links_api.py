@@ -22,7 +22,7 @@ from test_db import TestDbMixin
 
 
 class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
-    def test_juvenile_competitor_requests_are_rejected(self):
+    def test_juvenile_competitor_requests_reach_link_lookup(self):
         for age in ("Juvenile", "Juvenile 1", "Juvenile 2"):
             with self.subTest(age=age):
                 response = self.client.get(
@@ -34,7 +34,7 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
                     },
                 )
                 self.assertEqual(response.status_code, 400)
-                self.assertIn("unavailable", response.get_json()["error"])
+                self.assertEqual(response.get_json()["error"], "Link not found")
 
     @classmethod
     def _seed_data(cls):
@@ -295,7 +295,7 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(sum(row.athlete_name == "Athlete One" for row in persisted), 2)
         self.assertIn("Former Athlete", {row.athlete_name for row in persisted})
 
-    def test_save_competitors_skips_juvenile_divisions(
+    def test_save_competitors_keeps_juvenile_divisions(
         self,
     ):
         with self.app_module.app.app_context():
@@ -344,7 +344,7 @@ class BracketsRegistrationLinksApiTestCase(TestDbMixin, unittest.TestCase):
                 .filter(RegistrationLinkCompetitor.registration_link_id == link.id)
                 .all()
             )
-            self.assertEqual(rows, [])
+            self.assertEqual({age for _, age in rows}, {"Juvenile", "Juvenile 1"})
 
 
 if __name__ == "__main__":

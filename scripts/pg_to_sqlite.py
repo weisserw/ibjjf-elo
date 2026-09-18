@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
+"""Copy a PostgreSQL application database to a fresh SQLite file.
+
+The script creates its own schema. Do not run Flask migrations on the target:
+SQLite treats bare UUID columns as numeric, which can collapse distinct UUIDs
+into the same numeric value. Use a new destination path for every attempt.
+"""
 import argparse
 import os
 import sys
 from typing import Iterable, List, Type
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(
@@ -13,6 +21,27 @@ sys.path.insert(
 
 from extensions import db  # noqa: E402
 import models  # noqa: E402
+
+
+@compiles(UUID, "sqlite")
+def compile_uuid_as_text(_type, _compiler, **_kwargs):
+    """SQLite's bare UUID declaration has NUMERIC affinity and corrupts hex IDs."""
+    return "TEXT"
+
+
+def prepare_destination(engine):
+    """Create a fresh SQLite schema with text-backed UUIDs, never reuse a partial copy."""
+    existing = inspect(engine).get_table_names()
+    if existing:
+        raise ValueError(
+            "Destination already has tables; use a new SQLite path for a fresh copy"
+        )
+    db.metadata.create_all(engine)
+    with engine.connect() as connection:
+        uuid_columns = connection.execute(text("PRAGMA table_info(result_medals)")).all()
+    id_type = next(row[2] for row in uuid_columns if row[1] == "id")
+    if id_type.upper() != "TEXT":
+        raise RuntimeError(f"result_medals.id must be TEXT in SQLite, got {id_type}")
 
 
 def iter_models() -> List[Type[db.Model]]:
@@ -63,6 +92,7 @@ def main():
 
     pg_engine = create_engine(args.pg_url)
     sqlite_engine = create_engine(f"sqlite:///{args.sqlite_path}")
+    prepare_destination(sqlite_engine)
 
     SrcSession = sessionmaker(bind=pg_engine)
     DstSession = sessionmaker(bind=sqlite_engine)

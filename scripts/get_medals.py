@@ -48,7 +48,7 @@ import sys
 import time
 import uuid
 from datetime import datetime, timezone
-from urllib.parse import urlparse
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -131,6 +131,14 @@ EXTRA_IBJJF_LINKS = [
         "url": "https://www.ibjjfdb.com/ChampionshipResults/2989/PublicResults?lang=en-US",
         "source": "ibjjf",
     },
+    {
+        # The public page exists but the current results index omits it. An
+        # older index also mislabeled this ID as Los Angeles Summer 2026.
+        "tournament": "Master International Jiu-Jitsu Championship - South America",
+        "year": "2026",
+        "url": "https://ibjjf.com/events/3328/results",
+        "source": "ibjjf",
+    },
 ]
 
 
@@ -165,6 +173,9 @@ KNOWN_BAD_LINKS = {
     ("American National Kids IBJJF Jiu-Jitsu Championship", "2016", "575"),
     ("American National Kids IBJJF Jiu-Jitsu Championship", "2017", "753"),
     ("American National Kids IBJJF Jiu-Jitsu Championship", "2018", "948"),
+    # The Chicago Summer 2026 button at 3348 serves a Rules Webinar page.
+    # The actual Chicago Summer results are listed separately at 3248.
+    ("Chicago Summer International Open IBJJF Jiu-Jitsu Championship", "2026", "3348"),
     # Same Kids-page-pointing-at-adult-page mistake on British National 2016.
     ("British National Kids IBJJF Jiu-Jitsu Championship", "2016", "555"),
     # Chicago Summer International 2016 Kids button points at the adult page.
@@ -269,23 +280,27 @@ def parse_index_page(html, source):
         href = (link.get("href") or "").strip()
         if not name or not year or not href:
             continue
+        base_url = IBJJF_RESULTS_URL if source == "ibjjf" else CBJJ_RESULTS_URL
         out.append(
             {
                 "tournament": name,
                 "year": year,
-                "url": href,
+                "url": urljoin(base_url, href),
                 "source": source,
             }
         )
     return out
 
 
-CHAMPIONSHIP_ID_RE = re.compile(r"/ChampionshipResults/(\d+)/", re.IGNORECASE)
+CHAMPIONSHIP_ID_RE = re.compile(
+    r"/(?:ChampionshipResults/(\d+)/|events/(\d+)/results(?:[/?#]|$))",
+    re.IGNORECASE,
+)
 
 
 def extract_championship_id(url):
     match = CHAMPIONSHIP_ID_RE.search(url)
-    return match.group(1) if match else None
+    return (match.group(1) or match.group(2)) if match else None
 
 
 def dedup_links(ibjjf_links, cbjj_links):
@@ -466,13 +481,15 @@ def parse_old_format(html):
 
 
 def parse_result_page(url, html):
-    host = urlparse(url).netloc.lower()
-    if "ibjjfdb.com" in host:
+    # ibjjfdb.com result URLs now redirect to ibjjf.com category/table pages.
+    # Select from the returned HTML, not the originally requested URL.
+    soup = BeautifulSoup(html, "html.parser")
+    if soup.select_one("div.athletes div.category"):
+        rows = parse_old_format(html)
+    elif soup.select_one("h4.subtitle"):
         rows = parse_new_format(html)
     else:
-        # Old IBJJF (ibjjf.com), CBJJ (cbjj.com.br, www.cbjj.com.br), and the legacy
-        # Heroku staging URLs all share the same pre-2012 markup.
-        rows = parse_old_format(html)
+        raise ValueError(f"Unrecognized result page markup: {url}")
 
     # The CBJJ pre-2012 pages have a quirk where the same athlete row is repeated
     # many times when there's only one competitor in a division. Drop exact
@@ -517,8 +534,21 @@ def build_result_links(
         log(f"Fetching IBJJF index {IBJJF_RESULTS_URL} ...")
         ibjjf_links = parse_index_page(fetch(IBJJF_RESULTS_URL, session), "ibjjf")
         log(f"  found {len(ibjjf_links)} event-year links")
-        ibjjf_links.extend(EXTRA_IBJJF_LINKS)
-        log(f"  added {len(EXTRA_IBJJF_LINKS)} extra hard-coded IBJJF links")
+        indexed_ids = {
+            extract_championship_id(link["url"])
+            for link in ibjjf_links
+            if (
+                link["tournament"],
+                link["year"],
+                extract_championship_id(link["url"]),
+            ) not in KNOWN_BAD_LINKS
+        }
+        extra_links = [
+            link for link in EXTRA_IBJJF_LINKS
+            if extract_championship_id(link["url"]) not in indexed_ids
+        ]
+        ibjjf_links.extend(extra_links)
+        log(f"  added {len(extra_links)} unlisted IBJJF links")
     if "cbjj" in sources_to_fetch:
         log(f"Fetching CBJJ index {CBJJ_RESULTS_URL} ...")
         cbjj_links = parse_index_page(fetch(CBJJ_RESULTS_URL, session), "cbjj")

@@ -84,6 +84,7 @@ from seeding import (
     collect_athlete_medal_details,
 )
 from bracket_audit import composed_seed_swap_mapping, parse_team_swaps
+from result_identity import abbreviated_name_key, resolve_identity
 
 log = logging.getLogger("ibjjf")
 
@@ -226,15 +227,6 @@ def get_ratings(
     elite_only=False,
     strict_ids=False,
 ):
-    youth_age_divisions = {
-        TEEN_1,
-        TEEN_2,
-        TEEN_3,
-        JUVENILE,
-        JUVENILE_1,
-        JUVENILE_2,
-    }
-
     athlete_results = (
         db.session.query(
             Athlete.id,
@@ -277,77 +269,27 @@ def get_ratings(
         athletes_by_id[athlete.ibjjf_id] = athlete
         athletes_by_name.setdefault(athlete.normalized_name, []).append(athlete)
 
-    athlete_ids = [athlete.id for athlete in athlete_results]
-    highest_belt_index_by_athlete_id = {}
-    athlete_has_adult_or_master_history = {}
-
-    if athlete_ids:
-        belt_rows = (
-            db.session.query(AthleteRating.athlete_id, AthleteRating.belt)
-            .filter(AthleteRating.athlete_id.in_(athlete_ids))
-            .all()
-        )
-        for row in belt_rows:
-            if row.belt not in belt_order:
-                continue
-            belt_index = belt_order.index(row.belt)
-            current_index = highest_belt_index_by_athlete_id.get(row.athlete_id)
-            if current_index is None or belt_index > current_index:
-                highest_belt_index_by_athlete_id[row.athlete_id] = belt_index
-
-        match_belt_rows = (
-            db.session.query(MatchParticipant.athlete_id, Division.belt)
-            .select_from(MatchParticipant)
-            .join(Match, MatchParticipant.match_id == Match.id)
-            .join(Division, Match.division_id == Division.id)
-            .filter(MatchParticipant.athlete_id.in_(athlete_ids))
-            .all()
-        )
-        for row in match_belt_rows:
-            if row.belt not in belt_order:
-                continue
-            belt_index = belt_order.index(row.belt)
-            current_index = highest_belt_index_by_athlete_id.get(row.athlete_id)
-            if current_index is None or belt_index > current_index:
-                highest_belt_index_by_athlete_id[row.athlete_id] = belt_index
-
-        adult_master_rows = (
-            db.session.query(MatchParticipant.athlete_id)
-            .select_from(MatchParticipant)
-            .join(Match, MatchParticipant.match_id == Match.id)
-            .join(Division, Match.division_id == Division.id)
-            .filter(
-                MatchParticipant.athlete_id.in_(athlete_ids),
-                or_(Division.age == ADULT, Division.age.like(f"{MASTER_PREFIX}%")),
-            )
-            .distinct()
-            .all()
-        )
-        athlete_has_adult_or_master_history = {
-            row.athlete_id: True for row in adult_master_rows
-        }
-
-    def is_compatible_registration_match(result, athlete):
-        result_belt = result.get("belt")
-        if result_belt in belt_order:
-            result_belt_index = belt_order.index(result_belt)
-            athlete_belt_index = highest_belt_index_by_athlete_id.get(athlete.id)
-            if (
-                athlete_belt_index is not None
-                and athlete_belt_index > result_belt_index
-            ):
-                return False
-
-        result_age = result.get("age")
-        if (
-            result_age in youth_age_divisions
-            and athlete_has_adult_or_master_history.get(athlete.id, False)
-        ):
-            return False
-
-        return True
-
     for result in results:
+        if not strict_ids and abbreviated_name_key(result.get("name")):
+            resolution = resolve_identity(
+                db.session, result["name"], ibjjf_id=result.get("ibjjf_id"),
+                gender=result.get("gender"), belt=result.get("belt"),
+                age=result.get("age"), team=result.get("team"), when=rating_date,
+            )
+            if resolution.status == "matched":
+                athlete = resolution.athlete
+                result["id"] = athlete.id
+                result["slug"] = athlete.slug
+                result["instagram_profile"] = athlete.instagram_profile
+                result["personal_name"] = athlete.personal_name
+                result["profile_image_url"] = (
+                    get_public_photo_url(s3_client, athlete)
+                    if s3_client and athlete.profile_image_saved_at else None
+                )
+                result["country"] = athlete.country
+                result["country_note"] = athlete.country_note
+                result["country_note_pt"] = athlete.country_note_pt
+            continue
         if result["ibjjf_id"] is not None and result["ibjjf_id"] in athletes_by_id:
             athlete = athletes_by_id[result["ibjjf_id"]]
             result["id"] = athlete.id
@@ -364,16 +306,12 @@ def get_ratings(
             result["country_note"] = athlete.country_note
             result["country_note_pt"] = athlete.country_note_pt
         elif not strict_ids and normalize(result["name"]) in athletes_by_name:
-            matched_athlete = None
-            candidates = sorted(
-                athletes_by_name[normalize(result["name"])],
-                key=lambda a: highest_belt_index_by_athlete_id.get(a.id, -1),
-                reverse=True,
+            resolution = resolve_identity(
+                db.session, result["name"], gender=result.get("gender"),
+                belt=result.get("belt"), age=result.get("age"),
+                team=result.get("team"), when=rating_date,
             )
-            for athlete in candidates:
-                if is_compatible_registration_match(result, athlete):
-                    matched_athlete = athlete
-                    break
+            matched_athlete = resolution.athlete if resolution.status == "matched" else None
             if matched_athlete:
                 if result["ibjjf_id"] is None or matched_athlete.ibjjf_id is None:
                     result["id"] = matched_athlete.id
@@ -1041,8 +979,6 @@ def save_competitors(link_id, json_data, division_set):
             try:
                 current_divdata = parse_division(division_name_clean)
 
-                if current_divdata["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
-                    continue
 
                 if format_division(current_divdata) not in division_set:
                     continue
@@ -1143,8 +1079,6 @@ def import_registration_link(link, background):
         try:
             divdata = parse_division(division_name_clean)
 
-            if divdata["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
-                continue
 
             age_lower = divdata["age"].lower()
             if not (
@@ -1194,8 +1128,7 @@ def internal_registration_categories(link):
     ):
         division = db.session.get(Division, competitor.division_id)
 
-        if division.age not in (JUVENILE, JUVENILE_1, JUVENILE_2):
-            divisions.append(division)
+        divisions.append(division)
 
     divisions.sort(
         key=lambda division: (
@@ -1304,7 +1237,6 @@ def internal_registration_competitors_elites(link):
         .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
         .filter(
             RegistrationLinkCompetitor.registration_link_id == db_link.id,
-            ~Division.age.in_((JUVENILE, JUVENILE_1, JUVENILE_2)),
         )
         .all()
     ):
@@ -1435,8 +1367,6 @@ def _registration_competitor_row(name, team, divdata, gi):
 
 def _registration_rows_for_division(link, division, gi):
     divdata = parse_division(division)
-    if divdata["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
-        raise ValueError("Juvenile registration divisions are unavailable")
     if link.startswith("internal:"):
         return internal_registration_competitors(link, divdata, gi), divdata
 
@@ -1528,8 +1458,6 @@ def build_registration_prediction(
 ):
     """Build the registration bracket payload used by both the API and audits."""
     divdata = parse_division(division)
-    if divdata["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
-        raise ValueError("Juvenile registration divisions are unavailable")
     use_persisted_rows = registration_link_record is not None and divdata[
         "weight"
     ] not in {OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY}
@@ -1641,11 +1569,7 @@ def registration_hypothetical_seed():
     s3_client = _optional_s3_client()
 
     try:
-        if parse_division(division)["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
-            return (
-                jsonify({"error": "Juvenile registration divisions are unavailable"}),
-                400,
-            )
+        parse_division(division)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
@@ -1789,12 +1713,6 @@ def registration_competitor_medal_breakdown():
         divdata = parse_division(division)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-
-    if divdata["age"] in (JUVENILE, JUVENILE_1, JUVENILE_2):
-        return (
-            jsonify({"error": "Juvenile registration divisions are unavailable"}),
-            400,
-        )
 
     event_start_date = _registration_seeding_start_date(link)
     seeding_reference_date = _registration_seeding_reference_date(event_start_date)

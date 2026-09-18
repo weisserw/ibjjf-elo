@@ -147,6 +147,12 @@ coverage titles. The server limits title fetches with `MAX_MEDIA_TITLE_SCAN_BYTE
 - `Athlete.name` / `normalized_name`: canonical imported/full name.
   The admin athlete edit form updates both fields in the same transaction, with
   `normalized_name` derived from `normalize(name)`; blank full names are rejected.
+- `Athlete.normalized_initial_surname` is an indexed, accent-folded first-initial
+  and final-surname-token lookup key. It is backfilled by migration
+  `d7e12a6c4b09` and refreshed by ORM inserts and updates. Abbreviated IBJJF
+  registration/result names resolve through `app/result_identity.py`; ambiguous
+  identities stay unassigned. Profile registrations now include uniquely
+  resolved abbreviated Juvenile rows.
 - `Athlete.personal_name` / `normalized_personal_name`: display/search name
   usually sourced from Instagram or admin edits.
 - `Athlete.hide_full_name`: when true and `personal_name` exists, APIs expose
@@ -168,8 +174,8 @@ coverage titles. The server limits title fetches with `MAX_MEDIA_TITLE_SCAN_BYTE
 - `MatchParticipant`: source for profile Elo/rating history and latest-match
   fallback behavior.
 - `RegistrationLinkCompetitor` plus `RegistrationLink`: upcoming event cards and
-  provisional belt/team context. Juvenile, Juvenile 1, and Juvenile 2 rows are
-  excluded because IBJJF now abbreviates those registration names.
+  provisional belt/team context. Juvenile rows are included when abbreviated
+  names resolve uniquely to this profile.
 - `ManualPromotions`: applied with registrations and latest match data to derive
   current belt/rating display.
 - `Medal`: profile medal case rows. The default view excludes `default_gold`
@@ -263,8 +269,18 @@ Issues that have already surfaced in git history:
 - Historical matcher event scoping must be applied to the initial distinct-name
   query and to both the alias and fuzzy row queries. Filtering only the name
   index can let a fuzzy candidate pull same-named rows from unrelated events.
-- Juvenile result rows remain in `result_medals` but are excluded from automatic
-  and admin medal matching; abbreviated names cannot identify an athlete.
+- Juvenile result rows can enter automatic and admin medal matching. An
+  abbreviated source name must resolve uniquely through the shared resolver;
+  otherwise it remains unassigned.
+- Result-page URLs on `ibjjfdb.com` can redirect to `ibjjf.com` category/table
+  markup. `get_medals.parse_result_page()` must select the parser from returned
+  HTML, not the requested URL host; unrecognized markup is a scrape failure.
+  `app/tests/test_result_medal_update.py` covers the redirected layout.
+- Current IBJJF/CBJJ result indexes expose relative `/events/<id>/results`
+  links. `get_medals.parse_index_page()` resolves them to absolute URLs, and
+  `extract_championship_id()` accepts both that shape and the older
+  `/ChampionshipResults/<id>/PublicResults` shape so source de-duplication and
+  known-bad-link filtering keep working.
 - The historical batch matcher must keep its full athlete scan out of the ORM
   identity map. It commits after athletes with imports; loading every `Athlete`
   ORM object causes each commit to expire the full population and makes a real

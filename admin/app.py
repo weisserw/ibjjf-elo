@@ -4559,6 +4559,12 @@ def athlete_medals_find_missing():
                     )
                     or datetime.utcnow()
                 )
+                initial_resolution = None
+                if medal_lib.abbreviated_name_key(rm.athlete_name):
+                    initial_resolution = medal_lib.resolve_identity(
+                        db.session, rm.athlete_name, gender=gender, belt=belt,
+                        age=age, team=rm.team_name, when=tentative_date,
+                    )
                 belt_ok = medal_lib.medal_is_plausible(
                     db.session, athlete.id, belt, tentative_date
                 )
@@ -4571,6 +4577,11 @@ def athlete_medals_find_missing():
                 advisory = False
                 if division and event and (event.id, division.id) in existing_pairs:
                     status, checkable = "duplicate", False
+                elif initial_resolution and (
+                    initial_resolution.status != "matched"
+                    or initial_resolution.athlete.id != athlete.id
+                ):
+                    status, checkable = "ambiguous_identity", False
                 elif not gender_ok:
                     status, checkable = "gender_mismatch", False
                 elif not division:
@@ -4629,7 +4640,7 @@ def athlete_medals_import_candidates():
             errors.append(f"missing rm: {rm_id_raw}")
             continue
         if not medal_lib.is_matchable_result_division(rm.division):
-            errors.append(f"juvenile result division unavailable: {rm.division}")
+            errors.append(f"unrecognized result division: {rm.division}")
             continue
         event = medal_lib.find_event(db.session, rm.event_name, rm.event_ibjjf_id)
         if event is None:
@@ -4643,6 +4654,18 @@ def athlete_medals_import_candidates():
         if not division:
             errors.append(f"division for {rm.event_name}: {rm.division}")
             continue
+        if medal_lib.abbreviated_name_key(rm.athlete_name):
+            result_when = medal_lib.tentative_event_date(
+                db.session, rm.event_name, event=event
+            )
+            resolution = medal_lib.resolve_identity(
+                db.session, rm.athlete_name, gender=division.gender,
+                belt=division.belt, age=division.age, team=rm.team_name,
+                when=result_when,
+            )
+            if resolution.status != "matched" or resolution.athlete.id != athlete.id:
+                errors.append(f"unresolved abbreviated result: {rm.id}")
+                continue
         if medal_lib.medal_already_exists(
             db.session, athlete.id, event.id, division.id
         ):

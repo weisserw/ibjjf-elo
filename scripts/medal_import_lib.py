@@ -25,6 +25,9 @@ from models import (  # noqa: E402
     Team,
 )
 from normalize import normalize  # noqa: E402
+from result_identity import (  # noqa: E402
+    abbreviated_name_key, initial_surname_key, resolve_identity,
+)
 from constants import (  # noqa: E402
     ADULT,
     JUVENILE,
@@ -227,9 +230,8 @@ def parse_division_parts(raw_division: str) -> Optional[tuple]:
 
 
 def is_matchable_result_division(raw_division: str) -> bool:
-    """Juvenile result names are abbreviated and cannot identify an athlete."""
-    parts = parse_division_parts(raw_division)
-    return parts is not None and parts[1] not in JUVENILE_AGES
+    """A parsed division can be scanned; identity is resolved per result row."""
+    return parse_division_parts(raw_division) is not None
 
 
 def build_division_cache(session) -> dict:
@@ -797,6 +799,11 @@ def find_result_medal_name_matches(
         for row in session.query(ResultMedal.athlete_name).distinct().all()
         if row[0]
     ]
+    initial_key = initial_surname_key(query_name)
+    abbreviated = (
+        [name for name in names if abbreviated_name_key(name) == initial_key]
+        if initial_key else []
+    )
     if anchor_tokens:
         names = [
             name
@@ -804,9 +811,9 @@ def find_result_medal_name_matches(
             if all(token in normalize(name) for token in anchor_tokens)
         ]
     if not names:
-        return []
+        return [(name, 100) for name in abbreviated[:limit]]
 
-    return [
+    fuzzy_matches = [
         (name, score)
         for name, score, _ in process.extract(
             query_name,
@@ -816,6 +823,9 @@ def find_result_medal_name_matches(
             limit=limit,
         )
     ]
+    return [(name, 100) for name in abbreviated[:limit]] + [
+        (name, score) for name, score in fuzzy_matches if name not in abbreviated
+    ][:max(0, limit - len(abbreviated))]
 
 
 def first_and_last_match(query_name: str, candidate_name: str) -> bool:
@@ -1096,7 +1106,11 @@ def scan_event_for_missing_medals(
         .order_by(Match.happened_at.desc())
         .first()
     )
-    event_when = last_match_row[0] if last_match_row else datetime.utcnow()
+    identity_when = (
+        last_match_row[0] if last_match_row
+        else tentative_event_date(session, event.name, event=event)
+    )
+    event_when = identity_when or datetime.utcnow()
 
     # Plausibility caches. Only prefetched in fuzzy mode, which scores every
     # candidate against every result_medal and needs belt/gender/age bounds for
@@ -1189,7 +1203,21 @@ def scan_event_for_missing_medals(
         matched_athlete = None
         alternatives = []
 
-        if not fuzzy:
+        if abbreviated_name_key(rm.athlete_name):
+            resolution = resolve_identity(
+                session, rm.athlete_name, gender=division.gender,
+                belt=division.belt, age=division.age,
+                team=rm.team_name, when=identity_when,
+            )
+            if resolution.status == "matched":
+                matched_athlete = resolution.athlete
+            else:
+                alternatives = [
+                    {"athlete": athlete, "score": 100,
+                     "already_imported": (athlete.id, division.id) in existing_pairs}
+                    for athlete in resolution.candidates
+                ]
+        elif not fuzzy:
             # Match on raw candidates — exact normalized name alone is high-signal
             # when the candidate already competed at this event. Plausibility is
             # only needed to disambiguate same-name duplicates below.

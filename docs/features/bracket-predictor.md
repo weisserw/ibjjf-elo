@@ -1,5 +1,9 @@
 # Bracket Predictor
 
+Juvenile registrations now reach the prediction APIs. Initial-and-surname
+names use the indexed resolver in `app/result_identity.py`; unresolved rows
+remain without athlete ratings or profile links.
+
 ## Purpose
 
 Bracket Predictor lets users and admins preview registration-based brackets before an official bracket is available, and test how the bracket changes when a hypothetical athlete is added. It combines the registration scrape/import data, rating lookup, estimated seeding, same-team side-swap logic, and bracket-slot layout into the registration page UI.
@@ -32,11 +36,12 @@ Bracket Predictor lets users and admins preview registration-based brackets befo
 The route:
 
 1. Loads registration rows with `_registration_rows_for_division(link, division, gi)`.
-2. Looks up ratings with `get_ratings(...)`.
-3. Rejects Juvenile, Juvenile 1, and Juvenile 2 divisions because IBJJF registration names are abbreviated and cannot be matched reliably.
-4. For supported divisions, runs `add_seeding_data(...)`, `add_estimated_seeds(...)`, and `add_side_swaps(...)`.
-5. Builds first-round slot layout with `_bracket_slots(len(rows))`.
-6. Returns competitors, side swaps, bailout teams, `bracket_slots`, and `bracket_match_count`.
+2. Resolves names and looks up ratings with `get_ratings(...)`. Ambiguous
+   abbreviated names remain unmatched.
+3. Runs `add_seeding_data(...)` and `add_estimated_seeds(...)`. Juvenile
+   divisions omit team side swaps.
+4. Builds first-round slot layout with `_bracket_slots(len(rows))`.
+5. Returns competitors, side swaps, bailout teams, `bracket_slots`, and `bracket_match_count`.
 
 `/api/brackets/registrations/hypothetical_seed` accepts `link`, `division`, `gi`, and `athlete_slug`.
 
@@ -141,7 +146,9 @@ Do not run `make test-ocr` unless OCR/livestream text scan code changed. Do not 
 
 - Hypothetical rows must be temporary. The dedicated API test verifies the hypothetical athlete appears in that response but does not appear in a later normal competitor response.
 - Already-registered athletes must be rejected. The route checks both registration row names and personal names to avoid adding duplicate athletes under alternate display names.
-- Juvenile divisions are excluded from registration categories and rejected by competitor and hypothetical APIs, including cached and internal registration links.
+- Juvenile divisions are included in registration categories and accepted by
+  competitor and hypothetical APIs; unresolved abbreviated names have no
+  athlete-based seed.
 - IBJJF bracket geometry and visual order have been fragile. See `docs/workflows/BRACKET_LAYOUT_REVERSE_ENGINEERING.md` before changing `_bracket_slots(n)` or `_side(seed, n)`.
 - Known bracket layout regression areas include 5-, 6-, 7-, 9-, 11-, and 13-person play-in brackets, seed 1/2 visual side mapping, all-seeds-present checks, and same-team swap behavior.
 - Same-team side swaps can create bailout teams when the algorithm cannot cleanly resolve conflicts. Preserve `side_swap_bailout_teams` in API and frontend state when changing this flow.

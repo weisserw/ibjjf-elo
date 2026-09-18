@@ -261,6 +261,29 @@ class BracketsGetRatingsTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(rows[0]["id"], self.match_only_white_athlete_id)
         self.assertEqual(rows[0]["slug"], self.match_only_white_athlete_slug)
 
+    def test_initial_name_in_adult_division_gets_existing_profile(self):
+        rows = [_registration_row("O. RareSurname", ADULT, WHITE)]
+        with self.app_module.app.app_context():
+            athlete = Athlete(
+                name="Oliver RareSurname",
+                normalized_name="oliver raresurname",
+                slug="oliver-raresurname",
+            )
+            db.session.add(athlete)
+            db.session.commit()
+            athlete_id = athlete.id
+            try:
+                get_ratings(
+                    rows, event_id=None, gi=True,
+                    rating_date=datetime(2026, 1, 1),
+                    use_live_ratings=False, s3_client=None,
+                )
+                self.assertEqual(rows[0]["id"], athlete_id)
+                self.assertEqual(rows[0]["name"], "O. RareSurname")
+            finally:
+                db.session.delete(athlete)
+                db.session.commit()
+
 
 if __name__ == "__main__":
     unittest.main()

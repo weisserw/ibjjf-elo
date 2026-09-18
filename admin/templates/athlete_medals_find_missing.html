@@ -75,6 +75,8 @@
                                         <span class="tag is-light">already imported</span>
                                     {% elif c.status == 'no_division' %}
                                         <span class="tag is-light">no division</span>
+                                    {% elif c.status == 'ambiguous_identity' %}
+                                        <span class="tag is-warning">abbreviated name unresolved</span>
                                     {% endif %}
                                 </td>
                                 <td>

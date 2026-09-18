@@ -16,6 +16,7 @@ from sqlalchemy import (
     CheckConstraint,
     BigInteger,
     JSON,
+    event,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP, TSVECTOR
@@ -97,6 +98,7 @@ class Athlete(db.Model):
     ibjjf_id = Column(String, unique=True, nullable=True)
     name = Column(String, nullable=False)
     normalized_name = Column(String, nullable=False)
+    normalized_initial_surname = Column(String, nullable=True)
     instagram_profile = Column(String, nullable=True)
     country = Column(String, nullable=True)
     country_note = Column(String, nullable=True)
@@ -115,6 +117,7 @@ class Athlete(db.Model):
         Index("ix_athletes_ibjjf_id", "ibjjf_id"),
         Index("ix_athletes_name", "name"),
         Index("ix_athletes_normalized_name_covering", "normalized_name", "id"),
+        Index("ix_athletes_initial_surname", "normalized_initial_surname", "id"),
         Index(
             "ix_athletes_normalized_personal_name_covering",
             "normalized_personal_name",
@@ -135,6 +138,14 @@ class Athlete(db.Model):
             postgresql_using="gin",
         ),
     )
+
+
+@event.listens_for(Athlete, "before_insert")
+@event.listens_for(Athlete, "before_update")
+def sync_athlete_initial_surname(_mapper, _connection, athlete):
+    from result_identity import initial_surname_key
+
+    athlete.normalized_initial_surname = initial_surname_key(athlete.name)
 
 
 class AthleteMediaCoverage(db.Model):
