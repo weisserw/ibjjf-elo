@@ -280,6 +280,7 @@ def get_ratings(
             if resolution.status == "matched":
                 athlete = resolution.athlete
                 result["id"] = athlete.id
+                result["name"] = athlete.name
                 result["slug"] = athlete.slug
                 result["instagram_profile"] = athlete.instagram_profile
                 result["personal_name"] = athlete.personal_name

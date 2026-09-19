@@ -261,8 +261,8 @@ class BracketsGetRatingsTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(rows[0]["id"], self.match_only_white_athlete_id)
         self.assertEqual(rows[0]["slug"], self.match_only_white_athlete_slug)
 
-    def test_initial_name_in_adult_division_gets_existing_profile(self):
-        rows = [_registration_row("O. RareSurname", ADULT, WHITE)]
+    def test_initial_name_in_juvenile_division_uses_full_profile_name(self):
+        rows = [_registration_row("O. RareSurname", JUVENILE, WHITE)]
         with self.app_module.app.app_context():
             athlete = Athlete(
                 name="Oliver RareSurname",
@@ -282,7 +282,8 @@ class BracketsGetRatingsTestCase(TestDbMixin, unittest.TestCase):
                     s3_client=None,
                 )
                 self.assertEqual(rows[0]["id"], athlete_id)
-                self.assertEqual(rows[0]["name"], "O. RareSurname")
+                self.assertEqual(rows[0]["name"], "Oliver RareSurname")
+                self.assertIsNone(rows[0]["personal_name"])
             finally:
                 db.session.delete(athlete)
                 db.session.commit()

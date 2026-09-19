@@ -149,6 +149,9 @@ Do not run `make test-ocr` unless OCR/livestream text scan code changed. Do not 
 - Juvenile divisions are included in registration categories and accepted by
   competitor and hypothetical APIs; unresolved abbreviated names have no
   athlete-based seed.
+- When an abbreviated registration name resolves to an athlete profile, the
+  competitor row uses the profile's full canonical name even when no personal
+  name is set.
 - IBJJF bracket geometry and visual order have been fragile. See `docs/workflows/BRACKET_LAYOUT_REVERSE_ENGINEERING.md` before changing `_bracket_slots(n)` or `_side(seed, n)`.
 - Known bracket layout regression areas include 5-, 6-, 7-, 9-, 11-, and 13-person play-in brackets, seed 1/2 visual side mapping, all-seeds-present checks, and same-team swap behavior.
 - Same-team side swaps can create bailout teams when the algorithm cannot cleanly resolve conflicts. Preserve `side_swap_bailout_teams` in API and frontend state when changing this flow.
