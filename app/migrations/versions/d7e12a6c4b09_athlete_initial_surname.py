@@ -7,31 +7,75 @@ Revises: c5a1e8d42f70
 from alembic import op
 import sqlalchemy as sa
 
-from normalize import normalize
-
 revision = "d7e12a6c4b09"
 down_revision = "c5a1e8d42f70"
 branch_labels = None
 depends_on = None
 
 
-def _key(name):
-    words = normalize(name or "").split()
-    if len(words) < 2:
-        return None
-    return f"{words[0][0]} {words[-1]}"
-
-
 def upgrade():
-    op.add_column("athletes", sa.Column("normalized_initial_surname", sa.String(), nullable=True))
-    connection = op.get_bind()
-    rows = connection.execute(sa.text("SELECT id, name FROM athletes")).all()
-    statement = sa.text(
-        "UPDATE athletes SET normalized_initial_surname = :key WHERE id = :id"
+    op.add_column(
+        "athletes", sa.Column("normalized_initial_surname", sa.String(), nullable=True)
     )
-    for athlete_id, name in rows:
-        connection.execute(statement, {"id": athlete_id, "key": _key(name)})
-    op.create_index("ix_athletes_initial_surname", "athletes", ["normalized_initial_surname", "id"])
+    connection = op.get_bind()
+    if connection.dialect.name == "postgresql":
+        # normalized_name is already lowercase, accent folded, stripped to
+        # letters/numbers, and collapsed to single spaces. Derive every key in
+        # one database statement instead of loading and updating all athletes
+        # through Python.
+        connection.execute(
+            sa.text(
+                """
+            UPDATE athletes
+            SET normalized_initial_surname =
+                left(normalized_name, 1) || ' ' ||
+                regexp_replace(normalized_name, '^.* ', '')
+            WHERE normalized_name LIKE '% %'
+        """
+            )
+        )
+    elif connection.dialect.name == "sqlite":
+        # SQLite has no reverse() or equivalent last-token function. This CTE
+        # walks the already-normalized words, then performs one set-based update.
+        connection.execute(
+            sa.text(
+                """
+            WITH RECURSIVE name_words(id, normalized_name, rest, last_word) AS (
+                SELECT id, normalized_name, trim(normalized_name), ''
+                FROM athletes
+                WHERE normalized_name LIKE '% %'
+                UNION ALL
+                SELECT
+                    id,
+                    normalized_name,
+                    CASE WHEN instr(rest, ' ') = 0 THEN ''
+                         ELSE ltrim(substr(rest, instr(rest, ' ') + 1)) END,
+                    CASE WHEN instr(rest, ' ') = 0 THEN rest
+                         ELSE substr(rest, 1, instr(rest, ' ') - 1) END
+                FROM name_words
+                WHERE rest <> ''
+            ),
+            keys AS (
+                SELECT id, substr(normalized_name, 1, 1) || ' ' || last_word AS key
+                FROM name_words
+                WHERE rest = ''
+            )
+            UPDATE athletes
+            SET normalized_initial_surname = (
+                SELECT key FROM keys WHERE keys.id = athletes.id
+            )
+            WHERE id IN (SELECT id FROM keys)
+        """
+            )
+        )
+    else:
+        raise RuntimeError(
+            "Unsupported database for normalized initial/surname backfill: "
+            f"{connection.dialect.name}"
+        )
+    op.create_index(
+        "ix_athletes_initial_surname", "athletes", ["normalized_initial_surname", "id"]
+    )
 
 
 def downgrade():

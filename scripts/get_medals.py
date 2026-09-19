@@ -541,10 +541,12 @@ def build_result_links(
                 link["tournament"],
                 link["year"],
                 extract_championship_id(link["url"]),
-            ) not in KNOWN_BAD_LINKS
+            )
+            not in KNOWN_BAD_LINKS
         }
         extra_links = [
-            link for link in EXTRA_IBJJF_LINKS
+            link
+            for link in EXTRA_IBJJF_LINKS
             if extract_championship_id(link["url"]) not in indexed_ids
         ]
         ibjjf_links.extend(extra_links)

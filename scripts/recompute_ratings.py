@@ -44,6 +44,11 @@ def main():
         "--rank-previous-date", type=str, help="Compute rank changes since this date."
     )
     parser.add_argument(
+        "--skip-rank",
+        action="store_true",
+        help="Recompute match ratings without regenerating the ranking board.",
+    )
+    parser.add_argument(
         "--athlete-id", type=str, help="Only recompute ratings for this athlete."
     )
     parser.add_argument(
@@ -131,7 +136,7 @@ def run_recompute(args):
                 gender=args.gender,
                 start_date=start_date,
                 score=not args.rank_only,
-                rerank=not args.nogi,
+                rerank=not args.skip_rank and not args.nogi,
                 rerankgi=True,
                 reranknogi=False,
                 rank_previous_date=rank_previous_date,
@@ -144,7 +149,7 @@ def run_recompute(args):
                 gender=args.gender,
                 start_date=start_date,
                 score=not args.rank_only,
-                rerank=True,
+                rerank=not args.skip_rank,
                 rerankgi=args.gi,
                 reranknogi=True,
                 rank_previous_date=rank_previous_date,
@@ -158,7 +163,7 @@ def run_recompute(args):
                 gender=args.gender,
                 start_date=start_date,
                 score=not args.rank_only,
-                rerank=True,
+                rerank=not args.skip_rank,
                 rerankgi=args.gi,
                 reranknogi=not args.gi,
                 rank_previous_date=rank_previous_date,

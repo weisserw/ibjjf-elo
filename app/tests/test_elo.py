@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+import uuid
 from types import SimpleNamespace
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -15,6 +16,15 @@ from elo import (
     rating_maturity,
     rating_top_percent,
 )
+from ratings import normalize_target_athlete_id
+
+
+class TargetAthleteIdTestCase(unittest.TestCase):
+    def test_compact_and_hyphenated_uuid_normalize_identically(self):
+        athlete_id = uuid.uuid4()
+        self.assertEqual(athlete_id, normalize_target_athlete_id(athlete_id.hex))
+        self.assertEqual(athlete_id, normalize_target_athlete_id(str(athlete_id)))
+        self.assertIsNone(normalize_target_athlete_id(None))
 
 
 class ComputeStartRatingTestCase(unittest.TestCase):

@@ -274,9 +274,12 @@ class BracketsGetRatingsTestCase(TestDbMixin, unittest.TestCase):
             athlete_id = athlete.id
             try:
                 get_ratings(
-                    rows, event_id=None, gi=True,
+                    rows,
+                    event_id=None,
+                    gi=True,
                     rating_date=datetime(2026, 1, 1),
-                    use_live_ratings=False, s3_client=None,
+                    use_live_ratings=False,
+                    s3_client=None,
                 )
                 self.assertEqual(rows[0]["id"], athlete_id)
                 self.assertEqual(rows[0]["name"], "O. RareSurname")

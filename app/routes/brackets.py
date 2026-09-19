@@ -59,12 +59,8 @@ from constants import (
     NON_ELITE_BELTS,
     rated_ages,
     BLACK,
-    TEEN_1,
-    TEEN_2,
-    TEEN_3,
     JUVENILE_1,
     JUVENILE_2,
-    MASTER_PREFIX,
 )
 from elo import (
     compute_start_rating,
@@ -272,9 +268,14 @@ def get_ratings(
     for result in results:
         if not strict_ids and abbreviated_name_key(result.get("name")):
             resolution = resolve_identity(
-                db.session, result["name"], ibjjf_id=result.get("ibjjf_id"),
-                gender=result.get("gender"), belt=result.get("belt"),
-                age=result.get("age"), team=result.get("team"), when=rating_date,
+                db.session,
+                result["name"],
+                ibjjf_id=result.get("ibjjf_id"),
+                gender=result.get("gender"),
+                belt=result.get("belt"),
+                age=result.get("age"),
+                team=result.get("team"),
+                when=rating_date,
             )
             if resolution.status == "matched":
                 athlete = resolution.athlete
@@ -284,7 +285,8 @@ def get_ratings(
                 result["personal_name"] = athlete.personal_name
                 result["profile_image_url"] = (
                     get_public_photo_url(s3_client, athlete)
-                    if s3_client and athlete.profile_image_saved_at else None
+                    if s3_client and athlete.profile_image_saved_at
+                    else None
                 )
                 result["country"] = athlete.country
                 result["country_note"] = athlete.country_note
@@ -307,11 +309,17 @@ def get_ratings(
             result["country_note_pt"] = athlete.country_note_pt
         elif not strict_ids and normalize(result["name"]) in athletes_by_name:
             resolution = resolve_identity(
-                db.session, result["name"], gender=result.get("gender"),
-                belt=result.get("belt"), age=result.get("age"),
-                team=result.get("team"), when=rating_date,
+                db.session,
+                result["name"],
+                gender=result.get("gender"),
+                belt=result.get("belt"),
+                age=result.get("age"),
+                team=result.get("team"),
+                when=rating_date,
             )
-            matched_athlete = resolution.athlete if resolution.status == "matched" else None
+            matched_athlete = (
+                resolution.athlete if resolution.status == "matched" else None
+            )
             if matched_athlete:
                 if result["ibjjf_id"] is None or matched_athlete.ibjjf_id is None:
                     result["id"] = matched_athlete.id
@@ -979,7 +987,6 @@ def save_competitors(link_id, json_data, division_set):
             try:
                 current_divdata = parse_division(division_name_clean)
 
-
                 if format_division(current_divdata) not in division_set:
                     continue
 
@@ -1078,7 +1085,6 @@ def import_registration_link(link, background):
 
         try:
             divdata = parse_division(division_name_clean)
-
 
             age_lower = divdata["age"].lower()
             if not (

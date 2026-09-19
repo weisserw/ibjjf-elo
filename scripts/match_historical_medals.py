@@ -343,10 +343,18 @@ def main():
                 return "skipped"
             if lib.abbreviated_name_key(rm.athlete_name):
                 resolution = lib.resolve_identity(
-                    db.session, rm.athlete_name, gender=gender, belt=belt,
-                    age=age, team=rm.team_name, when=tentative_date,
+                    db.session,
+                    rm.athlete_name,
+                    gender=gender,
+                    belt=belt,
+                    age=age,
+                    team=rm.team_name,
+                    when=tentative_date,
                 )
-                if resolution.status != "matched" or resolution.athlete.id != athlete.id:
+                if (
+                    resolution.status != "matched"
+                    or resolution.athlete.id != athlete.id
+                ):
                     return "skipped"
 
             if not lib.medal_is_plausible(db.session, athlete.id, belt, tentative_date):
@@ -481,14 +489,21 @@ def main():
             # row; an ambiguous initial is never passed to the fuzzy scorer.
             for cand_name in initial_to_raw.get(athlete.normalized_initial_surname, []):
                 rms_for_name = scope_result_medals_query(
-                    db.session.query(ResultMedal).filter(ResultMedal.athlete_name == cand_name),
+                    db.session.query(ResultMedal).filter(
+                        ResultMedal.athlete_name == cand_name
+                    ),
                     event_name=args.event_name,
                     event_ibjjf_id=args.event_ibjjf_id,
                 ).all()
                 for rm in rms_for_name:
                     result = try_import_rm(
-                        rm, athlete, is_auto=True, source="alias", score=100,
-                        best_score=100, runner_up=0,
+                        rm,
+                        athlete,
+                        is_auto=True,
+                        source="alias",
+                        score=100,
+                        best_score=100,
+                        runner_up=0,
                     )
                     if result == "imported":
                         athlete_imported_this_run += 1
@@ -509,7 +524,8 @@ def main():
             # Drop names already handled by the alias pass — fuzzy only decides
             # for spellings we don't already have stored.
             merged = [
-                (n, s) for n, s in merged
+                (n, s)
+                for n, s in merged
                 if n not in alias_raw_names and not lib.abbreviated_name_key(n)
             ]
 

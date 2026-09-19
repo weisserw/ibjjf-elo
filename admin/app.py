@@ -4562,8 +4562,13 @@ def athlete_medals_find_missing():
                 initial_resolution = None
                 if medal_lib.abbreviated_name_key(rm.athlete_name):
                     initial_resolution = medal_lib.resolve_identity(
-                        db.session, rm.athlete_name, gender=gender, belt=belt,
-                        age=age, team=rm.team_name, when=tentative_date,
+                        db.session,
+                        rm.athlete_name,
+                        gender=gender,
+                        belt=belt,
+                        age=age,
+                        team=rm.team_name,
+                        when=tentative_date,
                     )
                 belt_ok = medal_lib.medal_is_plausible(
                     db.session, athlete.id, belt, tentative_date
@@ -4659,8 +4664,12 @@ def athlete_medals_import_candidates():
                 db.session, rm.event_name, event=event
             )
             resolution = medal_lib.resolve_identity(
-                db.session, rm.athlete_name, gender=division.gender,
-                belt=division.belt, age=division.age, team=rm.team_name,
+                db.session,
+                rm.athlete_name,
+                gender=division.gender,
+                belt=division.belt,
+                age=division.age,
+                team=rm.team_name,
                 when=result_when,
             )
             if resolution.status != "matched" or resolution.athlete.id != athlete.id:

@@ -15,15 +15,19 @@ from test_db import TestDbMixin
 class KeyTest(unittest.TestCase):
     def test_name_keys(self):
         for full, abbreviation, key in (
-            ("João da Silva", "J. da Silva", "j silva"),
+            ("João Silva", "J. Silva", "j silva"),
             ("Anne-Marie Smith-Jones", "A. Smith-Jones", "a smithjones"),
-            ("Carlos Gracie Jr.", "C. Gracie Jr.", "c jr"),
         ):
             with self.subTest(full=full):
                 self.assertEqual(initial_surname_key(full), key)
                 self.assertEqual(abbreviated_name_key(abbreviation), key)
         self.assertIsNone(initial_surname_key(""))
         self.assertIsNone(abbreviated_name_key("John Smith"))
+        self.assertIsNone(abbreviated_name_key("E. Jovany Varela"))
+        self.assertIsNone(abbreviated_name_key("M. I. David Onuma"))
+        self.assertIsNone(abbreviated_name_key("J. da Silva"))
+        self.assertIsNone(abbreviated_name_key("C. Gracie Jr."))
+        self.assertEqual(abbreviated_name_key("E. Varela"), "e varela")
 
 
 class ResolverTest(TestDbMixin, unittest.TestCase):
@@ -55,13 +59,9 @@ class ResolverTest(TestDbMixin, unittest.TestCase):
         self._athlete("Jane Smith", "jane-smith")
         self.assertEqual(resolve_identity(db.session, "J. Smith").status, "ambiguous")
 
-    def test_middle_name_and_compound_surname(self):
-        first = self._athlete("John Michael da Silva", "john-da-silva")
-        self._athlete("John dos Silva", "john-dos-silva")
-        self.assertEqual(
-            resolve_identity(db.session, "J. da Silva").athlete.id, first.id
-        )
-        self.assertEqual(resolve_identity(db.session, "J. Silva").status, "ambiguous")
+    def test_middle_name_disappears_from_abbreviation(self):
+        first = self._athlete("John Michael Silva", "john-silva")
+        self.assertEqual(resolve_identity(db.session, "J. Silva").athlete.id, first.id)
 
     def test_rename_refreshes_index_and_duplicate_full_names_stay_ambiguous(self):
         first = self._athlete("John Smith", "john-smith")
@@ -70,7 +70,7 @@ class ResolverTest(TestDbMixin, unittest.TestCase):
         db.session.commit()
         self.assertEqual(first.normalized_initial_surname, "j brown")
         self.assertEqual(resolve_identity(db.session, "J. Smith").status, "unmatched")
-        second = self._athlete("John Brown", "john-brown-2")
+        self._athlete("John Brown", "john-brown-2")
         self.assertEqual(resolve_identity(db.session, "John Brown").status, "ambiguous")
         self.assertEqual(resolve_identity(db.session, "J. Brown").status, "ambiguous")
 
@@ -89,34 +89,49 @@ class ResolverTest(TestDbMixin, unittest.TestCase):
                 second.id,
             )
             self.assertEqual(
-                resolve_identity(db.session, "J. Smith", team="Team A", when=when).athlete.id,
+                resolve_identity(
+                    db.session, "J. Smith", team="Team A", when=when
+                ).athlete.id,
                 first.id,
             )
-            self.assertEqual(resolve_identity(db.session, "J. Smith").status, "ambiguous")
+            self.assertEqual(
+                resolve_identity(db.session, "J. Smith").status, "ambiguous"
+            )
 
     def test_belt_and_age_history_reject(self):
-        first = self._athlete("John Smith", "john-smith")
-        with patch("result_identity._history", return_value=(set(), {"Adult"}, {3}, [])):
+        self._athlete("John Smith", "john-smith")
+        with patch(
+            "result_identity._history", return_value=(set(), {"Adult"}, {3}, [])
+        ):
             self.assertEqual(
-                resolve_identity(db.session, "J. Smith", age="Juvenile", belt="BLUE",
-                                 when=datetime(2025, 1, 1)).status,
+                resolve_identity(
+                    db.session,
+                    "J. Smith",
+                    age="Juvenile",
+                    belt="BLUE",
+                    when=datetime(2025, 1, 1),
+                ).status,
                 "unmatched",
             )
 
     def test_manual_promotion_only_rejects_later_lower_belt(self):
         first = self._athlete("John Smith", "john-smith")
-        db.session.add(ManualPromotions(
-            athlete_id=first.id, belt="PURPLE", promoted_at=datetime(2025, 6, 1)
-        ))
+        db.session.add(
+            ManualPromotions(
+                athlete_id=first.id, belt="PURPLE", promoted_at=datetime(2025, 6, 1)
+            )
+        )
         db.session.commit()
         self.assertEqual(
-            resolve_identity(db.session, "J. Smith", belt="BLUE",
-                             when=datetime(2025, 1, 1)).status,
+            resolve_identity(
+                db.session, "J. Smith", belt="BLUE", when=datetime(2025, 1, 1)
+            ).status,
             "matched",
         )
         self.assertEqual(
-            resolve_identity(db.session, "J. Smith", belt="BLUE",
-                             when=datetime(2026, 1, 1)).status,
+            resolve_identity(
+                db.session, "J. Smith", belt="BLUE", when=datetime(2026, 1, 1)
+            ).status,
             "unmatched",
         )
 
@@ -124,8 +139,12 @@ class ResolverTest(TestDbMixin, unittest.TestCase):
         for index in range(9):
             self._athlete(f"Jname{index} Common", f"jname-{index}-common")
         result = resolve_identity(
-            db.session, "J. Common", gender="Male", belt="BLUE",
-            age="Adult", when=datetime(2025, 1, 1),
+            db.session,
+            "J. Common",
+            gender="Male",
+            belt="BLUE",
+            age="Adult",
+            when=datetime(2025, 1, 1),
         )
         self.assertEqual(result.status, "ambiguous")
         self.assertEqual(len(result.candidates), 9)

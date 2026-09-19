@@ -14,6 +14,10 @@ from constants import TEEN_1, TEEN_2, TEEN_3
 log = logging.getLogger("ibjjf")
 
 
+def normalize_target_athlete_id(athlete_id):
+    return uuid.UUID(str(athlete_id)) if athlete_id is not None else None
+
+
 def recompute_all_ratings(
     db: SQLAlchemy,
     gi: bool,
@@ -27,6 +31,7 @@ def recompute_all_ratings(
     athlete_id: Optional[str] = None,
     teens: bool = False,
 ) -> None:
+    target_athlete_id = normalize_target_athlete_id(athlete_id)
     if score:
         query = db.session.query(Match).join(Division).filter(Division.gi == gi)
 
@@ -37,11 +42,11 @@ def recompute_all_ratings(
         if teens:
             query = query.filter(Division.age.in_([TEEN_1, TEEN_2, TEEN_3]))
 
-        if athlete_id is not None:
+        if target_athlete_id is not None:
             subquery = (
                 db.session.query(Match.id)
                 .join(MatchParticipant)
-                .filter(MatchParticipant.athlete_id == uuid.UUID(athlete_id))
+                .filter(MatchParticipant.athlete_id == target_athlete_id)
                 .subquery()
             )
             query = query.filter(Match.id.in_(subquery.select()))
@@ -140,7 +145,7 @@ def recompute_all_ratings(
 
                 changed = False
 
-                if athlete_id is None or athlete_id == str(red.athlete_id):
+                if target_athlete_id is None or target_athlete_id == red.athlete_id:
                     if red.start_rating != red_start_rating:
                         red.start_rating = red_start_rating
                         changed = True
@@ -159,7 +164,7 @@ def recompute_all_ratings(
                     if red.end_match_count != red_end_match_count:
                         red.end_match_count = red_end_match_count
                         changed = True
-                if athlete_id is None or athlete_id == str(blue.athlete_id):
+                if target_athlete_id is None or target_athlete_id == blue.athlete_id:
                     if blue.start_rating != blue_start_rating:
                         blue.start_rating = blue_start_rating
                         changed = True

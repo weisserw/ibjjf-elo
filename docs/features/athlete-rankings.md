@@ -36,6 +36,14 @@ for gi/no-gi, writes `MatchParticipant.start_rating`, `end_rating`,
 `start_match_count`, `end_match_count`, and rating notes, then regenerates the
 ranking boards.
 
+`scripts/recompute_ratings.py --skip-rank` suppresses the final board
+generation when performing a sequence of targeted athlete recomputations. Run
+the ordinary ranking generation once after the full targeted batch if fresh
+stored boards are required.
+Targeted recomputation normalizes compact and hyphenated UUID spellings before
+both querying and comparing match participants; comparing their raw string
+forms can silently select matches without updating the requested athlete.
+
 `app/current.py:create_ratings_tables` is run twice:
 
 - `temp_current_ratings` for the current board.

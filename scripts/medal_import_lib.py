@@ -26,7 +26,9 @@ from models import (  # noqa: E402
 )
 from normalize import normalize  # noqa: E402
 from result_identity import (  # noqa: E402
-    abbreviated_name_key, initial_surname_key, resolve_identity,
+    abbreviated_name_key,
+    initial_surname_key,
+    resolve_identity,
 )
 from constants import (  # noqa: E402
     ADULT,
@@ -802,7 +804,8 @@ def find_result_medal_name_matches(
     initial_key = initial_surname_key(query_name)
     abbreviated = (
         [name for name in names if abbreviated_name_key(name) == initial_key]
-        if initial_key else []
+        if initial_key
+        else []
     )
     if anchor_tokens:
         names = [
@@ -825,7 +828,7 @@ def find_result_medal_name_matches(
     ]
     return [(name, 100) for name in abbreviated[:limit]] + [
         (name, score) for name, score in fuzzy_matches if name not in abbreviated
-    ][:max(0, limit - len(abbreviated))]
+    ][: max(0, limit - len(abbreviated))]
 
 
 def first_and_last_match(query_name: str, candidate_name: str) -> bool:
@@ -1107,7 +1110,8 @@ def scan_event_for_missing_medals(
         .first()
     )
     identity_when = (
-        last_match_row[0] if last_match_row
+        last_match_row[0]
+        if last_match_row
         else tentative_event_date(session, event.name, event=event)
     )
     event_when = identity_when or datetime.utcnow()
@@ -1205,16 +1209,23 @@ def scan_event_for_missing_medals(
 
         if abbreviated_name_key(rm.athlete_name):
             resolution = resolve_identity(
-                session, rm.athlete_name, gender=division.gender,
-                belt=division.belt, age=division.age,
-                team=rm.team_name, when=identity_when,
+                session,
+                rm.athlete_name,
+                gender=division.gender,
+                belt=division.belt,
+                age=division.age,
+                team=rm.team_name,
+                when=identity_when,
             )
             if resolution.status == "matched":
                 matched_athlete = resolution.athlete
             else:
                 alternatives = [
-                    {"athlete": athlete, "score": 100,
-                     "already_imported": (athlete.id, division.id) in existing_pairs}
+                    {
+                        "athlete": athlete,
+                        "score": 100,
+                        "already_imported": (athlete.id, division.id) in existing_pairs,
+                    }
                     for athlete in resolution.candidates
                 ]
         elif not fuzzy:

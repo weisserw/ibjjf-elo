@@ -457,8 +457,12 @@ def get_athlete_data(
     matched_registrations = []
     for row in registrations:
         resolution = resolve_identity(
-            db.session, row.athlete_name, gender=row.gender,
-            belt=row.belt, age=row.age, team=row.team_name,
+            db.session,
+            row.athlete_name,
+            gender=row.gender,
+            belt=row.belt,
+            age=row.age,
+            team=row.team_name,
             when=row.event_start_date,
         )
         if resolution.status == "matched" and resolution.athlete.id == athlete.id:
@@ -828,7 +832,9 @@ def ratings():
                     RegistrationLinkCompetitor.athlete_name,
                     RegistrationLinkCompetitor.team_name,
                     RegistrationLink.event_start_date,
-                    Division.belt, Division.age, Division.gender,
+                    Division.belt,
+                    Division.age,
+                    Division.gender,
                 )
                 .select_from(RegistrationLinkCompetitor)
                 .join(
@@ -857,11 +863,18 @@ def ratings():
             registration_belts = []
             for reg in registrations:
                 resolution = resolve_identity(
-                    db.session, reg.athlete_name, gender=reg.gender,
-                    belt=reg.belt, age=reg.age, team=reg.team_name,
+                    db.session,
+                    reg.athlete_name,
+                    gender=reg.gender,
+                    belt=reg.belt,
+                    age=reg.age,
+                    team=reg.team_name,
                     when=reg.event_start_date,
                 )
-                if resolution.status == "matched" and resolution.athlete.id == athlete.id:
+                if (
+                    resolution.status == "matched"
+                    and resolution.athlete.id == athlete.id
+                ):
                     registration_belts.append(reg.belt)
             promotion_belts = [promo.belt for promo in promotions]
             highest_belt = _compute_highest_belt(
@@ -1023,7 +1036,8 @@ def athletes_batch():
                 row.belt
             )
         initial_keys = {
-            athlete.normalized_initial_surname for athlete in missing_athletes
+            athlete.normalized_initial_surname
+            for athlete in missing_athletes
             if athlete.normalized_initial_surname
         }
         if initial_keys:
@@ -1032,12 +1046,15 @@ def athletes_batch():
                     RegistrationLinkCompetitor.athlete_name,
                     RegistrationLinkCompetitor.team_name,
                     RegistrationLink.event_start_date,
-                    Division.belt, Division.age, Division.gender,
+                    Division.belt,
+                    Division.age,
+                    Division.gender,
                 )
                 .select_from(RegistrationLinkCompetitor)
                 .join(
                     RegistrationLink,
-                    RegistrationLinkCompetitor.registration_link_id == RegistrationLink.id,
+                    RegistrationLinkCompetitor.registration_link_id
+                    == RegistrationLink.id,
                 )
                 .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
                 .filter(
@@ -1051,11 +1068,18 @@ def athletes_batch():
                 if abbreviated_name_key(reg.athlete_name) not in initial_keys:
                     continue
                 resolution = resolve_identity(
-                    db.session, reg.athlete_name, gender=reg.gender,
-                    belt=reg.belt, age=reg.age, team=reg.team_name,
+                    db.session,
+                    reg.athlete_name,
+                    gender=reg.gender,
+                    belt=reg.belt,
+                    age=reg.age,
+                    team=reg.team_name,
                     when=reg.event_start_date,
                 )
-                if resolution.status == "matched" and resolution.athlete.id in athlete_id_set:
+                if (
+                    resolution.status == "matched"
+                    and resolution.athlete.id in athlete_id_set
+                ):
                     registration_belts_by_athlete_id.setdefault(
                         resolution.athlete.id, []
                     ).append(reg.belt)

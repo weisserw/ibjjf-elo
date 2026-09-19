@@ -22,15 +22,25 @@ import get_medals  # noqa: E402
 
 
 FIELDS = [
-    "id", "event_name", "event_ibjjf_id", "division", "athlete_name",
-    "team_name", "place", "source", "event_url", "scraped_at",
+    "id",
+    "event_name",
+    "event_ibjjf_id",
+    "division",
+    "athlete_name",
+    "team_name",
+    "place",
+    "source",
+    "event_url",
+    "scraped_at",
 ]
 THREAD_LOCAL = threading.local()
 
 
 def write_json(path, value):
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    tmp.write_text(
+        json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     os.replace(tmp, path)
 
 
@@ -64,11 +74,18 @@ def scrape_event(link, csv_path, metadata_path, delay):
             writer.writeheader()
             writer.writerows(rows)
         os.replace(tmp, csv_path)
-        write_json(metadata_path, {
-            "source": link["source"], "year": link["year"],
-            "championship_id": championship_id, "event_name": event_name,
-            "url": link["url"], "scraped_at": scraped_at, "rows": len(rows),
-        })
+        write_json(
+            metadata_path,
+            {
+                "source": link["source"],
+                "year": link["year"],
+                "championship_id": championship_id,
+                "event_name": event_name,
+                "url": link["url"],
+                "scraped_at": scraped_at,
+                "rows": len(rows),
+            },
+        )
         return {"rows": len(rows)}
     except Exception as exc:  # noqa: BLE001 - independent pages can continue
         return {"error": str(exc), "url": link["url"]}
@@ -94,7 +111,8 @@ def main():
     session = get_medals.make_session()
     links = get_medals.build_result_links(source="all", session=session)
     links = [
-        link for link in links
+        link
+        for link in links
         if link["year"].isdigit() and int(link["year"]) >= args.min_year
     ]
     run_started = datetime.now(timezone.utc).isoformat()
@@ -106,15 +124,18 @@ def main():
     pending = []
     for position, link in enumerate(links, 1):
         championship_id = get_medals.extract_championship_id(link["url"])
-        stable_id = championship_id or hashlib.sha1(
-            link["url"].encode("utf-8")
-        ).hexdigest()[:12]
+        stable_id = (
+            championship_id
+            or hashlib.sha1(link["url"].encode("utf-8")).hexdigest()[:12]
+        )
         key = f"{link['source']}_{stable_id}_{link['year']}"
         csv_path = event_dir / f"{key}.csv"
         metadata_path = event_dir / f"{key}.json"
         if csv_path.exists() and metadata_path.exists():
             counts["skipped"] += 1
-            counts["rows"] += json.loads(metadata_path.read_text(encoding="utf-8"))["rows"]
+            counts["rows"] += json.loads(metadata_path.read_text(encoding="utf-8"))[
+                "rows"
+            ]
             continue
         pending.append((link, csv_path, metadata_path))
 
@@ -134,18 +155,28 @@ def main():
                 counts["rows"] += result["rows"]
             position = counts["skipped"] + completed
             if position % 50 == 0 or completed == len(pending):
-                write_json(root / "progress.json", {
-                    "updated_at_utc": datetime.now(timezone.utc).isoformat(),
-                    "position": position, "total": len(links), "counts": counts,
-                    "failures": failures,
-                })
+                write_json(
+                    root / "progress.json",
+                    {
+                        "updated_at_utc": datetime.now(timezone.utc).isoformat(),
+                        "position": position,
+                        "total": len(links),
+                        "counts": counts,
+                        "failures": failures,
+                    },
+                )
                 print(f"{position}/{len(links)} {counts}", flush=True)
 
-    write_json(root / "progress.json", {
-        "updated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "position": len(links), "total": len(links), "counts": counts,
-        "failures": failures,
-    })
+    write_json(
+        root / "progress.json",
+        {
+            "updated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "position": len(links),
+            "total": len(links),
+            "counts": counts,
+            "failures": failures,
+        },
+    )
     print("Finished", counts, flush=True)
 
 

@@ -69,6 +69,11 @@ Admin:
   `result_medals`, and create high-confidence historical `medals`. For an
   isolated historical event, follow
   `docs/workflows/INCREMENTAL_SINGLE_TOURNAMENT_MEDALS.md`.
+- `scripts/audit_result_name_backfill.py` compares the frozen 2013+ result
+  table to a separately scraped snapshot and emits import candidates, rename
+  evidence and review rows. `scripts/apply_result_name_backfill.py` rechecks
+  reviewed candidates against an explicit migrated database target before
+  inserting medals. See `docs/workflows/IBJJF_RESULT_BACKFILL_PLAN.md`.
 
 ## Frontend APIs
 
@@ -292,6 +297,16 @@ Issues that have already surfaced in git history:
   frontend union types, admin constants, and migrations in sync.
 
 ## Editing Notes
+
+Duplicate athlete maintenance uses `scripts/merge_athletes.py`. The merge moves
+medals, match participants, manual promotions, and non-duplicate media coverage;
+it clears derived athlete/live ratings and deliberately preserves non-empty
+profile metadata. It rejects different IBJJF IDs, shared match rows, conflicting
+medal places, and loss of the merge profile's only S3-backed photo. Result-name
+duplicate batches are prepared, reviewed, fingerprint-preflighted, and rendered
+through the scripts documented in
+`docs/workflows/IBJJF_RESULT_DUPLICATE_MERGES_PLAN.md`. Coverage lives in
+`app/tests/test_merge_athletes.py`.
 
 - Treat `app/routes/athletes.py:get_athlete_data` as the contract owner for the
   profile payload. Update `Athlete.tsx` interfaces and `test_athlete_profile_api`
