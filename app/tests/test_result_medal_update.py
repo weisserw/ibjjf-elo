@@ -348,6 +348,60 @@ class ResultMedalUpdateTestCase(TestDbMixin, unittest.TestCase):
                 "uncertain",
             )
 
+    def test_reconcile_crowded_slot_with_one_minor_abbreviation_does_not_queue_review(
+        self,
+    ):
+        import update_result_medals
+
+        shared = {
+            "event_name": "Crowded Minor Championship 2026",
+            "event_ibjjf_id": "snapshot-crowded-minor-123",
+            "division": "BLUE / Juvenile 1 / Male / Feather",
+            "team_name": "Team",
+            "place": 3,
+            "source": "ibjjf",
+            "event_url": "https://example.com",
+        }
+        with self.app_module.app.app_context():
+            db.session.add_all(
+                [
+                    ResultMedal(
+                        id=uuid.uuid4(),
+                        athlete_name=name,
+                        scraped_at=datetime(2026, 5, 27, 12),
+                        **shared,
+                    )
+                    for name in (
+                        "Bruno Luccas Nefe Carvalho",
+                        "João Gabriel da Silva",
+                    )
+                ]
+            )
+            snapshot = ResultSnapshot(status="candidate", stats={})
+            db.session.add(snapshot)
+            db.session.commit()
+            rows = [
+                {
+                    **shared,
+                    "id": str(uuid.uuid4()),
+                    "athlete_name": name,
+                    "place": "3",
+                    "scraped_at": "2026-05-28T12:00:00",
+                }
+                for name in ("Bruno Luccas Nefe Carvalho", "J. Silva")
+            ]
+
+            counts = update_result_medals.reconcile_event(db.session, rows, snapshot)
+            db.session.commit()
+
+            self.assertEqual(counts, {"uncertain": 1})
+            self.assertEqual(
+                ResultRenameObservation.query.filter_by(
+                    snapshot_id=snapshot.id
+                ).count(),
+                0,
+            )
+
     def test_historical_match_scope_filters_exact_event_id(self):
         import match_historical_medals
 

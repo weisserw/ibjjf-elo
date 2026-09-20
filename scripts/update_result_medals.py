@@ -115,6 +115,19 @@ def _uniquely_named_athlete(session, name):
     return matches[0] if len(matches) == 1 else None
 
 
+def _changed_new_names(old_rows, new_rows):
+    """Return only new names not accounted for by unchanged crowded-slot rows."""
+    remaining_old = Counter(normalize(row.get("athlete_name")) for row in old_rows)
+    changed = []
+    for row in new_rows:
+        key = normalize(row.get("athlete_name"))
+        if remaining_old[key]:
+            remaining_old[key] -= 1
+        else:
+            changed.append(row.get("athlete_name"))
+    return changed
+
+
 def reconcile_event(session, rows, snapshot):
     """Promote one successfully parsed, non-empty event atomically."""
     if not rows:
@@ -133,6 +146,13 @@ def reconcile_event(session, rows, snapshot):
     for change in changes:
         counts[change.change_type] += 1
         if change.change_type == "uncertain":
+            changed_new_names = _changed_new_names(change.old, change.new)
+            if changed_new_names and all(
+                abbreviated_name_key(name) for name in changed_new_names
+            ):
+                # Unchanged occupants do not make a crowded slot reportable
+                # when every actual change is only a masked minor name.
+                continue
             before = "; ".join(r["athlete_name"] for r in change.old)
             after = "; ".join(r["athlete_name"] for r in change.new)
             session.add(

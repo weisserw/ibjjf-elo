@@ -8,6 +8,7 @@ import threading
 import time
 import traceback
 import signal
+from collections import Counter
 import requests
 from bs4 import BeautifulSoup
 from datetime import date, datetime, timedelta, timezone
@@ -4553,16 +4554,29 @@ def _result_rename_candidate(observation, athlete_override=None):
     return athlete, "ready", "Unique old-name match with no new-name collision."
 
 
-def _visible_result_rename_query(status):
-    """Exclude strict initial/surname privacy displays from rename reporting."""
-    new_name = ResultRenameObservation.new_name
-    return ResultRenameObservation.query.filter_by(status=status).filter(
-        or_(
-            new_name.is_(None),
-            ~new_name.like("_. %"),
-            new_name.like("_. % %"),
-        )
+def _is_minor_abbreviation_observation(observation):
+    old_names = [name.strip() for name in (observation.old_name or "").split(";")]
+    new_names = [name.strip() for name in (observation.new_name or "").split(";")]
+    remaining_old = Counter(normalize(name) for name in old_names)
+    changed_new_names = []
+    for name in new_names:
+        key = normalize(name)
+        if remaining_old[key]:
+            remaining_old[key] -= 1
+        else:
+            changed_new_names.append(name)
+    return bool(
+        changed_new_names
+        and all(medal_lib.abbreviated_name_key(name) for name in changed_new_names)
     )
+
+
+def _visible_result_rename_observations(status, newest_first=False):
+    """Exclude single and crowded minor privacy displays from reporting."""
+    query = ResultRenameObservation.query.filter_by(status=status)
+    if newest_first:
+        query = query.order_by(ResultRenameObservation.created_at.desc())
+    return [row for row in query.all() if not _is_minor_abbreviation_observation(row)]
 
 
 @app.route("/result_name_changes", methods=["GET"])
@@ -4570,10 +4584,8 @@ def result_name_changes():
     selected_status = request.args.get("status", "pending")
     if selected_status not in {"pending", "applied"}:
         selected_status = "pending"
-    observations = (
-        _visible_result_rename_query(selected_status)
-        .order_by(ResultRenameObservation.created_at.desc())
-        .all()
+    observations = _visible_result_rename_observations(
+        selected_status, newest_first=True
     )
     rows = []
     for observation in observations:
@@ -4590,7 +4602,7 @@ def result_name_changes():
         )
     flash_message = session.pop("result_name_changes_flash", None)
     counts = {
-        status: _visible_result_rename_query(status).count()
+        status: len(_visible_result_rename_observations(status))
         for status in ("pending", "applied")
     }
     return render_template(
@@ -4788,7 +4800,7 @@ def athlete_medals_find_missing():
     latest_snapshot = ResultSnapshot.query.order_by(
         ResultSnapshot.completed_at.desc(), ResultSnapshot.started_at.desc()
     ).first()
-    pending_rename_count = _visible_result_rename_query("pending").count()
+    pending_rename_count = len(_visible_result_rename_observations("pending"))
     return render_template(
         "athlete_medals_find_missing.html",
         athlete=athlete,
