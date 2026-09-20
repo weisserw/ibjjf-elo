@@ -43,6 +43,8 @@ from models import (
     MatchParticipant,
     Medal,
     ResultMedal,
+    ResultRenameObservation,
+    ResultSnapshot,
     YoutubeMatchVideo,
     Team,
     FloEventTag,
@@ -4483,6 +4485,163 @@ def youtube_match_videos_scan_import():
 
 
 # ---------------------------------------------------------------------------
+# Result name-change review
+# ---------------------------------------------------------------------------
+
+
+def _result_rename_candidate(observation, athlete_override=None):
+    """Return (athlete, state, explanation) without making a name-only guess."""
+    if observation.change_type != "renamed":
+        return None, "review", "Crowded result slots require manual investigation."
+    if not observation.old_name or not observation.new_name:
+        return None, "review", "The observation does not contain both names."
+    if medal_lib.abbreviated_name_key(observation.new_name):
+        return None, "review", "An abbreviated minor name cannot replace a full name."
+
+    athlete = athlete_override or (
+        db.session.get(Athlete, observation.athlete_id)
+        if observation.athlete_id
+        else None
+    )
+    if athlete is None:
+        old_matches = (
+            Athlete.query.filter(
+                Athlete.normalized_name == normalize(observation.old_name)
+            )
+            .limit(2)
+            .all()
+        )
+        if len(old_matches) == 1:
+            athlete = old_matches[0]
+        elif len(old_matches) > 1:
+            return None, "review", "More than one athlete has the old name."
+        else:
+            new_matches = (
+                Athlete.query.filter(
+                    Athlete.normalized_name == normalize(observation.new_name)
+                )
+                .limit(2)
+                .all()
+            )
+            if len(new_matches) == 1:
+                athlete = new_matches[0]
+            elif len(new_matches) > 1:
+                return None, "review", "More than one athlete has the new name."
+            else:
+                return None, "review", "No athlete uniquely matches either name."
+
+    collision = (
+        Athlete.query.filter(
+            Athlete.normalized_name == normalize(observation.new_name),
+            Athlete.id != athlete.id,
+        )
+        .limit(1)
+        .first()
+    )
+    if collision:
+        return athlete, "review", "Another athlete already has the new name."
+
+    current_name = athlete.name.strip()
+    if current_name == observation.new_name.strip():
+        return athlete, "already_applied", "The athlete already has the observed name."
+    if normalize(current_name) != normalize(observation.old_name):
+        return (
+            athlete,
+            "review",
+            "The athlete was manually renamed after this observation.",
+        )
+    return athlete, "ready", "Unique old-name match with no new-name collision."
+
+
+@app.route("/result_name_changes", methods=["GET"])
+def result_name_changes():
+    selected_status = request.args.get("status", "pending")
+    if selected_status not in {"pending", "applied"}:
+        selected_status = "pending"
+    observations = (
+        ResultRenameObservation.query.filter_by(status=selected_status)
+        .order_by(ResultRenameObservation.created_at.desc())
+        .all()
+    )
+    rows = []
+    for observation in observations:
+        athlete, state, reason = _result_rename_candidate(observation)
+        rows.append(
+            {
+                "observation": observation,
+                "athlete": athlete,
+                "state": state,
+                "reason": reason,
+                "checkable": selected_status == "pending"
+                and state in {"ready", "already_applied"},
+            }
+        )
+    flash_message = session.pop("result_name_changes_flash", None)
+    counts = {
+        status: ResultRenameObservation.query.filter_by(status=status).count()
+        for status in ("pending", "applied")
+    }
+    return render_template(
+        "result_name_changes.html",
+        rows=rows,
+        selected_status=selected_status,
+        counts=counts,
+        flash_message=flash_message,
+    )
+
+
+@app.route("/result_name_changes/apply", methods=["POST"])
+def result_name_changes_apply():
+    applied = 0
+    already_applied = 0
+    errors = []
+    for raw_id in request.form.getlist("observation_id"):
+        try:
+            observation_id = uuid.UUID(raw_id)
+        except (ValueError, TypeError):
+            errors.append(f"Invalid observation id: {raw_id}")
+            continue
+        observation = db.session.get(ResultRenameObservation, observation_id)
+        if observation is None or observation.status != "pending":
+            errors.append(f"Observation is no longer pending: {raw_id}")
+            continue
+        athlete_override = None
+        override_raw = request.form.get(f"athlete_id_{observation.id}", "").strip()
+        if override_raw:
+            try:
+                athlete_override = db.session.get(Athlete, uuid.UUID(override_raw))
+            except ValueError:
+                athlete_override = None
+            if athlete_override is None:
+                errors.append(f"Invalid athlete id for {observation.old_name}")
+                continue
+        athlete, state, reason = _result_rename_candidate(
+            observation, athlete_override=athlete_override
+        )
+        if athlete is None or state not in {"ready", "already_applied"}:
+            errors.append(f"{observation.old_name} → {observation.new_name}: {reason}")
+            continue
+        if state == "ready":
+            athlete.name = observation.new_name.strip()
+            athlete.normalized_name = normalize(athlete.name)
+            applied += 1
+        else:
+            already_applied += 1
+        observation.athlete_id = athlete.id
+        observation.status = "applied"
+        observation.applied_at = datetime.utcnow()
+
+    db.session.commit()
+    message = f"Applied {applied} name change(s)"
+    if already_applied:
+        message += f"; recorded {already_applied} already-applied change(s)"
+    if errors:
+        message += f"; skipped {len(errors)}: " + "; ".join(errors[:3])
+    session["result_name_changes_flash"] = message
+    return redirect(url_for("result_name_changes", status="pending"))
+
+
+# ---------------------------------------------------------------------------
 # Per-athlete historical medal search (Problem 1, manual UI)
 # ---------------------------------------------------------------------------
 
@@ -4509,7 +4668,10 @@ def athlete_medals_find_missing():
         scored_names = [name for name, _ in scored]
         candidate_rms = (
             db.session.query(medal_lib.ResultMedal)
-            .filter(medal_lib.ResultMedal.athlete_name.in_(scored_names))
+            .filter(
+                medal_lib.ResultMedal.athlete_name.in_(scored_names),
+                medal_lib.ResultMedal.active.is_(True),
+            )
             .all()
             if scored_names
             else []
@@ -4611,12 +4773,20 @@ def athlete_medals_find_missing():
 
         candidates.sort(key=lambda c: -c["score"])
 
+    latest_snapshot = ResultSnapshot.query.order_by(
+        ResultSnapshot.completed_at.desc(), ResultSnapshot.started_at.desc()
+    ).first()
+    pending_rename_count = ResultRenameObservation.query.filter_by(
+        status="pending"
+    ).count()
     return render_template(
         "athlete_medals_find_missing.html",
         athlete=athlete,
         query_name=query_name,
         candidates=candidates,
         has_searched=has_searched,
+        latest_snapshot=latest_snapshot,
+        pending_rename_count=pending_rename_count,
     )
 
 

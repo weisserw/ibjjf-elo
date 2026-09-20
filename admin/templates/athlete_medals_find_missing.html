@@ -11,6 +11,21 @@
             duplicates, gender mismatches, and unresolved divisions stay blocked.
         </p>
 
+        {% if latest_snapshot %}
+            <div class="notification is-light py-3">
+                Result snapshot: <strong>{{ latest_snapshot.status }}</strong>,
+                {{ latest_snapshot.completed_at or latest_snapshot.started_at }}.
+                {% if pending_rename_count %}
+                    {{ pending_rename_count }} unresolved result change{% if pending_rename_count != 1 %}s{% endif %}
+                    remain review-only.
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="notification is-warning is-light py-3">
+                No ongoing result snapshot has been recorded yet.
+            </div>
+        {% endif %}
+
         <form method="GET" action="{{ url_for('athlete_medals_find_missing') }}">
             <input type="hidden" name="id" value="{{ athlete.id }}">
             <div class="field has-addons">

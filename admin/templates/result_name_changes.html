@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Result Name Changes{% endblock %}
+{% block content %}
+<div class="container mt-6 mb-6">
+    <div class="box">
+        <div class="level">
+            <div class="level-left">
+                <div>
+                    <h1 class="title is-3">Result Name Changes</h1>
+                    <p class="subtitle is-6">Approve canonical athlete-name updates observed between IBJJF result snapshots.</p>
+                </div>
+            </div>
+            <div class="level-right"><a class="button is-light" href="{{ url_for('index') }}">Admin home</a></div>
+        </div>
+
+        {% if flash_message %}<div class="notification is-info is-light">{{ flash_message }}</div>{% endif %}
+
+        <div class="tabs is-boxed">
+            <ul>
+                <li class="{% if selected_status == 'pending' %}is-active{% endif %}">
+                    <a href="{{ url_for('result_name_changes', status='pending') }}">Pending ({{ counts.pending }})</a>
+                </li>
+                <li class="{% if selected_status == 'applied' %}is-active{% endif %}">
+                    <a href="{{ url_for('result_name_changes', status='applied') }}">Applied ({{ counts.applied }})</a>
+                </li>
+            </ul>
+        </div>
+
+        {% if not rows %}
+            <p class="has-text-grey">No {{ selected_status }} observations.</p>
+        {% else %}
+            <form method="POST" action="{{ url_for('result_name_changes_apply') }}">
+                {% if selected_status == 'pending' %}
+                <div class="buttons">
+                    <button class="button is-link" type="submit">Apply selected</button>
+                    <button class="button is-light" type="button"
+                            onclick="document.querySelectorAll('input.rename-ready').forEach(c => c.checked = true)">
+                        Select all unambiguous
+                    </button>
+                    <button class="button is-light" type="button"
+                            onclick="document.querySelectorAll('input.rename-ready').forEach(c => c.checked = false)">
+                        Clear
+                    </button>
+                </div>
+                {% endif %}
+                <div class="table-container">
+                    <table class="table is-fullwidth is-striped is-hoverable">
+                        <thead><tr><th></th><th>Observed change</th><th>Athlete</th><th>Evidence</th><th>Status</th></tr></thead>
+                        <tbody>
+                        {% for row in rows %}
+                            <tr>
+                                <td>
+                                    {% if row.checkable %}
+                                    <input class="rename-ready" type="checkbox" name="observation_id" value="{{ row.observation.id }}">
+                                    {% elif selected_status == 'pending' and row.observation.change_type == 'renamed' %}
+                                    <input type="checkbox" name="observation_id" value="{{ row.observation.id }}" title="Use the athlete UUID override">
+                                    {% endif %}
+                                </td>
+                                <td><strong>{{ row.observation.old_name or '—' }}</strong><br>→ {{ row.observation.new_name or '—' }}</td>
+                                <td>
+                                    {% if row.athlete %}
+                                    <a href="{{ url_for('athlete_edit', id=row.athlete.id) }}">{{ row.athlete.name }}</a>
+                                    {% elif selected_status == 'pending' and row.observation.change_type == 'renamed' %}
+                                    <input class="input is-small" type="text" name="athlete_id_{{ row.observation.id }}" placeholder="Athlete UUID">
+                                    <small>Set a target to resolve identity manually.</small>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    {{ row.observation.evidence or row.observation.change_type }}
+                                    {% if row.observation.result_medal_id %}<br><small>Result {{ row.observation.result_medal_id }}</small>{% endif %}
+                                </td>
+                                <td>
+                                    {% if selected_status == 'applied' %}
+                                        <span class="tag is-success">Applied</span>
+                                        {% if row.observation.applied_at %}<br><small>{{ row.observation.applied_at.strftime('%Y-%m-%d %H:%M') }}</small>{% endif %}
+                                    {% elif row.state == 'ready' %}
+                                        <span class="tag is-success is-light">Unambiguous</span>
+                                    {% elif row.state == 'already_applied' %}
+                                        <span class="tag is-info is-light">Already renamed</span>
+                                    {% else %}
+                                        <span class="tag is-warning is-light">Review</span>
+                                    {% endif %}
+                                    <br><small>{{ row.reason }}</small>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

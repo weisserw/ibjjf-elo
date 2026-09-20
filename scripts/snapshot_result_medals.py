@@ -34,6 +34,7 @@ FIELDS = [
     "scraped_at",
 ]
 THREAD_LOCAL = threading.local()
+SCRAPER_VERSION = "2"
 
 
 def write_json(path, value):
@@ -74,6 +75,7 @@ def scrape_event(link, csv_path, metadata_path, delay):
             writer.writeheader()
             writer.writerows(rows)
         os.replace(tmp, csv_path)
+        csv_sha256 = hashlib.sha256(csv_path.read_bytes()).hexdigest()
         write_json(
             metadata_path,
             {
@@ -84,6 +86,9 @@ def scrape_event(link, csv_path, metadata_path, delay):
                 "url": link["url"],
                 "scraped_at": scraped_at,
                 "rows": len(rows),
+                "status": "success" if rows else "unexpected_empty",
+                "sha256": csv_sha256,
+                "scraper_version": SCRAPER_VERSION,
             },
         )
         return {"rows": len(rows)}
@@ -175,6 +180,24 @@ def main():
             "total": len(links),
             "counts": counts,
             "failures": failures,
+        },
+    )
+    write_json(
+        root / "manifest.json",
+        {
+            "started_at_utc": run_started,
+            "completed_at_utc": datetime.now(timezone.utc).isoformat(),
+            "scraper_version": SCRAPER_VERSION,
+            "status": (
+                "complete"
+                if not counts["failed"] and not counts["empty"]
+                else "incomplete"
+            ),
+            "counts": counts,
+            "events": [
+                json.loads(path.read_text(encoding="utf-8"))
+                for path in sorted(event_dir.glob("*.json"))
+            ],
         },
     )
     print("Finished", counts, flush=True)

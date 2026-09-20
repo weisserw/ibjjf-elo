@@ -59,14 +59,21 @@ Admin:
   - `/athlete_medals`, `/update_all_medals`,
     `/athlete_medals/find_missing`, and
     `/athlete_medals/import_candidates` support medal review/import workflows.
+  - `/result_name_changes` lists pending and applied result-snapshot rename
+    observations. Admins can bulk-select unambiguous rows and apply them to the
+    canonical athlete name, or supply an athlete UUID to resolve an ambiguous
+    identity manually; the POST route revalidates every selection.
 - `admin/templates/athlete*.html` renders the athlete search/edit/matches/medals
   and media coverage admin pages.
 - `scripts/get_all_photos.py` finds athletes with `instagram_profile` but no
   `profile_image_saved_at`, downloads Instagram profile photos, uploads them to
   S3, and logs failures to `get_all_photos_errors.log`.
 - `scripts/get_medals.py`, `scripts/update_result_medals.py`, and
-  `scripts/match_historical_medals.py` scrape medal source rows, append new
-  `result_medals`, and create high-confidence historical `medals`. For an
+  `scripts/match_historical_medals.py` scrape medal source rows, reconcile
+  non-empty events transactionally, and create high-confidence historical
+  `medals`. Shared conservative event/slot diffs live in
+  `scripts/result_snapshot_pipeline.py`; filesystem snapshots include hashes,
+  parse status, scraper version, and a complete/incomplete manifest. For an
   isolated historical event, follow
   `docs/workflows/INCREMENTAL_SINGLE_TOURNAMENT_MEDALS.md`.
 - `scripts/audit_result_name_backfill.py` compares the frozen 2013+ result
@@ -186,6 +193,18 @@ coverage titles. The server limits title fetches with `MAX_MEDIA_TITLE_SCAN_BYTE
 - `Medal`: profile medal case rows. The default view excludes `default_gold`
   medals and only includes medals with a real won match or historical medals
   before December 1, 2024.
+- `ResultSnapshot` records each ongoing result refresh and its completion
+  status. `ResultMedal.occurrence_key` keeps an unambiguous result slot stable
+  when IBJJF changes the displayed athlete or team name. Inactive rows are
+  retained as provenance instead of deleted.
+- `ResultRenameObservation` stores unique-slot renames and crowded-slot review
+  evidence. Unique old-name matches retain their `athlete_id` when detected.
+  The admin review page separates pending from applied observations and records
+  `applied_at`. It records an already-completed manual rename as applied, but
+  does not overwrite a different manual name. Name collisions, abbreviated
+  replacement names, and two-bronze/other crowded slots remain review-only.
+  The missing-medal admin page also shows snapshot freshness and the pending
+  review count.
 - `AthleteMediaCoverage`: media list rows. `coverage_type` is constrained to the
   allowed media coverage types in admin code/migrations, and URLs are unique per
   athlete.

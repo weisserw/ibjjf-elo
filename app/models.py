@@ -245,12 +245,69 @@ class ResultMedal(db.Model):
     source = Column(String, nullable=False)
     event_url = Column(String, nullable=True)
     scraped_at = Column(DateTime, nullable=False)
+    occurrence_key = Column(String, nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+    snapshot_id = Column(
+        UUID(as_uuid=True), ForeignKey("result_snapshots.id"), nullable=True
+    )
 
     __table_args__ = (
         Index("ix_result_medals_event_name", "event_name"),
         Index("ix_result_medals_event_ibjjf_id", "event_ibjjf_id"),
         Index("ix_result_medals_athlete_name", "athlete_name"),
         Index("ix_result_medals_scraped_at", "scraped_at"),
+        Index("ix_result_medals_occurrence_key", "occurrence_key", unique=True),
+        Index("ix_result_medals_active", "active"),
+    )
+
+
+class ResultSnapshot(db.Model):
+    """One immutable scraper run promoted (or rejected) as a unit of evidence."""
+
+    __tablename__ = "result_snapshots"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+    status = Column(String, nullable=False, default="candidate")
+    manifest_path = Column(String, nullable=True)
+    stats = Column(JSON, nullable=False, default=dict)
+
+    __table_args__ = (Index("ix_result_snapshots_started_at", "started_at"),)
+
+
+class ResultRenameObservation(db.Model):
+    """Auditable result-page changes; ambiguous observations remain review-only."""
+
+    __tablename__ = "result_rename_observations"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    snapshot_id = Column(
+        UUID(as_uuid=True), ForeignKey("result_snapshots.id"), nullable=False
+    )
+    result_medal_id = Column(
+        UUID(as_uuid=True), ForeignKey("result_medals.id"), nullable=True
+    )
+    athlete_id = Column(UUID(as_uuid=True), ForeignKey("athletes.id"), nullable=True)
+    slot_key = Column(String, nullable=False)
+    old_name = Column(String, nullable=True)
+    new_name = Column(String, nullable=True)
+    old_team = Column(String, nullable=True)
+    new_team = Column(String, nullable=True)
+    change_type = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="pending")
+    evidence = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    applied_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("ix_result_rename_observations_snapshot_id", "snapshot_id"),
+        Index("ix_result_rename_observations_status", "status"),
+        UniqueConstraint(
+            "snapshot_id",
+            "slot_key",
+            "old_name",
+            "new_name",
+            name="uq_result_rename_observation",
+        ),
     )
 
 

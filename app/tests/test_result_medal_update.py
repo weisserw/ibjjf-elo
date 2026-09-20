@@ -12,7 +12,12 @@ sys.path.insert(
 )
 
 from extensions import db
-from models import Athlete, ResultMedal
+from models import (
+    Athlete,
+    ResultMedal,
+    ResultRenameObservation,
+    ResultSnapshot,
+)
 from test_db import TestDbMixin
 
 import get_medals
@@ -154,7 +159,7 @@ class ResultMedalUpdateTestCase(TestDbMixin, unittest.TestCase):
         row = {
             "id": str(row_id),
             "event_name": "Test Championship 2026",
-            "event_ibjjf_id": "123",
+            "event_ibjjf_id": "insert-only-123",
             "division": "black / adult / male / feather",
             "athlete_name": "Athlete One",
             "team_name": "Team One",
@@ -176,6 +181,123 @@ class ResultMedalUpdateTestCase(TestDbMixin, unittest.TestCase):
             medal = db.session.get(ResultMedal, row_id)
             self.assertIsNotNone(medal)
             self.assertEqual(medal.scraped_at, datetime(2026, 5, 27, 12, 0, 0))
+
+    def test_reconcile_unique_rename_updates_in_place_and_records_evidence(self):
+        import update_result_medals
+
+        row_id = uuid.uuid4()
+        shared = {
+            "event_name": "Test Championship 2026",
+            "event_ibjjf_id": "snapshot-rename-123",
+            "division": "BLACK / Adult / Male / Feather",
+            "team_name": "Team One",
+            "place": 1,
+            "source": "ibjjf",
+            "event_url": "https://example.com/results",
+        }
+        with self.app_module.app.app_context():
+            athlete = Athlete(
+                name="Old Name",
+                normalized_name="old name",
+                slug=f"old-name-{uuid.uuid4().hex[:8]}",
+            )
+            db.session.add(athlete)
+            db.session.add(
+                ResultMedal(
+                    id=row_id,
+                    athlete_name="Old Name",
+                    scraped_at=datetime(2026, 5, 27, 12),
+                    **shared,
+                )
+            )
+            snapshot = ResultSnapshot(status="candidate", stats={})
+            db.session.add(snapshot)
+            db.session.commit()
+            candidate = {
+                **shared,
+                "id": str(uuid.uuid4()),
+                "athlete_name": "New Name",
+                "place": "1",
+                "scraped_at": "2026-05-28T12:00:00",
+            }
+
+            counts = update_result_medals.reconcile_event(
+                db.session, [candidate], snapshot
+            )
+            db.session.commit()
+
+            self.assertEqual(counts, {"renamed": 1})
+            self.assertEqual(
+                db.session.get(ResultMedal, row_id).athlete_name, "New Name"
+            )
+            observation = (
+                db.session.query(ResultRenameObservation)
+                .filter_by(snapshot_id=snapshot.id)
+                .one()
+            )
+            self.assertEqual(
+                (observation.old_name, observation.new_name, observation.status),
+                ("Old Name", "New Name", "pending"),
+            )
+            self.assertEqual(observation.athlete_id, athlete.id)
+
+    def test_reconcile_two_bronzes_queues_review_without_mutating_rows(self):
+        import update_result_medals
+
+        shared = {
+            "event_name": "Bronze Test Championship 2026",
+            "event_ibjjf_id": "snapshot-bronze-123",
+            "division": "BLACK / Adult / Male / Feather",
+            "team_name": "Team",
+            "place": 3,
+            "source": "ibjjf",
+            "event_url": "https://example.com",
+        }
+        with self.app_module.app.app_context():
+            db.session.add_all(
+                [
+                    ResultMedal(
+                        id=uuid.uuid4(),
+                        athlete_name=name,
+                        scraped_at=datetime(2026, 5, 27, 12),
+                        **shared,
+                    )
+                    for name in ("Old A", "Old B")
+                ]
+            )
+            snapshot = ResultSnapshot(status="candidate", stats={})
+            db.session.add(snapshot)
+            db.session.commit()
+            rows = [
+                {
+                    **shared,
+                    "id": str(uuid.uuid4()),
+                    "athlete_name": name,
+                    "place": "3",
+                    "scraped_at": "2026-05-28T12:00:00",
+                }
+                for name in ("New A", "New B")
+            ]
+            counts = update_result_medals.reconcile_event(db.session, rows, snapshot)
+            db.session.commit()
+
+            self.assertEqual(counts, {"uncertain": 1})
+            self.assertEqual(
+                {
+                    r.athlete_name
+                    for r in db.session.query(ResultMedal).filter_by(
+                        event_ibjjf_id="snapshot-bronze-123"
+                    )
+                },
+                {"Old A", "Old B"},
+            )
+            self.assertEqual(
+                db.session.query(ResultRenameObservation)
+                .filter_by(snapshot_id=snapshot.id)
+                .one()
+                .change_type,
+                "uncertain",
+            )
 
     def test_historical_match_scope_filters_exact_event_id(self):
         import match_historical_medals

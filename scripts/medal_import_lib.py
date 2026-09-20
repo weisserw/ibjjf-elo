@@ -491,6 +491,7 @@ def compute_default_gold(session, result_medal: ResultMedal) -> bool:
             ResultMedal.event_name == result_medal.event_name,
             ResultMedal.division == result_medal.division,
             ResultMedal.id != result_medal.id,
+            ResultMedal.active.is_(True),
         )
         .first()
     )
@@ -798,7 +799,10 @@ def find_result_medal_name_matches(
 
     names = [
         row[0]
-        for row in session.query(ResultMedal.athlete_name).distinct().all()
+        for row in session.query(ResultMedal.athlete_name)
+        .filter(ResultMedal.active.is_(True))
+        .distinct()
+        .all()
         if row[0]
     ]
     initial_key = initial_surname_key(query_name)
@@ -991,18 +995,27 @@ def find_result_medals_for_event(session, event: Event) -> list:
     if event.ibjjf_id:
         _add(
             session.query(ResultMedal)
-            .filter(ResultMedal.event_ibjjf_id == event.ibjjf_id)
+            .filter(
+                ResultMedal.event_ibjjf_id == event.ibjjf_id,
+                ResultMedal.active.is_(True),
+            )
             .all()
         )
         if rows:
             return rows
 
-    _add(session.query(ResultMedal).filter(ResultMedal.event_name == event.name).all())
+    _add(
+        session.query(ResultMedal)
+        .filter(ResultMedal.event_name == event.name, ResultMedal.active.is_(True))
+        .all()
+    )
 
     stripped = _strip_event_suffix(event.name)
     if stripped and stripped != event.name:
         _add(
-            session.query(ResultMedal).filter(ResultMedal.event_name == stripped).all()
+            session.query(ResultMedal)
+            .filter(ResultMedal.event_name == stripped, ResultMedal.active.is_(True))
+            .all()
         )
 
     return rows
