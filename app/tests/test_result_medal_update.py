@@ -241,6 +241,55 @@ class ResultMedalUpdateTestCase(TestDbMixin, unittest.TestCase):
             )
             self.assertEqual(observation.athlete_id, athlete.id)
 
+    def test_reconcile_minor_abbreviation_does_not_create_rename_observation(self):
+        import update_result_medals
+
+        shared = {
+            "event_name": "Minor Privacy Championship 2026",
+            "event_ibjjf_id": "snapshot-minor-123",
+            "division": "BLUE / Juvenile 1 / Male / Feather",
+            "team_name": "Team",
+            "place": 1,
+            "source": "ibjjf",
+            "event_url": "https://example.com",
+        }
+        with self.app_module.app.app_context():
+            row_id = uuid.uuid4()
+            db.session.add(
+                ResultMedal(
+                    id=row_id,
+                    athlete_name="Eduardo Cancela Cruz",
+                    scraped_at=datetime(2026, 5, 27, 12),
+                    **shared,
+                )
+            )
+            snapshot = ResultSnapshot(status="candidate", stats={})
+            db.session.add(snapshot)
+            db.session.commit()
+            candidate = {
+                **shared,
+                "id": str(uuid.uuid4()),
+                "athlete_name": "E. Cruz",
+                "place": "1",
+                "scraped_at": "2026-05-28T12:00:00",
+            }
+
+            counts = update_result_medals.reconcile_event(
+                db.session, [candidate], snapshot
+            )
+            db.session.commit()
+
+            self.assertEqual(counts, {"renamed": 1})
+            self.assertEqual(
+                db.session.get(ResultMedal, row_id).athlete_name, "E. Cruz"
+            )
+            self.assertEqual(
+                ResultRenameObservation.query.filter_by(
+                    snapshot_id=snapshot.id
+                ).count(),
+                0,
+            )
+
     def test_reconcile_two_bronzes_queues_review_without_mutating_rows(self):
         import update_result_medals
 

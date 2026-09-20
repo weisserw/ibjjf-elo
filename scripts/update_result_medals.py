@@ -25,6 +25,7 @@ from models import (  # noqa: E402
     ResultSnapshot,
 )
 from normalize import normalize  # noqa: E402
+from result_identity import abbreviated_name_key  # noqa: E402
 
 import get_medals  # noqa: E402
 from result_snapshot_pipeline import (  # noqa: E402
@@ -181,6 +182,10 @@ def reconcile_event(session, rows, snapshot):
         if change.change_type == "renamed":
             old_name = medal.athlete_name
             medal.athlete_name = change.new["athlete_name"]
+            if abbreviated_name_key(medal.athlete_name):
+                # IBJJF now masks minor names as an initial plus surname. This
+                # is a display/privacy change, not canonical rename evidence.
+                continue
             athlete = _uniquely_named_athlete(session, old_name)
             session.add(
                 ResultRenameObservation(

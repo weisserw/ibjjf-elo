@@ -4553,13 +4553,25 @@ def _result_rename_candidate(observation, athlete_override=None):
     return athlete, "ready", "Unique old-name match with no new-name collision."
 
 
+def _visible_result_rename_query(status):
+    """Exclude strict initial/surname privacy displays from rename reporting."""
+    new_name = ResultRenameObservation.new_name
+    return ResultRenameObservation.query.filter_by(status=status).filter(
+        or_(
+            new_name.is_(None),
+            ~new_name.like("_. %"),
+            new_name.like("_. % %"),
+        )
+    )
+
+
 @app.route("/result_name_changes", methods=["GET"])
 def result_name_changes():
     selected_status = request.args.get("status", "pending")
     if selected_status not in {"pending", "applied"}:
         selected_status = "pending"
     observations = (
-        ResultRenameObservation.query.filter_by(status=selected_status)
+        _visible_result_rename_query(selected_status)
         .order_by(ResultRenameObservation.created_at.desc())
         .all()
     )
@@ -4578,7 +4590,7 @@ def result_name_changes():
         )
     flash_message = session.pop("result_name_changes_flash", None)
     counts = {
-        status: ResultRenameObservation.query.filter_by(status=status).count()
+        status: _visible_result_rename_query(status).count()
         for status in ("pending", "applied")
     }
     return render_template(
@@ -4776,9 +4788,7 @@ def athlete_medals_find_missing():
     latest_snapshot = ResultSnapshot.query.order_by(
         ResultSnapshot.completed_at.desc(), ResultSnapshot.started_at.desc()
     ).first()
-    pending_rename_count = ResultRenameObservation.query.filter_by(
-        status="pending"
-    ).count()
+    pending_rename_count = _visible_result_rename_query("pending").count()
     return render_template(
         "athlete_medals_find_missing.html",
         athlete=athlete,

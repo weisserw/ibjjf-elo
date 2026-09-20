@@ -201,8 +201,10 @@ coverage titles. The server limits title fetches with `MAX_MEDIA_TITLE_SCAN_BYTE
   evidence. Unique old-name matches retain their `athlete_id` when detected.
   The admin review page separates pending from applied observations and records
   `applied_at`. It records an already-completed manual rename as applied, but
-  does not overwrite a different manual name. Name collisions, abbreviated
-  replacement names, and two-bronze/other crowded slots remain review-only.
+  does not overwrite a different manual name. Name collisions and
+  two-bronze/other crowded slots remain review-only.
+  Full-name-to-minor-abbreviation transitions are excluded entirely because
+  they are privacy display changes rather than athlete renames.
   The missing-medal admin page also shows snapshot freshness and the pending
   review count.
 - `AthleteMediaCoverage`: media list rows. `coverage_type` is constrained to the

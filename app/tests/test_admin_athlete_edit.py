@@ -223,6 +223,17 @@ class AdminAthleteEditTestCase(unittest.TestCase):
             self.athlete_id,
         )
 
+    def test_result_name_report_hides_existing_minor_abbreviations(self):
+        observation = self._rename_observation(
+            "Eduardo Cancela Cruz", "E. Cruz", self.athlete
+        )
+
+        response = self.client.get("/result_name_changes")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(str(observation.id).encode(), response.data)
+        self.assertIn(b"Pending (0)", response.data)
+
 
 if __name__ == "__main__":
     unittest.main()
