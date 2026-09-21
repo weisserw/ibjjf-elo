@@ -205,6 +205,10 @@ coverage titles. The server limits title fetches with `MAX_MEDIA_TITLE_SCAN_BYTE
   two-bronze/other crowded slots remain review-only.
   Full-name-to-minor-abbreviation transitions are excluded entirely because
   they are privacy display changes rather than athlete renames.
+  For a multi-athlete result slot, unchanged occupants are removed before the
+  observation is classified: one remaining old/new pair is a normal rename,
+  one-sided differences are additions/removals, and only a many-to-many delta
+  remains crowded review evidence.
   The missing-medal admin page also shows snapshot freshness and the pending
   review count.
 - `AthleteMediaCoverage`: media list rows. `coverage_type` is constrained to the

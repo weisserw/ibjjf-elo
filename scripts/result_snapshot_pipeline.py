@@ -5,7 +5,7 @@ result slot; a slot is promoted automatically only when its old and new sides
 can be paired without guessing.
 """
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass
 import hashlib
 
@@ -43,7 +43,7 @@ class ResultChange:
 
 
 def compare_event_rows(previous, candidate):
-    """Diff one event while refusing to pair crowded/two-bronze slots."""
+    """Diff one event, pairing a crowded slot only after unchanged rows cancel."""
     old_slots, new_slots = defaultdict(list), defaultdict(list)
     for row in previous:
         old_slots[slot_key(row)].append(row)
@@ -53,27 +53,41 @@ def compare_event_rows(previous, candidate):
     changes = []
     for key in sorted(set(old_slots) | set(new_slots)):
         before, after = old_slots[key], new_slots[key]
-        old_names = Counter(_fold(r.get("athlete_name")) for r in before)
-        new_names = Counter(_fold(r.get("athlete_name")) for r in after)
-        if old_names == new_names:
-            old_by_name = {_fold(r.get("athlete_name")): r for r in before}
-            for row in after:
-                old = old_by_name[_fold(row.get("athlete_name"))]
+        old_by_name, new_by_name = defaultdict(list), defaultdict(list)
+        for row in before:
+            old_by_name[_fold(row.get("athlete_name"))].append(row)
+        for row in after:
+            new_by_name[_fold(row.get("athlete_name"))].append(row)
+
+        remaining_old, remaining_new = [], []
+        for name in sorted(set(old_by_name) | set(new_by_name)):
+            old_rows = old_by_name[name]
+            new_rows = new_by_name[name]
+            paired_count = min(len(old_rows), len(new_rows))
+            for old, new in zip(old_rows[:paired_count], new_rows[:paired_count]):
                 kind = (
                     "unchanged"
-                    if _fold(old.get("team_name")) == _fold(row.get("team_name"))
+                    if _fold(old.get("team_name")) == _fold(new.get("team_name"))
                     else "team_changed"
                 )
-                changes.append(ResultChange(kind, key, old, row, True))
-            continue
-        if len(before) == len(after) == 1:
-            changes.append(ResultChange("renamed", key, before[0], after[0], True))
-        elif not before:
-            changes.extend(ResultChange("added", key, None, row, True) for row in after)
-        elif not after:
+                changes.append(ResultChange(kind, key, old, new, True))
+            remaining_old.extend(old_rows[paired_count:])
+            remaining_new.extend(new_rows[paired_count:])
+
+        if len(remaining_old) == len(remaining_new) == 1:
+            changes.append(
+                ResultChange("renamed", key, remaining_old[0], remaining_new[0], True)
+            )
+        elif not remaining_old:
             changes.extend(
-                ResultChange("removed", key, row, None, True) for row in before
+                ResultChange("added", key, None, row, True) for row in remaining_new
+            )
+        elif not remaining_new:
+            changes.extend(
+                ResultChange("removed", key, row, None, True) for row in remaining_old
             )
         else:
-            changes.append(ResultChange("uncertain", key, before, after, False))
+            changes.append(
+                ResultChange("uncertain", key, remaining_old, remaining_new, False)
+            )
     return changes

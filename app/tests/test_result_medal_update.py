@@ -394,7 +394,7 @@ class ResultMedalUpdateTestCase(TestDbMixin, unittest.TestCase):
             counts = update_result_medals.reconcile_event(db.session, rows, snapshot)
             db.session.commit()
 
-            self.assertEqual(counts, {"uncertain": 1})
+            self.assertEqual(counts, {"unchanged": 1, "renamed": 1})
             self.assertEqual(
                 ResultRenameObservation.query.filter_by(
                     snapshot_id=snapshot.id

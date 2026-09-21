@@ -207,6 +207,17 @@ def reconcile_event(session, rows, snapshot):
                 # is a display/privacy change, not canonical rename evidence.
                 continue
             athlete = _uniquely_named_athlete(session, old_name)
+            existing_observation = (
+                session.query(ResultRenameObservation.id)
+                .filter(
+                    ResultRenameObservation.old_name == old_name,
+                    ResultRenameObservation.new_name == medal.athlete_name,
+                    ResultRenameObservation.status.in_(("pending", "applied")),
+                )
+                .first()
+            )
+            if existing_observation:
+                continue
             session.add(
                 ResultRenameObservation(
                     snapshot_id=snapshot.id,

@@ -44,6 +44,63 @@ class ResultSnapshotPipelineTest(unittest.TestCase):
         self.assertEqual(changes[0].change_type, "uncertain")
         self.assertFalse(changes[0].automatic)
 
+    def test_one_change_in_crowded_slot_is_a_single_rename(self):
+        before = [
+            row("Ravil M. Kutyev", place=3),
+            row("Raymond Rountree McMurdy", place=3),
+        ]
+        after = [
+            row("Ravil M. Kutyev", place=3),
+            row("Raymond R. McMurdy", place=3),
+        ]
+
+        changes = compare_event_rows(before, after)
+
+        self.assertEqual(
+            [
+                (
+                    change.change_type,
+                    change.old["athlete_name"],
+                    change.new["athlete_name"],
+                )
+                for change in changes
+            ],
+            [
+                ("unchanged", "Ravil M. Kutyev", "Ravil M. Kutyev"),
+                ("renamed", "Raymond Rountree McMurdy", "Raymond R. McMurdy"),
+            ],
+        )
+
+    def test_one_removal_in_crowded_slot_is_not_a_rename(self):
+        before = [
+            row("Brenio Genevain Cardoso", place=3),
+            row("Jose Jhonatan Rodrigues Cerqueira", place=3),
+        ]
+        after = [row("Brenio Genevain Cardoso", place=3)]
+
+        changes = compare_event_rows(before, after)
+
+        self.assertEqual(
+            [change.change_type for change in changes], ["unchanged", "removed"]
+        )
+
+    def test_reordered_crowded_slot_reports_only_actual_rename(self):
+        before = [
+            row("Diakhaby Moussa", place=3),
+            row("Luís Carlos Coelho Oliveira", place=3),
+        ]
+        after = [
+            row("Luís Carlos Coelho Oliveira", place=3),
+            row("Moussa Diakhaby", place=3),
+        ]
+
+        changes = compare_event_rows(before, after)
+
+        renamed = [change for change in changes if change.change_type == "renamed"]
+        self.assertEqual(len(renamed), 1)
+        self.assertEqual(renamed[0].old["athlete_name"], "Diakhaby Moussa")
+        self.assertEqual(renamed[0].new["athlete_name"], "Moussa Diakhaby")
+
     def test_add_and_remove_are_reported(self):
         self.assertEqual(compare_event_rows([], [row("New")])[0].change_type, "added")
         self.assertEqual(compare_event_rows([row("Old")], [])[0].change_type, "removed")
