@@ -423,6 +423,22 @@
       ]
     },
     {
+      "fixture": "new_score_stopped_001_012.jpg",
+      "expect_layout": true,
+      "expected_digits": [0, 0, 1, 0, 1, 2],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": ["golden", "stopped_state"]
+    },
+    {
+      "fixture": "new_score_stopped_012_012.jpg",
+      "expect_layout": true,
+      "expected_digits": [0, 1, 2, 0, 1, 2],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": ["golden", "stopped_state"]
+    },
+    {
       "fixture": "new_score_multi.jpg",
       "expect_layout": true,
       "expected_digits": [

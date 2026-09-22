@@ -469,6 +469,22 @@ def _detected_rendered_score_cells(image):
         for role in ("green", "yellow", "red")
     }
     rows = _score_row_candidates(role_components)
+    if len(rows) < 2:
+        # The stopped-state outline can leave thin red JPEG bridges between a
+        # penalty cell and surrounding red chrome, especially after scaling.
+        # Retry only failed layouts with those bridges opened; applying this to
+        # ordinary narrow red cells would remove legitimate background pieces.
+        opened_red_mask = cv2.morphologyEx(
+            role_masks["red"].astype("uint8"),
+            cv2.MORPH_OPEN,
+            np.ones((3, 3), dtype="uint8"),
+        ).astype(bool)
+        opened_red_components = _score_role_components(image, "red", opened_red_mask)
+        opened_role_components = {**role_components, "red": opened_red_components}
+        opened_rows = _score_row_candidates(opened_role_components)
+        if len(opened_rows) >= 2:
+            role_components = opened_role_components
+            rows = opened_rows
     layouts = []
     for first_index, first in enumerate(rows):
         for second in rows[first_index + 1 :]:
@@ -693,6 +709,36 @@ def _score_digit_mask_entries(image, background_rgb=None, *, region_mask=None):
         if height < min_height or width < min_width:
             continue
         candidates.append((x, y, width, height, component_index))
+
+    # Stopped scoreboards add a white outline around the red penalty cell.
+    # JPEG aliasing can detach most of that outline from the cell edge. Its
+    # bounding box overlaps the real inset digit, unlike two adjacent digits.
+    if len(candidates) > 1:
+        inset_candidates = [
+            candidate
+            for candidate in candidates
+            if candidate[0] > 0
+            and candidate[1] > 0
+            and candidate[0] + candidate[2] < image.width
+            and candidate[1] + candidate[3] < image.height
+        ]
+        candidates = [
+            candidate
+            for candidate in candidates
+            if not (
+                (
+                    candidate[0] <= 0
+                    or candidate[1] <= 0
+                    or candidate[0] + candidate[2] >= image.width
+                    or candidate[1] + candidate[3] >= image.height
+                )
+                and any(
+                    min(candidate[0] + candidate[2], inset[0] + inset[2])
+                    > max(candidate[0], inset[0])
+                    for inset in inset_candidates
+                )
+            )
+        ]
     if not 1 <= len(candidates) <= 2:
         return ()
 
@@ -1044,10 +1090,17 @@ class TimerLocator:
         green_int = green.astype("int16")
         blue_int = blue.astype("int16")
         red_background = (red > 130) & (green < 100) & (blue < 120)
+        dark_red_background = (
+            (red > 45)
+            & (red < 180)
+            & ((red_int - green_int) > 35)
+            & ((red_int - blue_int) > 30)
+        )
         black = (red < 70) & (green < 70) & (blue < 70)
         black &= self._red_display_support(red_background)
         return {
             "red_background": red_background,
+            "dark_red_background": dark_red_background,
             "black": black,
             "white": (red > 180) & (green > 180) & (blue > 180),
             "running": (
@@ -1239,7 +1292,10 @@ class TimerLocator:
             )
         if foreground == "white":
             return bool(
-                masks["dark_blue_background"][region].mean()
+                (
+                    masks["dark_blue_background"][region]
+                    | masks["dark_red_background"][region]
+                ).mean()
                 >= self.MIN_LOCAL_BACKGROUND_DENSITY
             )
         local_dark_background = (

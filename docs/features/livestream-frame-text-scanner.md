@@ -234,7 +234,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `ScanLivestreamFrameTextAdminApiStateTestCase`: replay-safe client retries and one-shot claim behavior.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  `scoreboard_cases.json` explicitly golden-tests all 85 scoreboard/name fixtures
+  `scoreboard_cases.json` explicitly golden-tests all 87 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG
@@ -256,9 +256,14 @@ Git history shows this area is sensitive to OCR edge cases and workflow/status h
   `new_score_010_420.jpg` and `new_score_010_420_2.jpg` exclude blue exterior
   pixels at the rounded yellow-cell edge. These three cases are explicit golden
   regressions in `scoreboard_cases.json`.
+  The new-scoreboard stopped state also draws a white outline around the red
+  penalty cell. Edge-touching foreground components are treated as cell chrome
+  so that outline cannot become a spurious leading `1`.
 - Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter. Timer geometry is now detected from aligned digit candidates and locally coherent display colors rather than image-ratio search windows or whole-crop color density. Green timer digits take precedence over adjacent white scoreboard text in mixed tight crops so active timers are not mistaken for stopped timers. Dense horizontal foreground rows from video artifacts or timer-frame edges are removed within connected components before digit grouping so crop padding cannot change whether the artifact is recognized.
   Full-height digit fragments separated by a one-pixel JPEG/color-threshold seam are merged before grouping and retained together during classification, preventing clipped zeroes in small timer crops from being interpreted as extra digits.
   Black stopped-timer candidates are clipped to broad red display bounds, preventing dark video outside a tightly cropped timer from joining the leading digit and turning `10:00` into a false `0:00`.
+  White stopped-timer digits may appear over the newer dark-burgundy display as
+  well as the older dark-blue display; both backgrounds are recognized locally.
   Low-confidence height/baseline alignments are rejected before digit classification, preventing diagonal building windows in `new_timer_blank.jpg` and `new_timer_blank_2.jpg` from becoming false stopped-clock readings.
   The structural-confidence cutoff still permits the small, naturally anti-aliased
   digit-height and baseline variation in `timer_004.jpg` and `timer_951.jpg`;
