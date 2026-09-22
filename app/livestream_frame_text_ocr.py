@@ -727,15 +727,21 @@ def _score_digit_mask_entries(image, background_rgb=None, *, region_mask=None):
             for candidate in candidates
             if not (
                 (
-                    candidate[0] <= 0
-                    or candidate[1] <= 0
-                    or candidate[0] + candidate[2] >= image.width
-                    or candidate[1] + candidate[3] >= image.height
+                    candidate[0] + candidate[2] >= image.width - 1
+                    and candidate[2] <= image.width * 0.18
                 )
-                and any(
-                    min(candidate[0] + candidate[2], inset[0] + inset[2])
-                    > max(candidate[0], inset[0])
-                    for inset in inset_candidates
+                or (
+                    (
+                        candidate[0] <= 0
+                        or candidate[1] <= 0
+                        or candidate[0] + candidate[2] >= image.width
+                        or candidate[1] + candidate[3] >= image.height
+                    )
+                    and any(
+                        min(candidate[0] + candidate[2], inset[0] + inset[2])
+                        > max(candidate[0], inset[0])
+                        for inset in inset_candidates
+                    )
                 )
             )
         ]
