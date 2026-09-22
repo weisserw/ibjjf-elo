@@ -234,7 +234,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `ScanLivestreamFrameTextAdminApiStateTestCase`: replay-safe client retries and one-shot claim behavior.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  `scoreboard_cases.json` explicitly golden-tests all 88 scoreboard/name fixtures
+  `scoreboard_cases.json` explicitly golden-tests all 89 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG

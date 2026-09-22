@@ -447,6 +447,14 @@
       "purposes": ["golden", "stopped_state"]
     },
     {
+      "fixture": "new_score_stopped_413_443_2.jpg",
+      "expect_layout": true,
+      "expected_digits": [4, 2, 3, 4, 4, 3],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": ["golden", "stopped_state"]
+    },
+    {
       "fixture": "new_score_multi.jpg",
       "expect_layout": true,
       "expected_digits": [

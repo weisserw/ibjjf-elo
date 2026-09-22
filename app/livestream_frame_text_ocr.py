@@ -734,12 +734,14 @@ def _score_digit_mask_entries(image, background_rgb=None, *, region_mask=None):
                     (
                         candidate[0] <= 0
                         or candidate[1] <= 0
-                        or candidate[0] + candidate[2] >= image.width
+                        or candidate[0] + candidate[2] >= image.width - 1
                         or candidate[1] + candidate[3] >= image.height
                     )
                     and any(
                         min(candidate[0] + candidate[2], inset[0] + inset[2])
                         > max(candidate[0], inset[0])
+                        and candidate[2] >= inset[2] * 1.4
+                        and candidate[3] >= inset[3] * 1.3
                         for inset in inset_candidates
                     )
                 )
