@@ -363,6 +363,7 @@ def create_ratings_tables(
                 AND md.belt = ab.belt
             LEFT JOIN {name}_athlete_adults ta ON ta.athlete_id = md.athlete_id
             WHERE md.winner = FALSE
+            AND md.rated
             AND md.happened_at >= :activity_period
             AND md.gi in ({gi_in})
             AND (
