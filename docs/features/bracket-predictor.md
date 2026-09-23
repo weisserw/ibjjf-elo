@@ -144,6 +144,10 @@ Do not run `make test-ocr` unless OCR/livestream text scan code changed. Do not 
 
 ## Previously Surfaced Bugs And Issues
 
+- For master registrations, carried-forward adult medals use adult Worlds
+  season boundaries, while master-division medals use Master Worlds boundaries.
+  The medal's division age—not the target registration age—selects the
+  attrition schedule.
 - Hypothetical rows must be temporary. The dedicated API test verifies the hypothetical athlete appears in that response but does not appear in a later normal competitor response.
 - Already-registered athletes must be rejected. The route checks both registration row names and personal names to avoid adding duplicate athletes under alternate display names.
 - Juvenile divisions are included in registration categories and accepted by

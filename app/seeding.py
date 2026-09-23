@@ -618,6 +618,23 @@ def _recent_seasons(age, gi, today, n=3):
     return seasons
 
 
+def _recent_seasons_by_medal_age(ages, gi, today, n=3):
+    """Return the season calendar that applies to each medal division age.
+
+    A master division can carry forward adult medals, but those adult medals
+    still age out on the adult Worlds schedule. Cache by Worlds base so ages
+    that share a schedule do not repeat the same database lookup.
+    """
+    seasons_by_base = {}
+    seasons_by_age = {}
+    for age in ages:
+        worlds_base = _worlds_base_name(age, gi)
+        if worlds_base not in seasons_by_base:
+            seasons_by_base[worlds_base] = _recent_seasons(age, gi, today, n=n)
+        seasons_by_age[age] = seasons_by_base[worlds_base]
+    return seasons_by_age
+
+
 def _grand_slam_bases(age, gi):
     """The four Grand Slam event base names that apply to this category."""
     if not gi:
@@ -1133,7 +1150,7 @@ def _iter_regular_season_medal_rows(
     athlete_ids,
     divdata,
     gi,
-    seasons,
+    seasons_by_age,
     suspension_ranges,
     medal_cutoff,
     common_filters=None,
@@ -1148,13 +1165,14 @@ def _iter_regular_season_medal_rows(
     points" set, so both the existing pipeline and the per-athlete
     drill-down endpoint can be driven from this generator.
     """
-    if not seasons:
-        return
     if not athlete_ids:
         return
 
     age_filter = _seeding_category(divdata["age"], gi)
     if age_filter is None:
+        return
+    available_seasons = [seasons for seasons in seasons_by_age.values() if seasons]
+    if not available_seasons:
         return
     weight_multipliers = _weight_multipliers(divdata["weight"])
     weight_filter = list(weight_multipliers.keys()) + list(SEEDING_OPEN_CLASS_WEIGHTS)
@@ -1172,10 +1190,10 @@ def _iter_regular_season_medal_rows(
             Event.name.notilike(_IBJJF_CROWN_EVENT_NAME_PATTERN),
         )
 
-    earliest_start = seasons[-1][0]
+    earliest_start = min(seasons[-1][0] for seasons in available_seasons)
     # Cap at `medal_cutoff` so medals on or after the tournament start date
     # don't leak into the in-progress season (whose end is a far-future sentinel).
-    latest_end = min(seasons[0][1], medal_cutoff)
+    latest_end = medal_cutoff
 
     medal_rows = (
         db.session.query(
@@ -1201,7 +1219,7 @@ def _iter_regular_season_medal_rows(
         source_type = _event_tournament_type(r.event_name)
         if source_type == TOURNAMENT_TYPE_NONE:
             continue
-        season_mult = _season_multiplier(seasons, r.happened_at)
+        season_mult = _season_multiplier(seasons_by_age.get(r.age, []), r.happened_at)
         if season_mult is None:
             continue
         yield r, season_mult
@@ -1353,7 +1371,7 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, now=None, medal_cutof
         now = datetime.now()
     if medal_cutoff is None:
         medal_cutoff = now
-    seasons = _recent_seasons(divdata["age"], gi, now, n=3)
+    seasons_by_age = _recent_seasons_by_medal_age(age_filter, gi, now, n=3)
     gs_multipliers = _grand_slam_event_multipliers(divdata["age"], gi, now, n=3)
 
     suspension_ranges = _suspension_ranges_for_athlete_id(athlete_id)
@@ -1363,7 +1381,7 @@ def collect_athlete_medal_details(athlete_id, divdata, gi, now=None, medal_cutof
             [athlete_id],
             divdata,
             gi,
-            seasons,
+            seasons_by_age,
             suspension_ranges,
             medal_cutoff,
         ),
@@ -1484,7 +1502,7 @@ def add_seeding_data(rows, divdata, gi, now=None, medal_cutoff=None):
         now = datetime.now()
     if medal_cutoff is None:
         medal_cutoff = now
-    seasons = _recent_seasons(divdata["age"], gi, now, n=3)
+    seasons_by_age = _recent_seasons_by_medal_age(age_filter, gi, now, n=3)
     gs_multipliers = _grand_slam_event_multipliers(divdata["age"], gi, now, n=3)
     suspension_ranges = _suspension_ranges_by_athlete_id(rows)
 
@@ -1509,7 +1527,7 @@ def add_seeding_data(rows, divdata, gi, now=None, medal_cutoff=None):
         athlete_ids,
         divdata,
         gi,
-        seasons,
+        seasons_by_age,
         suspension_ranges,
         medal_cutoff,
         common_filters,

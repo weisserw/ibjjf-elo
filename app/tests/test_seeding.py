@@ -620,19 +620,55 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
         # 9 * 3 * 1.0 * 7 = 189 for the M3 and M1 medals; M4 excluded.
         self.assertEqual(row["points"], 189 + 189)
 
-    def test_master_uses_adult_star_for_adult_division_medal(self):
-        # Adult Worlds is a 7-star event for adult-division medals — even
-        # when the competitor is a master carrying forward adult history.
-        # Master season anchor is World Master (Aug 28 2025), and Adult
-        # Worlds 2025 (May 29 2025) is BEFORE that, so the adult medal
-        # lands in master season 2 (2x). 9 * 2 * 1.0 * 7 = 126.
+    def test_master_uses_adult_schedule_and_star_for_adult_division_medal(self):
+        # Adult Worlds is both the season anchor and a 7-star event for an
+        # adult-division medal, even when the competitor is a master carrying
+        # forward adult history. Adult Worlds 2025 is in the current adult
+        # season at NOW, so 9 * 3 * 1.0 * 7 = 189.
         def seed(t):
             a = t._make_athlete("master-adult-worlds")
             t._add_medal(a, t.worlds_2025, place=1, age=ADULT)
             return a
 
         row = self._seed_and_run(seed, _divdata(age=MASTER_3), gi=True)
-        self.assertEqual(row["points"], 126)
+        self.assertEqual(row["points"], 189)
+
+    def test_master_uses_adult_attrition_after_both_2026_worlds(self):
+        # This adult medal falls after Adult Worlds 2025 but before Master
+        # Worlds 2025. After both 2026 championships have ended, the adult
+        # schedule assigns 2x while the master schedule would assign 1x.
+        with self.app_module.app.app_context():
+            db.session.add(
+                RegistrationLink(
+                    name="World Master IBJJF Jiu-Jitsu Championship 2026",
+                    normalized_name="world master ibjjf jiu-jitsu championship 2026",
+                    updated_at=datetime(2026, 8, 1),
+                    link="internal:master-worlds-2026-attrition-test",
+                    hidden=False,
+                    event_start_date=datetime(2026, 8, 27),
+                    event_end_date=datetime(2026, 8, 29),
+                )
+            )
+            db.session.flush()
+
+            athlete = self._make_athlete("master-adult-attrition")
+            self._add_medal(
+                athlete,
+                self.local_event_2025,
+                place=1,
+                age=ADULT,
+                happened_at=datetime(2025, 7, 19, 9, 21),
+            )
+            row = _registration_row(athlete.id)
+            add_seeding_data(
+                [row],
+                _divdata(age=MASTER_1),
+                gi=True,
+                now=datetime(2026, 9, 23),
+            )
+
+        # Random Local Tournament is 1-star: 9 * 2 * 1.0 * 1 = 18.
+        self.assertEqual(row["points"], 18)
 
     def test_gi_no_gi_separation(self):
         # No-gi tournament shouldn't see gi medals.
