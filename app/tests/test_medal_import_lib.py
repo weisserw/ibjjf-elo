@@ -1123,6 +1123,84 @@ class LibDbTestCase(TestDbMixin, unittest.TestCase):
             finally:
                 db.session.rollback()
 
+    def test_scan_globally_matches_unique_exact_name_missing_from_event(self):
+        with self.app_module.app.app_context():
+            event = Event(
+                name="Default Gold Open 2024",
+                normalized_name="default gold open 2024",
+                slug="default-gold-open-2024",
+                ibjjf_id="DEFAULT_GOLD_GLOBAL_EXACT",
+                medals_only=False,
+            )
+            db.session.add(event)
+            db.session.flush()
+            rm = ResultMedal(
+                id=uuid.uuid4(),
+                event_name=event.name,
+                event_ibjjf_id=event.ibjjf_id,
+                division="BLACK / Adult / Male / Feather",
+                team_name="Other Team",
+                athlete_name="John Doe",
+                place=1,
+                source="ibjjf",
+                scraped_at=datetime(2025, 1, 1),
+            )
+            db.session.add(rm)
+            db.session.flush()
+
+            try:
+                entries = lib.scan_event_for_missing_medals(
+                    db.session, event, fuzzy=False
+                )
+                entry = next(e for e in entries if e["result_medal"].id == rm.id)
+                self.assertEqual(entry["status"], "matched")
+                self.assertEqual(entry["matched_athlete"].id, self.other_athlete_id)
+            finally:
+                db.session.rollback()
+
+    def test_scan_marks_multiple_global_exact_names_ambiguous(self):
+        with self.app_module.app.app_context():
+            event = Event(
+                name="Duplicate Default Gold Open 2024",
+                normalized_name="duplicate default gold open 2024",
+                slug="duplicate-default-gold-open-2024",
+                ibjjf_id="DEFAULT_GOLD_GLOBAL_DUPLICATE",
+                medals_only=False,
+            )
+            duplicate = Athlete(
+                name="John Doe",
+                normalized_name="john doe",
+                slug="john-doe-global-fallback-duplicate",
+            )
+            db.session.add_all([event, duplicate])
+            db.session.flush()
+            rm = ResultMedal(
+                id=uuid.uuid4(),
+                event_name=event.name,
+                event_ibjjf_id=event.ibjjf_id,
+                division="BLACK / Adult / Male / Feather",
+                team_name="Other Team",
+                athlete_name="John Doe",
+                place=1,
+                source="ibjjf",
+                scraped_at=datetime(2025, 1, 1),
+            )
+            db.session.add(rm)
+            db.session.flush()
+
+            try:
+                entries = lib.scan_event_for_missing_medals(
+                    db.session, event, fuzzy=False
+                )
+                entry = next(e for e in entries if e["result_medal"].id == rm.id)
+                self.assertEqual(entry["status"], "ambiguous")
+                self.assertEqual(
+                    {alt["athlete"].id for alt in entry["alternatives"]},
+                    {self.other_athlete_id, duplicate.id},
+                )
+            finally:
+                db.session.rollback()
+
     def test_find_events_in_range_includes_null_medals_only(self):
         # Bracket-imported events from before the medals_only column existed
         # have NULL — they must still be included in the scan.

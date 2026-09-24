@@ -360,6 +360,11 @@ IDs and supports `--dry-run`. Coverage lives in `app/tests/test_merge_events.py`
 - Medal display has product-specific filtering. Check earned medals,
   all-medals, historical medals, default-gold medals, no-show matches, juvenile
   archive link rules, and suspension styling when changing medal logic.
+- The missing-medals scanner prefers athletes already connected to an event by
+  a match or medal. If a full bracket replacement deleted a default-gold
+  athlete's only event connection, an exact legal-name scan falls back to the
+  global athlete table. A single plausible exact match is automatic; multiple
+  plausible exact matches remain ambiguous for admin review.
 - Rating/belt display is shared conceptually with athlete rankings and bracket
   registration rows. Check `docs/features/athlete-rankings.md` before changing
   promotion/default-rating behavior.

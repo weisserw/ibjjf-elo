@@ -16,6 +16,7 @@ sys.path.insert(
 )
 
 from models import (  # noqa: E402
+    Athlete,
     Division,
     Event,
     Match,
@@ -1115,6 +1116,20 @@ def scan_event_for_missing_medals(
     # Per-event candidate pool. Plausibility caches are populated below in bulk.
     candidates = _athlete_candidates_at_event(session, event.id)
 
+    # A full-tournament replacement can remove the medals that were the only
+    # evidence connecting default-gold athletes to the event. Preload only the
+    # globally exact names needed by this scan so those athletes can be restored
+    # without turning every result row into a full-athlete-table query.
+    result_names = {normalize(rm.athlete_name) for rm in raw_medals}
+    global_exact_by_name = {}
+    if result_names:
+        for athlete in (
+            session.query(Athlete)
+            .filter(Athlete.normalized_name.in_(result_names))
+            .all()
+        ):
+            global_exact_by_name.setdefault(athlete.normalized_name, []).append(athlete)
+
     # event_when is used for belt-plausibility on candidates. Compute once.
     last_match_row = (
         session.query(Match.happened_at)
@@ -1246,6 +1261,15 @@ def scan_event_for_missing_medals(
             # when the candidate already competed at this event. Plausibility is
             # only needed to disambiguate same-name duplicates below.
             exact_hits = [a for a in candidates if a.normalized_name == rm_normalized]
+            if not exact_hits:
+                # Event-local candidates remain the strongest evidence. Fall
+                # back globally only for an exact legal-name match, and apply
+                # the same belt/gender/age plausibility checks used elsewhere.
+                exact_hits = [
+                    a
+                    for a in global_exact_by_name.get(rm_normalized, [])
+                    if _plausible(a.id, division.belt, division.gender, division.age)
+                ]
             if len(exact_hits) == 1:
                 matched_athlete = exact_hits[0]
             elif len(exact_hits) > 1:
