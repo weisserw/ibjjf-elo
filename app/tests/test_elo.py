@@ -16,7 +16,7 @@ from elo import (
     rating_maturity,
     rating_top_percent,
 )
-from ratings import normalize_target_athlete_id
+from ratings import normalize_target_athlete_id, normalize_target_athlete_ids
 
 
 class TargetAthleteIdTestCase(unittest.TestCase):
@@ -25,6 +25,19 @@ class TargetAthleteIdTestCase(unittest.TestCase):
         self.assertEqual(athlete_id, normalize_target_athlete_id(athlete_id.hex))
         self.assertEqual(athlete_id, normalize_target_athlete_id(str(athlete_id)))
         self.assertIsNone(normalize_target_athlete_id(None))
+
+    def test_target_athlete_sets_are_normalized(self):
+        first = uuid.uuid4()
+        second = uuid.uuid4()
+        self.assertEqual(
+            {first, second},
+            normalize_target_athlete_ids(None, [first.hex, str(second)]),
+        )
+
+    def test_single_and_multiple_targets_are_mutually_exclusive(self):
+        athlete_id = uuid.uuid4()
+        with self.assertRaisesRegex(ValueError, "cannot both be provided"):
+            normalize_target_athlete_ids(athlete_id, [athlete_id])
 
 
 class ComputeStartRatingTestCase(unittest.TestCase):

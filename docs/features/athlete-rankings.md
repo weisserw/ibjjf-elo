@@ -43,6 +43,14 @@ stored boards are required.
 Targeted recomputation normalizes compact and hyphenated UUID spellings before
 both querying and comparing match participants; comparing their raw string
 forms can silently select matches without updating the requested athlete.
+`scripts/load_csv.py --imported-athletes-only` uses the multi-athlete form of
+that targeted recomputation for historical tournament imports. It collects the
+distinct match competitors by gi/no-gi, walks only matches involving those
+athletes from the CSV's earliest timestamp, updates only those athletes'
+participant rows, and regenerates the affected ranking boards once at the end.
+This avoids a full-database history pass while keeping later matches between two
+affected athletes in chronological order. `--no-scores` still skips all score
+and ranking work and takes precedence over the targeted flag.
 
 `app/current.py:create_ratings_tables` is run twice:
 

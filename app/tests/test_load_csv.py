@@ -439,6 +439,54 @@ class LoadCsvTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(relink.call_count, 1)
         self.assertEqual(relink.call_args.args[1], set())
 
+    def test_process_file_can_recompute_only_imported_athletes(self):
+        path = self._write_csv_rows([self._base_match_csv_row()])
+        try:
+            load_csv.app = self.app_module.app
+            with patch.object(
+                load_csv, "recompute_imported_athletes"
+            ) as recompute_imported:
+                load_csv.process_file(
+                    path, no_scores=False, imported_athletes_only=True
+                )
+        finally:
+            os.unlink(path)
+
+        athlete_ids_by_gi, earliest_date, has_gi, has_nogi = (
+            recompute_imported.call_args.args
+        )
+        imported_ids = {athlete.id for athlete in db.session.query(Athlete).all()}
+        self.assertEqual(athlete_ids_by_gi, {True: imported_ids, False: set()})
+        self.assertEqual(earliest_date, "2026-01-01T10:00:00")
+        self.assertTrue(has_gi)
+        self.assertFalse(has_nogi)
+
+    def test_recompute_imported_athletes_targets_each_set_then_reranks_once(self):
+        gi_athlete = "00000000-0000-0000-0000-000000000001"
+        nogi_athlete = "00000000-0000-0000-0000-000000000002"
+        with patch.object(load_csv, "recompute_all_ratings") as recompute:
+            load_csv.recompute_imported_athletes(
+                {True: {gi_athlete}, False: {nogi_athlete}},
+                "2024-01-02T03:04:05",
+                has_gi=True,
+                has_nogi=True,
+            )
+
+        self.assertEqual(recompute.call_count, 3)
+        self.assertEqual(recompute.call_args_list[0].args[:2], (db, True))
+        self.assertEqual(
+            recompute.call_args_list[0].kwargs["athlete_ids"], {gi_athlete}
+        )
+        self.assertFalse(recompute.call_args_list[0].kwargs["rerank"])
+        self.assertEqual(recompute.call_args_list[1].args[:2], (db, False))
+        self.assertEqual(
+            recompute.call_args_list[1].kwargs["athlete_ids"], {nogi_athlete}
+        )
+        self.assertFalse(recompute.call_args_list[1].kwargs["rerank"])
+        self.assertFalse(recompute.call_args_list[2].kwargs["score"])
+        self.assertTrue(recompute.call_args_list[2].kwargs["rerankgi"])
+        self.assertTrue(recompute.call_args_list[2].kwargs["reranknogi"])
+
     def test_process_file_exits_nonzero_after_error(self):
         load_csv.app = self.app_module.app
         with patch("builtins.open", side_effect=RuntimeError("broken input")):

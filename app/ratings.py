@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Iterable, Optional
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import uuid
@@ -18,6 +18,15 @@ def normalize_target_athlete_id(athlete_id):
     return uuid.UUID(str(athlete_id)) if athlete_id is not None else None
 
 
+def normalize_target_athlete_ids(athlete_id, athlete_ids):
+    if athlete_id is not None and athlete_ids is not None:
+        raise ValueError("athlete_id and athlete_ids cannot both be provided")
+    if athlete_ids is not None:
+        return {uuid.UUID(str(value)) for value in athlete_ids}
+    target = normalize_target_athlete_id(athlete_id)
+    return {target} if target is not None else None
+
+
 def recompute_all_ratings(
     db: SQLAlchemy,
     gi: bool,
@@ -30,8 +39,9 @@ def recompute_all_ratings(
     rank_previous_date: Optional[datetime] = None,
     athlete_id: Optional[str] = None,
     teens: bool = False,
+    athlete_ids: Optional[Iterable[str]] = None,
 ) -> None:
-    target_athlete_id = normalize_target_athlete_id(athlete_id)
+    target_athlete_ids = normalize_target_athlete_ids(athlete_id, athlete_ids)
     if score:
         query = db.session.query(Match).join(Division).filter(Division.gi == gi)
 
@@ -42,11 +52,11 @@ def recompute_all_ratings(
         if teens:
             query = query.filter(Division.age.in_([TEEN_1, TEEN_2, TEEN_3]))
 
-        if target_athlete_id is not None:
+        if target_athlete_ids is not None:
             subquery = (
                 db.session.query(Match.id)
                 .join(MatchParticipant)
-                .filter(MatchParticipant.athlete_id == target_athlete_id)
+                .filter(MatchParticipant.athlete_id.in_(target_athlete_ids))
                 .subquery()
             )
             query = query.filter(Match.id.in_(subquery.select()))
@@ -145,7 +155,7 @@ def recompute_all_ratings(
 
                 changed = False
 
-                if target_athlete_id is None or target_athlete_id == red.athlete_id:
+                if target_athlete_ids is None or red.athlete_id in target_athlete_ids:
                     if red.start_rating != red_start_rating:
                         red.start_rating = red_start_rating
                         changed = True
@@ -164,7 +174,7 @@ def recompute_all_ratings(
                     if red.end_match_count != red_end_match_count:
                         red.end_match_count = red_end_match_count
                         changed = True
-                if target_athlete_id is None or target_athlete_id == blue.athlete_id:
+                if target_athlete_ids is None or blue.athlete_id in target_athlete_ids:
                     if blue.start_rating != blue_start_rating:
                         blue.start_rating = blue_start_rating
                         changed = True

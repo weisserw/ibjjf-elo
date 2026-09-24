@@ -338,6 +338,13 @@ through the scripts documented in
 `docs/workflows/IBJJF_RESULT_DUPLICATE_MERGES_PLAN.md`. Coverage lives in
 `app/tests/test_merge_athletes.py`.
 
+Duplicate event maintenance uses `scripts/merge_events.py --keep <uuid>
+--merge <uuid>`. It moves matches and medals to the canonical event, keeps the
+better placing when the same athlete/division medal exists on both events,
+preserves a non-empty IBJJF ID and the non-medals-only state, and deletes the
+duplicate in the same transaction. It rejects two different non-empty IBJJF
+IDs and supports `--dry-run`. Coverage lives in `app/tests/test_merge_events.py`.
+
 - Treat `app/routes/athletes.py:get_athlete_data` as the contract owner for the
   profile payload. Update `Athlete.tsx` interfaces and `test_athlete_profile_api`
   together when changing fields.

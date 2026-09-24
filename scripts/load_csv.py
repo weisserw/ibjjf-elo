@@ -161,7 +161,33 @@ def create_or_update_medal(session, place, event, division, match, athlete, team
     session.flush()
 
 
-def process_file(csv_file_path: str, no_scores: bool):
+def recompute_imported_athletes(athlete_ids_by_gi, earliest_date, has_gi, has_nogi):
+    """Recompute only athletes who had match rows imported from this CSV."""
+    start_date = datetime.strptime(earliest_date, "%Y-%m-%dT%H:%M:%S")
+    for gi in (True, False):
+        if athlete_ids_by_gi[gi]:
+            recompute_all_ratings(
+                db,
+                gi,
+                start_date=start_date,
+                score=True,
+                rerank=False,
+                athlete_ids=athlete_ids_by_gi[gi],
+            )
+
+    # Targeted score passes deliberately skip the expensive ranking-board work.
+    # Refresh the affected board(s) once after every athlete is up to date.
+    recompute_all_ratings(
+        db,
+        True,
+        score=False,
+        rerank=True,
+        rerankgi=has_gi,
+        reranknogi=has_nogi,
+    )
+
+
+def process_file(csv_file_path: str, no_scores: bool, imported_athletes_only=False):
     try:
         with app.app_context():
             with open(csv_file_path, newline="") as csvfile:
@@ -179,6 +205,7 @@ def process_file(csv_file_path: str, no_scores: bool):
                 earliest_date = None
                 has_gi = False
                 has_nogi = False
+                athlete_ids_by_gi = {True: set(), False: set()}
                 event_ids_to_relink = set()
 
                 with Bar(
@@ -411,6 +438,9 @@ def process_file(csv_file_path: str, no_scores: bool):
                                 end_match_count=0,
                             )
                             db.session.add(blue_participant)
+                            athlete_ids_by_gi[division.gi].update(
+                                (red_athlete.id, blue_athlete.id)
+                            )
 
                         refresh_match_division_sizes(db.session, affected_event_ids)
 
@@ -425,7 +455,11 @@ def process_file(csv_file_path: str, no_scores: bool):
                         f"from {summary.candidates} candidates."
                     )
 
-                if has_gi and not no_scores:
+                if not no_scores and imported_athletes_only:
+                    recompute_imported_athletes(
+                        athlete_ids_by_gi, earliest_date, has_gi, has_nogi
+                    )
+                elif has_gi and not no_scores:
                     recompute_all_ratings(
                         db,
                         True,
@@ -467,7 +501,15 @@ if __name__ == "__main__":
         action="store_true",
         help="Do not recompute scores after loading",
     )
+    parser.add_argument(
+        "--imported-athletes-only",
+        action="store_true",
+        help=(
+            "Recompute ratings only for athletes with matches in the imported CSV, "
+            "then refresh the affected ranking boards once"
+        ),
+    )
     args = parser.parse_args()
 
     for csv_file_path in args.csv_files:
-        process_file(csv_file_path, args.no_scores)
+        process_file(csv_file_path, args.no_scores, args.imported_athletes_only)
