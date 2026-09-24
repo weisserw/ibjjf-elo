@@ -401,7 +401,11 @@ function Teams() {
                     <td className="has-text-centered">{placeDisplay(team.place)}</td>
                     <td>
                       {teamsGroupBy === 'country' ? (
-                        <a href="#" onClick={(ev) => countryClicked(ev, team.team_name)}>
+                        <a
+                          className="teams-country-link"
+                          href="#"
+                          onClick={(ev) => countryClicked(ev, team.team_name)}
+                        >
                           <span className={`fi fi-${team.team_name.trim().toLowerCase().substring(0, 2)} teams-country-flag`} />
                           {countryDisplayName(team.team_name)}
                         </a>

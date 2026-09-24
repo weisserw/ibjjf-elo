@@ -58,12 +58,24 @@ def teams_awards():
         event_name = event_name[1:-1]
 
     if group_by == "country":
-        group_id_expr_team1 = "NULLIF(LOWER(SUBSTR(TRIM(a1.country), 1, 2)), '')"
-        group_id_expr_team2 = "NULLIF(LOWER(SUBSTR(TRIM(a2.country), 1, 2)), '')"
-        group_name_expr_team1 = "NULLIF(LOWER(SUBSTR(TRIM(a1.country), 1, 2)), '')"
-        group_name_expr_team2 = "NULLIF(LOWER(SUBSTR(TRIM(a2.country), 1, 2)), '')"
+        country_expr_team1 = "NULLIF(LOWER(SUBSTR(TRIM(a1.country), 1, 2)), '')"
+        country_expr_team2 = "NULLIF(LOWER(SUBSTR(TRIM(a2.country), 1, 2)), '')"
+        group_id_expr_team1 = (
+            f"CASE WHEN {country_expr_team1} IN ('pr', 'gu', 'vi') "
+            f"THEN 'us' ELSE {country_expr_team1} END"
+        )
+        group_id_expr_team2 = (
+            f"CASE WHEN {country_expr_team2} IN ('pr', 'gu', 'vi') "
+            f"THEN 'us' ELSE {country_expr_team2} END"
+        )
+        group_name_expr_team1 = group_id_expr_team1
+        group_name_expr_team2 = group_id_expr_team2
         group_join_clause = "JOIN athletes a ON a.id = mp.athlete_id"
-        group_id_expr_competing = "NULLIF(LOWER(SUBSTR(TRIM(a.country), 1, 2)), '')"
+        country_expr_competing = "NULLIF(LOWER(SUBSTR(TRIM(a.country), 1, 2)), '')"
+        group_id_expr_competing = (
+            f"CASE WHEN {country_expr_competing} IN ('pr', 'gu', 'vi') "
+            f"THEN 'us' ELSE {country_expr_competing} END"
+        )
         extra_match_pair_joins = """
                 JOIN athletes a1 ON a1.id = p1.athlete_id
                 JOIN athletes a2 ON a2.id = p2.athlete_id

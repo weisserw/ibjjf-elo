@@ -75,6 +75,9 @@ class BracketsArchiveAwardsApiTestCase(TestDbMixin, unittest.TestCase):
         gamma_athletes = [athlete_d, athlete_f, athlete_m, athlete_n, athlete_o]
         for athlete in alpha_athletes:
             athlete.country = "us"
+        athlete_e.country = "pr"
+        athlete_g.country = "gu"
+        athlete_i.country = "vi"
         for athlete in beta_athletes:
             athlete.country = "br"
         for athlete in gamma_athletes:

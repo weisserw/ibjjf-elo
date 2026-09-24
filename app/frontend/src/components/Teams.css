@@ -25,8 +25,18 @@
   margin-top: 6px;
 }
 
+.teams-country-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .teams-country-flag {
-  margin-right: 8px;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 15px;
+  background-size: 100% 100%;
+  outline: 1px solid #ccc;
 }
 
 .teams-mode-buttons {
