@@ -38,7 +38,9 @@ def prepare_destination(engine):
         )
     db.metadata.create_all(engine)
     with engine.connect() as connection:
-        uuid_columns = connection.execute(text("PRAGMA table_info(result_medals)")).all()
+        uuid_columns = connection.execute(
+            text("PRAGMA table_info(result_medals)")
+        ).all()
     id_type = next(row[2] for row in uuid_columns if row[1] == "id")
     if id_type.upper() != "TEXT":
         raise RuntimeError(f"result_medals.id must be TEXT in SQLite, got {id_type}")
