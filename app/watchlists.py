@@ -23,6 +23,7 @@ from models import (
     WatchlistSchedule,
 )
 from normalize import normalize
+from result_identity import abbreviated_name_key, initial_surname_key, resolve_identity
 from constants import (
     ADULT,
     JUVENILE_AGES,
@@ -205,6 +206,58 @@ def name_summary(name):
     }
 
 
+def resolved_registration_rows(event_ids, mode="name", q=""):
+    """Return abbreviation-resolved registrations keyed by local athlete id."""
+    if mode == "all":
+        combined = resolved_registration_rows(event_ids, "name", q)
+        for athlete_id, rows in resolved_registration_rows(
+            event_ids, "team", q
+        ).items():
+            combined[athlete_id].update(rows)
+        return combined
+    query = (
+        db.session.query(
+            RegistrationLinkCompetitor.athlete_name,
+            RegistrationLinkCompetitor.team_name,
+            RegistrationLink.event_id,
+            RegistrationLink.event_start_date,
+            Division.gender,
+            Division.age,
+            Division.belt,
+        )
+        .join(RegistrationLink)
+        .join(Division, Division.id == RegistrationLinkCompetitor.division_id)
+        .filter(
+            RegistrationLink.event_id.in_(event_ids),
+            RegistrationLink.hidden.isnot(True),
+            public_registration_rows(),
+            Division.age.in_(age_order_all),
+            RegistrationLinkCompetitor.athlete_name.like("_.%"),
+        )
+    )
+    if mode == "team_exact":
+        query = query.filter(RegistrationLinkCompetitor.team_name == q)
+    elif mode == "team":
+        query = query.filter(
+            RegistrationLinkCompetitor.team_name.ilike(
+                "%"
+                + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                + "%",
+                escape="\\",
+            )
+        )
+    resolved = defaultdict(set)
+    for name, team, event_id, when, gender, age, belt in query.all():
+        if not abbreviated_name_key(name):
+            continue
+        identity = resolve_identity(
+            db.session, name, gender=gender, belt=belt, age=age, team=team, when=when
+        )
+        if identity.status == "matched" and identity.athlete.ibjjf_id is not None:
+            resolved[identity.athlete.id].add((name, belt, team, event_id))
+    return resolved
+
+
 def eligible(event_ids, q="", mode="name"):
     if mode == "all":
         return db.session.query(Athlete).filter(
@@ -240,7 +293,10 @@ def eligible(event_ids, q="", mode="name"):
                 escape="\\",
             )
         )
-    query = db.session.query(Athlete).filter(registrations.exists())
+    resolved_ids = tuple(resolved_registration_rows(event_ids, mode, q))
+    query = db.session.query(Athlete).filter(
+        or_(registrations.exists(), Athlete.id.in_(resolved_ids))
+    )
     if mode == "name" and q:
         # Preserve literal wildcard characters while normalizing name fragments.
         value = "".join(
@@ -301,10 +357,16 @@ def registration_names(event_ids, q="", mode="name", provisional_only=False):
             )
         query = query.filter(name_match)
     if provisional_only:
+        resolved_names = {
+            name
+            for rows in resolved_registration_rows(event_ids, mode, q).values()
+            for name, _belt, _team, _event_id in rows
+        }
         query = query.filter(
             ~RegistrationLinkCompetitor.athlete_name.in_(
                 db.session.query(Athlete.name).filter(Athlete.ibjjf_id.isnot(None))
-            )
+            ),
+            ~RegistrationLinkCompetitor.athlete_name.in_(resolved_names),
         )
     return query.distinct()
 
@@ -468,6 +530,14 @@ def search(
         .all()
     ):
         contexts[name].add((belt, team, event_id))
+    for athlete_id, registrations in resolved_registration_rows(
+        event_ids, mode, q
+    ).items():
+        athlete = db.session.get(Athlete, athlete_id)
+        if athlete in rows:
+            contexts[athlete.name].update(
+                (belt, team, event_id) for _name, belt, team, event_id in registrations
+            )
     ratings = {}
     if rows:
         registered_disciplines = defaultdict(set)
@@ -743,6 +813,50 @@ def supported_schedule_division(division):
     return False
 
 
+def names_match_with_abbreviation(first, second):
+    if normalize(first) == normalize(second):
+        return True
+    first_key = abbreviated_name_key(first)
+    second_key = abbreviated_name_key(second)
+    if first_key:
+        return first_key == initial_surname_key(second)
+    if second_key:
+        return second_key == initial_surname_key(first)
+    return False
+
+
+def provisional_schedule_matches(athletes, matches):
+    """Resolve provisional names only when both sides form a one-to-one match."""
+    occurrences = defaultdict(list)
+    for match in sorted(matches, key=match_order):
+        for side_index, side in enumerate(match["sides"]):
+            if not side.get("name"):
+                continue
+            identity = side.get("ibjjf_id") or normalize(side["name"])
+            occurrences[identity].append((match, side_index, side["name"]))
+    proposals = {}
+    for athlete in athletes:
+        selected = athlete.get("selection_name")
+        if not selected:
+            continue
+        candidates = {
+            identity
+            for identity, rows in occurrences.items()
+            if any(names_match_with_abbreviation(selected, name) for _, _, name in rows)
+        }
+        if len(candidates) == 1:
+            proposals[selected] = candidates.pop()
+    counts = {
+        identity: list(proposals.values()).count(identity)
+        for identity in proposals.values()
+    }
+    return {
+        selected: occurrences[identity][0][:2]
+        for selected, identity in proposals.items()
+        if counts[identity] == 1
+    }
+
+
 def enrich(matches, events):
     from routes.brackets import (
         get_ratings,
@@ -972,6 +1086,7 @@ def data(row, events, today=None):
                 normalized_name = normalize(side["name"])
                 by_name.setdefault(normalized_name, match)
                 side_indexes_by_name[(id(match), normalized_name)] = side_index
+    provisional_matches = provisional_schedule_matches(base["athletes"], matches)
     chosen = {
         id(match): match
         for a in base["athletes"]
@@ -979,7 +1094,10 @@ def data(row, events, today=None):
             match := (
                 by_id.get(a["ibjjf_id"])
                 if a["ibjjf_id"]
-                else by_name.get(normalize(a.get("selection_name") or ""))
+                else (
+                    by_name.get(normalize(a.get("selection_name") or ""))
+                    or provisional_matches.get(a.get("selection_name"), (None, None))[0]
+                )
             )
         )
     }
@@ -1000,7 +1118,12 @@ def data(row, events, today=None):
         match = (
             by_id.get(athlete["ibjjf_id"])
             if athlete["ibjjf_id"]
-            else by_name.get(normalize(athlete.get("selection_name") or ""))
+            else (
+                by_name.get(normalize(athlete.get("selection_name") or ""))
+                or provisional_matches.get(athlete.get("selection_name"), (None, None))[
+                    0
+                ]
+            )
         )
         if match:
             side_index = (
@@ -1010,9 +1133,13 @@ def data(row, events, today=None):
                     if s["ibjjf_id"] == athlete["ibjjf_id"]
                 )
                 if athlete["ibjjf_id"]
-                else side_indexes_by_name[
-                    (id(match), normalize(athlete["selection_name"]))
-                ]
+                else (
+                    side_indexes_by_name[
+                        (id(match), normalize(athlete["selection_name"]))
+                    ]
+                    if normalize(athlete["selection_name"]) in by_name
+                    else provisional_matches[athlete["selection_name"]][1]
+                )
             )
             displayed_athlete = athlete
             if athlete.get("selection_name"):

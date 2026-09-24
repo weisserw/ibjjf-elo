@@ -23,7 +23,12 @@ Eligibility always comes from the selected tournaments' registration rows. Team
 search uses those registration teams, never match-history teams. Registered
 athletes with a result-backed database record are selected by local UUID. A
 registration-only athlete is selected by their stripped official registration
-name and can be tracked before they have competed. Missing tournament dates are
+name and can be tracked before they have competed. Initial-and-surname
+registration abbreviations are resolved through the shared identity resolver and
+upgraded to a local UUID only when the result is unambiguous. Provisional names
+also match full versus abbreviated live-schedule names when the
+selected-name-to-schedule-identity mapping is one-to-one; ambiguous matches fail
+closed. Missing tournament dates are
 shown explicitly and prevent selection. Tournaments without a start date are omitted from the picker.
 Selection limits remain enforced without displaying counters. The editor starts
 with helper text and no redundant page heading. The selected-athletes area shows
