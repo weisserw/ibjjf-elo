@@ -10,10 +10,11 @@ BASE = "https://www.bjjcompsystem.com"
 
 
 class SourceError(ValueError):
-    def __init__(self, code, retry_after=0):
+    def __init__(self, code, retry_after=0, detail=None):
         super().__init__(code)
         self.code = code
         self.retry_after = retry_after
+        self.detail = detail
 
 
 def source_url(href, event_id=None):
@@ -91,6 +92,15 @@ def text_at(node, selector):
     return found.get_text(" ", strip=True) if found else ""
 
 
+def is_schedule_heading(node):
+    """Identify non-fight time/division headings mixed into a mat's <li> rows."""
+    if node.select_one(
+        ".match-header__fight, .match-header__category-name, .match-card__competitor"
+    ):
+        return False
+    return bool(re.match(r"^\d{1,2}:\d{2}\s+\S", node.get_text(" ", strip=True)))
+
+
 def parse_side(node):
     # Placeholder elements also have competitor-N ids: those are NOT identities.
     placeholder = text_at(node, ".match-card__child-description")
@@ -132,6 +142,8 @@ def parse_page(html, url, event_id, day):
             raise SourceError("duplicate_mat")
         mats.append(mat)
         for card in container.find_all("li", recursive=False):
+            if is_schedule_heading(card):
+                continue
             fight = re.fullmatch(
                 r"FIGHT\s+(\d+)", text_at(card, ".match-header__fight"), re.I
             )
@@ -144,7 +156,14 @@ def parse_page(html, url, event_id, day):
                 else phase
             )
             if not fight or len(sides) != 2 or not category:
-                raise SourceError("invalid_fight")
+                raise SourceError(
+                    "invalid_fight",
+                    detail=(
+                        f"url={url} mat={mat} "
+                        f"fight={text_at(card, '.match-header__fight')!r} "
+                        f"competitors={len(sides)} category_present={bool(category)}"
+                    ),
+                )
             when = text_at(card, ".match-header__when")
             clock = re.search(
                 r"\b((?:[01]?\d|2[0-3]):[0-5]\d(?:\s*[AP]M)?)\b", when, re.I

@@ -112,6 +112,22 @@ class WatchlistParserTests(unittest.TestCase):
         ]
         self.assertEqual(len(matches), 2)
 
+    def test_schedule_heading_rows_are_skipped(self):
+        heading = "<li>09:00 Preta adulto absoluto</li>"
+
+        matches = parse_page(page(heading + card()), self.url, "1", self.day)["matches"]
+
+        self.assertEqual(len(matches), 1)
+
+    def test_unrecognized_mat_row_still_fails_with_context(self):
+        with self.assertRaises(SourceError) as raised:
+            parse_page(page("<li>Unexpected row</li>"), self.url, "1", self.day)
+
+        self.assertEqual(raised.exception.code, "invalid_fight")
+        self.assertIn(f"url={self.url}", raised.exception.detail)
+        self.assertIn("mat=1", raised.exception.detail)
+        self.assertIn("competitors=0", raised.exception.detail)
+
     def test_pagination_visits_self_only_once(self):
         calls = []
         html = page(card(), page_links="<a href='?page=1'>Last</a>")

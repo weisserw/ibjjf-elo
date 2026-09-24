@@ -167,6 +167,10 @@ when its URL requests `locale=en`.
 The initial schedule response is authoritative for day discovery. Later pagination
 responses are allowed to omit the repeated day navigation, but when they include it
 the scanner still requires it to match the discovered topology.
+Time/division heading rows that BJJCompsystem mixes into a mat's direct list items
+are ignored when they contain no fight-card fields. Other unrecognized list items
+still fail closed, with the source URL, mat and structural field counts logged for
+diagnosis.
 
 Successful schedules have a 180-second TTL. Failure backoff starts at 30 seconds,
 doubles up to five minutes, adds jitter and honors a longer Retry-After. The view

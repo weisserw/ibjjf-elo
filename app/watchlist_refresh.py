@@ -420,10 +420,11 @@ def _run(app, event, token, slot_id, registrations=False):
         except Exception as exc:
             db.session.rollback()
             log.warning(
-                "watchlist failed event=%s token=%s code=%s",
+                "watchlist failed event=%s token=%s code=%s detail=%s",
                 key,
                 token,
                 getattr(exc, "code", type(exc).__name__),
+                getattr(exc, "detail", None),
             )
             try:
                 finish(key, token, slot_id, error=exc)
