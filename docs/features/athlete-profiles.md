@@ -365,6 +365,11 @@ IDs and supports `--dry-run`. Coverage lives in `app/tests/test_merge_events.py`
   athlete's only event connection, an exact legal-name scan falls back to the
   global athlete table. A single plausible exact match is automatic; multiple
   plausible exact matches remain ambiguous for admin review.
+- Because result sources are reconciled independently, an older source can keep
+  an active medal row under a former athlete name. The scanner follows applied
+  result-rename observations back to the canonical athlete so a medal already
+  imported under the current name is classified as `already_imported`, not
+  offered again under the stale name.
 - Rating/belt display is shared conceptually with athlete rankings and bracket
   registration rows. Check `docs/features/athlete-rankings.md` before changing
   promotion/default-rating behavior.

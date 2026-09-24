@@ -23,6 +23,7 @@ from models import (  # noqa: E402
     MatchParticipant,
     Medal,
     ResultMedal,
+    ResultRenameObservation,
     Team,
 )
 from normalize import normalize  # noqa: E402
@@ -1170,6 +1171,30 @@ def scan_event_for_missing_medals(
         .all()
     )
 
+    # Result sources are reconciled independently. An older source can therefore
+    # retain an active row under a former name after a newer source records the
+    # athlete's current name. Applied rename observations provide the audited
+    # identity link needed to recognize the old row as already imported. Scope
+    # this lookup to current medalists at the event so multi-event admin scans do
+    # not repeatedly load the full rename history.
+    applied_renames_by_old_name = {}
+    existing_athlete_ids = {athlete_id for athlete_id, _division_id in existing_pairs}
+    if existing_athlete_ids:
+        for observation, athlete in (
+            session.query(ResultRenameObservation, Athlete)
+            .join(Athlete, Athlete.id == ResultRenameObservation.athlete_id)
+            .filter(
+                ResultRenameObservation.status == "applied",
+                ResultRenameObservation.athlete_id.in_(existing_athlete_ids),
+            )
+            .all()
+        ):
+            old_name = normalize(observation.old_name or "")
+            if old_name in result_names:
+                applied_renames_by_old_name.setdefault(old_name, {})[
+                    athlete.id
+                ] = athlete
+
     def _belt_bounds(athlete_id):
         if athlete_id not in belt_bounds_cache:
             belt_bounds_cache[athlete_id] = athlete_belt_bounds_at(
@@ -1235,7 +1260,23 @@ def scan_event_for_missing_medals(
         matched_athlete = None
         alternatives = []
 
-        if abbreviated_name_key(rm.athlete_name):
+        applied_rename_hits = [
+            athlete
+            for athlete in applied_renames_by_old_name.get(rm_normalized, {}).values()
+            if _plausible(athlete.id, division.belt, division.gender, division.age)
+        ]
+        if len(applied_rename_hits) == 1:
+            matched_athlete = applied_rename_hits[0]
+        elif len(applied_rename_hits) > 1:
+            alternatives = [
+                {
+                    "athlete": athlete,
+                    "score": 100,
+                    "already_imported": (athlete.id, division.id) in existing_pairs,
+                }
+                for athlete in applied_rename_hits
+            ]
+        elif abbreviated_name_key(rm.athlete_name):
             resolution = resolve_identity(
                 session,
                 rm.athlete_name,

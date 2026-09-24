@@ -31,6 +31,8 @@ from models import (
     MatchParticipant,
     Medal,
     ResultMedal,
+    ResultRenameObservation,
+    ResultSnapshot,
     Team,
 )
 from test_db import TestDbMixin
@@ -1198,6 +1200,47 @@ class LibDbTestCase(TestDbMixin, unittest.TestCase):
                     {alt["athlete"].id for alt in entry["alternatives"]},
                     {self.other_athlete_id, duplicate.id},
                 )
+            finally:
+                db.session.rollback()
+
+    def test_scan_hides_old_name_row_after_applied_rename_import(self):
+        with self.app_module.app.app_context():
+            event = db.session.get(Event, self.bracket_event_id)
+            snapshot = ResultSnapshot(status="promoted", stats={})
+            db.session.add(snapshot)
+            db.session.flush()
+            stale_rm = ResultMedal(
+                id=uuid.uuid4(),
+                event_name=event.name,
+                event_ibjjf_id=event.ibjjf_id,
+                division="PURPLE / Adult / Male / Light",
+                team_name="Test Team",
+                athlete_name="Maria Old Name",
+                place=1,
+                source="legacy-source",
+                scraped_at=datetime(2024, 1, 1),
+                active=True,
+            )
+            observation = ResultRenameObservation(
+                snapshot_id=snapshot.id,
+                athlete_id=self.athlete_id,
+                slot_key="rename-test-slot",
+                old_name="Maria Old Name",
+                new_name="Maria Silva",
+                change_type="renamed",
+                status="applied",
+                evidence="unique_result_slot",
+            )
+            db.session.add_all([stale_rm, observation])
+            db.session.flush()
+
+            try:
+                entries = lib.scan_event_for_missing_medals(
+                    db.session, event, fuzzy=False
+                )
+                entry = next(e for e in entries if e["result_medal"].id == stale_rm.id)
+                self.assertEqual(entry["status"], "already_imported")
+                self.assertEqual(entry["matched_athlete"].id, self.athlete_id)
             finally:
                 db.session.rollback()
 
