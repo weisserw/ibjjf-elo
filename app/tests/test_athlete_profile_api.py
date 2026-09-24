@@ -344,6 +344,43 @@ class AthleteProfileApiTestCase(TestDbMixin, unittest.TestCase):
         data = response.get_json()
         self.assertEqual(data["mediaCoverage"], [])
 
+    def test_profile_skips_abbreviated_registrations_for_other_surnames(self):
+        with self.app_module.app.app_context():
+            athlete_id = Athlete.query.filter_by(slug="test-athlete").one().id
+            registration = RegistrationLink.query.one()
+            division = Division.query.one()
+            db.session.add_all(
+                [
+                    RegistrationLinkCompetitor(
+                        registration_link_id=registration.id,
+                        athlete_name="T. Athlete",
+                        team_name="Test Team",
+                        division_id=division.id,
+                    ),
+                    RegistrationLinkCompetitor(
+                        registration_link_id=registration.id,
+                        athlete_name="T. Unrelated",
+                        team_name="Test Team",
+                        division_id=division.id,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        resolution = mock.Mock(status="matched", athlete=mock.Mock(id=athlete_id))
+        with mock.patch(
+            "routes.athletes.resolve_identity", return_value=resolution
+        ) as resolve:
+            response = self.client.get(
+                "/api/athlete/test-athlete", query_string={"gi": "true"}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        resolved_names = [call.args[1] for call in resolve.call_args_list]
+        self.assertIn("Test Athlete", resolved_names)
+        self.assertIn("T. Athlete", resolved_names)
+        self.assertNotIn("T. Unrelated", resolved_names)
+
     def test_get_athlete_profile_not_found(self):
         response = self.client.get("/api/athlete/missing-athlete")
         self.assertEqual(response.status_code, 404)

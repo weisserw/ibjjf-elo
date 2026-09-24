@@ -269,6 +269,11 @@ rewrites generated SEO snippet files.
 
 Issues that have already surfaced in git history:
 
+- Profile registration lookup must discard abbreviated registrations whose
+  initial-and-surname key does not match the athlete before calling
+  `resolve_identity`. Filtering only by first initial caused hundreds of
+  unrelated registrations and thousands of history queries on some profiles.
+
 - `45a4aac` added slugs to the frontend and backend resolver. Keep UUID fallback
   working, but prefer slug links.
 - `ef79856` changed profile matches to use `athlete_id` instead of athlete name

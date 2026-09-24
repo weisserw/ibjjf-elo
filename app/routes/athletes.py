@@ -23,7 +23,7 @@ from models import (
     AthleteMediaCoverage,
 )
 from normalize import normalize
-from result_identity import abbreviated_name_key, resolve_identity
+from result_identity import abbreviated_name_key, initial_surname_key, resolve_identity
 from team_name_mapping import load_team_name_mappings, resolve_dupe_team_name
 from elo import (
     EloCompetitor,
@@ -454,17 +454,38 @@ def get_athlete_data(
         RegistrationLink.event_start_date,
         RegistrationLink.name,
     ).all()
+    athlete_initial_surname = athlete.normalized_initial_surname or initial_surname_key(
+        athlete.name
+    )
+    registrations = [
+        row
+        for row in registrations
+        if row.athlete_name == athlete.name
+        or abbreviated_name_key(row.athlete_name) == athlete_initial_surname
+    ]
     matched_registrations = []
+    resolution_cache = {}
     for row in registrations:
-        resolution = resolve_identity(
-            db.session,
+        resolution_key = (
             row.athlete_name,
-            gender=row.gender,
-            belt=row.belt,
-            age=row.age,
-            team=row.team_name,
-            when=row.event_start_date,
+            row.gender,
+            row.belt,
+            row.age,
+            row.team_name,
+            row.event_start_date,
         )
+        resolution = resolution_cache.get(resolution_key)
+        if resolution is None:
+            resolution = resolve_identity(
+                db.session,
+                row.athlete_name,
+                gender=row.gender,
+                belt=row.belt,
+                age=row.age,
+                team=row.team_name,
+                when=row.event_start_date,
+            )
+            resolution_cache[resolution_key] = resolution
         if resolution.status == "matched" and resolution.athlete.id == athlete.id:
             matched_registrations.append(row)
     registrations = matched_registrations
