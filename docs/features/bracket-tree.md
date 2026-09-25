@@ -227,9 +227,10 @@ OCR tests are not needed unless OCR/livestream text scan code changes.
 
 Git history shows several recurring risk areas:
 
-- Seed highlight outlines are drawn on the row's individual cells rather than
-  on the `<tr>`. WebKit, including Chrome on iOS, does not reliably paint an
-  inset `box-shadow` on a table row when the table uses collapsed borders.
+- Seed highlight outlines use borders on the row's individual cells rather
+  than a `box-shadow` on the `<tr>` or cells. WebKit, including Chrome on iOS,
+  does not reliably paint a row shadow with collapsed borders, while Android
+  Chrome can paint cell shadows as vertical seams between every column.
 - `23d08ff` on 2026-01-16, "allow scrolling past bracket tree":
   tree overflow/scroll behavior has broken before. Recheck scroll range after
   changing scaled wrapper dimensions or overflow CSS.
