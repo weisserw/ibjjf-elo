@@ -1877,6 +1877,43 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertIsNone(archive_lib.claim_next_segment(db.session))
 
+    def test_claim_next_segment_waits_five_minutes_after_success(self):
+        completed_archive, _ = archive_lib.get_or_create_archive(
+            db.session, "RecentlyDone"
+        )
+        queued_archive, _ = archive_lib.get_or_create_archive(
+            db.session, "QueueAfter01"
+        )
+        db.session.flush()
+        completed_segment = LivestreamFrameCaptureSegment(
+            archive_id=completed_archive.id,
+            start_second=0,
+            end_second=600,
+            status="success",
+            finished_at=datetime.utcnow() - timedelta(minutes=4),
+        )
+        db.session.add_all(
+            [
+                completed_segment,
+                LivestreamFrameCaptureSegment(
+                    archive_id=queued_archive.id,
+                    start_second=0,
+                    end_second=600,
+                    status="queued",
+                ),
+            ]
+        )
+        db.session.commit()
+
+        self.assertIsNone(archive_lib.claim_next_segment(db.session))
+
+        completed_segment.finished_at = datetime.utcnow() - timedelta(minutes=6)
+        db.session.commit()
+
+        claimed = archive_lib.claim_next_segment(db.session)
+        self.assertIsNotNone(claimed)
+        self.assertEqual(claimed.archive_id, queued_archive.id)
+
     def test_claim_next_segment_uses_queue_requested_order_before_created_at(self):
         first_archive, _ = archive_lib.get_or_create_archive(db.session, "QueueFirst1")
         second_archive, _ = archive_lib.get_or_create_archive(db.session, "QueueSecond")
@@ -1981,9 +2018,9 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
                         + timedelta(seconds=1),
                     )
                     for start_second, minutes_ago in (
-                        (600, 3),
-                        (1200, 2),
-                        (1800, 1),
+                        (600, 8),
+                        (1200, 7),
+                        (1800, 6),
                     )
                 ],
             ]
@@ -2028,8 +2065,8 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
                     end_second=1200,
                     status="success",
                     attempt_count=2,
-                    started_at=now - timedelta(minutes=1),
-                    finished_at=now - timedelta(minutes=1) + timedelta(seconds=1),
+                    started_at=now - timedelta(minutes=6),
+                    finished_at=now - timedelta(minutes=6) + timedelta(seconds=1),
                 ),
             ]
         )

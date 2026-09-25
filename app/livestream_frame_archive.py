@@ -33,6 +33,7 @@ ARCHIVE_STATUSES = (
 DEFAULT_ERROR_RETRY_BACKOFF_SECONDS = 300
 DEFAULT_MAX_ERROR_RETRY_BACKOFF_SECONDS = 600
 DEFAULT_FRESH_SEGMENTS_PER_ERROR_RETRY = 3
+SUCCESSFUL_SEGMENT_CLAIM_COOLDOWN_SECONDS = 5 * 60
 
 
 def error_retry_backoff_seconds(
@@ -453,6 +454,16 @@ def claim_next_segment(
         LivestreamFrameCaptureSegment.created_at,
     )
     now = datetime.utcnow()
+    recent_success_cutoff = now - timedelta(
+        seconds=SUCCESSFUL_SEGMENT_CLAIM_COOLDOWN_SECONDS
+    )
+    recent_success = LivestreamFrameCaptureSegment.query.filter(
+        LivestreamFrameCaptureSegment.status == "success",
+        LivestreamFrameCaptureSegment.finished_at > recent_success_cutoff,
+    ).first()
+    if recent_success is not None:
+        return None
+
     archives_with_errors = session.query(
         LivestreamFrameCaptureSegment.archive_id
     ).filter(LivestreamFrameCaptureSegment.status == "error")
