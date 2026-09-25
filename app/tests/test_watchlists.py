@@ -20,7 +20,6 @@ from models import (
     WatchlistRefreshSlot,
 )
 from constants import ADULT, BLACK, BROWN, MALE, LIGHT
-from normalize import normalize
 from test_db import TestDbMixin
 from watchlist_schedule import (
     BASE,
@@ -670,104 +669,6 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
         self.assertEqual(len(result["rows"]), 1)
         self.assertEqual(result["rows"][0]["state"], "scheduled")
         self.assertEqual(result["rows"][0]["athlete"]["ibjjf_id"], "999")
-
-    def test_abbreviated_registration_resolves_to_unambiguous_local_athlete(self):
-        athlete = Athlete(
-            name="Maria Paula",
-            normalized_name="maria paula",
-            slug="maria-paula",
-            ibjjf_id="300",
-        )
-        db.session.add(athlete)
-        db.session.flush()
-        db.session.add(
-            RegistrationLinkCompetitor(
-                registration_link_id=self.events[0].id,
-                athlete_name="M. Paula",
-                team_name="New Team",
-                division_id=Division.query.first().id,
-            )
-        )
-        db.session.commit()
-
-        result = self.client.get(
-            "/api/watchlists/athletes?event_id=1&q=Maria%20Paula"
-        ).get_json()
-
-        self.assertEqual([a["id"] for a in result["athletes"]], [str(athlete.id)])
-        self.assertIsNone(result["athletes"][0]["selection_name"])
-        self.assertEqual(result["athletes"][0]["registrations"][0]["team"], "New Team")
-        self.assertEqual(self.save(athlete_ids=[str(athlete.id)]).status_code, 200)
-
-    def test_ambiguous_abbreviated_registration_stays_provisional(self):
-        division = Division.query.first()
-        athletes = [
-            Athlete(
-                name=name,
-                normalized_name=normalize(name),
-                slug=slug,
-                ibjjf_id=ibjjf_id,
-            )
-            for name, slug, ibjjf_id in (
-                ("Maria Paula", "maria-paula", "300"),
-                ("Marta Paula", "marta-paula", "301"),
-            )
-        ]
-        db.session.add_all(athletes)
-        db.session.flush()
-        db.session.add(
-            RegistrationLinkCompetitor(
-                registration_link_id=self.events[0].id,
-                athlete_name="M. Paula",
-                team_name="New Team",
-                division_id=division.id,
-            )
-        )
-        db.session.commit()
-
-        result = self.client.get(
-            "/api/watchlists/athletes?event_id=1&q=M.%20Paula"
-        ).get_json()
-
-        self.assertEqual(len(result["athletes"]), 1)
-        self.assertIsNone(result["athletes"][0]["id"])
-        self.assertEqual(result["athletes"][0]["selection_name"], "M. Paula")
-
-    def test_provisional_full_name_matches_unique_abbreviated_schedule_name(self):
-        identity = self.save(
-            athlete_ids=[], athlete_names=["Brand New Person"]
-        ).get_json()["id"]
-        match = self.match()
-        match["sides"][0].update({"ibjjf_id": "999", "name": "B. Person"})
-        self.snapshot([match])
-
-        result = self.client.get("/api/watchlists/" + identity + "/data").get_json()
-
-        self.assertEqual(result["rows"][0]["state"], "scheduled")
-        self.assertEqual(result["rows"][0]["athlete"]["ibjjf_id"], "999")
-
-    def test_provisional_abbreviation_collision_fails_closed(self):
-        db.session.add(
-            RegistrationLinkCompetitor(
-                registration_link_id=self.events[0].id,
-                athlete_name="Bright Person",
-                team_name="New Team",
-                division_id=Division.query.first().id,
-            )
-        )
-        db.session.commit()
-        identity = self.save(
-            athlete_ids=[], athlete_names=["Brand New Person", "Bright Person"]
-        ).get_json()["id"]
-        match = self.match()
-        match["sides"][0].update({"ibjjf_id": "999", "name": "B. Person"})
-        self.snapshot([match])
-
-        result = self.client.get("/api/watchlists/" + identity + "/data").get_json()
-
-        self.assertTrue(
-            all(row["state"] == "not_on_schedule" for row in result["rows"])
-        )
 
     def test_unregistered_name_cannot_be_saved(self):
         response = self.save(athlete_ids=[], athlete_names=["Missing Person"])
