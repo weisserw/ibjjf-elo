@@ -2,18 +2,20 @@ import json
 import os
 import boto3
 import requests
-import re
 from botocore.config import Config
 from uuid import UUID
 from bs4 import BeautifulSoup
 import logging
 import io
 from datetime import datetime, timezone
+from urllib.parse import urlparse
+
 from PIL import Image, ImageOps, UnidentifiedImageError
 from models import Athlete
-from normalize import normalize
 
 log = logging.getLogger("ibjjf")
+
+INSTAGRAM_REQUEST_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 
 def convert_image_to_jpeg(image_bytes: bytes, quality: int = 90) -> bytes:
@@ -62,41 +64,44 @@ if os.getenv("DATABASE_URL") is None:
 
 def get_instagram_profile_photo_url(instagram_username):
     url = f"https://www.instagram.com/{instagram_username}/"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=INSTAGRAM_REQUEST_HEADERS)
     if response.status_code != 200:
         raise Exception("Failed to fetch Instagram profile page")
     soup = BeautifulSoup(response.text, "html.parser")
+    profile_meta_tag = soup.find("meta", property="og:url")
+    profile_url = profile_meta_tag.get("content") if profile_meta_tag else None
+    parsed_profile_url = urlparse(profile_url or "")
+    if (
+        parsed_profile_url.hostname not in ("instagram.com", "www.instagram.com")
+        or parsed_profile_url.path.strip("/").lower()
+        != instagram_username.strip("@").lower()
+    ):
+        raise Exception(f"Instagram did not return profile metadata for {url}")
+
     meta_tag = soup.find("meta", property="og:image")
 
-    image_url = None
-    name = None
-    if meta_tag:
-        image_url = meta_tag["content"]
+    image_url = meta_tag.get("content") if meta_tag else None
 
     if not image_url:
         raise Exception(f"Profile photo not found at {url}")
 
-    meta_tag = soup.find("meta", property="og:title")
-    if meta_tag:
-        name_match = re.search(r"^(.+) \(", meta_tag["content"])
-        if name_match:
-            name = name_match.group(1)
-    if not name:
-        print(
-            f"Warning: Could not extract name from Instagram profile {instagram_username}"
-        )
+    image_hostname = (urlparse(image_url).hostname or "").lower()
+    if not (
+        image_hostname.startswith("scontent-")
+        and image_hostname.endswith(".cdninstagram.com")
+    ):
+        raise Exception(f"Instagram returned a non-profile image for {url}")
 
-    return image_url, name
+    return image_url
 
 
 def save_instagram_profile_photo_to_s3(
-    s3_client, athlete: Athlete, save_photo: bool = True, save_name: bool = False
+    s3_client, athlete: Athlete, save_photo: bool = True
 ):
-    photo_url, ig_name = get_instagram_profile_photo_url(athlete.instagram_profile)
+    photo_url = get_instagram_profile_photo_url(athlete.instagram_profile)
 
     if save_photo:
-        response = requests.get(photo_url)
+        response = requests.get(photo_url, headers=INSTAGRAM_REQUEST_HEADERS)
         if response.status_code != 200:
             raise Exception("Failed to download profile photo")
         content_type = (
@@ -113,13 +118,6 @@ def save_instagram_profile_photo_to_s3(
             content_type=content_type,
             validate_image_bytes=False,
         )
-
-    if save_name and not athlete.personal_name:
-        athlete.personal_name = ig_name
-        athlete.normalized_personal_name = (
-            None if ig_name is None else normalize(ig_name)
-        )
-        log.info(f"Athlete {athlete.name}: Instagram personal name saved: {ig_name}")
 
 
 def detect_image_content_type(photo_bytes: bytes):
