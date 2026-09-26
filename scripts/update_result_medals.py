@@ -128,6 +128,22 @@ def _changed_new_names(old_rows, new_rows):
     return changed
 
 
+def _was_dismissed(session, slot_key, old_name, new_name, change_type):
+    """Dismissals apply to the same event slot/change across future snapshots."""
+    return (
+        session.query(ResultRenameObservation.id)
+        .filter_by(
+            status="dismissed",
+            slot_key=slot_key,
+            old_name=old_name,
+            new_name=new_name,
+            change_type=change_type,
+        )
+        .first()
+        is not None
+    )
+
+
 def reconcile_event(session, rows, snapshot):
     """Promote one successfully parsed, non-empty event atomically."""
     if not rows:
@@ -155,6 +171,8 @@ def reconcile_event(session, rows, snapshot):
                 continue
             before = "; ".join(r["athlete_name"] for r in change.old)
             after = "; ".join(r["athlete_name"] for r in change.new)
+            if _was_dismissed(session, change.slot_key, before, after, "uncertain"):
+                continue
             session.add(
                 ResultRenameObservation(
                     snapshot_id=snapshot.id,
@@ -207,6 +225,10 @@ def reconcile_event(session, rows, snapshot):
                 # is a display/privacy change, not canonical rename evidence.
                 continue
             athlete = _uniquely_named_athlete(session, old_name)
+            if _was_dismissed(
+                session, change.slot_key, old_name, medal.athlete_name, "renamed"
+            ):
+                continue
             existing_observation = (
                 session.query(ResultRenameObservation.id)
                 .filter(

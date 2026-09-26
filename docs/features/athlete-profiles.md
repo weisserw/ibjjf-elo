@@ -59,10 +59,17 @@ Admin:
   - `/athlete_medals`, `/update_all_medals`,
     `/athlete_medals/find_missing`, and
     `/athlete_medals/import_candidates` support medal review/import workflows.
-  - `/result_name_changes` lists pending and applied result-snapshot rename
+  - `/result_name_changes` lists pending, applied, and dismissed result-snapshot rename
     observations. Admins can bulk-select unambiguous rows and apply them to the
     canonical athlete name, or supply an athlete UUID to resolve an ambiguous
     identity manually; the POST route revalidates every selection.
+    All pending rows, including crowded-slot review rows, can be selected for
+    dismissal without changing athletes or medals (for example, disqualification
+    reallocations or an abbreviated minor name becoming a full name at adulthood).
+    Dismissed evidence remains in the Dismissed tab and suppresses the same
+    old/new names and change type in the same result slot on future snapshots;
+    unrelated slots and different changes remain eligible for review.
+    Clear deselects all rows, including manually selected review rows.
 - `admin/templates/athlete*.html` renders the athlete search/edit/matches/medals
   and media coverage admin pages.
 - `scripts/get_all_photos.py` finds athletes with `instagram_profile` but no

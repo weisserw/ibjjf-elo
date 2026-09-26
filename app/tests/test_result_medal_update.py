@@ -241,6 +241,80 @@ class ResultMedalUpdateTestCase(TestDbMixin, unittest.TestCase):
             )
             self.assertEqual(observation.athlete_id, athlete.id)
 
+    def test_dismissed_changes_stay_dismissed_across_snapshots(self):
+        import update_result_medals
+
+        with self.app_module.app.app_context():
+            for old_names, new_names in [
+                (["Q. Teruel"], ["Quentin Joseph Linay Teruel"]),
+                (["Old A", "Old B"], ["New A", "New B"]),
+            ]:
+                with self.subTest(old_names=old_names):
+                    shared = {
+                        "event_name": "Dismissal Test",
+                        "event_ibjjf_id": uuid.uuid4().hex,
+                        "division": "BLACK / Adult / Male / Feather",
+                        "team_name": "Team",
+                        "place": 3,
+                        "source": "ibjjf",
+                        "event_url": "https://example.com",
+                    }
+                    medals = [
+                        ResultMedal(
+                            id=uuid.uuid4(),
+                            athlete_name=name,
+                            scraped_at=datetime(2026, 5, 27, 12),
+                            **shared,
+                        )
+                        for name in old_names
+                    ]
+                    db.session.add_all(medals)
+                    snapshot = ResultSnapshot(status="candidate", stats={})
+                    db.session.add(snapshot)
+                    db.session.commit()
+                    rows = [
+                        {
+                            **shared,
+                            "id": str(uuid.uuid4()),
+                            "athlete_name": name,
+                            "scraped_at": "2026-05-28T12:00:00",
+                        }
+                        for name in new_names
+                    ]
+                    update_result_medals.reconcile_event(db.session, rows, snapshot)
+                    observation = ResultRenameObservation.query.filter_by(
+                        snapshot_id=snapshot.id
+                    ).one()
+                    observation.status = "dismissed"
+                    # Replay the old source state, including a unique-slot rename.
+                    for medal, name in zip(medals, old_names):
+                        medal.athlete_name = name
+                    next_snapshot = ResultSnapshot(status="candidate", stats={})
+                    db.session.add(next_snapshot)
+                    db.session.commit()
+                    update_result_medals.reconcile_event(
+                        db.session, rows, next_snapshot
+                    )
+                    self.assertEqual(
+                        ResultRenameObservation.query.filter_by(
+                            snapshot_id=next_snapshot.id
+                        ).count(),
+                        0,
+                    )
+                    self.assertEqual(observation.status, "dismissed")
+                    # A different change in the same slot must still be reviewed.
+                    rows[0]["athlete_name"] = "Different Athlete"
+                    update_result_medals.reconcile_event(
+                        db.session, rows, next_snapshot
+                    )
+                    self.assertEqual(
+                        ResultRenameObservation.query.filter_by(
+                            snapshot_id=next_snapshot.id, status="pending"
+                        ).count(),
+                        1,
+                    )
+                    db.session.commit()
+
     def test_reconcile_minor_abbreviation_does_not_create_rename_observation(self):
         import update_result_medals
 

@@ -4582,7 +4582,7 @@ def _visible_result_rename_observations(status, newest_first=False):
 @app.route("/result_name_changes", methods=["GET"])
 def result_name_changes():
     selected_status = request.args.get("status", "pending")
-    if selected_status not in {"pending", "applied"}:
+    if selected_status not in {"pending", "applied", "dismissed"}:
         selected_status = "pending"
     observations = _visible_result_rename_observations(
         selected_status, newest_first=True
@@ -4603,7 +4603,7 @@ def result_name_changes():
     flash_message = session.pop("result_name_changes_flash", None)
     counts = {
         status: len(_visible_result_rename_observations(status))
-        for status in ("pending", "applied")
+        for status in ("pending", "applied", "dismissed")
     }
     return render_template(
         "result_name_changes.html",
@@ -4612,6 +4612,31 @@ def result_name_changes():
         counts=counts,
         flash_message=flash_message,
     )
+
+
+@app.route("/result_name_changes/dismiss", methods=["POST"])
+def result_name_changes_dismiss():
+    dismissed = 0
+    skipped = 0
+    for raw_id in set(request.form.getlist("observation_id")):
+        try:
+            observation_id = uuid.UUID(raw_id)
+        except (ValueError, TypeError):
+            skipped += 1
+            continue
+        observation = db.session.get(ResultRenameObservation, observation_id)
+        if observation is None or observation.status != "pending":
+            skipped += 1
+            continue
+        # Retain evidence so subsequent snapshots can suppress this same change.
+        observation.status = "dismissed"
+        dismissed += 1
+    db.session.commit()
+    message = f"Dismissed {dismissed} observation(s)"
+    if skipped:
+        message += f"; skipped {skipped} invalid or no-longer-pending selection(s)"
+    session["result_name_changes_flash"] = message
+    return redirect(url_for("result_name_changes", status="pending"))
 
 
 @app.route("/result_name_changes/apply", methods=["POST"])

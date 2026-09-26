@@ -23,6 +23,9 @@
                 <li class="{% if selected_status == 'applied' %}is-active{% endif %}">
                     <a href="{{ url_for('result_name_changes', status='applied') }}">Applied ({{ counts.applied }})</a>
                 </li>
+                <li class="{% if selected_status == 'dismissed' %}is-active{% endif %}">
+                    <a href="{{ url_for('result_name_changes', status='dismissed') }}">Dismissed ({{ counts.dismissed }})</a>
+                </li>
             </ul>
         </div>
 
@@ -33,15 +36,18 @@
                 {% if selected_status == 'pending' %}
                 <div class="buttons">
                     <button class="button is-link" type="submit">Apply selected</button>
+                    <button class="button is-warning is-light" type="submit"
+                            formaction="{{ url_for('result_name_changes_dismiss') }}">Dismiss selected</button>
                     <button class="button is-light" type="button"
                             onclick="document.querySelectorAll('input.rename-ready').forEach(c => c.checked = true)">
                         Select all unambiguous
                     </button>
                     <button class="button is-light" type="button"
-                            onclick="document.querySelectorAll('input.rename-ready').forEach(c => c.checked = false)">
+                            onclick="document.querySelectorAll('input[name=observation_id]').forEach(c => c.checked = false)">
                         Clear
                     </button>
                 </div>
+                <p class="help mb-4">Dismiss changes that are not renames, such as medal reallocations or an abbreviated name becoming a full name. Dismissal preserves the record without changing athletes or medals.</p>
                 {% endif %}
                 <div class="table-container">
                     <table class="table is-fullwidth is-striped is-hoverable">
@@ -52,8 +58,8 @@
                                 <td>
                                     {% if row.checkable %}
                                     <input class="rename-ready" type="checkbox" name="observation_id" value="{{ row.observation.id }}">
-                                    {% elif selected_status == 'pending' and row.observation.change_type == 'renamed' %}
-                                    <input type="checkbox" name="observation_id" value="{{ row.observation.id }}" title="Use the athlete UUID override">
+                                    {% elif selected_status == 'pending' %}
+                                    <input type="checkbox" name="observation_id" value="{{ row.observation.id }}" title="Select for dismissal or manual rename review">
                                     {% endif %}
                                 </td>
                                 <td><strong>{{ row.observation.old_name or '—' }}</strong><br>→ {{ row.observation.new_name or '—' }}</td>
@@ -73,6 +79,8 @@
                                     {% if selected_status == 'applied' %}
                                         <span class="tag is-success">Applied</span>
                                         {% if row.observation.applied_at %}<br><small>{{ row.observation.applied_at.strftime('%Y-%m-%d %H:%M') }}</small>{% endif %}
+                                    {% elif selected_status == 'dismissed' %}
+                                        <span class="tag is-light">Dismissed</span>
                                     {% elif row.state == 'ready' %}
                                         <span class="tag is-success is-light">Unambiguous</span>
                                     {% elif row.state == 'already_applied' %}
@@ -80,7 +88,7 @@
                                     {% else %}
                                         <span class="tag is-warning is-light">Review</span>
                                     {% endif %}
-                                    <br><small>{{ row.reason }}</small>
+                                    {% if selected_status != 'dismissed' %}<br><small>{{ row.reason }}</small>{% endif %}
                                 </td>
                             </tr>
                         {% endfor %}

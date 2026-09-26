@@ -223,6 +223,51 @@ class AdminAthleteEditTestCase(unittest.TestCase):
             self.athlete_id,
         )
 
+    def test_dismiss_review_and_adulthood_changes_without_renaming(self):
+        review = self._rename_observation("Old A; Old B", "New A; New B")
+        review.change_type = "uncertain"
+        adulthood = self._rename_observation(
+            "Q. Teruel", "Quentin Joseph Linay Teruel", self.athlete
+        )
+        db.session.commit()
+        page = self.client.get("/result_name_changes")
+        self.assertIn(f'name="observation_id" value="{review.id}"'.encode(), page.data)
+        response = self.client.post(
+            "/result_name_changes/dismiss",
+            data={"observation_id": [str(review.id), str(adulthood.id)]},
+            follow_redirects=True,
+        )
+        self.assertIn(b"Dismissed 2 observation(s)", response.data)
+        self.assertIn(b"Pending (0)", response.data)
+        self.assertEqual(self._reload_athlete(), ("Original Name", "original name"))
+        for observation in (review, adulthood):
+            self.assertEqual(observation.status, "dismissed")
+            self.assertIsNone(observation.applied_at)
+        page = self.client.get("/result_name_changes?status=dismissed")
+        self.assertIn(b"Quentin Joseph Linay Teruel", page.data)
+        self.assertIn(b"Old A; Old B", page.data)
+        self.client.post(
+            "/result_name_changes/apply",
+            data={"observation_id": str(adulthood.id)},
+        )
+        self.assertEqual(self._reload_athlete(), ("Original Name", "original name"))
+        self.assertEqual(adulthood.status, "dismissed")
+
+    def test_dismiss_skips_invalid_missing_and_applied_selections(self):
+        observation = self._rename_observation("Original Name", "New Name")
+        observation.status = "applied"
+        db.session.commit()
+        response = self.client.post(
+            "/result_name_changes/dismiss",
+            data={
+                "observation_id": ["invalid", str(uuid.uuid4()), str(observation.id)]
+            },
+            follow_redirects=True,
+        )
+        self.assertIn(b"Dismissed 0 observation(s); skipped 3", response.data)
+        db.session.refresh(observation)
+        self.assertEqual(observation.status, "applied")
+
     def test_result_name_report_hides_existing_minor_abbreviations(self):
         observation = self._rename_observation(
             "Eduardo Cancela Cruz", "E. Cruz", self.athlete
