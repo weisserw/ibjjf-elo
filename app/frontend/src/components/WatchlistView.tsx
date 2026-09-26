@@ -4,7 +4,8 @@ import { Tooltip } from 'react-tooltip'
 import { useAppContext } from '../AppContext'
 import { t, translateMulti } from '../translate'
 import { errorText, localDate, WatchData, WatchError, watchRequest, watchStatus } from './WatchlistShared'
-import { WatchName, WatchRating, watchOpponentName, watchTime, watchDay, watchDayGroups, watchCountdown, watchMatchUrgency } from './WatchlistParts'
+import { WatchName, WatchRating, watchOpponentName, watchTime, watchDay, watchDayGroups, watchCountdown } from './WatchlistParts'
+import { watchMatchOverdue, watchMatchUrgency } from './WatchlistTiming'
 import './Watchlists.css'
 import youtubeLogo from '/src/assets/youtube.png'
 import floLogo from '/src/assets/flo.png'
@@ -32,6 +33,8 @@ export default function WatchlistView() {
   const [pulseBright, setPulseBright] = useState(false)
   const [retry, setRetry] = useState(0)
   const groups = useMemo(() => watchDayGroups(data?.rows || []), [data])
+  const firstMatch = groups[0]?.[1][0]?.match
+  const suppressUrgency = Boolean(firstMatch && watchMatchOverdue(firstMatch.local_date, firstMatch.local_time, now))
   const initializing = Boolean(data && data.tournaments.every(tournament => !tournament.fetched_at))
   const fetchedAt = data?.tournaments.reduce<string | null>((latest, tournament) => {
     if (!tournament.fetched_at) return latest
@@ -108,7 +111,7 @@ export default function WatchlistView() {
       {groups.map(([date, rows]) => <section className="watch-day" key={date || 'unscheduled'}>
       {date && <h2 className="title is-5 mb-3">{watchDay(date)}</h2>}
       <div className="watch-cards">
-        {rows.map(row => <article key={row.athlete.id || `name:${row.athlete.selection_name}`} className={`watch-card ${row.state === 'not_on_schedule' ? 'watch-gray' : ''} ${row.match ? watchMatchUrgency(row.match.local_date, row.match.local_time, now) : ''} ${pulseBright ? 'watch-pulse-bright' : ''}`}>
+        {rows.map(row => <article key={row.athlete.id || `name:${row.athlete.selection_name}`} className={`watch-card ${row.state === 'not_on_schedule' ? 'watch-gray' : ''} ${row.match ? watchMatchUrgency(row.match.local_date, row.match.local_time, now, suppressUrgency) : ''} ${pulseBright ? 'watch-pulse-bright' : ''}`}>
           <h3>
             <WatchName name={row.athlete.name} profile_url={row.athlete.profile_url} />
             {row.match && <> <WatchRating side={row.competitor} />{' vs'}{watchOpponentName(row.opponent) === t('TBD') ? ' ' : <br />}

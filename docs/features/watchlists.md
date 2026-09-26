@@ -63,7 +63,12 @@ Schedule parsing accepts both 12-hour clocks with am/pm and 24-hour clocks from
 the source.
 Cards pulse with a warm yellow outline during the 25 minutes before their local
 clock time, switching to red for the final 10 minutes and remaining red after the
-listed time passes. All cards share one pulse phase so their outlines stay in
+listed time passes, through exactly 30 minutes late. More than 30 minutes late
+disables the highlight, since tournament timezones are not yet stored and the
+viewer may be ahead of the tournament clock. If the first displayed match is
+more than 30 minutes late, red and yellow highlights are suppressed across the
+entire watchlist, including other tournaments and date groups. This is
+recalculated as the clock advances and schedules refresh. All cards share one pulse phase so their outlines stay in
 sync. Reduced-motion users see the same urgency colors as steady outlines.
 
 Card headings combine athlete and opponent names, parenthesized division-based
@@ -141,7 +146,7 @@ until the source removes them; card colors do not establish match completion.
 - `app/models.py` and migration `9d3f5a7b1c20`: selections, shared snapshots,
   refresh slots, registration readiness marker and eligibility-join indexes.
 - `app/frontend/src/components/WatchlistEditor.tsx`, `WatchlistView.tsx`,
-  `WatchlistShared.ts`, `WatchlistParts.tsx`, `Watchlists.css`: mobile editor/view,
+  `WatchlistShared.ts`, `WatchlistParts.tsx`, `WatchlistTiming.ts`, `Watchlists.css`: mobile editor/view,
   typed API handling, polling, cards and shared provisional rendering.
 - `app/routes/brackets.py`: `get_ratings(..., strict_ids=True)` retains existing
   callers' default identity policy. `save_competitors` records successful imports,
@@ -253,6 +258,8 @@ arguments/lifetime must be checked in the hosting environment.
 Run `make test` from the root in the repository Python environment. No OCR tests
 or SEO-generating frontend build are needed. Focused tests:
 
+- `node --test app/frontend/scripts/watchlist-timing.test.mjs`: urgency thresholds,
+  overdue first-match suppression, refresh recovery, unknown times and midnight.
 - `app/tests/test_watchlists.py`: source parsing, anonymized source-shaped fixture,
   UUID and registration-only name identity/search, canonical saves, expiry,
   ratings, reduction, coverage states,
