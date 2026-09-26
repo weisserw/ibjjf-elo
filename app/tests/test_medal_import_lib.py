@@ -4,6 +4,7 @@ import unittest
 import uuid
 from datetime import datetime
 from unittest import mock
+from sqlalchemy import event as sqlalchemy_event
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.insert(
@@ -1004,6 +1005,55 @@ class LibDbTestCase(TestDbMixin, unittest.TestCase):
                 lib.create_medals_only_event(db.session, "Tournament With No Year")
 
     # ---- find_events_with_matches_in_range ----
+
+    def test_scan_batches_abbreviated_results_across_distinct_names(self):
+        with self.app_module.app.app_context():
+            athletes = [
+                Athlete(
+                    name=f"John Scanname{index}",
+                    normalized_name=f"john scanname{index}",
+                    slug=f"john-scanname-{index}",
+                )
+                for index in range(30)
+            ]
+            db.session.add_all(athletes)
+            db.session.commit()
+            ids = {athlete.id for athlete in athletes}
+            event = db.session.query(Event).filter_by(ibjjf_id="EVT_BRACKET").one()
+            rows = [
+                ResultMedal(
+                    athlete_name=f"J. Scanname{index}",
+                    division="PURPLE / Adult / Male / Light",
+                    team_name="Test Team",
+                    place=1,
+                )
+                for index in range(30)
+            ]
+            queries = []
+
+            def capture(_conn, _cursor, statement, _parameters, _context, _many):
+                queries.append(statement)
+
+            sqlalchemy_event.listen(db.engine, "before_cursor_execute", capture)
+            try:
+                with mock.patch.object(
+                    lib, "find_result_medals_for_event", return_value=rows
+                ):
+                    entries = lib.scan_event_for_missing_medals(db.session, event)
+                self.assertEqual(len(entries), 30)
+                self.assertEqual({entry["status"] for entry in entries}, {"matched"})
+                self.assertEqual(
+                    {entry["matched_athlete"].id for entry in entries}, ids
+                )
+                # Includes the event/division/medal lookups. The old per-row
+                # resolver used 150 queries just for these 30 unique names.
+                self.assertLessEqual(len(queries), 20)
+            finally:
+                sqlalchemy_event.remove(db.engine, "before_cursor_execute", capture)
+                db.session.query(Athlete).filter(Athlete.id.in_(ids)).delete(
+                    synchronize_session=False
+                )
+                db.session.commit()
 
     def test_scan_resolves_gi_division_for_gi_event(self):
         # Regression: bracket_event is a gi event (no "no gi" in the name) and the

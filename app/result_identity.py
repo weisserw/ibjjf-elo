@@ -208,6 +208,66 @@ def _bulk_histories(session, candidates, when):
     return result
 
 
+class AbbreviatedIdentityResolver:
+    """Read-only, event-scoped lookup that shares candidate history across rows.
+
+    Construct a new resolver for each event date; do not reuse it after writes.
+    Candidate discovery remains global so event-local evidence cannot hide a
+    same-name collision. Chunk reads to keep database parameter lists bounded.
+    """
+
+    def __init__(self, session, names, when):
+        self.session = session
+        self.when = when
+        self.by_key = {}
+        self.histories = {}
+        self.team_mappings = None
+        keys = sorted({key for name in names if (key := abbreviated_name_key(name))})
+        for offset in range(0, len(keys), 500):
+            candidates = (
+                session.query(Athlete)
+                .filter(
+                    Athlete.normalized_initial_surname.in_(keys[offset : offset + 500])
+                )
+                .order_by(Athlete.id)
+                .all()
+            )
+            for athlete in candidates:
+                self.by_key.setdefault(athlete.normalized_initial_surname, []).append(
+                    athlete
+                )
+            for start in range(0, len(candidates), 500):
+                self.histories.update(
+                    _bulk_histories(session, candidates[start : start + 500], when)
+                )
+
+    def resolve(self, name, *, gender=None, belt=None, age=None, team=None):
+        key = abbreviated_name_key(name)
+        if not key:
+            raise ValueError("An abbreviated result name is required")
+        surname = _abbreviated_surname(name)
+        candidates = [
+            athlete
+            for athlete in self.by_key.get(key, ())
+            if normalize(athlete.name).endswith(" " + surname)
+        ]
+        if len(candidates) > 1 and team and self.when and self.team_mappings is None:
+            self.team_mappings = self.session.query(
+                TeamNameMapping.name_match, TeamNameMapping.mapped_name
+            ).all()
+        return _resolve_candidates(
+            self.session,
+            candidates,
+            gender=gender,
+            belt=belt,
+            age=age,
+            team=team,
+            when=self.when,
+            bulk=self.histories,
+            team_mappings=self.team_mappings,
+        )
+
+
 def resolve_identity(
     session,
     name,
@@ -255,10 +315,28 @@ def resolve_identity(
             .order_by(Athlete.id)
             .all()
         )
+    return _resolve_candidates(
+        session, candidates, gender=gender, belt=belt, age=age, team=team, when=when
+    )
+
+
+def _resolve_candidates(
+    session,
+    candidates,
+    *,
+    gender,
+    belt,
+    age,
+    team,
+    when,
+    bulk=None,
+    team_mappings=None,
+):
     if not candidates:
         return IdentityResolution("unmatched", evidence=("no_name_candidate",))
     viable, histories = [], {}
-    bulk = _bulk_histories(session, candidates, when) if len(candidates) > 8 else None
+    if bulk is None and len(candidates) > 8:
+        bulk = _bulk_histories(session, candidates, when)
     for athlete in candidates:
         known_genders, known_ages, known_ranks, teams = (
             bulk[athlete.id]
@@ -284,9 +362,11 @@ def resolve_identity(
             "matched", viable[0], tuple(viable), ("unique_compatible",)
         )
     if len(viable) > 1 and team and when:
-        mappings = session.query(
-            TeamNameMapping.name_match, TeamNameMapping.mapped_name
-        ).all()
+        mappings = team_mappings
+        if mappings is None:
+            mappings = session.query(
+                TeamNameMapping.name_match, TeamNameMapping.mapped_name
+            ).all()
 
         def canonical_team(raw_name):
             raw_key = normalize(raw_name)

@@ -28,9 +28,9 @@ from models import (  # noqa: E402
 )
 from normalize import normalize  # noqa: E402
 from result_identity import (  # noqa: E402
+    AbbreviatedIdentityResolver,
     abbreviated_name_key,
     initial_surname_key,
-    resolve_identity,
 )
 from constants import (  # noqa: E402
     ADULT,
@@ -1237,6 +1237,7 @@ def scan_event_for_missing_medals(
             return False
         return True
 
+    abbreviated_resolver = None
     for rm in raw_medals:
         if not is_matchable_result_division(rm.division):
             continue
@@ -1277,14 +1278,22 @@ def scan_event_for_missing_medals(
                 for athlete in applied_rename_hits
             ]
         elif abbreviated_name_key(rm.athlete_name):
-            resolution = resolve_identity(
-                session,
+            if abbreviated_resolver is None:
+                abbreviated_resolver = AbbreviatedIdentityResolver(
+                    session,
+                    [
+                        row.athlete_name
+                        for row in raw_medals
+                        if is_matchable_result_division(row.division)
+                    ],
+                    identity_when,
+                )
+            resolution = abbreviated_resolver.resolve(
                 rm.athlete_name,
                 gender=division.gender,
                 belt=division.belt,
                 age=division.age,
                 team=rm.team_name,
-                when=identity_when,
             )
             if resolution.status == "matched":
                 matched_athlete = resolution.athlete

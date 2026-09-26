@@ -314,6 +314,14 @@ Issues that have already surfaced in git history:
 - Juvenile result rows can enter automatic and admin medal matching. An
   abbreviated source name must resolve uniquely through the shared resolver;
   otherwise it remains unassigned.
+- Missing-medal event scans batch abbreviated-name candidates and their four
+  history sources through `result_identity.AbbreviatedIdentityResolver`.
+  Previously each result row repeated candidate/history queries, making even
+  short admin scan windows expensive. The resolver is read-only and scoped to
+  one event date; candidates remain global, with unchanged gender, belt, age,
+  and team disambiguation. Do not reuse it across dates or after identity writes.
+  Query-count regressions live in `test_result_identity.py` and
+  `test_medal_import_lib.py`.
 - Result-page URLs on `ibjjfdb.com` can redirect to `ibjjf.com` category/table
   markup. `get_medals.parse_result_page()` must select the parser from returned
   HTML, not the requested URL host; unrecognized markup is a scrape failure.
