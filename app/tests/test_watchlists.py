@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone, date
 from pathlib import Path
 from unittest.mock import patch
 
+from sqlalchemy import event as sqlalchemy_event
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from extensions import db
@@ -31,7 +33,7 @@ from watchlist_schedule import (
     source_url,
 )
 from watchlist_refresh import claim, finish, renew, utc, trigger
-from watchlists import purge
+from watchlists import purge, provisional_schedule_matches
 
 FIXTURES = Path(__file__).parent / "fixtures" / "watchlists"
 
@@ -669,6 +671,191 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
         self.assertEqual(len(result["rows"]), 1)
         self.assertEqual(result["rows"][0]["state"], "scheduled")
         self.assertEqual(result["rows"][0]["athlete"]["ibjjf_id"], "999")
+
+    def test_full_registration_matches_abbreviated_schedule(self):
+        identity = self.save(athlete_names=["Brand New Person"]).get_json()["id"]
+        early = self.match(time="09:00")
+        early["sides"][0].update(ibjjf_id="999", name="B. Person")
+        later = self.match(time="10:00", fight=2)
+        later["sides"][0].update(ibjjf_id="999", name="Brand New Person")
+        self.snapshot([later, early])
+
+        result = self.client.get(f"/api/watchlists/{identity}/data").get_json()
+
+        row = result["rows"][0]
+        self.assertEqual(row["state"], "scheduled")
+        self.assertEqual(row["athlete"]["ibjjf_id"], "999")
+        self.assertEqual(row["athlete"]["selection_name"], "Brand New Person")
+        self.assertEqual(row["match"]["local_time"], "09:00")
+
+    def test_abbreviated_minor_search_save_edit_and_schedule(self):
+        division = Division(
+            gi=True, gender=MALE, age="Teen 1", belt="YELLOW", weight=LIGHT
+        )
+        db.session.add(division)
+        db.session.flush()
+        db.session.add(
+            RegistrationLinkCompetitor(
+                registration_link_id=self.events[0].id,
+                athlete_name="B. Person",
+                team_name="New Team",
+                division_id=division.id,
+            )
+        )
+        db.session.commit()
+        for mode, query in (("all", "B. Person"), ("team_exact", "New Team")):
+            result = self.client.get(
+                "/api/watchlists/athletes",
+                query_string={
+                    "event_id": "1",
+                    "q": query,
+                    "mode": mode,
+                },
+            ).get_json()
+            athlete = next(
+                a for a in result["athletes"] if a["selection_name"] == "B. Person"
+            )
+            self.assertIsNone(athlete["id"])
+        identity = self.save(athlete_names=["B. Person"]).get_json()["id"]
+        edited = self.client.get(
+            "/api/watchlists/athletes",
+            query_string={
+                "event_id": "1",
+                "q": "",
+                "selected_name": "B. Person",
+            },
+        ).get_json()
+        self.assertEqual(edited["eligible_selected_names"], ["B. Person"])
+        match = self.match(division="YELLOW / Teen 1 / Male / Light")
+        match["sides"][0].update(ibjjf_id="999", name="Brand New Person")
+        self.snapshot([match])
+        result = self.client.get(f"/api/watchlists/{identity}/data").get_json()
+        row = result["rows"][0]
+        self.assertEqual(row["state"], "scheduled")
+        self.assertEqual(row["athlete"]["selection_name"], "B. Person")
+        self.assertEqual(row["athlete"]["ibjjf_id"], "999")
+        self.assertIsNone(row["competitor"]["rating"])
+
+    def test_abbreviation_collisions_fail_closed(self):
+        match = self.match()
+        match["sides"][0].update(ibjjf_id="999", name="B. Person")
+        with patch.object(
+            db.session, "query", side_effect=AssertionError("identity query")
+        ):
+            self.assertEqual(
+                provisional_schedule_matches(
+                    [
+                        {"selection_name": "Brand New Person"},
+                        {"selection_name": "Bright Person"},
+                    ],
+                    [match],
+                ),
+                {},
+            )
+            other = self.match(fight=2)
+            other["sides"][0].update(ibjjf_id="998", name="Bright Person")
+            self.assertEqual(
+                provisional_schedule_matches(
+                    [
+                        {"selection_name": "B. Person"},
+                    ],
+                    [other, match],
+                ),
+                {},
+            )
+            # Even an exact abbreviation is ambiguous across distinct live IDs.
+            other["sides"][0]["name"] = "B. Person"
+            self.assertEqual(
+                provisional_schedule_matches(
+                    [
+                        {"selection_name": "B. Person"},
+                    ],
+                    [other, match],
+                ),
+                {},
+            )
+
+    def test_abbreviation_matching_preserves_full_names_and_strict_ids(self):
+        match = self.match()
+        match["sides"][0].update(ibjjf_id="999", name="Bright Person")
+        self.assertEqual(
+            provisional_schedule_matches(
+                [
+                    {"selection_name": "Brand New Person"},
+                ],
+                [match],
+            ),
+            {},
+        )
+        identity = self.save().get_json()["id"]
+        match["sides"][0].update(ibjjf_id="999", name="A. Example")
+        self.snapshot([match])
+        result = self.client.get(f"/api/watchlists/{identity}/data").get_json()
+        self.assertEqual(result["rows"][0]["state"], "not_on_schedule")
+
+    def test_abbreviated_registrations_do_not_add_builder_queries(self):
+        def query_counts():
+            statements = []
+
+            def record(_conn, _cursor, statement, *_args):
+                statements.append(statement)
+
+            counts = []
+            sqlalchemy_event.listen(db.engine, "before_cursor_execute", record)
+            try:
+                for params in (
+                    {"q": ""},
+                    {"q": "", "show_elite": "true"},
+                    {"q": "Alex", "selected_id": str(self.athletes[0].id)},
+                ):
+                    statements.clear()
+                    response = self.client.get(
+                        "/api/watchlists/athletes",
+                        query_string={
+                            "event_id": "1",
+                            **params,
+                        },
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    counts.append(len(statements))
+            finally:
+                sqlalchemy_event.remove(db.engine, "before_cursor_execute", record)
+            return counts
+
+        before = query_counts()
+        division_id = Division.query.first().id
+        db.session.add_all(
+            [
+                RegistrationLinkCompetitor(
+                    registration_link_id=self.events[0].id,
+                    athlete_name=f"J. Synthetic{i}",
+                    team_name="Youth Team",
+                    division_id=division_id,
+                )
+                for i in range(200)
+            ]
+        )
+        db.session.commit()
+        self.assertEqual(query_counts(), before)
+
+    def test_schedule_matching_indexes_names_once_for_many_selections(self):
+        import watchlists
+
+        matches = []
+        athletes = [{"selection_name": f"Junior Synthetic{i}"} for i in range(200)]
+        for i in range(2000):
+            match = self.match(fight=i + 1)
+            match["sides"][0].update(ibjjf_id=str(1000 + i), name=f"J. Synthetic{i}")
+            matches.append(match)
+        with patch(
+            "watchlists.initial_surname_key", wraps=watchlists.initial_surname_key
+        ) as keys:
+            with patch.object(
+                db.session, "query", side_effect=AssertionError("identity query")
+            ):
+                found = provisional_schedule_matches(athletes, matches)
+            self.assertEqual(len(found), 200)
+            self.assertEqual(keys.call_count, 2201)
 
     def test_unregistered_name_cannot_be_saved(self):
         response = self.save(athlete_ids=[], athlete_names=["Missing Person"])

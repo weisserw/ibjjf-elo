@@ -4,7 +4,7 @@ import base64
 import json
 import re
 import uuid
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 
@@ -23,6 +23,7 @@ from models import (
     WatchlistSchedule,
 )
 from normalize import normalize
+from result_identity import abbreviated_name_key, initial_surname_key
 from constants import (
     ADULT,
     JUVENILE_AGES,
@@ -743,6 +744,65 @@ def supported_schedule_division(division):
     return False
 
 
+def provisional_schedule_matches(athletes, matches):
+    """Match source names without database lookups or a scan per selection.
+
+    ``matches`` is already in next-match order. Exact full names take precedence;
+    initial/surname hints must identify one schedule competitor and one selected
+    name. Two full names sharing an initial are never treated as aliases.
+    """
+    selected = [a["selection_name"] for a in athletes if a.get("selection_name")]
+    if not selected:
+        return {}
+    exact, initials, abbreviated = (defaultdict(set) for _ in range(3))
+    first, keys = {}, {}
+
+    def name_keys(name):
+        if name not in keys:
+            keys[name] = (
+                normalize(name),
+                initial_surname_key(name),
+                abbreviated_name_key(name),
+            )
+        return keys[name]
+
+    for match in matches:
+        for side_index, side in enumerate(match["sides"]):
+            if not side.get("name"):
+                continue
+            normalized, initial, abbreviation = name_keys(side["name"])
+            identity = (
+                ("id", side["ibjjf_id"])
+                if side.get("ibjjf_id")
+                else ("name", normalized)
+            )
+            first.setdefault(identity, (match, side_index))
+            exact[normalized].add(identity)
+            if initial:
+                initials[initial].add(identity)
+            if abbreviation:
+                abbreviated[abbreviation].add(identity)
+
+    proposals, occurrences = {}, {}
+    for name in selected:
+        normalized, initial, abbreviation = name_keys(name)
+        candidates = (
+            initials.get(abbreviation) if abbreviation else exact.get(normalized)
+        )
+        if not candidates:
+            candidates = abbreviated.get(initial)
+        if candidates and len(candidates) == 1:
+            identity = next(iter(candidates))
+            proposals[name] = identity
+            occurrences[name] = first[identity]
+    counts = Counter(proposals.values())
+    return {
+        name: occurrences[name]
+        for name, identity in proposals.items()
+        if counts[identity] == 1
+    }
+
+
 def enrich(matches, events):
     from routes.brackets import (
         get_ratings,
@@ -960,28 +1020,23 @@ def data(row, events, today=None):
             or normalize(a["selection_name"]) not in hidden_names
         )
     ]
-    matches = supported_matches
+    matches = sorted(supported_matches, key=match_order)
     by_id = {}
-    by_name = {}
-    side_indexes_by_name = {}
-    for match in sorted(matches, key=match_order):
+    for match in matches:
         for side_index, side in enumerate(match["sides"]):
             if side["ibjjf_id"]:
-                by_id.setdefault(side["ibjjf_id"], match)
-            if side["name"]:
-                normalized_name = normalize(side["name"])
-                by_name.setdefault(normalized_name, match)
-                side_indexes_by_name[(id(match), normalized_name)] = side_index
-    chosen = {
-        id(match): match
-        for a in base["athletes"]
-        if (
-            match := (
-                by_id.get(a["ibjjf_id"])
-                if a["ibjjf_id"]
-                else by_name.get(normalize(a.get("selection_name") or ""))
-            )
+                by_id.setdefault(side["ibjjf_id"], (match, side_index))
+    by_name = provisional_schedule_matches(base["athletes"], matches)
+
+    def occurrence(athlete):
+        return (
+            by_id.get(athlete["ibjjf_id"])
+            if athlete["ibjjf_id"]
+            else by_name.get(athlete.get("selection_name"))
         )
+
+    chosen = {
+        id(found[0]): found[0] for a in base["athletes"] if (found := occurrence(a))
     }
     enrich(list(chosen.values()), events)
     livestream_data = load_livestream_links(
@@ -997,23 +1052,9 @@ def data(row, events, today=None):
     rows = []
     coverage_uncertain = any(coverage_uncertainties)
     for athlete in base["athletes"]:
-        match = (
-            by_id.get(athlete["ibjjf_id"])
-            if athlete["ibjjf_id"]
-            else by_name.get(normalize(athlete.get("selection_name") or ""))
-        )
-        if match:
-            side_index = (
-                next(
-                    i
-                    for i, s in enumerate(match["sides"])
-                    if s["ibjjf_id"] == athlete["ibjjf_id"]
-                )
-                if athlete["ibjjf_id"]
-                else side_indexes_by_name[
-                    (id(match), normalize(athlete["selection_name"]))
-                ]
-            )
+        found = occurrence(athlete)
+        if found:
+            match, side_index = found
             displayed_athlete = athlete
             if athlete.get("selection_name"):
                 displayed_athlete = {

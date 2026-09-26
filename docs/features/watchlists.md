@@ -98,7 +98,14 @@ Navigation clears previously loaded bracket data so another tournament's bracket
 cannot remain visible during loading.
 Profile links open separately. Result-backed selections use exact IBJJF IDs;
 similarly named local people are not substituted. Registration-only selections
-match normalized schedule competitor names. A schedule competitor ID is used
+match normalized schedule competitor names. They also match an initial and single
+surname (such as `B. Person` and `Brand New Person`) in either direction when the
+cached schedule identifies exactly one competitor and no other selected name
+claims that competitor. Exact full names take precedence; ambiguous abbreviations
+remain unmatched. Repeated appearances of the same competitor ID use the earliest
+match. Abbreviated registrations remain name-based selections; watchlist search
+does not resolve them against database athlete histories or convert them to UUIDs.
+A schedule competitor ID is used
 opportunistically for ratings and profile links without changing the saved
 selection. Actual unknown opponents receive default ratings and zero matches.
 Winner-of-fight placeholders retain their descriptions
@@ -126,7 +133,10 @@ until the source removes them; card colors do not establish match completion.
   admission, two concurrent page fetches per tournament, shared homepage discovery,
   atomic publication, backoff and ownership checks.
 - `app/watchlists.py`: canonical selection, scoped search, validation, expiry,
-  row reduction and shared rating adapters.
+  row reduction and shared rating adapters. Provisional schedule names use an
+  in-memory exact/initial/surname index, built once per reduction with no identity
+  database queries. Registration search, elite lookup, save validation and source
+  refresh do not perform abbreviation resolution.
 - `app/routes/watchlists.py`: public APIs, returning promptly without upstream IO.
 - `app/models.py` and migration `9d3f5a7b1c20`: selections, shared snapshots,
   refresh slots, registration readiness marker and eligibility-join indexes.
@@ -247,6 +257,9 @@ or SEO-generating frontend build are needed. Focused tests:
   UUID and registration-only name identity/search, canonical saves, expiry,
   ratings, reduction, coverage states,
   lease renewal/loss, timeout retention and failed thread startup.
+  Abbreviation regressions cover minor search/save/edit/schedule, ambiguity,
+  strict IDs, fixed builder query counts as abbreviated registrations grow, and
+  a 2,000-match/200-selection schedule without per-selection schedule scans.
 - `app/tests/test_watchlist_postgres.py`: opt-in independent-process contention,
   global capacity, stale publication and migration upgrade/downgrade. Set
   `WATCHLIST_TEST_POSTGRES_URL` to a disposable PostgreSQL database. Tests use and
