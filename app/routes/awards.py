@@ -1,11 +1,55 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy.sql import text
-from sqlalchemy import func
+from sqlalchemy import bindparam, func
 from extensions import db
-from models import Event, Match
+from models import Event, Match, MatchParticipant, Team
 from normalize import normalize
+from team_name_mapping import load_team_name_mappings, resolve_dupe_team_name
 
 awards_route = Blueprint("awards_route", __name__)
+
+
+def _event_team_mapping(event_name):
+    """Resolve each event team once; SQL still aggregates the match data."""
+    teams = (
+        db.session.query(Team.id, Team.name)
+        .join(MatchParticipant, MatchParticipant.team_id == Team.id)
+        .join(Match, Match.id == MatchParticipant.match_id)
+        .join(Event, Event.id == Match.event_id)
+        .filter(Event.normalized_name == event_name, Match.rated.is_(True))
+        .distinct()
+        .all()
+    )
+    exact_mappings, glob_mappings = load_team_name_mappings()
+    canonical_ids = {}
+    resolved_names = {}
+    rows = []
+    params = []
+    for index, (team_id, team_name) in enumerate(teams):
+        if team_name not in resolved_names:
+            resolved_names[team_name] = resolve_dupe_team_name(
+                team_name, exact_mappings, glob_mappings
+            )
+        canonical_name = resolved_names[team_name]
+        canonical_id = canonical_ids.setdefault(canonical_name, team_id)
+        rows.append(
+            f"(:team_id_{index}, :canonical_id_{index}, :canonical_name_{index})"
+        )
+        params.extend(
+            [
+                bindparam(f"team_id_{index}", team_id, type_=Team.id.type),
+                bindparam(f"canonical_id_{index}", canonical_id, type_=Team.id.type),
+                bindparam(f"canonical_name_{index}", canonical_name),
+            ]
+        )
+
+    # Keep an empty event valid on both PostgreSQL and SQLite, with typed IDs.
+    values = (
+        "VALUES " + ", ".join(rows)
+        if rows
+        else ("SELECT id, id, name FROM teams WHERE 1 = 0")
+    )
+    return f"resolved_teams(team_id, canonical_id, name) AS ({values}),", params
 
 
 @awards_route.route("/api/awards/events/recent")
@@ -57,6 +101,8 @@ def teams_awards():
     if event_name.startswith('"') and event_name.endswith('"'):
         event_name = event_name[1:-1]
 
+    team_mapping_cte = ""
+    team_mapping_params = []
     if group_by == "country":
         country_expr_team1 = "NULLIF(LOWER(SUBSTR(TRIM(a1.country), 1, 2)), '')"
         country_expr_team2 = "NULLIF(LOWER(SUBSTR(TRIM(a2.country), 1, 2)), '')"
@@ -81,15 +127,18 @@ def teams_awards():
                 JOIN athletes a2 ON a2.id = p2.athlete_id
         """
     else:
-        group_id_expr_team1 = "p1.team_id"
-        group_id_expr_team2 = "p2.team_id"
+        team_mapping_cte, team_mapping_params = _event_team_mapping(
+            normalize(event_name)
+        )
+        group_id_expr_team1 = "t1.canonical_id"
+        group_id_expr_team2 = "t2.canonical_id"
         group_name_expr_team1 = "t1.name"
         group_name_expr_team2 = "t2.name"
-        group_join_clause = "JOIN teams t ON t.id = mp.team_id"
-        group_id_expr_competing = "mp.team_id"
+        group_join_clause = "JOIN resolved_teams t ON t.team_id = mp.team_id"
+        group_id_expr_competing = "t.canonical_id"
         extra_match_pair_joins = """
-                JOIN teams t1 ON t1.id = p1.team_id
-                JOIN teams t2 ON t2.id = p2.team_id
+                JOIN resolved_teams t1 ON t1.team_id = p1.team_id
+                JOIN resolved_teams t2 ON t2.team_id = p2.team_id
         """
 
     total_competing_athletes = db.session.execute(
@@ -122,7 +171,7 @@ def teams_awards():
     results = db.session.execute(
         text(
             """
-            WITH match_pairs AS (
+            WITH {team_mapping_cte} match_pairs AS (
                 SELECT
                     m.id AS match_id,
                     {group_id_expr_team1} AS team1_id,
@@ -394,6 +443,7 @@ def teams_awards():
             WHERE place <= :limit
             ORDER BY place
             """.format(
+                team_mapping_cte=team_mapping_cte,
                 group_id_expr_team1=group_id_expr_team1,
                 group_id_expr_team2=group_id_expr_team2,
                 group_name_expr_team1=group_name_expr_team1,
@@ -402,7 +452,7 @@ def teams_awards():
                 group_id_expr_competing=group_id_expr_competing,
                 extra_match_pair_joins=extra_match_pair_joins,
             )
-        ),
+        ).bindparams(*team_mapping_params),
         {
             "event_name": normalize(event_name),
             "rated": True,

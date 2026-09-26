@@ -1,5 +1,6 @@
 # Feature Index
 
+- [Team Awards](features/team-awards.md) - Event team/country awards, canonical team-name mappings, scoring, eligibility, yearly results, and tests.
 - [Athlete Profiles](features/athlete-profiles.md) - End-user athlete pages, profile payload APIs, admin edits, Instagram/S3 photos, medals, media coverage, tests, and regression history.
 - [Athlete Rankings](features/athlete-rankings.md) - Stored athlete ranking boards, EloTable APIs, profile/bracket rating consumers, generation flow, tests, and regression history.
 - [Bracket Predictor](features/bracket-predictor.md) - Registration-based bracket previews, hypothetical athlete seeding, side swaps, and bracket layout.
