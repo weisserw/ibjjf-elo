@@ -5,7 +5,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from constants import ADULT, BLACK, LIGHT, MALE
+from constants import ADULT, BLACK, JUVENILE_AGES, LIGHT, MALE, MASTER_1, MASTER_2
 from extensions import db
 from models import (
     Athlete,
@@ -110,12 +110,17 @@ class AwardsTeamMappingsApiTestCase(TestDbMixin, unittest.TestCase):
         response = self.client.get(
             "/api/awards/teams",
             query_string={
-                "event_name": '"Mapping Event"',
+                "event_name": f'"{self.event.name}"',
                 **kwargs,
             },
         )
         self.assertEqual(response.status_code, 200)
         return response.get_json()
+
+    def _rename_event(self, name):
+        self.event.name = name
+        self.event.normalized_name = normalize(name)
+        db.session.flush()
 
     def test_aliases_qualify_together_and_recompute_weighted_statistics(self):
         for index in range(5):
@@ -196,6 +201,185 @@ class AwardsTeamMappingsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual(
             self._awards(), {"teams": [], "min_competing_athletes_required": 5}
         )
+
+    def test_same_country_matches_count_for_eligibility_only(self):
+        for index in range(5):
+            self._match("Academy", f"Athlete {index}")
+        self.athletes["Opponent"].country = " US "
+        db.session.flush()
+        self.assertEqual(self._awards(group_by="country")["teams"], [])
+        self.assertEqual(self._awards()["teams"][0]["wins"], 5)
+        # Domestic-only athletes supply the minimum size, while only these
+        # two international matches contribute to the score.
+        for won in (True, False):
+            self._match(
+                "Academy",
+                "Athlete 0",
+                won=won,
+                opponent_rating=2000,
+                opponent_name="Foreign opponent",
+            )
+        for event in ("Regional Open", "World IBJJF Championship"):
+            self._rename_event(event)
+            for country in (" US ", "pr", "gu", "vi"):
+                with self.subTest(event=event, country=country):
+                    self.athletes["Opponent"].country = country
+                    db.session.flush()
+                    countries = self._awards(group_by="country")["teams"]
+                    self.assertEqual(len(countries), 1)
+                    self.assertEqual(countries[0]["team_name"], "us")
+                    self.assertEqual(countries[0]["wins"], 1)
+                    self.assertEqual(countries[0]["win_ratio"], 50.0)
+                    self.assertEqual(countries[0]["avg_defeated_rating"], 2000.0)
+                    self.assertEqual(countries[0]["adjusted_ratio"], 1000.0)
+
+    def test_country_awards_still_count_unknown_opponents(self):
+        for index in range(5):
+            self._match("Academy", f"Athlete {index}", won=index < 3)
+        for country in (None, "", "   "):
+            with self.subTest(country=country):
+                self.athletes["Opponent"].country = country
+                db.session.flush()
+                countries = self._awards(group_by="country")["teams"]
+                self.assertEqual(len(countries), 1)
+                self.assertEqual(countries[0]["wins"], 3)
+                self.assertEqual(countries[0]["win_ratio"], 60.0)
+                self.assertEqual(countries[0]["avg_defeated_rating"], 1500.0)
+
+    def test_major_country_scores_exclude_masters_matches(self):
+        self._rename_event("World IBJJF Championship")
+        for index in range(5):
+            self._match(
+                "Academy",
+                f"Athlete {index}",
+                won=index < 3,
+                opponent_name=f"Opponent {index}",
+            )
+        before = self._awards(group_by="country")
+        team_before = self._awards()
+        for age in (MASTER_1, MASTER_2):
+            self.division = Division(
+                gi=True,
+                gender=MALE,
+                age=age,
+                belt=BLACK,
+                weight=LIGHT,
+            )
+            db.session.add(self.division)
+            db.session.flush()
+            for won in (True, False, True):
+                self._match(
+                    "Academy",
+                    "Athlete 0",
+                    won=won,
+                    opponent_rating=2400,
+                    opponent_name="Opponent 0",
+                )
+        for name in (
+            "CAMPEONATO BRASILEIRO Championship",
+            "2026 Pan IBJJF Championship",
+            "European iBjJf Championship",
+            "world ibjjf Championship",
+        ):
+            with self.subTest(event=name):
+                self._rename_event(name)
+                self.assertEqual(self._awards(group_by="country"), before)
+        self.assertNotEqual(self._awards(), team_before)
+        for name in ("Mapping Event", "World Master Championship", "Pan IBJJFish Open"):
+            with self.subTest(event=name):
+                self._rename_event(name)
+                self.assertNotEqual(self._awards(group_by="country"), before)
+
+    def test_major_country_eligibility_excludes_masters_participation(self):
+        self._rename_event("World IBJJF Championship")
+        adult_division = self.division
+        for index in range(4):
+            self._match(
+                "Academy", f"Athlete {index}", opponent_name=f"Opponent {index}"
+            )
+        self.division = Division(
+            gi=True,
+            gender=MALE,
+            age=MASTER_1,
+            belt=BLACK,
+            weight=LIGHT,
+        )
+        db.session.add(self.division)
+        db.session.flush()
+        self._match("Academy", "Athlete 4", opponent_name="Opponent 4")
+        self.assertEqual(self._awards(group_by="country")["teams"], [])
+        self.assertEqual(len(self._awards()["teams"]), 2)
+        self._rename_event("Regional Open")
+        self.assertEqual(len(self._awards(group_by="country")["teams"]), 2)
+        self._rename_event("World IBJJF Championship")
+        self.division = adult_division
+        self._match("Academy", "Athlete 4", opponent_name="Opponent 4")
+        self.assertEqual(len(self._awards(group_by="country")["teams"]), 2)
+
+    def test_country_minimum_size_uses_major_age_divisions(self):
+        self._rename_event("World IBJJF Championship")
+        for index in range(5):
+            self._match(
+                "Academy", f"Adult {index}", opponent_name=f"Adult opponent {index}"
+            )
+        self.division = Division(
+            gi=True,
+            gender=MALE,
+            age=MASTER_1,
+            belt=BLACK,
+            weight=LIGHT,
+        )
+        db.session.add(self.division)
+        db.session.flush()
+        for index in range(500):
+            self._match(
+                "Academy", f"Master {index}", opponent_name=f"Master opponent {index}"
+            )
+        country_awards = self._awards(group_by="country")
+        self.assertEqual(country_awards["min_competing_athletes_required"], 5)
+        self.assertEqual(len(country_awards["teams"]), 2)
+        self.assertEqual(self._awards()["min_competing_athletes_required"], 10)
+        for age in JUVENILE_AGES:
+            with self.subTest(age=age):
+                self.division.age = age
+                db.session.flush()
+                self.assertEqual(
+                    self._awards(group_by="country")["min_competing_athletes_required"],
+                    8,
+                )
+        self.division.age = MASTER_1
+        db.session.flush()
+        self._rename_event("Regional Open")
+        self.assertEqual(
+            self._awards(group_by="country")["min_competing_athletes_required"], 8
+        )
+        self.assertEqual(self._awards()["min_competing_athletes_required"], 10)
+
+    def test_juvenile_divisions_count_for_major_country_scoring_and_eligibility(self):
+        self._rename_event("World IBJJF Championship")
+        for index in range(4):
+            self._match("Academy", f"Adult {index}")
+        self.division = Division(
+            gi=True,
+            gender=MALE,
+            age=JUVENILE_AGES[0],
+            belt=BLACK,
+            weight=LIGHT,
+        )
+        db.session.add(self.division)
+        db.session.flush()
+        self._match("Academy", "Juvenile athlete", opponent_rating=2000)
+        self._match("Academy", "Juvenile athlete", won=False)
+        for age in JUVENILE_AGES:
+            with self.subTest(age=age):
+                self.division.age = age
+                db.session.flush()
+                countries = self._awards(group_by="country")["teams"]
+                self.assertEqual(len(countries), 1)
+                self.assertEqual(countries[0]["team_name"], "us")
+                self.assertEqual(countries[0]["wins"], 5)
+                self.assertEqual(countries[0]["win_ratio"], 83.3)
+                self.assertEqual(countries[0]["avg_defeated_rating"], 1600.0)
 
 
 if __name__ == "__main__":

@@ -48,8 +48,28 @@ match pairs. Open-class defeated ratings receive the existing weight adjustment.
 The score is win fraction multiplied by average defeated rating (or zero when
 no defeated rating is available).
 
-Minimum team size is 1% of distinct rated-event athletes, rounded and clamped
-to 5–15. Per-team eligibility counts distinct athletes in rated matches with
+At major tournaments, country awards use only Adult, Juvenile, Juvenile 1, and
+Juvenile 2 matches for win percentage, average defeated rating, and
+distinct-athlete eligibility. Major
+tournaments have a name containing `campeonato brasileiro `, `pan ibjjf `,
+`european ibjjf `, or `world ibjjf ` (case-insensitive, including the trailing
+space). The event participation count that sets the minimum country size and
+result limit also includes only these four age divisions at these events. Other tournaments
+include all ages for country awards. Existing belt and rated-match requirements
+still apply. This filters
+which match ratings are averaged; it does not recalculate athlete Elo ratings.
+Same-country matches are excluded from country win percentage and average
+defeated rating, but their athletes still count toward eligibility under the
+applicable age/belt rules. Countries are compared after normalization and the
+existing grouping of Puerto Rico, Guam, and the US Virgin Islands into the USA.
+A country with no scored matches has no ranking. Known-country results against
+unknown-country opponents retain their original scoring behavior. Team awards
+continue to include all ages and retain same-team matches.
+
+Minimum team size is 1% of distinct rated-event athletes; minimum country size
+is 0.75% (the four eligible age divisions at majors, all ages elsewhere). Both thresholds
+are rounded and clamped to 5–15. Per-team eligibility counts distinct athletes
+in rated matches with
 eligible belts. Results are limited to 3, 5, or 10 teams according to event
 participation. Ties sort by win percentage, average defeated rating, then name.
 
@@ -58,7 +78,10 @@ participation. Ties sort by win percentage, average defeated rating, then name.
 - `app/tests/test_awards_team_mappings_api.py`: merged eligibility, exact/glob
   precedence, canonical names without team rows, weighted scoring, athlete
   deduplication, merging before the top-N cutoff, unchanged country grouping,
-  same-team scoring, immediate mapping edits, and empty events.
+  same-team scoring, major-name matching, Adult/juvenile country scoring and
+  eligibility at majors, country participation thresholds, all-age country
+  awards elsewhere, same-country scoring exclusions with retained eligibility,
+  unknown-country opponents, immediate mapping edits, and empty events.
 - `app/tests/test_brackets_archive_awards_api.py`: baseline awards, country
   awards, and open-class rating adjustments.
 - `app/tests/test_awards_recent_events_api.py`: event selection and limits.

@@ -1,12 +1,20 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy.sql import text
 from sqlalchemy import bindparam, func
+from constants import ADULT, JUVENILE, JUVENILE_1, JUVENILE_2
 from extensions import db
 from models import Event, Match, MatchParticipant, Team
 from normalize import normalize
 from team_name_mapping import load_team_name_mappings, resolve_dupe_team_name
 
 awards_route = Blueprint("awards_route", __name__)
+
+MAJOR_COUNTRY_AWARD_NAME_PARTS = (
+    "campeonato brasileiro ",
+    "pan ibjjf ",
+    "european ibjjf ",
+    "world ibjjf ",
+)
 
 
 def _event_team_mapping(event_name):
@@ -103,6 +111,21 @@ def teams_awards():
 
     team_mapping_cte = ""
     team_mapping_params = []
+    major_country_awards = group_by == "country" and any(
+        name_part in event_name.lower() for name_part in MAJOR_COUNTRY_AWARD_NAME_PARTS
+    )
+    age_filter = (
+        "AND d.age IN (:adult_age, :juvenile_age, :juvenile_1_age, :juvenile_2_age)"
+        if major_country_awards
+        else ""
+    )
+    age_params = {
+        "adult_age": ADULT,
+        "juvenile_age": JUVENILE,
+        "juvenile_1_age": JUVENILE_1,
+        "juvenile_2_age": JUVENILE_2,
+    }
+    country_match_filter = ""
     if group_by == "country":
         country_expr_team1 = "NULLIF(LOWER(SUBSTR(TRIM(a1.country), 1, 2)), '')"
         country_expr_team2 = "NULLIF(LOWER(SUBSTR(TRIM(a2.country), 1, 2)), '')"
@@ -113,6 +136,11 @@ def teams_awards():
         group_id_expr_team2 = (
             f"CASE WHEN {country_expr_team2} IN ('pr', 'gu', 'vi') "
             f"THEN 'us' ELSE {country_expr_team2} END"
+        )
+        # Exclude domestic matches after grouping, but preserve unknown opponents.
+        country_match_filter = (
+            f"AND ({country_expr_team1} IS NULL OR {country_expr_team2} IS NULL "
+            f"OR ({group_id_expr_team1}) != ({group_id_expr_team2}))"
         )
         group_name_expr_team1 = group_id_expr_team1
         group_name_expr_team2 = group_id_expr_team2
@@ -147,18 +175,22 @@ def teams_awards():
             SELECT COUNT(DISTINCT mp.athlete_id) AS total_competing_athletes
             FROM matches m
             JOIN events e ON e.id = m.event_id
+            JOIN divisions d ON d.id = m.division_id
             JOIN match_participants mp ON mp.match_id = m.id
             WHERE e.normalized_name = :event_name
                 AND m.rated = :rated
-            """
+                {age_filter}
+            """.format(
+                age_filter=age_filter
+            )
         ),
-        {"event_name": normalize(event_name), "rated": True},
+        {"event_name": normalize(event_name), "rated": True, **age_params},
     ).scalar()
 
     if total_competing_athletes is None:
         min_competing_athletes_required = 5
     else:
-        pc = total_competing_athletes * 0.01
+        pc = total_competing_athletes * (0.0075 if group_by == "country" else 0.01)
         min_competing_athletes_required = min(15, max(5, round(pc)))
 
     limit = 10
@@ -197,6 +229,8 @@ def teams_awards():
                   AND d.belt NOT IN ('WHITE', 'GRAY', 'YELLOW-GREY', 'YELLOW', 'ORANGE', 'GREEN-ORANGE', 'GREEN')
                   AND p1.id < p2.id
                   AND p1.winner != p2.winner
+                  {age_filter}
+                  {country_match_filter}
             ),
             match_pairs_with_indices AS (
                 SELECT
@@ -400,6 +434,7 @@ def teams_awards():
                   AND m.rated = :rated
                   AND d.belt NOT IN ('WHITE', 'GRAY', 'YELLOW-GREY', 'YELLOW', 'ORANGE', 'GREEN-ORANGE', 'GREEN')
                   AND {group_id_expr_competing} IS NOT NULL
+                  {age_filter}
                 GROUP BY {group_id_expr_competing}
             ),
             team_aggregates AS (
@@ -451,11 +486,14 @@ def teams_awards():
                 group_join_clause=group_join_clause,
                 group_id_expr_competing=group_id_expr_competing,
                 extra_match_pair_joins=extra_match_pair_joins,
+                age_filter=age_filter,
+                country_match_filter=country_match_filter,
             )
         ).bindparams(*team_mapping_params),
         {
             "event_name": normalize(event_name),
             "rated": True,
+            **age_params,
             "limit": limit,
             "min_competing_athletes_required": min_competing_athletes_required,
         },
