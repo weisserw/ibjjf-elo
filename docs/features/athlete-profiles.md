@@ -83,16 +83,6 @@ Admin:
   parse status, scraper version, and a complete/incomplete manifest. For an
   isolated historical event, follow
   `docs/workflows/INCREMENTAL_SINGLE_TOURNAMENT_MEDALS.md`.
-- `scripts/match_historical_medals.py --default-golds-only` restores sole active
-  gold results using unique, literal current athlete names, without alias/fuzzy
-  matching or historical plausibility checks. It skips existing medals and
-  supports dry runs and event scoping. See
-  [default gold recovery](../workflows/DEFAULT_GOLD_RECOVERY.md) for cleanup/import
-  usage and the result-table completeness requirement. Regression coverage is in
-  `app/tests/test_default_gold_recovery.py`.
-  Adding `--replace-default-golds` deletes all existing place-1 default golds and
-  imports replacements in one transaction, with full rollback for failures and
-  dry runs. Replacement rejects partial scopes and resume, and writes no checkpoint.
 - `scripts/audit_result_name_backfill.py` compares the frozen 2013+ result
   table to a separately scraped snapshot and emits import candidates, rename
   evidence and review rows. `scripts/apply_result_name_backfill.py` rechecks

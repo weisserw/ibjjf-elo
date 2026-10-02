@@ -13,13 +13,6 @@ Per athlete, two passes:
 Plausibility filters (belt rank, gender, age progression) gate both passes.
 Idempotent: existing medals are skipped via `medal_already_exists`.
 
-With --default-golds-only, both passes are replaced by unique literal current
-name matching. Only active golds with no active event/division siblings qualify;
-historical plausibility checks are bypassed for this results-based recovery.
-Add --replace-default-golds to delete existing place=1 default golds and rebuild
-them atomically. Its dry run executes the same writes and rolls everything back;
-replacement mode does not write resume checkpoints or commit per athlete.
-
 Resume support: after each athlete the script writes the just-finished
 athlete's UUID to `--resume-file`. On the next run, `--resume` reads that
 file, jumps past the last-processed athlete, and appends to the review CSV.
@@ -28,7 +21,6 @@ Usage:
     ./scripts/match_historical_medals.py [--dry-run] [--limit N] [--athlete-id UUID]
         [--auto-threshold 92] [--review-threshold 80] [--gap-threshold 8]
         [--event-name NAME] [--event-ibjjf-id ID]
-        [--default-golds-only] [--replace-default-golds]
         [--report-csv missing_medals_review.csv]
         [--resume-file .match_historical_medals.resume] [--resume]
 """
@@ -38,13 +30,11 @@ import csv
 import os
 import sys
 import uuid as _uuid
-from collections import Counter
-from contextlib import ExitStack, contextmanager
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
 from app import app, db  # noqa: E402
-from models import Athlete, Medal, ResultMedal  # noqa: E402
+from models import Athlete, ResultMedal  # noqa: E402
 
 import medal_import_lib as lib  # noqa: E402
 
@@ -74,64 +64,17 @@ def build_athlete_rows_query(session):
     ).order_by(Athlete.id)
 
 
-@contextmanager
-def replace_default_golds_transaction(args):
-    """Keep deletion and every replacement insert atomic, including previews."""
-    if not args.replace_default_golds:
-        yield
-        return
-    try:
-        deleted = (
-            db.session.query(Medal)
-            .filter(Medal.default_gold.is_(True), Medal.place == 1)
-            .delete(synchronize_session=False)
-        )
-        label = "Would delete" if args.dry_run else "Deleted (uncommitted)"
-        print(f"{label} existing default golds: {deleted}", flush=True)
-        yield
-        if args.dry_run:
-            db.session.rollback()
-            print(
-                "Replacement dry-run rolled back; existing medals preserved.",
-                flush=True,
-            )
-        else:
-            db.session.commit()
-            print("Default gold replacement committed.", flush=True)
-    except BaseException:
-        db.session.rollback()
-        raise
-
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Auto-import high-confidence historical medals."
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
-        "--replace-default-golds",
-        action="store_true",
-        help=(
-            "With --default-golds-only, delete all existing place=1 default golds "
-            "and import replacements in one transaction. Dry runs roll back the "
-            "whole replacement. Cannot combine with scope, limit, or resume options."
-        ),
-    )
-    parser.add_argument(
-        "--default-golds-only",
-        action="store_true",
-        help=(
-            "Restore only golds that are the sole active result in their event/division. "
-            "Require a unique exact Athlete.name match; no aliases, initials, fuzzy "
-            "matching, or historical plausibility filters."
-        ),
-    )
-    parser.add_argument(
         "--limit", type=int, default=None, help="Process at most N athletes."
     )
     parser.add_argument(
         "--athlete-id",
-        type=_uuid.UUID,
+        type=str,
         default=None,
         help="Restrict to a single athlete UUID (useful for testing).",
     )
@@ -236,24 +179,7 @@ def parse_args():
             "the resume file is missing or invalid."
         ),
     )
-    args = parser.parse_args()
-    if args.replace_default_golds:
-        if not args.default_golds_only:
-            parser.error("--replace-default-golds requires --default-golds-only")
-        if any(
-            [
-                args.event_name is not None,
-                args.event_ibjjf_id is not None,
-                args.athlete_id is not None,
-                args.limit is not None,
-                args.resume,
-            ]
-        ):
-            parser.error(
-                "--replace-default-golds replaces all default golds; it cannot be "
-                "combined with --event-name, --event-ibjjf-id, --athlete-id, --limit, or --resume"
-            )
-    return args
+    return parser.parse_args()
 
 
 def main():
@@ -284,9 +210,7 @@ def main():
             flush=True,
         )
 
-    with app.app_context(), replace_default_golds_transaction(
-        args
-    ), ExitStack() as files:
+    with app.app_context():
         # This is a single-purpose batch process. Static division/event/team
         # objects do not need refreshing after each per-athlete commit.
         db.session().expire_on_commit = False
@@ -298,13 +222,6 @@ def main():
         team_cache = {}
         happened_at_cache = {}
         default_gold_cache = {}
-        exact_name_counts = Counter()
-        if args.default_golds_only:
-            # Count across ALL athletes, even when --athlete-id/--limit is used.
-            exact_name_counts.update(
-                name for (name,) in db.session.query(Athlete.name).all()
-            )
-            print("Default gold recovery: unique exact current names only.", flush=True)
         print("Loading distinct athlete names from result_medals...", flush=True)
         # Don't load full ORM rows — with ~850k result_medals that's gigabytes.
         # Keep only the distinct name strings in memory for process.extract;
@@ -314,10 +231,6 @@ def main():
             event_name=args.event_name,
             event_ibjjf_id=args.event_ibjjf_id,
         )
-        if args.default_golds_only:
-            names_q = names_q.filter(
-                ResultMedal.active.is_(True), ResultMedal.place == 1
-            )
         if args.event_name:
             print(f"  filtering to event_name ILIKE %{args.event_name}%", flush=True)
         if args.event_ibjjf_id:
@@ -328,25 +241,15 @@ def main():
         # Index distinct result_medals names by their normalized form so the
         # alias pass (below) can find every raw spelling that normalizes to one
         # of an athlete's stored aliases in O(1) per athlete.
-        print(
-            (
-                "Indexing exact names..."
-                if args.default_golds_only
-                else "Indexing names by normalized form..."
-            ),
-            flush=True,
-        )
+        print("Indexing names by normalized form...", flush=True)
         normalized_to_raw = {}
         initial_to_raw = {}
         for n in all_names:
-            if args.default_golds_only:
-                normalized_to_raw[n] = [n]
-                continue
             normalized_to_raw.setdefault(lib.normalize(n), []).append(n)
             initial_key = lib.abbreviated_name_key(n)
             if initial_key:
                 initial_to_raw.setdefault(initial_key, []).append(n)
-        print(f"  {len(normalized_to_raw)} name keys", flush=True)
+        print(f"  {len(normalized_to_raw)} distinct normalized forms", flush=True)
 
         # Ordering by id is required so --resume picks up deterministically
         # after an interruption.
@@ -379,17 +282,13 @@ def main():
         if args.report_csv:
             csv_exists = os.path.exists(args.report_csv)
             if args.resume and csv_exists:
-                csv_file = files.enter_context(
-                    open(args.report_csv, "a", newline="", encoding="utf-8")
-                )
+                csv_file = open(args.report_csv, "a", newline="", encoding="utf-8")
                 csv_writer = csv.DictWriter(csv_file, fieldnames=csv_fieldnames)
                 print(
                     f"Appending review rows to existing {args.report_csv}.", flush=True
                 )
             else:
-                csv_file = files.enter_context(
-                    open(args.report_csv, "w", newline="", encoding="utf-8")
-                )
+                csv_file = open(args.report_csv, "w", newline="", encoding="utf-8")
                 csv_writer = csv.DictWriter(csv_file, fieldnames=csv_fieldnames)
                 csv_writer.writeheader()
 
@@ -410,20 +309,8 @@ def main():
             `source` is 'alias' for known-alias matches (skips fuzzy logging)
             or 'fuzzy' for fuzzy-matched candidates (logs score/gap).
             """
-            if args.default_golds_only:
-                if (
-                    not rm.active
-                    or rm.place != 1
-                    or rm.athlete_name != athlete.name
-                    or exact_name_counts[athlete.name] != 1
-                    or not lib.compute_default_gold(db.session, rm)
-                ):
-                    return "skipped"
             division_parts = lib.parse_division_parts(rm.division)
-            if not division_parts or (
-                not args.default_golds_only
-                and not lib.is_matchable_result_division(rm.division)
-            ):
+            if not division_parts or not lib.is_matchable_result_division(rm.division):
                 return "skipped"
             belt, age, gender, _weight = division_parts
 
@@ -454,9 +341,7 @@ def main():
             )
             if tentative_date is None:
                 return "skipped"
-            if not args.default_golds_only and lib.abbreviated_name_key(
-                rm.athlete_name
-            ):
+            if lib.abbreviated_name_key(rm.athlete_name):
                 resolution = lib.resolve_identity(
                     db.session,
                     rm.athlete_name,
@@ -472,17 +357,12 @@ def main():
                 ):
                     return "skipped"
 
-            if not args.default_golds_only:
-                if not lib.medal_is_plausible(
-                    db.session, athlete.id, belt, tentative_date
-                ):
-                    return "skipped"
-                if not lib.gender_is_plausible(db.session, athlete.id, gender):
-                    return "skipped"
-                if not lib.age_is_plausible(
-                    db.session, athlete.id, age, tentative_date
-                ):
-                    return "skipped"
+            if not lib.medal_is_plausible(db.session, athlete.id, belt, tentative_date):
+                return "skipped"
+            if not lib.gender_is_plausible(db.session, athlete.id, gender):
+                return "skipped"
+            if not lib.age_is_plausible(db.session, athlete.id, age, tentative_date):
+                return "skipped"
 
             # Dedup is only meaningful if the event already exists — a brand
             # new event we'd create in the auto branch below cannot have any
@@ -493,7 +373,7 @@ def main():
                 return "skipped"
 
             if is_auto:
-                if not args.dry_run or args.replace_default_golds:
+                if not args.dry_run:
                     if event is None:
                         try:
                             event = lib.create_medals_only_event(
@@ -503,8 +383,6 @@ def main():
                             )
                             event_cache[event_key] = event
                         except ValueError:
-                            if args.replace_default_golds:
-                                raise
                             return "skipped"
                     team = lib.find_or_create_team(
                         db.session, rm.team_name, cache=team_cache
@@ -530,18 +408,13 @@ def main():
                         place=rm.place,
                         happened_at=happened_at,
                         default_gold=default_gold,
-                        imported_via=(
-                            "default_gold_exact"
-                            if args.default_golds_only
-                            else "historical_auto"
-                        ),
+                        imported_via="historical_auto",
                     )
                 else:
                     # Dry-run: log only, no DB writes (so nothing to roll back).
                     if source == "alias":
-                        match_kind = "exact" if args.default_golds_only else "alias"
                         print(
-                            f"  [dry-run {match_kind}] {athlete.name} <- {rm.athlete_name} | "
+                            f"  [dry-run alias] {athlete.name} <- {rm.athlete_name} | "
                             f"{rm.event_name} | {rm.division} place {rm.place}"
                         )
                     else:
@@ -583,13 +456,6 @@ def main():
             alias_raw_names = set()
             for nrm in alias_normalized_set:
                 alias_raw_names.update(normalized_to_raw.get(nrm, []))
-            if args.default_golds_only:
-                alias_raw_names = (
-                    {athlete.name}
-                    if athlete.name in normalized_to_raw
-                    and exact_name_counts[athlete.name] == 1
-                    else set()
-                )
 
             athlete_imported_this_run = 0
             athlete_review_this_run = 0
@@ -603,10 +469,6 @@ def main():
                     event_name=args.event_name,
                     event_ibjjf_id=args.event_ibjjf_id,
                 )
-                if args.default_golds_only:
-                    rms_q = rms_q.filter(
-                        ResultMedal.active.is_(True), ResultMedal.place == 1
-                    )
                 rms_for_name = rms_q.all()
                 for rm in rms_for_name:
                     result = try_import_rm(
@@ -654,12 +516,8 @@ def main():
             # in Pass 1, so fuzzing the personal_name (an alias) would just
             # rediscover what we already have — wasted work and a source of
             # confusion when two stored aliases produce overlapping top hits.
-            extracts = (
-                []
-                if args.default_golds_only
-                else process.extract(
-                    athlete.name, all_names, scorer=fuzz.token_sort_ratio, limit=10
-                )
+            extracts = process.extract(
+                athlete.name, all_names, scorer=fuzz.token_sort_ratio, limit=10
             )
             merged = [(n, s) for n, s, _ in extracts]
 
@@ -717,7 +575,7 @@ def main():
 
             if athlete_imported_this_run > 0:
                 athletes_with_imports += 1
-                if not args.dry_run and not args.replace_default_golds:
+                if not args.dry_run:
                     db.session.commit()
             if athlete_review_this_run > 0:
                 athletes_with_review += 1
@@ -728,15 +586,14 @@ def main():
             # already produced.
             if csv_file is not None:
                 csv_file.flush()
-            if not args.replace_default_golds:
-                try:
-                    with open(args.resume_file, "w") as rf:
-                        rf.write(str(athlete.id))
-                except OSError as exc:
-                    print(
-                        f"WARNING: could not write resume file {args.resume_file!r}: {exc}",
-                        file=sys.stderr,
-                    )
+            try:
+                with open(args.resume_file, "w") as rf:
+                    rf.write(str(athlete.id))
+            except OSError as exc:
+                print(
+                    f"WARNING: could not write resume file {args.resume_file!r}: {exc}",
+                    file=sys.stderr,
+                )
 
             if athletes_seen % 100 == 0:
                 print(
@@ -756,12 +613,11 @@ def main():
         print(f"  Athletes with imports:     {athletes_with_imports}")
         print(f"  Athletes with review rows: {athletes_with_review}")
         print(f"  Medals imported:           {imported}")
-        name_match_label = "exact name" if args.default_golds_only else "known alias"
-        print(f"    via {name_match_label}: {imported_via_alias}")
+        print(f"    via known alias:         {imported_via_alias}")
         print(f"    via fuzzy match:         {imported_via_fuzzy}")
         print(f"  Review rows (this run):    {review_count}")
         if args.dry_run:
-            print("  (dry-run; no changes will be committed)")
+            print("  (dry-run; no rows written)")
 
 
 if __name__ == "__main__":
