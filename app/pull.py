@@ -341,7 +341,13 @@ def pull_tournament(
                 ) = parse_competitor(blue_competitor, blue_competitor_description)
 
                 if blue_bye:
-                    if num_matches == 1 and not red_competitor_loser:  # default gold
+                    # A lone entrant may not have weighed in, even without a DQ.
+                    # Only the published podium confirms their default gold.
+                    if (
+                        num_matches == 1
+                        and not red_competitor_loser
+                        and medals.get(red_competitor_name) == "1"
+                    ):
                         writer.writerow(
                             [
                                 tournament_id,

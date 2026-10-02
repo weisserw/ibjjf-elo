@@ -301,6 +301,14 @@ Git history shows several recurring risk areas:
 
 ## Practical Editing Notes
 
+- Bracket medal imports in `app/pull.py` require a published first-place podium
+  entry matching the lone athlete before exporting a `DEFAULT_GOLD` row. A
+  single-person bracket without a loser/DQ marker is insufficient: the athlete
+  may not have shown up or weighed in. Missing, empty, or non-gold podium entries
+  do not award a default gold, including during incomplete imports. Existing
+  stored medals are not removed by this check. Regression coverage lives in
+  `app/tests/test_pull.py`.
+
 - Keep backend payload names aligned with `BracketUtils.ts`; these components do
   not use a generated API client.
 - If a backend route can return `error`, the frontend usually surfaces it through
