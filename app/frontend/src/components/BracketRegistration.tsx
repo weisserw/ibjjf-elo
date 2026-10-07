@@ -206,9 +206,10 @@ function BracketRegistration() {
   }, [effectiveRegistrationCompetitors, usableSortColumn])
 
   const seededBracket = useMemo(() => {
+    if (registrationEventUrl?.startsWith('internal:')) return null;
     if (!sortedRegistrationCompetitors || !effectiveBracketSlots || effectiveBracketMatchCount == null) return null;
     return createMatchesFromSeeds(sortedRegistrationCompetitors, effectiveBracketSlots, effectiveBracketMatchCount, effectiveSideSwaps);
-  }, [sortedRegistrationCompetitors, effectiveBracketSlots, effectiveBracketMatchCount, effectiveSideSwaps])
+  }, [registrationEventUrl, sortedRegistrationCompetitors, effectiveBracketSlots, effectiveBracketMatchCount, effectiveSideSwaps])
 
   const nativeSeedByCompetitor = useMemo(() => {
     const result = new Map<Competitor, number>();

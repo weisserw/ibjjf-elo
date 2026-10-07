@@ -59,6 +59,11 @@ The hypothetical route does not persist a registration row. `test_hypothetical_s
 
 ## Frontend Flow
 
+Events whose registration link starts with `internal:` do not show the Predicted
+Bracket tab or its tree and disclaimer. The view falls back to Ideal Bracket
+when available, including when Predicted Bracket was previously selected;
+otherwise only the registration table is shown.
+
 `BracketRegistration.tsx` loads normal competitors with:
 
 - `GET /api/brackets/registrations/competitors`
