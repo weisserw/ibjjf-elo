@@ -165,8 +165,12 @@ unusually narrow cell is also rejoined: two aligned outer pieces around a thin
 same-color counter sliver, with gaps bounded by 40% of the narrower outer piece's
 width (at least three pixels) to tolerate compression of the counter. Thin side
 fringes may overlap the counter's vertical bounds along its full height, provided
-the counter stays between the outer pieces' vertical midpoints and they remain
-vertically separate. This includes `score_bad_000_000_2.jpg` and
+the counter stays between the outer pieces' vertical midpoints. Opposite-side
+fringes may also overlap each other's vertical bounds: `score_bad_010_030.jpg`
+previously failed this check despite the colored pieces remaining separate.
+The counter is identified by its narrow width, so a lower side fringe starting
+above it cannot change which piece is treated as the counter.
+This repair also includes `score_bad_000_000_2.jpg` and
 `score_bad_000_000_3.jpg`, whose bottom penalty cells previously remained split
 and caused the whole scoreboard to be classified as blank. A fixed two-scanline
 overlap allowance handled the former but failed on the latter. The combined
@@ -244,7 +248,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `ScanLivestreamFrameTextAdminApiStateTestCase`: replay-safe client retries and one-shot claim behavior.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  `scoreboard_cases.json` explicitly golden-tests all 91 scoreboard/name fixtures
+  `scoreboard_cases.json` explicitly golden-tests all 92 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG

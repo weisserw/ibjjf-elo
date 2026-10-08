@@ -271,14 +271,17 @@ def _score_role_components(image, role: str, role_mask=None):
     # plus only a thin colored sliver inside the counter. Rejoin that bounded
     # three-piece pattern before the ordinary local-seam pass.
     split_cell_triples = []
-    for first_index, middle_index, last_index in combinations(
-        range(1, component_count), 3
-    ):
-        ordered = sorted(
-            (first_index, middle_index, last_index),
+    for indexes in combinations(range(1, component_count), 3):
+        # Identify the thin counter by width: a lower side fringe can start
+        # above the counter, so vertical ordering alone is not reliable.
+        center_index = min(
+            indexes,
+            key=lambda index: cluster_bounds[index][2] - cluster_bounds[index][0],
+        )
+        top_index, bottom_index = sorted(
+            (index for index in indexes if index != center_index),
             key=lambda index: cluster_bounds[index][1],
         )
-        top_index, center_index, bottom_index = ordered
         top = cluster_bounds[top_index]
         center = cluster_bounds[center_index]
         bottom = cluster_bounds[bottom_index]
@@ -303,11 +306,11 @@ def _score_role_components(image, role: str, role_mask=None):
             and outer_overlap >= 0.80 * min(top_width, bottom_width)
             and center_outer_overlap >= 0.80 * center_width
             # Thin side fringes can extend alongside the counter for its full
-            # height. Permit overlapping bounds, but keep the counter within
-            # the cell and the two substantial outer pieces vertically apart.
+            # height and overlap each other's vertical bounds on opposite
+            # sides. Keep the counter between the outer pieces' midpoints;
+            # the pixel checks below ensure overlap stays beside the counter.
             and (top[1] + top[3]) / 2 <= center[1]
             and center[3] <= (bottom[1] + bottom[3]) / 2
-            and top[3] <= bottom[1]
             and top_center_gap <= max_counter_gap
             and center_bottom_gap <= max_counter_gap
             and total_height <= 3.0 * max(top_width, bottom_width)

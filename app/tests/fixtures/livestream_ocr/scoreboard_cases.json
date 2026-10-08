@@ -1068,6 +1068,18 @@
       ]
     },
     {
+      "fixture": "score_bad_010_030.jpg",
+      "expect_layout": true,
+      "expected_digits": [0, 1, 0, 0, 3, 0],
+      "palette_family": "muted",
+      "layout_family": "elongated_points",
+      "purposes": [
+        "golden",
+        "narrow_red_cell",
+        "split_cell_background"
+      ]
+    },
+    {
       "fixture": "score_bad_210_410.jpg",
       "expect_layout": true,
       "expected_digits": [

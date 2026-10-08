@@ -2699,7 +2699,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         }
 
         self.assertEqual(manifest["version"], 1)
-        self.assertEqual(len(manifest_names), 91)
+        self.assertEqual(len(manifest_names), 92)
         self.assertEqual(manifest_names, fixture_names)
         self.assertEqual(len(manifest_names), len(manifest["cases"]))
 
@@ -2960,7 +2960,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
 
     def test_score_role_components_rejoin_counter_with_overlapping_fringe(self):
         for top_fringe_end in range(11, 19):
-            for bottom_fringe_start in range(top_fringe_end + 1, 20):
+            for bottom_fringe_start in range(11, 20):
                 with self.subTest(
                     top_fringe_end=top_fringe_end,
                     bottom_fringe_start=bottom_fringe_start,
@@ -2983,7 +2983,11 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
 
     def test_narrow_penalty_fixtures_survive_jpeg_recompression(self):
         reader = text_ocr.ScoreboardDigitReader()
-        for fixture in ("score_bad_000_000_2.jpg", "score_bad_000_000_3.jpg"):
+        for fixture, expected_digits in (
+            ("score_bad_000_000_2.jpg", (0, 0, 0, 0, 0, 0)),
+            ("score_bad_000_000_3.jpg", (0, 0, 0, 0, 0, 0)),
+            ("score_bad_010_030.jpg", (0, 1, 0, 0, 3, 0)),
+        ):
             image = self._scoreboard_image(fixture)
             for quality in (80, 85, 90, 95, 100):
                 with self.subTest(fixture=fixture, quality=quality):
@@ -2992,7 +2996,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     encoded.seek(0)
                     reading = reader.read(text_ocr.Image.open(encoded).convert("RGB"))
                     self.assertTrue(reading.has_layout)
-                    self.assertEqual(reading.digits, (0, 0, 0, 0, 0, 0))
+                    self.assertEqual(reading.digits, expected_digits)
 
     def test_counter_repair_does_not_join_complete_cell_to_next_row(self):
         image = text_ocr.Image.new("RGB", (60, 70), (8, 60, 130))
