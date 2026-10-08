@@ -2699,7 +2699,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         }
 
         self.assertEqual(manifest["version"], 1)
-        self.assertEqual(len(manifest_names), 90)
+        self.assertEqual(len(manifest_names), 91)
         self.assertEqual(manifest_names, fixture_names)
         self.assertEqual(len(manifest_names), len(manifest["cases"]))
 
@@ -2959,18 +2959,55 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         )
 
     def test_score_role_components_rejoin_counter_with_overlapping_fringe(self):
-        image = text_ocr.Image.new("RGB", (40, 34), (8, 60, 130))
-        draw = text_ocr.ImageDraw.Draw(image)
-        red = text_ocr.SCORE_BACKGROUND_PALETTES[1]["red"]
-        draw.rectangle((5, 2, 15, 9), fill=red)
-        draw.rectangle((5, 10, 5, 13), fill=red)
-        draw.rectangle((9, 12, 11, 17), fill=red)
-        draw.rectangle((5, 19, 15, 27), fill=red)
+        for top_fringe_end in range(11, 19):
+            for bottom_fringe_start in range(top_fringe_end + 1, 20):
+                with self.subTest(
+                    top_fringe_end=top_fringe_end,
+                    bottom_fringe_start=bottom_fringe_start,
+                ):
+                    image = text_ocr.Image.new("RGB", (40, 34), (8, 60, 130))
+                    draw = text_ocr.ImageDraw.Draw(image)
+                    red = text_ocr.SCORE_BACKGROUND_PALETTES[1]["red"]
+                    draw.rectangle((5, 2, 15, 9), fill=red)
+                    draw.rectangle((5, 10, 5, top_fringe_end), fill=red)
+                    draw.rectangle((9, 12, 11, 17), fill=red)
+                    draw.rectangle((15, bottom_fringe_start, 15, 19), fill=red)
+                    draw.rectangle((5, 19, 15, 27), fill=red)
 
-        components = text_ocr._score_role_components(image, "red")
+                    components = text_ocr._score_role_components(image, "red")
+
+                    self.assertEqual(
+                        [component.bounds for component in components],
+                        [(5, 2, 16, 28)],
+                    )
+
+    def test_narrow_penalty_fixtures_survive_jpeg_recompression(self):
+        reader = text_ocr.ScoreboardDigitReader()
+        for fixture in ("score_bad_000_000_2.jpg", "score_bad_000_000_3.jpg"):
+            image = self._scoreboard_image(fixture)
+            for quality in (80, 85, 90, 95, 100):
+                with self.subTest(fixture=fixture, quality=quality):
+                    encoded = io.BytesIO()
+                    image.save(encoded, "JPEG", quality=quality)
+                    encoded.seek(0)
+                    reading = reader.read(text_ocr.Image.open(encoded).convert("RGB"))
+                    self.assertTrue(reading.has_layout)
+                    self.assertEqual(reading.digits, (0, 0, 0, 0, 0, 0))
+
+    def test_counter_repair_does_not_join_complete_cell_to_next_row(self):
+        image = text_ocr.Image.new("RGB", (60, 70), (8, 60, 130))
+        draw = text_ocr.ImageDraw.Draw(image)
+        green = text_ocr.SCORE_BACKGROUND_PALETTES[1]["green"]
+        draw.rectangle((5, 2, 43, 29), fill=green)
+        draw.rectangle((19, 15, 27, 26), fill=(250, 250, 250))
+        draw.rectangle((22, 19, 24, 22), fill=green)
+        draw.rectangle((5, 33, 43, 60), fill=green)
+
+        components = text_ocr._score_role_components(image, "green")
 
         self.assertEqual(
-            [component.bounds for component in components], [(5, 2, 16, 28)]
+            {component.bounds for component in components},
+            {(5, 2, 44, 30), (5, 33, 44, 61)},
         )
 
     def test_score_role_components_do_not_join_two_pixel_row_gap(self):

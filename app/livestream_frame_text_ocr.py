@@ -285,6 +285,7 @@ def _score_role_components(image, role: str, role_mask=None):
         top_width = top[2] - top[0]
         center_width = center[2] - center[0]
         bottom_width = bottom[2] - bottom[0]
+        outer_heights = (top[3] - top[1], bottom[3] - bottom[1])
         top_center_gap = center[1] - top[3]
         center_bottom_gap = bottom[1] - center[3]
         outer_overlap = max(0, min(top[2], bottom[2]) - max(top[0], bottom[0]))
@@ -293,18 +294,32 @@ def _score_role_components(image, role: str, role_mask=None):
             min(top[2], center[2], bottom[2]) - max(top[0], center[0], bottom[0]),
         )
         total_height = bottom[3] - top[1]
+        max_counter_gap = max(3, 0.40 * min(top_width, bottom_width))
         if (
             cluster_areas[center_index] < min_area
             and center_width <= 0.50 * min(top_width, bottom_width)
             and max(top_width, bottom_width) <= 1.35 * min(top_width, bottom_width)
+            and max(outer_heights) <= 3 * min(outer_heights)
             and outer_overlap >= 0.80 * min(top_width, bottom_width)
             and center_outer_overlap >= 0.80 * center_width
-            # JPEG fringes can overlap the counter's bounds by two scanlines
-            # even though the colored components themselves remain disjoint.
-            and -2 <= top_center_gap <= 3
-            and -2 <= center_bottom_gap <= 3
+            # Thin side fringes can extend alongside the counter for its full
+            # height. Permit overlapping bounds, but keep the counter within
+            # the cell and the two substantial outer pieces vertically apart.
+            and (top[1] + top[3]) / 2 <= center[1]
+            and center[3] <= (bottom[1] + bottom[3]) / 2
+            and top[3] <= bottom[1]
+            and top_center_gap <= max_counter_gap
+            and center_bottom_gap <= max_counter_gap
             and total_height <= 3.0 * max(top_width, bottom_width)
         ):
+            # Overlap is allowed only beside the counter. A complete cell has
+            # background below its own counter, and must not be joined to the
+            # next row as though it were just the top fragment of one cell.
+            counter_columns = slice(center[0], center[2])
+            if np.any(labels[center[1] : top[3], counter_columns] == top_index):
+                continue
+            if np.any(labels[bottom[1] : center[3], counter_columns] == bottom_index):
+                continue
             split_cell_triples.append((top_index, center_index, bottom_index))
     for top_index, center_index, bottom_index in split_cell_triples:
         union(top_index, center_index)

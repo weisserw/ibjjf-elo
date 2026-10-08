@@ -162,11 +162,18 @@ trimmed from final cell bounds. Together these checks prevent stray JPEG pixels
 at a cell edge from making two stacked rows look like one wider cell. The bounded
 three-piece pattern formed by a zero spanning nearly the full width of an
 unusually narrow cell is also rejoined: two aligned outer pieces around a thin
-same-color counter sliver, with gaps no larger than three pixels or bounding-box
-overlaps no larger than two scanlines from JPEG fringes. This includes
-`score_bad_000_000_2.jpg`, whose bottom penalty cell previously remained split
-and caused the whole scoreboard to be classified as blank. The combined
+same-color counter sliver, with gaps bounded by 40% of the narrower outer piece's
+width (at least three pixels) to tolerate compression of the counter. Thin side
+fringes may overlap the counter's vertical bounds along its full height, provided
+the counter stays between the outer pieces' vertical midpoints and they remain
+vertically separate. This includes `score_bad_000_000_2.jpg` and
+`score_bad_000_000_3.jpg`, whose bottom penalty cells previously remained split
+and caused the whole scoreboard to be classified as blank. A fixed two-scanline
+overlap allowance handled the former but failed on the latter. The combined
 height limit keeps this repair from crossing the gap between scoreboard rows.
+The outer pieces must also have comparable heights, and any overlap must stay
+beside the counter's horizontal span. These checks prevent joining a complete
+cell to another row or to a short background fragment below the scoreboard.
 Green, yellow, and red components are then detected
 independently: no cell edge is inferred from a neighbor and cell widths do not
 have to match. A layout is accepted only when the components form one unambiguous
@@ -237,7 +244,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `ScanLivestreamFrameTextAdminApiStateTestCase`: replay-safe client retries and one-shot claim behavior.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  `scoreboard_cases.json` explicitly golden-tests all 90 scoreboard/name fixtures
+  `scoreboard_cases.json` explicitly golden-tests all 91 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG
