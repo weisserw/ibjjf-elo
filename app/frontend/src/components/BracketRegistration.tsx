@@ -235,6 +235,7 @@ function BracketRegistration() {
   }, [effectiveRegistrationCompetitors, showRatings])
 
   const idealBracket = useMemo(() => {
+    if (registrationEventUrl?.startsWith('internal:')) return null;
     if (!effectiveRegistrationCompetitors || nativeSeedByCompetitor.size < 4) return null;
     const snakeSlots = createSnakeBracketSlots(nativeSeedByCompetitor.size);
     if (!snakeSlots) return null;
@@ -246,7 +247,7 @@ function BracketRegistration() {
       [],
       competitor => nativeSeedByCompetitor.get(competitor),
     );
-  }, [effectiveRegistrationCompetitors, nativeSeedByCompetitor])
+  }, [registrationEventUrl, effectiveRegistrationCompetitors, nativeSeedByCompetitor])
 
   const isOpenRegistrationCategory = useMemo(() => {
     const weight = selectedRegistrationCategory?.split(' / ')[3] ?? '';
