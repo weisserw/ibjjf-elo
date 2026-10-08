@@ -445,7 +445,7 @@ def per_mat_livestream_links(livestream_data, event_ids):
 def name_components(name):
     return [
         n
-        for n in normalize(name.strip()).split()
+        for n in normalize(name.strip().replace("-", " ")).split()
         if n.lower() not in ["jr.", "sr.", "jr", "sr", "2nd", "3rd", "ii", "iii"]
         and not n.startswith('"')
         and len(n.replace(".", "")) > 1
