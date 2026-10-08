@@ -2699,7 +2699,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         }
 
         self.assertEqual(manifest["version"], 1)
-        self.assertEqual(len(manifest_names), 89)
+        self.assertEqual(len(manifest_names), 90)
         self.assertEqual(manifest_names, fixture_names)
         self.assertEqual(len(manifest_names), len(manifest["cases"]))
 
@@ -2956,6 +2956,21 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         self.assertEqual(
             {component.bounds for component in components},
             {(5, 2, 17, 28), (27, 2, 39, 14), (27, 18, 39, 30)},
+        )
+
+    def test_score_role_components_rejoin_counter_with_overlapping_fringe(self):
+        image = text_ocr.Image.new("RGB", (40, 34), (8, 60, 130))
+        draw = text_ocr.ImageDraw.Draw(image)
+        red = text_ocr.SCORE_BACKGROUND_PALETTES[1]["red"]
+        draw.rectangle((5, 2, 15, 9), fill=red)
+        draw.rectangle((5, 10, 5, 13), fill=red)
+        draw.rectangle((9, 12, 11, 17), fill=red)
+        draw.rectangle((5, 19, 15, 27), fill=red)
+
+        components = text_ocr._score_role_components(image, "red")
+
+        self.assertEqual(
+            [component.bounds for component in components], [(5, 2, 16, 28)]
         )
 
     def test_score_role_components_do_not_join_two_pixel_row_gap(self):

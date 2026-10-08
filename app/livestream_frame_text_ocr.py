@@ -299,8 +299,10 @@ def _score_role_components(image, role: str, role_mask=None):
             and max(top_width, bottom_width) <= 1.35 * min(top_width, bottom_width)
             and outer_overlap >= 0.80 * min(top_width, bottom_width)
             and center_outer_overlap >= 0.80 * center_width
-            and 0 <= top_center_gap <= 3
-            and 0 <= center_bottom_gap <= 3
+            # JPEG fringes can overlap the counter's bounds by two scanlines
+            # even though the colored components themselves remain disjoint.
+            and -2 <= top_center_gap <= 3
+            and -2 <= center_bottom_gap <= 3
             and total_height <= 3.0 * max(top_width, bottom_width)
         ):
             split_cell_triples.append((top_index, center_index, bottom_index))
