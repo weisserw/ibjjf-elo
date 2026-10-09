@@ -178,6 +178,13 @@ height limit keeps this repair from crossing the gap between scoreboard rows.
 The outer pieces must also have comparable heights, and any overlap must stay
 beside the counter's horizontal span. These checks prevent joining a complete
 cell to another row or to a short background fragment below the scoreboard.
+Diagonal digits such as `2` can instead leave two overlapping background pieces.
+Those pieces use the counter repair's 3:1 height-to-width limit; vertically
+separated pieces retain the stricter 7:3 limit that rejects stacked rows.
+Fragments above the absolute noise threshold can also rejoin when their area is
+at most 40% of their neighbor's and they share a substantial horizontal span.
+Together these checks recover both penalty digits in `score_bad_012_212.jpg`,
+including JPEG recompressions where a diagonal breaks into additional pieces.
 Green, yellow, and red components are then detected
 independently: no cell edge is inferred from a neighbor and cell widths do not
 have to match. A layout is accepted only when the components form one unambiguous
@@ -248,7 +255,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `ScanLivestreamFrameTextAdminApiStateTestCase`: replay-safe client retries and one-shot claim behavior.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  `scoreboard_cases.json` explicitly golden-tests all 92 scoreboard/name fixtures
+  `scoreboard_cases.json` explicitly golden-tests all 93 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG

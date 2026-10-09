@@ -2699,7 +2699,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         }
 
         self.assertEqual(manifest["version"], 1)
-        self.assertEqual(len(manifest_names), 92)
+        self.assertEqual(len(manifest_names), 93)
         self.assertEqual(manifest_names, fixture_names)
         self.assertEqual(len(manifest_names), len(manifest["cases"]))
 
@@ -2987,6 +2987,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
             ("score_bad_000_000_2.jpg", (0, 0, 0, 0, 0, 0)),
             ("score_bad_000_000_3.jpg", (0, 0, 0, 0, 0, 0)),
             ("score_bad_010_030.jpg", (0, 1, 0, 0, 3, 0)),
+            ("score_bad_012_212.jpg", (0, 1, 2, 2, 1, 2)),
         ):
             image = self._scoreboard_image(fixture)
             for quality in (80, 85, 90, 95, 100):
@@ -2997,6 +2998,35 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     reading = reader.read(text_ocr.Image.open(encoded).convert("RGB"))
                     self.assertTrue(reading.has_layout)
                     self.assertEqual(reading.digits, expected_digits)
+
+    def test_score_role_components_rejoin_two_overlapping_narrow_fragments(self):
+        image = text_ocr.Image.new("RGB", (40, 34), (8, 60, 130))
+        draw = text_ocr.ImageDraw.Draw(image)
+        red = text_ocr.SCORE_BACKGROUND_PALETTES[1]["red"]
+        draw.rectangle((5, 2, 15, 9), fill=red)
+        draw.rectangle((5, 10, 7, 18), fill=red)
+        draw.rectangle((13, 14, 15, 21), fill=red)
+        draw.rectangle((5, 22, 15, 28), fill=red)
+
+        components = text_ocr._score_role_components(image, "red")
+
+        self.assertEqual(
+            [component.bounds for component in components], [(5, 2, 16, 29)]
+        )
+
+    def test_score_role_components_rejoin_fragment_above_noise_threshold(self):
+        image = text_ocr.Image.new("RGB", (40, 34), (8, 60, 130))
+        draw = text_ocr.ImageDraw.Draw(image)
+        red = text_ocr.SCORE_BACKGROUND_PALETTES[1]["red"]
+        draw.rectangle((5, 2, 16, 9), fill=red)
+        draw.rectangle((5, 11, 10, 12), fill=red)
+        draw.rectangle((5, 13, 7, 18), fill=red)
+
+        components = text_ocr._score_role_components(image, "red")
+
+        self.assertEqual(
+            [component.bounds for component in components], [(5, 2, 17, 19)]
+        )
 
     def test_counter_repair_does_not_join_complete_cell_to_next_row(self):
         image = text_ocr.Image.new("RGB", (60, 70), (8, 60, 130))

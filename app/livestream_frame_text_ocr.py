@@ -364,11 +364,28 @@ def _score_role_components(image, role: str, role_mask=None):
             has_small_fragment = (
                 min(cluster_areas[first_root], cluster_areas[second_root]) < min_area
             )
+            # A compressed diagonal can leave a fragment slightly above the
+            # absolute noise threshold. Treat it as small relative to its
+            # neighbor only when both still share a substantial horizontal span.
+            has_small_fragment = has_small_fragment or (
+                shares_horizontal_span
+                and min(cluster_areas[first_root], cluster_areas[second_root])
+                <= 0.40 * max(cluster_areas[first_root], cluster_areas[second_root])
+            )
             combined_width = max(first_right, second_right) - min(first_x, second_x)
             combined_height = max(first_bottom, second_bottom) - min(first_y, second_y)
             aspect_width = combined_width if has_small_fragment else horizontal_overlap
+            # A diagonal stroke (notably a 2) can split an unusually narrow
+            # cell into two pieces whose vertical spans overlap. Use the same
+            # 3:1 limit as the counter repair only for those overlapping pieces;
+            # separated rows still need the stricter aspect check.
+            max_aspect_ratio = (
+                3.0
+                if min(first_bottom, second_bottom) > max(first_y, second_y)
+                else SCORE_CELL_MAX_HEIGHT_WIDTH_RATIO
+            )
             has_plausible_cell_aspect = (
-                combined_height <= SCORE_CELL_MAX_HEIGHT_WIDTH_RATIO * aspect_width
+                combined_height <= max_aspect_ratio * aspect_width
             )
             if (
                 vertical_gap <= 2
