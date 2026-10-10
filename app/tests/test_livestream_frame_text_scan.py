@@ -3437,6 +3437,26 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     expected_digits,
                 )
 
+    def test_running_timer_tournament_fixtures_do_not_read_as_blank(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.TimerDigitReader()
+        for fixture_name, expected_value, expected_digits in (
+            ("timer_127.jpg", "1:27", [1, 2, 7]),
+            ("timer_312.jpg", "3:12", [3, 1, 2]),
+            ("timer_427.jpg", "4:27", [4, 2, 7]),
+        ):
+            with self.subTest(fixture=fixture_name):
+                with text_ocr.Image.open(
+                    os.path.join(self.fixture_dir, fixture_name)
+                ) as image:
+                    reading = reader.read(image.convert("RGB"))
+                self.assertEqual(reading.state, "running")
+                self.assertEqual(reading.value, expected_value)
+                self.assertEqual(
+                    [prediction.digit for prediction in reading.predictions],
+                    expected_digits,
+                )
+
     def test_timer_layout_tracks_padding_position_and_scale(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         reader = text_ocr.TimerDigitReader()

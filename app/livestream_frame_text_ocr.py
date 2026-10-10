@@ -1152,7 +1152,11 @@ class TimerLocator:
                 (green > 110)
                 & (red < 120)
                 & (blue < 130)
-                & ((green_int - red_int) > 40)
+                # JPEG chroma loss can leave a green stroke only 17 levels
+                # above red. Keep these strokes connected while requiring
+                # green to dominate both other channels (not neutral text).
+                & ((green_int - red_int) > 15)
+                & ((green_int - blue_int) > 15)
             ),
             "warm": (
                 (red > 130)

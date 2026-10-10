@@ -290,6 +290,10 @@ Git history shows this area is sensitive to OCR edge cases and workflow/status h
   digit-height and baseline variation in `timer_004.jpg` and `timer_951.jpg`;
   those running timers previously fell just below an overly strict cutoff and
   were incorrectly returned as blank.
+  Running-digit color segmentation tolerates JPEG chroma loss while requiring
+  green to exceed both red and blue. The stricter former green/red threshold
+  split low-saturation strokes in `timer_127.jpg`, `timer_312.jpg`, and
+  `timer_427.jpg`, causing all three readable running timers to return blank.
   Orange and yellow timer digits use one complete warm foreground mask, preventing bright yellow digit sections from being clipped into a low-confidence blank reading. Raw warm timer readings are treated as running because the display has no stopped indicator once it turns yellow; the text scanner then infers stops and resumes from stationary or changing under-one-minute digits. The existing direct `0:00` value override is still treated as stopped and takes precedence over inference.
 - Name OCR: multiple commits fixed athlete/team line selection, multi-line names, Paddle result parsing, Paddle choosing team names, and clipped/trailing initials.
 - Scoreboard visibility: blank scoreboard handling and scoreboard detection have had regressions.
