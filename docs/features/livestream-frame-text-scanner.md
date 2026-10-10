@@ -162,7 +162,7 @@ trimmed from final cell bounds. Together these checks prevent stray JPEG pixels
 at a cell edge from making two stacked rows look like one wider cell. The bounded
 three-piece pattern formed by a zero spanning nearly the full width of an
 unusually narrow cell is also rejoined: two aligned outer pieces around a thin
-same-color counter sliver, with gaps bounded by 40% of the narrower outer piece's
+same-color counter sliver, with gaps bounded by 50% of the narrower outer piece's
 width (at least three pixels) to tolerate compression of the counter. Thin side
 fringes may overlap the counter's vertical bounds along its full height, provided
 the counter stays between the outer pieces' vertical midpoints. Opposite-side
@@ -255,7 +255,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `ScanLivestreamFrameTextAdminApiStateTestCase`: replay-safe client retries and one-shot claim behavior.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  `scoreboard_cases.json` explicitly golden-tests all 93 scoreboard/name fixtures
+  `scoreboard_cases.json` explicitly golden-tests all 94 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG
@@ -280,6 +280,10 @@ Git history shows this area is sensitive to OCR edge cases and workflow/status h
   The new-scoreboard stopped state also draws a white outline around the red
   penalty cell. Edge-touching foreground components are treated as cell chrome
   so that outline cannot become a spurious leading `1`.
+  Narrow penalty cells also use the digit's width-to-height ratio when identifying
+  the stem shape of `1`: `score_bad_040_001.jpg` previously read its bottom penalty
+  as `3` because the digit exceeded the cell-relative width limit. Its compressed
+  top zero also requires the counter-gap allowance described above.
 - Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter. Timer geometry is now detected from aligned digit candidates and locally coherent display colors rather than image-ratio search windows or whole-crop color density. Green timer digits take precedence over adjacent white scoreboard text in mixed tight crops so active timers are not mistaken for stopped timers. Dense horizontal foreground rows from video artifacts or timer-frame edges are removed within connected components before digit grouping so crop padding cannot change whether the artifact is recognized.
   Full-height digit fragments separated by a one-pixel JPEG/color-threshold seam are merged before grouping and retained together during classification, preventing clipped zeroes in small timer crops from being interpreted as extra digits.
   Black stopped-timer candidates are clipped to broad red display bounds, preventing dark video outside a tightly cropped timer from joining the leading digit and turning `10:00` into a false `0:00`.

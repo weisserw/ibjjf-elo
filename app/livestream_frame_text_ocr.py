@@ -297,7 +297,7 @@ def _score_role_components(image, role: str, role_mask=None):
             min(top[2], center[2], bottom[2]) - max(top[0], center[0], bottom[0]),
         )
         total_height = bottom[3] - top[1]
-        max_counter_gap = max(3, 0.40 * min(top_width, bottom_width))
+        max_counter_gap = max(3, 0.50 * min(top_width, bottom_width))
         if (
             cluster_areas[center_index] < min_area
             and center_width <= 0.50 * min(top_width, bottom_width)
@@ -897,8 +897,13 @@ def _score_mask_looks_like_one(mask) -> bool:
 
 
 def _score_digit_entry_looks_like_one(entry: ScoreDigitMask) -> bool:
+    # Narrow penalty cells can be only twice the width of a 1. Check the
+    # digit's own aspect ratio too, while retaining the stem-shape requirement.
     return bool(
-        entry.width <= int(entry.image_width * 0.42)
+        (
+            entry.width <= int(entry.image_width * 0.42)
+            or entry.width <= entry.height * 0.5
+        )
         and _score_mask_looks_like_one(entry.mask)
     )
 
