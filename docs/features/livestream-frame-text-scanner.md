@@ -213,6 +213,15 @@ selected digit boxes are normalized before template classification, so padding,
 translation, and moderate scaling do not change the logical timer reading. Crops
 without a sufficiently confident timer candidate fail closed as blank.
 
+Digit spacing is measured between character centers, with extra space for the
+colon, so narrow `1` glyphs do not fail an ink-edge gap limit. Timer templates
+include small native raster sizes rather than only larger glyphs resized after
+rendering. Green foreground extraction uses connected strong/weak color masks:
+dim, less-saturated pixels can complete a stroke only when its component contains
+at least six strong green pixels and at least 25% strong pixels. This preserves
+compressed strokes without accepting weak green regions by themselves. Existing
+layout, background, and reading-confidence checks still apply.
+
 Ordinary athlete-name OCR reuses that exact detected grid. The name column ends at
 the left edge of the green score cells, and its top, bottom, row boundary, narrow
 line crops, and expanded retry crops are derived from the two detected cell rows.
@@ -260,7 +269,11 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG
   invariance. `cases.json` remains the combined parser integration manifest and is
-  checked against the score-only manifest. Timer coverage includes a non-digit
+  checked against the score-only manifest. `timer_cases.json` golden-tests every
+  timer fixture and is checked against both the fixture filesystem and combined
+  parser manifest. All 30 timer fixtures, including blank negatives, are checked
+  at original size, with padding, at 0.75x/1.25x scale, and after JPEG compression
+  at qualities 75 and 90 (180 readings). Timer coverage also includes a non-digit
   structural negative case.
 - `LivestreamFrameTextScanAdminApiTestCase`: admin and worker JSON endpoint behavior.
 
@@ -298,6 +311,14 @@ Git history shows this area is sensitive to OCR edge cases and workflow/status h
   green to exceed both red and blue. The stricter former green/red threshold
   split low-saturation strokes in `timer_127.jpg`, `timer_312.jpg`, and
   `timer_427.jpg`, causing all three readable running timers to return blank.
+  Lowering that threshold alone was insufficient: a scaled `timer_312.jpg` still
+  lost a stroke, now recovered by connected weak-pixel support. `timer_111.jpg`
+  exposed the ink-edge spacing assumption,
+  and `timer_131.jpg` exposed poor small-glyph template confidence. These are
+  independent rejection stages; relaxing color alone could not fix all of them.
+  The capture worker's default 480p preference dates to June 2026, so repository
+  history does not establish a recent capture-resolution change as the cause of
+  the October reports.
   Orange and yellow timer digits use one complete warm foreground mask, preventing bright yellow digit sections from being clipped into a low-confidence blank reading. Raw warm timer readings are treated as running because the display has no stopped indicator once it turns yellow; the text scanner then infers stops and resumes from stationary or changing under-one-minute digits. The existing direct `0:00` value override is still treated as stopped and takes precedence over inference.
 - Name OCR: multiple commits fixed athlete/team line selection, multi-line names, Paddle result parsing, Paddle choosing team names, and clipped/trailing initials.
 - Scoreboard visibility: blank scoreboard handling and scoreboard detection have had regressions.

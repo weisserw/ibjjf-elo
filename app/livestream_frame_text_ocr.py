@@ -1148,21 +1148,26 @@ class TimerLocator:
         )
         black = (red < 70) & (green < 70) & (blue < 70)
         black &= self._red_display_support(red_background)
+        running_seeds = (
+            (green > 110)
+            & (red < 120)
+            & (blue < 130)
+            & ((green_int - red_int) > 15)
+            & ((green_int - blue_int) > 15)
+        )
+        # Hysteresis: faint/compressed edges may support a green digit, but
+        # cannot establish one on their own. Requiring a substantial core of
+        # saturated pixels keeps pale background noise out of the foreground.
+        running_support = (
+            (green > 70) & ((green_int - red_int) > 5) & ((green_int - blue_int) > 5)
+        )
+        running = self._seeded_foreground(running_seeds, running_support)
         return {
             "red_background": red_background,
             "dark_red_background": dark_red_background,
             "black": black,
             "white": (red > 180) & (green > 180) & (blue > 180),
-            "running": (
-                (green > 110)
-                & (red < 120)
-                & (blue < 130)
-                # JPEG chroma loss can leave a green stroke only 17 levels
-                # above red. Keep these strokes connected while requiring
-                # green to dominate both other channels (not neutral text).
-                & ((green_int - red_int) > 15)
-                & ((green_int - blue_int) > 15)
-            ),
+            "running": running,
             "warm": (
                 (red > 130)
                 & (green > 80)
@@ -1174,6 +1179,17 @@ class TimerLocator:
             "dark_background": (red < 60) & (green < 60) & (blue < 60),
             "dark_blue_background": (blue > 60) & (red < 60) & (green < 80),
         }
+
+    def _seeded_foreground(self, seeds, support):
+        component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
+            support.astype("uint8"), 8
+        )
+        seed_counts = np.bincount(labels[seeds], minlength=component_count)
+        accepted = (seed_counts >= self.MIN_COMPONENT_AREA) & (
+            seed_counts >= stats[:, cv2.CC_STAT_AREA] * 0.25
+        )
+        accepted[0] = False
+        return accepted[labels]
 
     def _red_display_support(self, red_background):
         """Fill broad red display bounds so black digits cannot leak into video."""
@@ -1308,8 +1324,17 @@ class TimerLocator:
         gaps = [
             boxes[index + 1][0] - boxes[index][2] for index in range(len(boxes) - 1)
         ]
-        if min(gaps) < -reference_height * 0.08 or max(gaps) > reference_height * 0.85:
+        if min(gaps) < -reference_height * 0.08:
             return None
+
+        # Ink bounds are narrower for 1 than for the other digits. Compare
+        # character centers so a pair of ones does not appear too far apart.
+        # The colon occupies an extra character space before the final pair.
+        centers = [(box[0] + box[2]) / 2 for box in boxes]
+        for index, (left, right) in enumerate(zip(centers, centers[1:])):
+            max_advance = 1.5 if index == len(boxes) - 3 else 1.1
+            if right - left > reference_height * max_advance:
+                return None
 
         span = boxes[-1][2] - boxes[0][0]
         max_span = reference_height * (4.4 if len(boxes) == 4 else 3.5)
@@ -1445,7 +1470,10 @@ class TimerDigitReader:
     ):
         self.classifier = classifier or FixedDigitClassifier(
             TIMER_TEMPLATE_SIZE,
-            range(44, 73, 4),
+            # Render small glyphs at their native resolution as well. Enlarging
+            # an archived 20px glyph cannot restore the rasterization of a
+            # 40px template, particularly for narrow strokes such as 1.
+            range(16, 73, 2),
             "timer-font",
             include_top_crop_variants=True,
         )

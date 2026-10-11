@@ -33,7 +33,7 @@ class EventMergeTestCase(TestDbMixin, unittest.TestCase):
 
     def event(self, name, **values):
         event = Event(
-            id=uuid.uuid4(),
+            id=values.pop("id", uuid.uuid4()),
             name=name,
             normalized_name=name.lower(),
             slug=name.lower().replace(" ", "-"),
@@ -150,8 +150,12 @@ class EventMergeTestCase(TestDbMixin, unittest.TestCase):
 
     def test_merge_can_copy_ibjjf_id_from_duplicate(self):
         with self.app_module.app.app_context():
-            keep = self.event("Keep", medals_only=True)
-            merge = self.event("Merge", ibjjf_id="2662", medals_only=False)
+            # SQLAlchemy orders event updates by primary key. Make the
+            # recipient sort first to reproduce the unique-ID collision.
+            keep = self.event("Keep", id=uuid.UUID("a" * 32), medals_only=True)
+            merge = self.event(
+                "Merge", id=uuid.UUID("b" * 32), ibjjf_id="2662", medals_only=False
+            )
 
             merge_module.merge_events(keep, merge)
             db.session.flush()
@@ -159,6 +163,25 @@ class EventMergeTestCase(TestDbMixin, unittest.TestCase):
             self.assertEqual(keep.ibjjf_id, "2662")
             self.assertFalse(keep.medals_only)
             self.assertIsNone(db.session.get(Event, merge.id))
+
+    def test_merge_id_transfer_can_be_rolled_back(self):
+        with self.app_module.app.app_context():
+            keep = self.event("Keep", id=uuid.UUID("a" * 32), medals_only=True)
+            merge = self.event(
+                "Merge", id=uuid.UUID("b" * 32), ibjjf_id="2662", medals_only=False
+            )
+            db.session.commit()
+
+            merge_module.merge_events(keep, merge)
+            db.session.flush()
+            db.session.rollback()
+
+            db.session.expire_all()
+            restored_keep = db.session.get(Event, uuid.UUID("a" * 32))
+            restored_merge = db.session.get(Event, uuid.UUID("b" * 32))
+            self.assertIsNone(restored_keep.ibjjf_id)
+            self.assertTrue(restored_keep.medals_only)
+            self.assertEqual(restored_merge.ibjjf_id, "2662")
 
 
 if __name__ == "__main__":

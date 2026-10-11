@@ -359,6 +359,10 @@ better placing when the same athlete/division medal exists on both events,
 preserves a non-empty IBJJF ID and the non-medals-only state, and deletes the
 duplicate in the same transaction. It rejects two different non-empty IBJJF
 IDs and supports `--dry-run`. Coverage lives in `app/tests/test_merge_events.py`.
+When transferring an IBJJF ID, the merge clears and flushes the duplicate's ID
+before assigning it to the canonical event, all within the same transaction.
+This avoids a unique-key collision when ORM updates sort the canonical UUID
+first and preserves rollback behavior for dry runs.
 
 - Treat `app/routes/athletes.py:get_athlete_data` as the contract owner for the
   profile payload. Update `Athlete.tsx` interfaces and `test_athlete_profile_api`

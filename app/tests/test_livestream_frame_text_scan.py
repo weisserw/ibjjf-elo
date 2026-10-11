@@ -3441,6 +3441,8 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
         reader = text_ocr.TimerDigitReader()
         for fixture_name, expected_value, expected_digits in (
+            ("timer_111.jpg", "1:11", [1, 1, 1]),
+            ("timer_131.jpg", "1:31", [1, 3, 1]),
             ("timer_127.jpg", "1:27", [1, 2, 7]),
             ("timer_312.jpg", "3:12", [3, 1, 2]),
             ("timer_427.jpg", "4:27", [4, 2, 7]),
@@ -3456,6 +3458,64 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
                     [prediction.digit for prediction in reading.predictions],
                     expected_digits,
                 )
+
+    def _timer_cases(self):
+        with open(os.path.join(self.fixture_dir, "timer_cases.json")) as fileobj:
+            return json.load(fileobj)
+
+    def test_timer_manifest_covers_all_fixtures_and_agrees_with_parser_cases(self):
+        cases = self._timer_cases()
+        by_name = {case["fixture"]: case for case in cases}
+        self.assertEqual(len(cases), len(by_name))
+        self.assertEqual(
+            set(by_name),
+            {
+                name
+                for name in os.listdir(self.fixture_dir)
+                if name.startswith(("timer_", "new_timer_")) and name.endswith(".jpg")
+            },
+        )
+        with open(os.path.join(self.fixture_dir, "cases.json")) as fileobj:
+            for case in json.load(fileobj):
+                expected = by_name[case["timer_image"]]
+                self.assertEqual(expected["state"], case["expected"]["timer_state"])
+                self.assertEqual(expected["value"], case["expected"].get("timer_value"))
+
+    def test_timer_corpus_survives_scaling_padding_and_jpeg_compression(self):
+        text_ocr.validate_ocr_engines("fixed_digit", "none")
+        reader = text_ocr.TimerDigitReader()
+        for case in self._timer_cases():
+            with text_ocr.Image.open(
+                os.path.join(self.fixture_dir, case["fixture"])
+            ) as source:
+                image = source.convert("RGB")
+            variants = [("original", image)]
+            padded = text_ocr.Image.new(
+                "RGB", (image.width + 47, image.height + 31), (0, 0, 0)
+            )
+            padded.paste(image, (23, 17))
+            variants.append(("padded", padded))
+            for scale in (0.75, 1.25):
+                variants.append(
+                    (
+                        f"scale-{scale}",
+                        image.resize(
+                            (round(image.width * scale), round(image.height * scale)),
+                            text_ocr.Image.Resampling.LANCZOS,
+                        ),
+                    )
+                )
+            for quality in (75, 90):
+                encoded = io.BytesIO()
+                image.save(encoded, format="JPEG", quality=quality)
+                encoded.seek(0)
+                with text_ocr.Image.open(encoded) as recompressed:
+                    variants.append((f"jpeg-{quality}", recompressed.convert("RGB")))
+            for variant_name, variant in variants:
+                with self.subTest(fixture=case["fixture"], variant=variant_name):
+                    reading = reader.read(variant)
+                    self.assertEqual(reading.state, case["state"])
+                    self.assertEqual(reading.value, case["value"])
 
     def test_timer_layout_tracks_padding_position_and_scale(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")

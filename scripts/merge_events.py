@@ -33,10 +33,13 @@ def merge_events(keep, merge):
     if conflicts:
         raise ValueError("; ".join(conflicts))
 
-    if not keep.ibjjf_id:
-        keep.ibjjf_id = merge.ibjjf_id
-        # Avoid a transient unique-key collision if the source owns the ID.
+    if not keep.ibjjf_id and merge.ibjjf_id:
+        ibjjf_id = merge.ibjjf_id
+        # Flush the release before assigning the unique ID. ORM update order
+        # follows primary keys, not the order of these attribute assignments.
         merge.ibjjf_id = None
+        db.session.flush()
+        keep.ibjjf_id = ibjjf_id
 
     # False means the event has match data. Preserve that stronger state no
     # matter which side of a medals-only/archive pair was selected as `keep`.
