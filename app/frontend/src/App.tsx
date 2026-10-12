@@ -17,6 +17,7 @@ import NewsItem from './components/NewsItem';
 import NotFound from './components/NotFound';
 import { AppProvider, useAppContext } from './AppContext';
 import { t } from './translate';
+import homepageBanner from './assets/banner.jpg';
 
 function ScrollToHash() {
   const location = useLocation();
@@ -89,6 +90,17 @@ function AppShell() {
         </p>
       )}
       <main style={{ flex: '1' }}>
+        {location.pathname === '/' && (
+          <div className="homepage-banner">
+            <a href="https://store.jiujitsu.net/products/omoplata-3-0-nolan-stuart">
+              <img
+                src={homepageBanner}
+                alt="JiuJitsu.net Omoplata 3.0 instructional video, taught by Nolan Stuart with analysis by Dan Lukehart"
+                width={750}
+              />
+            </a>
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<Ratings />} />
           <Route path="/database" element={<Database />} />

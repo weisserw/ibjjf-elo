@@ -221,6 +221,19 @@ body {
   color: #3273dc;
 }
 
+.homepage-banner {
+  max-width: 1200px;
+  margin: 0 auto 1.25rem;
+  padding: 0 1.25rem;
+}
+
+.homepage-banner img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
 .site-video-banner a:hover {
   color: #276cda;
   text-decoration: underline;

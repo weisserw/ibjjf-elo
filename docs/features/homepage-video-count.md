@@ -14,6 +14,13 @@ disclaimer section on the About page. The banner is hidden while no cached value
 exists and on the About page, matching the placement rules of the older
 affiliation disclaimer it replaced.
 
+On the homepage (`/`), `app/frontend/src/assets/banner.jpg` appears directly
+below the count banner and above the rankings. The image scales to the available
+width while preserving its aspect ratio, and remains visible if the count is
+unavailable.
+Clicking the image opens the Omoplata 3.0 product page at
+`https://store.jiujitsu.net/products/omoplata-3-0-nolan-stuart` in the same window.
+
 ## Coverage Semantics
 
 `app/site_statistics.py` deliberately uses the ordinary mat-aware and linked
