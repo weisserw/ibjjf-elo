@@ -45,37 +45,45 @@ WITH invited (slot, athlete_name, division_id, team_name) AS (
         (11, 'Rafael Belmont Gamba',    'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Alliance'),
         (12, 'Jackson Nagai Hatchwell Junior',   'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Inevat Brazilian Jiu-Jitsu'),
         (13, 'Micael Ferreira Galvâo',     'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Thyago Martins BJJ Academy'),
+        (14, 'Uanderson Ferreira de Oliveira', 'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Sertão Brazilian Jiu-Jitsu Internacional'),
+        (15, 'Andy Tomas Murasaki Pereira', 'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'AOJ'),
 
         -- Male / Adult / BLACK / Heavy
-        (14, 'Vinicius Liberati', '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Soldiers Brazilian Jiu-Jitsu'),
-        (15, 'Fellipe Andrew Leandro Silva',    '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Del Mar Jiu-Jitsu Club'),
-        (16, 'Windson Alves de Oliveira Torres',    '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Six Blades Jiu-Jitsu'),
-        (17, 'Leonardo Silveira Ferreira',      '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Alliance'),
-        (19, 'Omar Tariq N. Nada',         '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Unity Jiu-jitsu'),
+        (16, 'Vinicius Liberati', '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Soldiers Brazilian Jiu-Jitsu'),
+        (17, 'Fellipe Andrew Leandro Silva',    '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Del Mar Jiu-Jitsu Club'),
+        (18, 'Windson Alves de Oliveira Torres',    '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Six Blades Jiu-Jitsu'),
+        (19, 'Leonardo Silveira Ferreira',      '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Alliance'),
+        (20, 'Omar Tariq N. Nada',         '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Unity Jiu-jitsu'),
+        (21, 'Davi Vetoraci de Menezes', '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Blvckout Grappling'),
+        (22, 'Nicholas Maglicic', '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Atos Jiu-Jitsu'),
+        (23, 'Nolan Patrick Braga Stuart', '73759d48-b08c-4e8c-8a8b-493de4a69603'::uuid, 'Brea Jiu-Jitsu'),
 
         -- Male / Adult / BLACK / Ultra Heavy
-        (20, 'Francisco Papasidero', 'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Brea Jiu-Jitsu'),
-        (21, 'Seif-Eddine Houmine',  'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'GF Team'),
-        (22, 'Helder Jose Rodrigues Júnior',     'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Atos Jiu-Jitsu'),
-        (23, 'Thierry Felipe Alves Lima de Souza',       'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Marcio Andre Jiu-Jitsu'),
-        (24, 'Alexander Sak',        'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Abdullaev Team'),
-        (25, 'Pedro Henrique Pinheiro M. de Souza',        'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Atos Jiu-Jitsu'),
+        (24, 'Francisco Papasidero', 'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Brea Jiu-Jitsu'),
+        (25, 'Seif-Eddine Houmine',  'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'GF Team'),
+        (26, 'Helder Jose Rodrigues Júnior',     'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Atos Jiu-Jitsu'),
+        (27, 'Thierry Felipe Alves Lima de Souza',       'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Marcio Andre Jiu-Jitsu'),
+        (28, 'Alexander Sak',        'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Abdullaev Team'),
+        (29, 'Pedro Henrique Pinheiro M. de Souza',        'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Atos Jiu-Jitsu'),
+        (30, 'Matheus Vetoraci de Menezes', 'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Blvckout Grappling'),
 
         -- Female / Adult / BLACK / Light
-        (26, 'Nikolett Kis',     '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Sigma Jiu-Jitsu'),
-        (27, 'Janaina Maia de Menezes',    '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Alliance'),
-        (28, 'Eliza Carvalho Nascimento', '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Marcio Andre Jiu-Jitsu'),
-        (29, 'Elisabeth Ann Clay',   '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Six Blades Jiu-Jitsu'),
-        (30, 'Aghata Adriane Rabelo Fernandes',    '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'CheckMat'),
-        (31, 'Keanna Carolyn Klay',      '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Gracie Barra'),
+        (31, 'Nikolett Kis',     '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Sigma Jiu-Jitsu'),
+        (32, 'Janaina Maia de Menezes',    '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Alliance'),
+        (33, 'Eliza Carvalho Nascimento', '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Marcio Andre Jiu-Jitsu'),
+        (34, 'Elisabeth Ann Clay',   '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Six Blades Jiu-Jitsu'),
+        (35, 'Aghata Adriane Rabelo Fernandes',    '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'CheckMat'),
+        (36, 'Keanna Carolyn Klay',      '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Gracie Barra'),
+        (37, 'Sabrina Rogéria Ataide B. Gondim', '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Fight Sports'),
 
         -- Female / Adult / BLACK / Super Heavy
-        (32, 'Larissa Dias de Almeida',          '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Elementum Jiu-Jitsu'),
-        (33, 'Yara Soares do Nascimento',           '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'DreamArt'),
-        (34, 'Hazel Rose Butcher-Salazar', '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Alliance'),
-        (35, 'Ingridd Alves de Sousa',         '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'AGR Jiu-Jitsu'),
-        (36, 'Maria Raniele Alencar Lima',         '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Atos Jiu-Jitsu'),
-        (37, 'Maria Vitória G. Ruffatto-Gilpin', '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Canby Jiu-Jitsu')
+        (38, 'Larissa Dias de Almeida',          '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Elementum Jiu-Jitsu'),
+        (39, 'Yara Soares do Nascimento',           '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'DreamArt'),
+        (40, 'Hazel Rose Butcher-Salazar', '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Alliance'),
+        (41, 'Ingridd Alves de Sousa',         '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'AGR Jiu-Jitsu'),
+        (42, 'Maria Raniele Alencar Lima',         '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Atos Jiu-Jitsu'),
+        (43, 'Maria Vitória G. Ruffatto-Gilpin', '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Canby Jiu-Jitsu'),
+        (44, 'Anabel Lopez Beard', '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'CheckMat')
 )
 INSERT INTO registration_link_competitors (
     id, registration_link_id, athlete_name, division_id, team_name
