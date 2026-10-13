@@ -36,6 +36,20 @@ for gi/no-gi, writes `MatchParticipant.start_rating`, `end_rating`,
 `start_match_count`, `end_match_count`, and rating notes, then regenerates the
 ranking boards.
 
+Finals between teammates are unrated suspected close-outs. Final detection uses
+the existing gold/silver medal pairing; earlier rounds remain rated. Both
+participants keep their starting rating and match count and receive
+`Unrated: suspected close-out`, preserving any starting-rating note. Existing
+unrated reasons (such as nonparticipation or missing winners) take precedence.
+Team equality uses the shared exact/glob Team Name Mappings resolver. Each
+recomputation loads mappings and team ID/name rows once (two queries), resolves
+each distinct name once, and uses dictionary lookups per match. The lookup is
+local to the run, so mapping edits apply on the next recomputation. Existing
+stored results require rating recomputation to adopt this behavior.
+Regression coverage: `test_elo.py`, `test_team_name_mapping.py`, and
+`test_closeouts.py` cover rating/count preservation, finals-only detection,
+mapping precedence, bounded mapping queries, and persisted recomputation.
+
 `scripts/recompute_ratings.py --skip-rank` suppresses the final board
 generation when performing a sequence of targeted athlete recomputations. Run
 the ordinary ranking generation once after the full targeted batch if fresh

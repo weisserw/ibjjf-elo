@@ -301,6 +301,12 @@ Git history shows several recurring risk areas:
 
 ## Practical Editing Notes
 
+- Suspected close-out finals use shared Team Name Mappings, including aliases
+  and globs. Live finals annotate both athletes with
+  `Unrated: suspected close-out`; archive brackets display the persisted note
+  even when it accompanies another rating note. Stored ratings require
+  recomputation to apply the unrated behavior. Coverage: `test_closeouts.py`.
+
 - Bracket medal imports in `app/pull.py` require a published first-place podium
   entry matching the lone athlete before exporting a `DEFAULT_GOLD` row. A
   single-person bracket without a loser/DQ marker is insufficient: the athlete

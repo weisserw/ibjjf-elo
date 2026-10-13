@@ -38,7 +38,9 @@ not been benchmarked.
 
 Country grouping bypasses team mappings. Rated matches between athletes in
 the same canonical team retain the existing scoring behavior: both participant
-results count when the match otherwise qualifies.
+results count when the match otherwise qualifies. Ratings now exclude suspected
+close-out finals using these same mappings; once ratings are recomputed, those
+unrated finals no longer qualify for team awards.
 
 ## Scoring and eligibility
 

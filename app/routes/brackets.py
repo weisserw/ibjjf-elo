@@ -39,6 +39,7 @@ from models import (
 )
 import logging
 from normalize import normalize
+from team_name_mapping import load_team_name_mappings, resolve_dupe_team_name
 from constants import (
     translate_age_keep_juvenile,
     canonical_rating_age,
@@ -88,6 +89,25 @@ brackets_route = Blueprint("brackets_route", __name__)
 JUVENILE_ARCHIVE_CUTOVER = datetime(2026, 6, 6)
 
 validlink = re.compile(r"^/tournaments/(\d+)/categories/\d+$")
+
+
+def _annotate_final_closeout(final):
+    if not final or {final["red_medal"], final["blue_medal"]} != {"1", "2"}:
+        return
+    if not final["red_team"] or not final["blue_team"]:
+        return
+    exact, globs = load_team_name_mappings()
+    red_team = resolve_dupe_team_name(final["red_team"], exact, globs)
+    blue_team = resolve_dupe_team_name(final["blue_team"], exact, globs)
+    if red_team and red_team == blue_team:
+        for side in ("red", "blue"):
+            key = f"{side}_note"
+            if CLOSEOUT_NOTE not in (final[key] or ""):
+                final[key] = (
+                    f"{final[key]}, {CLOSEOUT_NOTE}" if final[key] else CLOSEOUT_NOTE
+                )
+
+
 validibjjfdblink = re.compile(
     r"^(https://www.ibjjfdb.com/ChampionshipResults/\d+/PublicRegistrations)(\?lang=[a-zA-Z-]*)?$"
 )
@@ -2752,25 +2772,7 @@ def competitors():
             ) or result["note"]
 
     final = next((m for m in parsed_matches if m["final"]), None)
-    if final:
-        if (
-            (
-                (final["blue_medal"] == "1" and final["red_medal"] == "2")
-                or (final["red_medal"] == "1" and final["blue_medal"] == "2")
-            )
-            and final["red_team"] == final["blue_team"]
-            and final["red_team"] is not None
-        ):
-            if final["red_medal"] == "1":
-                if not final["blue_note"]:
-                    final["blue_note"] = CLOSEOUT_NOTE
-                else:
-                    final["blue_note"] = f'{final["blue_note"]}, {CLOSEOUT_NOTE}'
-            else:
-                if not final["red_note"]:
-                    final["red_note"] = CLOSEOUT_NOTE
-                else:
-                    final["red_note"] = f'{final["red_note"]}, {CLOSEOUT_NOTE}'
+    _annotate_final_closeout(final)
 
     division = (
         db.session.query(Division)
@@ -3114,13 +3116,13 @@ def archive_competitors():
         red_elo = EloCompetitor(red.start_rating + red_handicap, 32)
 
         blue_note = blue.note
-        if blue.rating_note == CLOSEOUT_NOTE:
+        if CLOSEOUT_NOTE in (blue.rating_note or ""):
             if not blue_note:
                 blue_note = CLOSEOUT_NOTE
             else:
                 blue_note = f"{blue_note}, {CLOSEOUT_NOTE}"
         red_note = red.note
-        if red.rating_note == CLOSEOUT_NOTE:
+        if CLOSEOUT_NOTE in (red.rating_note or ""):
             if not red_note:
                 red_note = CLOSEOUT_NOTE
             else:

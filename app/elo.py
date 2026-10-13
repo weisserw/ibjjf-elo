@@ -4,6 +4,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from flask_sqlalchemy import SQLAlchemy
 from models import Match, MatchParticipant, Division, Medal, Suspension
+from team_name_mapping import same_canonical_team
 from constants import (
     BLACK,
     BROWN,
@@ -235,7 +236,7 @@ no_match_strings = [
 ]
 
 WINNER_NOT_RECORDED = "Winner not recorded by the IBJJF"
-CLOSEOUT_NOTE = "Competitors on same team; possible closeout"
+CLOSEOUT_NOTE = "Unrated: competitors on same team"
 
 COLOR_PROMOTION_RATING_BUMP = 140
 BLACK_PROMOTION_RATING_BUMP = 95
@@ -573,6 +574,7 @@ def compute_ratings(
     blue_team_id: str,
     suspensions: Dict[str, Suspension],
     is_final: bool,
+    canonical_team_names=None,
 ) -> Tuple[
     bool, Optional[str], float, float, float, float, Optional[str], Optional[str]
 ]:
@@ -586,6 +588,9 @@ def compute_ratings(
         blue_winner,
         red_note,
         blue_note,
+        red_team_id,
+        blue_team_id,
+        is_final,
     )
 
     if division.age not in rated_ages:
@@ -729,6 +734,15 @@ def compute_ratings(
             blue_rating_note, f"Unrated: {WINNER_NOT_RECORDED}"
         )
         log.debug("Winner not recorded, not rating")
+    elif is_final and same_canonical_team(
+        red_team_id, blue_team_id, canonical_team_names
+    ):
+        red_end_rating = red_start_rating
+        blue_end_rating = blue_start_rating
+        rated = False
+        red_rating_note = append_rating_note(red_rating_note, CLOSEOUT_NOTE)
+        blue_rating_note = append_rating_note(blue_rating_note, CLOSEOUT_NOTE)
+        log.debug("Suspected close-out, not rating")
     else:
         if unknown_open:
             log.debug("Open class match with unknown weights, using minimum k factor")
@@ -802,19 +816,6 @@ def compute_ratings(
         else:
             red_end_match_count += 1
             blue_end_match_count += 1
-
-        # if the match is a final and teams are the same, add closeout note for loser
-        if is_final and red_team_id is not None and red_team_id == blue_team_id:
-            if red_winner and not blue_winner and not blue_rating_note:
-                blue_rating_note = append_rating_note(
-                    blue_rating_note,
-                    CLOSEOUT_NOTE,
-                )
-            elif blue_winner and not red_winner and not red_rating_note:
-                red_rating_note = append_rating_note(
-                    red_rating_note,
-                    CLOSEOUT_NOTE,
-                )
 
     return (
         rated,

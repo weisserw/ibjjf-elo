@@ -7,6 +7,7 @@ import uuid
 from progress_bar import Bar
 from models import Match, Division, Suspension, Athlete, MatchParticipant, Medal
 from elo import compute_ratings
+from team_name_mapping import load_canonical_team_names
 from current import generate_current_ratings
 from normalize import normalize
 from constants import TEEN_1, TEEN_2, TEEN_3
@@ -62,6 +63,7 @@ def recompute_all_ratings(
             query = query.filter(Match.id.in_(subquery.select()))
 
         total = query.count()
+        canonical_team_names = load_canonical_team_names(db.session)
 
         suspensions = db.session.query(Suspension)
         suspensions_by_id = {}
@@ -151,6 +153,7 @@ def recompute_all_ratings(
                     blue.team_id,
                     suspensions_by_id,
                     is_final,
+                    canonical_team_names=canonical_team_names,
                 )
 
                 changed = False

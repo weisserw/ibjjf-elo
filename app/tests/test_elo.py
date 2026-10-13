@@ -2,13 +2,17 @@ import os
 import sys
 import unittest
 import uuid
+from datetime import datetime
 from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from constants import ADULT, BLACK, MASTER_1
 from elo import (
     DEFAULT_RATINGS,
+    CLOSEOUT_NOTE,
+    compute_ratings,
     RATING_VERY_IMMATURE_COUNT,
     compute_start_rating,
     division_default_rating,
@@ -17,6 +21,71 @@ from elo import (
     rating_top_percent,
 )
 from ratings import normalize_target_athlete_id, normalize_target_athlete_ids
+
+
+class CloseoutRatingTestCase(unittest.TestCase):
+    def compute(self, **overrides):
+        args = dict(
+            db=Mock(),
+            event_id="event",
+            match_id="match",
+            division=SimpleNamespace(age=ADULT, to_json=lambda: {}),
+            happened_at=datetime(2026, 1, 1),
+            rate_winner_only=False,
+            red_athlete_id="red",
+            red_winner=True,
+            red_note=None,
+            red_team_id="a",
+            blue_athlete_id="blue",
+            blue_winner=False,
+            blue_note=None,
+            blue_team_id="b",
+            suspensions={},
+            is_final=True,
+            canonical_team_names={"a": "Alliance", "b": "Alliance", "c": "Atos"},
+        )
+        args.update(overrides)
+        with (
+            patch("elo.get_last_matches", return_value=(None, None)),
+            patch("elo.get_match_count", return_value=10),
+            patch("elo.compute_start_rating", return_value=(2000, "Existing note")),
+            patch("elo.open_handicaps", return_value=(False, 0, 0, None, None)),
+        ):
+            return compute_ratings(**args)
+
+    def test_closeouts_preserve_ratings_counts_and_existing_notes(self):
+        for options in (
+            {},
+            {"blue_team_id": "a"},
+            {"rate_winner_only": True},
+            {"red_winner": False, "blue_winner": True},
+        ):
+            with self.subTest(options=options):
+                result = self.compute(**options)
+                self.assertFalse(result[0])
+                self.assertEqual(result[1:5], (2000, 2000, 2000, 2000))
+                self.assertEqual(result[7:9], (f"Existing note, {CLOSEOUT_NOTE}",) * 2)
+                self.assertEqual(result[9:13], (10, 10, 10, 10))
+
+    def test_nonfinal_different_and_unknown_teams_remain_rated(self):
+        for options in (
+            {"is_final": False},
+            {"blue_team_id": "c"},
+            {"red_team_id": None, "blue_team_id": None},
+            {"red_team_id": "missing", "blue_team_id": "unknown"},
+        ):
+            with self.subTest(options=options):
+                result = self.compute(**options)
+                self.assertTrue(result[0])
+                self.assertGreater(result[2], result[1])
+                self.assertLess(result[4], result[3])
+                self.assertEqual(result[9:13], (10, 11, 10, 11))
+
+    def test_existing_unrated_reason_keeps_precedence(self):
+        result = self.compute(blue_winner=True)
+        self.assertFalse(result[0])
+        self.assertIn("Unrated: winner not recorded", result[7])
+        self.assertNotIn(CLOSEOUT_NOTE, result[7])
 
 
 class TargetAthleteIdTestCase(unittest.TestCase):
