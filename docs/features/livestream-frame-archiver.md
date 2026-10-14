@@ -45,11 +45,19 @@ The capture worker can run in two modes:
 
 `scripts/archive_livestream_frames.py` selects a YouTube format, with fallback handling for unavailable primary formats. It prefers 480p/default selector behavior but has a fallback video-only selector for `avc1` formats. DASH fragment formats are handled specially: the worker downloads only the overlapping fragment section before calling `ffmpeg`.
 
-The default YouTube player-client order is `web_embedded,default`. Keep the
-embedded client first: current yt-dlp default clients can return media URLs that
-probe successfully but fail with HTTP 403 when ffmpeg reads them. Operators can
-override the order with `YTDLP_EXTRACTOR_ARGS` when YouTube client behavior
-changes.
+The default YouTube player-client order is `web_embedded,default`. Embedded
+playback is only available for embeddable videos; other videos depend on the
+clients expanded by `default`. This is a list of extraction clients, not a
+download-failure retry policy. Operators can override it with
+`YTDLP_EXTRACTOR_ARGS` when YouTube client behavior changes.
+
+The worker dependency is pinned to yt-dlp 2026.8.19, which removed `android_vr`
+from the default clients after upstream reported media HTTP 403 failures,
+including format 18. The previous 2026.7.4 pin selected Android VR for many
+non-embeddable videos. Rebuild and redeploy the worker image to apply the fix;
+restarting an old image does not update yt-dlp. See
+[the investigation](../workflows/youtube-archiver-media-403.md) for evidence,
+remaining diagnostic gaps, and validation steps.
 
 `CROP_FILTER` creates two crops per sampled second:
 
