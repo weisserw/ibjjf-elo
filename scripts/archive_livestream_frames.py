@@ -44,6 +44,7 @@ from livestream_frame_archive import (  # noqa: E402
 from models import LivestreamFrameArchive, LivestreamFrameCaptureSegment  # noqa: E402
 from photos import bucket_name, get_s3_client  # noqa: E402
 from livestream_admin_api import request_with_retries  # noqa: E402
+from livestream_media_source import chunked_media_source  # noqa: E402
 
 
 DEFAULT_FORMAT_SELECTOR = "best[height=480]/18/best[height<=480]/best"
@@ -1346,15 +1347,16 @@ def process_segment(
             f"fps={archive.frame_rate or 1.0:g} "
             f"output_dir={frames_dir}"
         )
-        extract_segment_frames(
-            input_url,
-            input_start_second,
-            duration,
-            archive.frame_rate or 1.0,
-            jpeg_quality,
-            frames_dir,
-            archive=archive,
-        )
+        with chunked_media_source(input_url, stream_source.selected, log) as media_url:
+            extract_segment_frames(
+                media_url,
+                input_start_second,
+                duration,
+                archive.frame_rate or 1.0,
+                jpeg_quality,
+                frames_dir,
+                archive=archive,
+            )
         crop_file_count = len(list(frames_dir.glob("*.jpg")))
         log(
             f"Frame extraction produced segment_id={segment.id} "

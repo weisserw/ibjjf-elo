@@ -16,6 +16,7 @@ This is the first part of the livestream match pipeline:
 
 - `app/livestream_frame_archive.py` contains archive discovery, queueing, segment range creation, retry/cancel/requeue logic, status recomputation, S3 key helpers, and dashboard row assembly.
 - `scripts/archive_livestream_frames.py` is the capture worker. It claims capture segments, probes YouTube with `yt-dlp`, extracts scoreboard/timer crops with `ffmpeg`, writes a segment `.tgz`, uploads it to S3, and marks segment success/error.
+- `scripts/livestream_media_source.py` preserves yt-dlp's bounded HTTP download requests and headers for direct media sources while allowing ffmpeg to seek.
 - `scripts/livestream_admin_api.py` provides the shared, replay-safe HTTP retry loop used by both remote workers.
 - `admin/app.py` contains the server-rendered admin pages and worker JSON endpoints.
 - `admin/templates/livestream_frame_archives.html` is the archive list/admin action page.
@@ -44,6 +45,21 @@ The capture worker can run in two modes:
 - Remote/admin API mode: `--admin-url` plus `--admin-password`; uses `X-Admin-Password` and the worker endpoints under `/api/livestream_frame_archives/worker/`.
 
 `scripts/archive_livestream_frames.py` selects a YouTube format, with fallback handling for unavailable primary formats. It prefers 480p/default selector behavior but has a fallback video-only selector for `avc1` formats. DASH fragment formats are handled specially: the worker downloads only the overlapping fragment section before calling `ffmpeg`.
+
+For direct HTTP media with yt-dlp's `http_chunk_size` setting, the worker serves
+a temporary loopback URL to ffmpeg and translates reads into bounded upstream
+byte-range requests (YouTube currently specifies 10 MiB). This preserves
+seeking into long videos and the selected format's HTTP headers without
+downloading the entire video first. The adapter validates upstream ranges and
+closes incomplete responses on download errors. HLS manifests and local DASH
+sections continue through their existing paths. This works with the worker's
+FFmpeg 7.1, which lacks the newer native `request_size` option.
+
+This addresses a likely cause of slow fallback format 135 downloads: the old
+direct-URL path discarded yt-dlp's chunk setting. Low CPU and approximately
+2× playback progress were observed in production; throughput improvement must
+still be verified on the deployed VPN. The worker logs
+`Using bounded HTTP media requests: chunk_bytes=10485760` when this path runs.
 
 The default YouTube player-client order is `web_embedded,default`. Embedded
 playback is only available for embeddable videos; other videos depend on the
@@ -268,6 +284,7 @@ make test
 Focused files covered by `make test` include:
 
 - `app/tests/test_livestream_frame_archive.py`
+- `app/tests/test_livestream_media_source.py` (local HTTP ranges, header forwarding, failure handling, and an ffmpeg seek/decode check when ffmpeg is installed)
 - `app/tests/test_livestream_match_linking.py`
 - `app/tests/test_livestreams.py`
 

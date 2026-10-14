@@ -137,3 +137,48 @@ package in a rebuilt image or real YouTube downloads through the cloud VPN.
    avoid account-cookie management but introduces another service/plugin;
    it is a second step, not part of this patch. A VPN/IP rejection may still
    require an egress comparison, which local laptop testing cannot establish.
+
+## Follow-up: slow format 135 after the version update
+
+The rebuilt worker reports 2026.08.19 and successfully opens video
+`J9Co8PiUyDI`. Its primary selector is unavailable, so it selects video-only
+format 135: H.264, 854×480, 30 fps, approximately 497 kbit/s, direct HTTPS.
+This is an ordinary YouTube video format, not evidence of unusual IBJJF
+scoreboard layout or content encoding.
+
+The supplied progress moves from 53 to 234 seconds in 90 wall-clock seconds,
+about 2× playback speed (roughly 30 minutes per one-hour segment). The user
+reports ffmpeg CPU at 5.3% and FFmpeg 7.1.5 in the container. Together these
+support an I/O bottleneck, although they do not isolate YouTube throttling
+from VPN/CDN bandwidth conditions.
+
+The worker was dropping an extractor download instruction: yt-dlp attaches
+`downloader_options.http_chunk_size = 10 << 20` to direct YouTube formats.
+Passing just the URL to ffmpeg loses this setting and the selected HTTP
+headers. FFmpeg 7.1 lacks the native `request_size` option available in 8.1.
+
+Sources:
+
+- [yt-dlp direct-format chunk setting](https://github.com/yt-dlp/yt-dlp/blob/2026.08.19/yt_dlp/extractor/youtube/_video.py)
+- [yt-dlp bounded Range downloader](https://github.com/yt-dlp/yt-dlp/blob/2026.08.19/yt_dlp/downloader/http.py)
+- [FFmpeg 7.1 HTTP options](https://github.com/FFmpeg/FFmpeg/blob/n7.1/libavformat/http.c)
+- [FFmpeg 8.1 HTTP options](https://github.com/FFmpeg/FFmpeg/blob/n8.1/libavformat/http.c)
+
+Added `scripts/livestream_media_source.py`: for direct HTTP formats that
+specify a chunk size, ffmpeg reads a temporary loopback endpoint. Its seeks
+are translated into bounded upstream byte-range requests using the selected
+headers. No whole-video download or frame-sampling change is required.
+Upstream responses are checked for matching offsets, sizes, and completeness;
+failures are surfaced without printing signed URLs. Local DASH files and HLS
+formats retain their existing paths.
+
+Validation: `make test` passed, 731 tests with 4 skipped. Seven new tests cover
+range reassembly, seeks, headers, upstream rejection, mid-download failure,
+pass-through formats, and actual ffmpeg decoding compared with the same
+local MP4. This establishes correctness, not a production speedup.
+
+Rebuild/redeploy and compare the same video's progress over a few minutes.
+Expect `Using bounded HTTP media requests: chunk_bytes=10485760` before
+ffmpeg progress. If throughput stays near 2× playback, investigate VPN/CDN
+throughput and client-specific throttling further rather than assuming the
+format itself is slow.
