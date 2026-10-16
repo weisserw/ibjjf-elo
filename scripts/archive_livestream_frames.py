@@ -432,7 +432,7 @@ def _yt_dlp_options(
     options = {
         "format": format_selector,
         "quiet": True,
-        "no_warnings": True,
+        "no_warnings": False,
     }
     if js_runtime:
         runtime, config = _parse_js_runtime(js_runtime)

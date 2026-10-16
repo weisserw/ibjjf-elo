@@ -519,6 +519,21 @@ def _detected_rendered_score_cells(image):
         opened_red_components = _score_role_components(image, "red", opened_red_mask)
         opened_role_components = {**role_components, "red": opened_red_components}
         opened_rows = _score_row_candidates(opened_role_components)
+        if len(opened_rows) < 2:
+            # A 3x3 opening can erase the thin background around a small zero.
+            # Try a gentler opening, with complementary anchors to avoid the
+            # one-pixel translation of OpenCV's default even-sized kernel.
+            kernel = np.ones((2, 2), dtype="uint8")
+            opened_red_mask = cv2.dilate(
+                cv2.erode(role_masks["red"].astype("uint8"), kernel, anchor=(0, 0)),
+                kernel,
+                anchor=(1, 1),
+            ).astype(bool)
+            opened_red_components = _score_role_components(
+                image, "red", opened_red_mask
+            )
+            opened_role_components = {**role_components, "red": opened_red_components}
+            opened_rows = _score_row_candidates(opened_role_components)
         if len(opened_rows) >= 2:
             role_components = opened_role_components
             rows = opened_rows
@@ -1380,6 +1395,10 @@ class TimerLocator:
         local_dark_background = (
             masks["dark_background"][region] | masks["dark_blue_background"][region]
         )
+        if foreground == "warm":
+            # Yellow digits also appear on a dark red display. Video visible
+            # around the display must not supply its required dark pixels.
+            local_dark_background |= masks["dark_red_background"][region]
         return bool(local_dark_background.mean() >= self.MIN_LOCAL_BACKGROUND_DENSITY)
 
     def _candidate_groups(self, component_boxes):

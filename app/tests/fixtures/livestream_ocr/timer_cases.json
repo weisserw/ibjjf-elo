@@ -2,6 +2,7 @@
   {"fixture": "new_timer_0000.jpg", "state": "stopped", "value": "0:00"},
   {"fixture": "new_timer_0000_2.jpg", "state": "stopped", "value": "0:00"},
   {"fixture": "new_timer_0000_3.jpg", "state": "stopped", "value": "0:00"},
+  {"fixture": "new_timer_0000_4.jpg", "state": "stopped", "value": "0:00"},
   {"fixture": "new_timer_0017.jpg", "state": "running", "value": "0:17"},
   {"fixture": "new_timer_0058.jpg", "state": "running", "value": "0:58"},
   {"fixture": "new_timer_0137.jpg", "state": "running", "value": "1:37"},

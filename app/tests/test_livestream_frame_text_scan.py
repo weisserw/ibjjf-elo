@@ -2699,7 +2699,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         }
 
         self.assertEqual(manifest["version"], 1)
-        self.assertEqual(len(manifest_names), 94)
+        self.assertEqual(len(manifest_names), 95)
         self.assertEqual(manifest_names, fixture_names)
         self.assertEqual(len(manifest_names), len(manifest["cases"]))
 
@@ -3323,6 +3323,7 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
             "new_timer_0000.jpg",
             "new_timer_0000_2.jpg",
             "new_timer_0000_3.jpg",
+            "new_timer_0000_4.jpg",
         )
 
         for fixture_name in fixture_names:

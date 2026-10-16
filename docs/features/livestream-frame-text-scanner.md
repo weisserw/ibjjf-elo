@@ -213,6 +213,16 @@ selected digit boxes are normalized before template classification, so padding,
 translation, and moderate scaling do not change the logical timer reading. Crops
 without a sufficiently confident timer candidate fail closed as blank.
 
+Warm/yellow digits accept dark red as a local display background, as well
+as black and dark blue. `new_timer_0000_4.jpg` previously located all four zeros
+but rejected their red background, making recognition depend on dark pixels in
+the surrounding video. It now reads as stopped `0:00`; geometry and template
+confidence checks still apply. The paired `new_score_1800_200.jpg` already reads
+as `18,0,0 / 2,0,0`. At reduced scale,
+red compression bridges attach a penalty cell to the display border; a gentler
+2x2 opening is tried if the existing 3x3 cleanup cannot recover both rows.
+Complementary erosion/dilation anchors preserve the cell's pixel coordinates.
+
 Digit spacing is measured between character centers, with extra space for the
 colon, so narrow `1` glyphs do not fail an ink-edge gap limit. Timer templates
 include small native raster sizes rather than only larger glyphs resized after
@@ -264,7 +274,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `ScanLivestreamFrameTextAdminApiStateTestCase`: replay-safe client retries and one-shot claim behavior.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  `scoreboard_cases.json` explicitly golden-tests all 94 scoreboard/name fixtures
+  `scoreboard_cases.json` explicitly golden-tests all 95 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG
