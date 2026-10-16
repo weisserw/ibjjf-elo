@@ -71,4 +71,5 @@ uritemplate==4.1.1
 urllib3==2.2.3
 Werkzeug==3.1.3
 wheel==0.45.1
-yt-dlp==2026.8.19
+# Includes the Samsung TV client fix for non-embeddable made-for-kids videos.
+yt-dlp==2026.10.10.233141.dev0

@@ -67,11 +67,16 @@ clients expanded by `default`. This is a list of extraction clients, not a
 download-failure retry policy. Operators can override it with
 `YTDLP_EXTRACTOR_ARGS` when YouTube client behavior changes.
 
-The worker dependency is pinned to yt-dlp 2026.8.19, which removed `android_vr`
-from the default clients after upstream reported media HTTP 403 failures,
-including format 18. The previous 2026.7.4 pin selected Android VR for many
-non-embeddable videos. Rebuild and redeploy the worker image to apply the fix;
-restarting an old image does not update yt-dlp. See
+The worker dependency is pinned to yt-dlp `2026.10.10.233141.dev0`, a specific
+nightly containing the Samsung TV client fix for non-embeddable videos marked
+made for kids. The August stable release fixed Android VR media 403 failures,
+but its VisionOS client and broken TV fallback still left these videos with
+`Video unavailable`. With a working JS runtime, `default` now includes
+`tv_samsung`; keep Node and the EJS component available. No account cookies
+are required by this configuration. yt-dlp warnings are enabled so missing
+JS support, token requirements, and client warnings appear in worker logs.
+Rebuild and redeploy the worker image to apply the fix; restarting an old
+image does not update yt-dlp. See
 [the investigation](../workflows/youtube-archiver-media-403.md) for evidence,
 remaining diagnostic gaps, and validation steps.
 
