@@ -50,6 +50,10 @@ Admin:
 
 - `admin/app.py`
   - `/athletes` searches athletes by tokenized normalized name/personal name.
+    Below the results, a name input and **Add New Athlete** button create a new
+    athlete row with a trimmed name, normalized search fields, and unique slug,
+    then redirect to its edit page. Blank names are rejected; athletes sharing
+    a name can be created as separate records.
   - `/athlete_edit` updates Instagram handle, personal name, country fields,
     nickname translation, BJJ Heroes link, hidden-name flag, and uploaded
     profile photo.

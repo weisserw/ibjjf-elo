@@ -80,6 +80,34 @@ class AdminAthleteEditTestCase(unittest.TestCase):
         self.assertEqual(name, "José da Silva")
         self.assertEqual(normalized_name, normalize("José da Silva"))
 
+    def test_add_athlete_creates_searchable_row_and_redirects(self):
+        response = self.client.post("/athletes", data={"name": "  José da Silva  "})
+
+        self.assertEqual(response.status_code, 302)
+        athlete = Athlete.query.filter_by(name="José da Silva").one()
+        self.assertEqual(athlete.normalized_name, normalize(athlete.name))
+        self.assertEqual(athlete.normalized_initial_surname, "j silva")
+        self.assertTrue(athlete.slug)
+        self.assertIn(f"/athlete_edit?id={athlete.id}", response.location)
+        self.assertIsNone(athlete.ibjjf_id)
+        results = self.client.get("/athletes?search=jose+silva")
+        self.assertIn(str(athlete.id).encode(), results.data)
+        self.assertIn(b"Add New Athlete", results.data)
+
+    def test_add_same_named_athletes_have_unique_slugs(self):
+        for _ in range(2):
+            response = self.client.post("/athletes", data={"name": "José da Silva"})
+            self.assertEqual(response.status_code, 302)
+        athletes = Athlete.query.filter_by(name="José da Silva").all()
+        self.assertEqual(len(athletes), 2)
+        self.assertNotEqual(athletes[0].slug, athletes[1].slug)
+
+    def test_add_athlete_rejects_blank_names(self):
+        for data in ({}, {"name": "   "}):
+            response = self.client.post("/athletes", data=data)
+            self.assertIn(b"Name is required.", response.data)
+        self.assertEqual(Athlete.query.count(), 1)
+
     def test_edit_rolls_back_both_name_fields_when_submission_fails(self):
         response = self.client.post(
             f"/athlete_edit?id={self.athlete_id}",

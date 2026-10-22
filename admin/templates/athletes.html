@@ -30,6 +30,20 @@
                 {% elif search_term %}
                     <p class="has-text-danger">No athletes found.</p>
                 {% endif %}
+                <form class="mt-4" method="post" action="{{ url_for('athletes', search=search_term) }}">
+                    <label class="label" for="new-athlete-name">Name</label>
+                    <div class="field has-addons">
+                        <div class="control is-expanded">
+                            <input class="input" id="new-athlete-name" type="text" name="name" placeholder="New athlete name..." required>
+                        </div>
+                        <div class="control">
+                            <button class="button is-link" type="submit">Add New Athlete</button>
+                        </div>
+                    </div>
+                    {% if error_message %}
+                        <p class="help is-danger" role="alert">{{ error_message }}</p>
+                    {% endif %}
+                </form>
                 <a class="button is-link is-light mt-4" href="{{ url_for('index') }}">Back to Dashboard</a>
             </div>
         </div>

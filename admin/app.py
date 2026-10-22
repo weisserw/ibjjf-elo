@@ -112,6 +112,7 @@ from site_statistics import refresh_covered_match_count
 from livestream_match_linking import link_completed_text_scan
 from highlight_discovery import HighlightDiscoveryQueryError, build_highlight_discovery
 from normalize import normalize
+from slug import generate_slug
 from constants import ADULT, JUVENILE, NON_ELITE_BELTS
 from elo import RATING_VERY_IMMATURE_COUNT, WINNER_NOT_RECORDED
 from photos import (
@@ -3290,14 +3291,20 @@ def event_livestreams():
     if request.method == "POST" and request.form.get("action") == "copy_streams":
         try:
             count = copy_streams(
-                db.session, request.form.get("source_event_id"),
-                request.form.get("source_day", type=int), event_id,
+                db.session,
+                request.form.get("source_event_id"),
+                request.form.get("source_day", type=int),
+                event_id,
             )
             db.session.commit()
-            return redirect(url_for(
-                "event_livestreams", id=event_id, name=name,
-                message=f"Copied {count} streams. Exact duplicates were skipped.",
-            ))
+            return redirect(
+                url_for(
+                    "event_livestreams",
+                    id=event_id,
+                    name=name,
+                    message=f"Copied {count} streams. Exact duplicates were skipped.",
+                )
+            )
         except ValueError as exc:
             db.session.rollback()
             error = str(exc)
@@ -3657,10 +3664,25 @@ def team_name_mappings_settings():
     )
 
 
-@app.route("/athletes")
 @app.route("/athletes", methods=["GET", "POST"])
 def athletes():
     search_term = request.args.get("search", "")
+    error_message = None
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        if not name:
+            error_message = "Name is required."
+        else:
+            normalized_name = normalize(name)
+            athlete = Athlete(
+                name=name,
+                normalized_name=normalized_name,
+                slug=generate_slug(db.session, Athlete, normalized_name),
+            )
+            db.session.add(athlete)
+            db.session.commit()
+            return redirect(url_for("athlete_edit", id=athlete.id))
+
     athletes = []
     if search_term:
         normalized_search = normalize(search_term)
@@ -3679,7 +3701,12 @@ def athletes():
                 .limit(30)
                 .all()
             )
-    return render_template("athletes.html", search_term=search_term, athletes=athletes)
+    return render_template(
+        "athletes.html",
+        search_term=search_term,
+        athletes=athletes,
+        error_message=error_message,
+    )
 
 
 @app.route("/athlete_matches")
