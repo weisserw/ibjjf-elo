@@ -7,6 +7,9 @@
     {% if error %}
     <div class="notification is-danger">{{ error }}</div>
     {% endif %}
+    {% if message %}
+    <div class="notification is-success">{{ message }}</div>
+    {% endif %}
     <form method="post">
         <table class="table">
             <thead>
@@ -121,6 +124,56 @@
             </div>
         </div>
     </form>
+    <div class="mt-5">
+        <h2 class="title is-5">Copy streams from event</h2>
+        <div id="copy-streams-panel" class="box">
+            {% if copy_sources %}
+            <form method="post">
+                <input type="hidden" name="action" value="copy_streams">
+                <div class="field">
+                    <label class="label" for="copy-source-event">Source event (most recent first)</label>
+                    <div class="control select">
+                        <select id="copy-source-event" name="source_event_id" required>
+                            {% for source in copy_sources %}
+                            <option value="{{ source.event_id }}">{{ source.name }}{% if source.date %} — {{ source.date }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label" for="copy-source-day">Source day</label>
+                    <div class="control select"><select id="copy-source-day" name="source_day" required></select></div>
+                    <p class="help" id="copy-day-preview" aria-live="polite"></p>
+                </div>
+                <p class="help mb-3">Copies all stream settings for this day. Existing streams are kept; exact duplicates are skipped.</p>
+                <button class="button is-link" type="submit">Import streams</button>
+            </form>
+            {% else %}
+            <p>No other events have streams available to copy.</p>
+            {% endif %}
+        </div>
+        <script>
+            (() => {
+                const sources = {{ copy_sources | tojson }};
+                if (!sources.length) return;
+                const eventSelect = document.getElementById('copy-source-event');
+                const daySelect = document.getElementById('copy-source-day');
+                const preview = document.getElementById('copy-day-preview');
+                const updatePreview = () => {
+                    preview.textContent = `Streams will be imported into day ${Math.max(1, Number(daySelect.value) - 1)} of this event.`;
+                };
+                const updateDays = () => {
+                    const source = sources.find(source => source.event_id === eventSelect.value);
+                    daySelect.replaceChildren(...source.days.map(day => new Option(`Day ${day}`, day)));
+                    daySelect.value = source.days.includes(2) ? 2 : source.days[0];
+                    updatePreview();
+                };
+                eventSelect.addEventListener('change', updateDays);
+                daySelect.addEventListener('change', updatePreview);
+                updateDays();
+            })();
+        </script>
+    </div>
     <a class="button is-link is-light mt-4" href="{{ url_for('index') }}">Back to Dashboard</a>
 </div>
 {% endblock %}

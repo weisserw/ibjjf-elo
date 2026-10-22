@@ -3281,9 +3281,26 @@ def past_events():
 
 @app.route("/event/livestreams", methods=["GET", "POST"])
 def event_livestreams():
+    from livestream_copy import copy_sources, copy_streams
+
     event_id = request.args.get("id")
     name = request.args.get("name")
     error = None
+
+    if request.method == "POST" and request.form.get("action") == "copy_streams":
+        try:
+            count = copy_streams(
+                db.session, request.form.get("source_event_id"),
+                request.form.get("source_day", type=int), event_id,
+            )
+            db.session.commit()
+            return redirect(url_for(
+                "event_livestreams", id=event_id, name=name,
+                message=f"Copied {count} streams. Exact duplicates were skipped.",
+            ))
+        except ValueError as exc:
+            db.session.rollback()
+            error = str(exc)
 
     streams = (
         LiveStream.query.filter(LiveStream.event_id == event_id)
@@ -3505,6 +3522,8 @@ def event_livestreams():
         error=error,
         flo_tag=flo_tag,
         flo_mat_links=flo_mat_links,
+        copy_sources=copy_sources(db.session, event_id),
+        message=request.args.get("message"),
     )
 
 
