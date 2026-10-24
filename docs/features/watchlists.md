@@ -8,7 +8,9 @@ through the same date next calendar month (clamped to the last day of that month
 Tournaments that have ended are excluded. Users select up to
 10 tournaments, then registered
 athletes. A unified search matches official names, personal names, and registration
-team names. Matching teams appear above athlete results with an "ADD ALL" button.
+team names. Athlete name fragments can appear in any order, with intervening
+middle names; displayed personal names remain searchable even when their stored
+normalized field is missing or stale. Matching teams appear above athlete results with an "ADD ALL" button.
 This adds members of that exact team across all result pages for the selected
 tournaments, deduplicates athlete choices, and stops at the 200-athlete limit.
 "Search Elite Athletes" lists up to 30 registered Adult or Juvenile athletes whose

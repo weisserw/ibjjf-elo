@@ -206,6 +206,33 @@ def name_summary(name):
     }
 
 
+def athlete_name_match(q):
+    """Match name fragments without requiring adjacent words or word order."""
+
+    def escaped(value):
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+    fragments = []
+    for part in q.split():
+        value = "".join(
+            piece if piece in {"%", "_", "\\"} else normalize(piece)
+            for piece in re.split(r"([%_\\])", part)
+        )
+        if value:
+            fragments.append(
+                or_(
+                    Athlete.normalized_name.like(
+                        "%" + escaped(value) + "%", escape="\\"
+                    ),
+                    Athlete.normalized_personal_name.like(
+                        "%" + escaped(value) + "%", escape="\\"
+                    ),
+                    Athlete.personal_name.ilike("%" + escaped(part) + "%", escape="\\"),
+                )
+            )
+    return and_(*fragments) if fragments else False
+
+
 def eligible(event_ids, q="", mode="name"):
     if mode == "all":
         return db.session.query(Athlete).filter(
@@ -243,18 +270,7 @@ def eligible(event_ids, q="", mode="name"):
         )
     query = db.session.query(Athlete).filter(registrations.exists())
     if mode == "name" and q:
-        # Preserve literal wildcard characters while normalizing name fragments.
-        value = "".join(
-            part if part in {"%", "_", "\\"} else normalize(part)
-            for part in re.split(r"([%_\\])", q)
-        )
-        value = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        query = query.filter(
-            or_(
-                Athlete.normalized_name.like("%" + value + "%", escape="\\"),
-                Athlete.normalized_personal_name.like("%" + value + "%", escape="\\"),
-            )
-        )
+        query = query.filter(athlete_name_match(q))
     return query
 
 
@@ -280,16 +296,8 @@ def registration_names(event_ids, q="", mode="name", provisional_only=False):
             RegistrationLinkCompetitor.team_name.ilike(pattern, escape="\\")
         )
     elif mode in {"name", "all"} and q:
-        value = "".join(
-            part if part in {"%", "_", "\\"} else normalize(part)
-            for part in re.split(r"([%_\\])", q)
-        )
-        value = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         matched_athlete_names = db.session.query(Athlete.name).filter(
-            or_(
-                Athlete.normalized_name.like("%" + value + "%", escape="\\"),
-                Athlete.normalized_personal_name.like("%" + value + "%", escape="\\"),
-            )
+            athlete_name_match(q)
         )
         name_match = or_(
             RegistrationLinkCompetitor.athlete_name.ilike(pattern, escape="\\"),

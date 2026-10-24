@@ -426,6 +426,29 @@ class WatchlistApiTests(TestDbMixin, unittest.TestCase):
             ],
         }
 
+    def test_search_personal_name_fragments_and_missing_normalized_name(self):
+        athlete = self.athletes[0]
+        athlete.personal_name = "Private Middle Alex"
+        for normalized in (None, "", "old alias", "private middle alex"):
+            athlete.normalized_personal_name = normalized
+            db.session.commit()
+            for mode in ("all", "name"):
+                for q in (
+                    "Private",
+                    "private alex",
+                    "Alex Private",
+                    "  Private   Alex  ",
+                ):
+                    with self.subTest(normalized=normalized, mode=mode, q=q):
+                        response = self.client.get(
+                            "/api/watchlists/athletes",
+                            query_string={"event_id": "1", "q": q, "mode": mode},
+                        )
+                        self.assertEqual(response.status_code, 200)
+                        rows = response.get_json()["athletes"]
+                        self.assertEqual([row["id"] for row in rows], [str(athlete.id)])
+                        self.assertIsNone(rows[0]["full_name"])
+
     def test_search_personal_name_eligibility_and_hide_full_name(self):
         result = self.client.get(
             "/api/watchlists/athletes?event_id=1&q=Private"
