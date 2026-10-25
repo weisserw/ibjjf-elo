@@ -366,6 +366,52 @@ def _final_timer_seconds_from_window(points: list[TimelinePoint]) -> int | None:
     return final_timer_seconds
 
 
+def _is_transient_score_reset(timeline: list[TimelinePoint], index: int) -> bool:
+    """Ignore a sparse zero misread promptly corrected during the same clock run."""
+    if index == 0:
+        return False
+    point = timeline[index]
+    previous = timeline[index - 1]
+    if (
+        previous.state.timer_state != "running"
+        or not _has_non_zero_score(previous.state)
+        or point.event.timer_state is not None
+        or point.event.timer_value is not None
+        or point.event.scoreboard_state is not None
+        or sum(getattr(point.event, field) is not None for field in SCORE_FIELDS) != 1
+    ):
+        return False
+    for following in timeline[index + 1 :]:
+        if following.event.frame_second - point.event.frame_second > 5:
+            break
+        if (
+            following.event.timer_state is not None
+            or following.event.timer_value is not None
+            or following.event.scoreboard_state is not None
+        ):
+            break
+        if _has_non_zero_score(following.state) and all(
+            (getattr(following.state, field) or 0)
+            >= (getattr(previous.state, field) or 0)
+            for field in SCORE_FIELDS
+        ):
+            side_scores = [
+                (
+                    fuzz.ratio(
+                        _norm(getattr(following.state, field)),
+                        _norm(getattr(previous.state, field)),
+                    )
+                    if getattr(following.state, field)
+                    and getattr(previous.state, field)
+                    else 0
+                )
+                for field in ("top_athlete_name", "bottom_athlete_name")
+            ]
+            if min(side_scores) >= 70 and max(side_scores) >= 90:
+                return True
+    return False
+
+
 def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchWindow]:
     state = TextState()
     timeline = []
@@ -376,6 +422,8 @@ def extract_match_windows(events: list[LivestreamFrameTextEvent]) -> list[MatchW
     starts = []
     for index, point in enumerate(timeline):
         if not _is_start_point(point):
+            continue
+        if _is_transient_score_reset(timeline, index):
             continue
         if starts and _continuation_start_matches_active_window(
             timeline, starts[-1], index

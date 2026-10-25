@@ -25,6 +25,15 @@ cannot outweigh repeated running-clock observations; chronological order
 breaks a tied vote. Once the initial window stores the positions, continuation
 windows do not rewrite them from later OCR noise.
 
+A sparse single-field zero-score misread does not start a new window when the
+previous clock was running and the score is restored within five seconds with
+consistent names on both sides (at least 70 similarity on each, 90 on one).
+This handles the Filip Vukovic / Esentur Arstanbekov regression where a stale
+inherited `6:00` timer made a mid-fight zero look like a new start. Explicit
+timer or scoreboard transitions, full score resets, different opponents, and
+later corrections retain the normal boundary behavior. Match identification
+and continuation name thresholds are unchanged.
+
 For older tournaments whose matches contain no parseable mat numbers, candidate
 loading automatically switches to mat-less mode for that event. The linker
 considers all two-participant, fight-eligible matches covered by the archive's

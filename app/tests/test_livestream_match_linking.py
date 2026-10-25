@@ -1635,6 +1635,83 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             ["bottom", "top"],
         )
 
+    def test_real_filip_esentur_transient_zero_does_not_split_match(self):
+        matches = self._match_setup(
+            pairs=[
+                ("Filip Vukovic", "Esentur T. Arstanbekov"),
+                ("Jacob Steven Dove", "Brandon Jesus Romero"),
+            ],
+            match_offsets=[10380, 10920],
+        )
+        events = self._fixture_events("filip_esentur_split.json")
+        with patch(
+            "livestream_match_linking._is_transient_score_reset", return_value=False
+        ):
+            self.assertIn(
+                10451, [window.start_second for window in extract_match_windows(events)]
+            )
+        self.assertNotIn(
+            10451, [window.start_second for window in extract_match_windows(events)]
+        )
+        _, scan = self._stored_events(events)
+        link_completed_text_scan(db.session, scan)
+        db.session.commit()
+
+        match = db.session.get(Match, matches[0].id)
+        self.assertEqual(
+            self._linked_seconds(match),
+            [
+                event.frame_second
+                for event in events
+                if 10167 <= event.frame_second <= 10815
+            ],
+        )
+        self.assertEqual(match.video_start_offset_seconds, 10344)
+        self.assertEqual(match.final_bottom_points, 13)
+        self.assertEqual(match.final_bottom_advantages, 3)
+        self.assertEqual(match.final_match_time_seconds, 0)
+        self.assertEqual(
+            self._linked_seconds(matches[1]),
+            [event.frame_second for event in events if event.frame_second >= 10825],
+        )
+
+    def test_transient_zero_exception_preserves_real_reset_boundaries(self):
+        for variant in ("timer", "blank", "opponent", "late", "full_reset"):
+            with self.subTest(variant=variant):
+                events = [
+                    SimpleNamespace(**vars(event))
+                    for event in self._fixture_events("filip_esentur_split.json")
+                ]
+                reset = next(event for event in events if event.frame_second == 10451)
+                restored = next(
+                    event for event in events if event.frame_second == 10455
+                )
+                if variant == "timer":
+                    reset.timer_state = "running"
+                    reset.timer_value = "6:00"
+                elif variant == "blank":
+                    next(
+                        event for event in events if event.frame_second == 10452
+                    ).scoreboard_state = text_scan.SCOREBOARD_STATE_BLANK
+                elif variant == "opponent":
+                    restored.top_athlete_name = "Completely Different Opponent"
+                elif variant == "late":
+                    restored.frame_second = 10457
+                else:
+                    for field in (
+                        "top_points",
+                        "top_advantages",
+                        "top_penalties",
+                        "bottom_points",
+                        "bottom_advantages",
+                        "bottom_penalties",
+                    ):
+                        setattr(reset, field, 0)
+                self.assertIn(
+                    10451,
+                    [window.start_second for window in extract_match_windows(events)],
+                )
+
     def test_over_split_same_match_window_links_as_continuation(self):
         matches = self._match_setup()
         _, scan = self._stored_events(
