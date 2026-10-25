@@ -1877,7 +1877,7 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertIsNone(archive_lib.claim_next_segment(db.session))
 
-    def test_claim_next_segment_waits_five_minutes_after_success(self):
+    def test_claim_next_segment_waits_two_minutes_after_success(self):
         completed_archive, _ = archive_lib.get_or_create_archive(
             db.session, "RecentlyDone"
         )
@@ -1890,7 +1890,7 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
             start_second=0,
             end_second=600,
             status="success",
-            finished_at=datetime.utcnow() - timedelta(minutes=4),
+            finished_at=datetime.utcnow() - timedelta(seconds=119),
         )
         db.session.add_all(
             [
@@ -1907,7 +1907,7 @@ class LivestreamFrameArchiveDbTestCase(TestDbMixin, unittest.TestCase):
 
         self.assertIsNone(archive_lib.claim_next_segment(db.session))
 
-        completed_segment.finished_at = datetime.utcnow() - timedelta(minutes=6)
+        completed_segment.finished_at = datetime.utcnow() - timedelta(seconds=121)
         db.session.commit()
 
         claimed = archive_lib.claim_next_segment(db.session)
