@@ -43,7 +43,7 @@ WITH invited (slot, athlete_name, division_id, team_name) AS (
         (9,  'José Steve Nduazulu Ndilu',      'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'DreamArt'),
         (10, 'Leonardo Souza de Oliveira',       'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Six Blades Jiu-Jitsu'),
         (11, 'Rafael Belmont Gamba',    'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Alliance'),
-        (12, 'Jackson Nagai Hatchwell Junior',   'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Inevat Brazilian Jiu-Jitsu'),
+        (12, 'Natan Chueng Freitas', 'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Unity Jiu-jitsu'),
         (13, 'Micael Ferreira Galvâo',     'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Thyago Martins BJJ Academy'),
         (14, 'Uanderson Ferreira de Oliveira', 'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Sertão Brazilian Jiu-Jitsu Internacional'),
         (15, 'Andy Tomas Murasaki Pereira', 'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'AOJ'),
@@ -61,7 +61,7 @@ WITH invited (slot, athlete_name, division_id, team_name) AS (
         -- Male / Adult / BLACK / Ultra Heavy
         (24, 'Francisco Papasidero', 'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Brea Jiu-Jitsu'),
         (25, 'Seif-Eddine Houmine',  'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'GF Team'),
-        (26, 'Helder Jose Rodrigues Júnior',     'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Atos Jiu-Jitsu'),
+        (26, 'Anderson Kauan Gomes Marinho', 'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Infight Jiu-Jitsu'),
         (27, 'Thierry Felipe Alves Lima de Souza',       'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Marcio Andre Jiu-Jitsu'),
         (28, 'Alexander Sak',        'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Abdullaev Team'),
         (29, 'Pedro Henrique Pinheiro M. de Souza',        'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Atos Jiu-Jitsu'),
