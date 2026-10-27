@@ -66,6 +66,7 @@ WITH invited (slot, athlete_name, division_id, team_name) AS (
         (28, 'Alexander Sak',        'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Abdullaev Team'),
         (29, 'Pedro Henrique Pinheiro M. de Souza',        'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Atos Jiu-Jitsu'),
         (30, 'Matheus Vetoraci de Menezes', 'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Blvckout Grappling'),
+        (45, 'Erich Munis dos Santos', 'cad80b3f-b0ad-4edd-8348-42dbf50d1989'::uuid, 'Soldiers Brazilian Jiu-Jitsu'),
 
         -- Female / Adult / BLACK / Light
         (31, 'Nikolett Kis',     '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Sigma Jiu-Jitsu'),
@@ -83,7 +84,8 @@ WITH invited (slot, athlete_name, division_id, team_name) AS (
         (41, 'Ingridd Alves de Sousa',         '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'AGR Jiu-Jitsu'),
         (42, 'Maria Raniele Alencar Lima',         '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Atos Jiu-Jitsu'),
         (43, 'Maria Vitória G. Ruffatto-Gilpin', '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Canby Jiu-Jitsu'),
-        (44, 'Anabel Lopez Beard', '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'CheckMat')
+        (44, 'Anabel Lopez Beard', '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'CheckMat'),
+        (46, 'Gabrieli Pessanha de Souza Marinho', '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Infight Jiu-Jitsu')
 )
 INSERT INTO registration_link_competitors (
     id, registration_link_id, athlete_name, division_id, team_name
