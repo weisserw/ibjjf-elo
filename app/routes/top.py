@@ -192,7 +192,7 @@ def top(*, include_photo_urls=True):
                 RegistrationLinkCompetitor.registration_link_id == RegistrationLink.id,
             )
             .join(Division, RegistrationLinkCompetitor.division_id == Division.id)
-            .filter(RegistrationLink.event_start_date > datetime.now())
+            .filter(RegistrationLink.event_end_date >= datetime.now())
         )
         if hide_youth_registration_links:
             subquery = subquery.filter(~Division.age.in_(YOUTH_AGE_DIVISIONS))

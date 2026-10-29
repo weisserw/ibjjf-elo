@@ -175,6 +175,11 @@ Do not run OCR tests for ranking-only changes.
 
 ## Regression History
 
+- The Upcoming filter uses registration event end dates, matching the tournament
+  button so athletes in ongoing tournaments remain visible until the event ends.
+  `test_upcoming_matches_registration_button` covers future, ongoing, and ended
+  tournaments.
+
 These issues have already surfaced in git history and are worth keeping in mind:
 
 - `5c421e3` fixed athletes disappearing from rankings on promotion by changing
