@@ -15,6 +15,8 @@ and use view-specific controls such as refresh or rating-vs-seed number toggles.
 Match headers use abbreviated weekdays in live and registration trees. Archive
 trees enable `showMatchDate` to show the abbreviated month and day instead,
 while retaining locale-aware month names.
+The case-insensitive `NONE` video-link sentinel hides the match video icon,
+matching the Database view.
 The same underlying match/competitor data also feeds `BracketTable`, but the tree
 has different layout and tree-building code because matches need to be placed by
 round and visual position instead of sorted into table rows.

@@ -167,6 +167,7 @@ export function BracketTreeMatch(props: BracketTreeMatchProps) {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const showMatchVideoLink = Boolean(
     match.video_link &&
+    match.video_link.toLowerCase() !== 'none' &&
     !match.red_bye && !match.blue_bye &&
     !noMatchStrings.some(s => match.red_note?.toLowerCase() === s) &&
     !noMatchStrings.some(s => match.blue_note?.toLowerCase() === s) &&
