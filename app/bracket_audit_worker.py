@@ -28,6 +28,7 @@ from constants import (
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    MASTER_8,
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
     OPEN_CLASS_LIGHT,
@@ -58,6 +59,7 @@ AUDIT_AGES = {
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    MASTER_8,
 }
 OPEN_CLASS_WEIGHTS = {OPEN_CLASS, OPEN_CLASS_LIGHT, OPEN_CLASS_HEAVY}
 

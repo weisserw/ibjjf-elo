@@ -46,6 +46,7 @@ export interface Competitor {
   master_5_world_champion?: boolean
   master_6_world_champion?: boolean
   master_7_world_champion?: boolean
+  master_8_world_champion?: boolean
   hypothetical?: boolean
 }
 

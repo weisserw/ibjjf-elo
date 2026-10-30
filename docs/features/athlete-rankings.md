@@ -2,6 +2,11 @@
 
 ## User-Facing Behavior
 
+Master 8 is a rated division, with default ratings of 1650 (black), 1450
+(brown), 1250 (purple), 1050 (blue), and 850 (white). It is available in
+research and bracket tools, but omitted from the homepage ranking filters
+and database-tab filters.
+
 Athlete rankings show the current standing for a gender/age/belt/gi/weight
 division. The rankings are generated from recent match history and stored in
 `athlete_ratings`; division averages are stored in `athlete_rating_averages`.

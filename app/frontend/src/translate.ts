@@ -118,6 +118,7 @@ const translations = {
     "Master 5": "Master 5",
     "Master 6": "Master 6",
     "Master 7": "Master 7",
+    "Master 8": "Master 8",
     "White": "Branca",
     "Grey": "Cinza",
     "Grey-Yellow": "Cinza-Amarelo",

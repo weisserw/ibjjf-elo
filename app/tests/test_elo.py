@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from constants import ADULT, BLACK, MASTER_1
+from constants import ADULT, BLACK, BROWN, PURPLE, BLUE, WHITE, MASTER_1, MASTER_8
 from elo import (
     DEFAULT_RATINGS,
     CLOSEOUT_NOTE,
@@ -144,6 +144,17 @@ class ComputeStartRatingTestCase(unittest.TestCase):
 
 
 class RatingResearchSemanticsTestCase(unittest.TestCase):
+    def test_master_8_defaults_follow_belt_spacing(self):
+        for belt, expected in [
+            (BLACK, 1650),
+            (BROWN, 1450),
+            (PURPLE, 1250),
+            (BLUE, 1050),
+            (WHITE, 850),
+        ]:
+            with self.subTest(belt=belt):
+                self.assertEqual(expected, division_default_rating(belt, MASTER_8))
+
     def test_rating_maturity_boundaries(self):
         self.assertEqual("provisional", rating_maturity(4))
         self.assertEqual("semi_provisional", rating_maturity(5))

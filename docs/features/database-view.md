@@ -103,7 +103,7 @@ Important query params accepted by `matches()`:
 - Identity/search filters: `athlete_id`, `athlete_name`, `athlete_name2`,
   `team_name`, `country`, `event_name`.
 - Division filters: `gender_male`, `gender_female`, `age_adult`,
-  `age_master1` through `age_master7`, `age_juvenile`, `age_teen`,
+  `age_master1` through `age_master8`, `age_juvenile`, `age_teen`,
   `belt_grey`, `belt_yellow`, `belt_orange`, `belt_green`, `belt_white`,
   `belt_blue`, `belt_purple`, `belt_brown`, `belt_black`,
   `weight_rooster`, `weight_light_feather`, `weight_feather`, `weight_light`,

@@ -24,6 +24,7 @@ from constants import (
     MASTER_4,
     MASTER_5,
     MASTER_7,
+    MASTER_8,
     MEDIUM_HEAVY,
     MIDDLE,
     OPEN_CLASS,
@@ -1555,6 +1556,15 @@ class SeedingTestCase(TestDbMixin, unittest.TestCase):
             "master_7_world_champion",
         ):
             self.assertIn(key, row)
+
+    def test_master_8_has_nine_black_belt_fields(self):
+        def seed(t):
+            return t._make_athlete("m8-field-count")
+
+        row = self._seed_and_run(seed, _divdata(age=MASTER_8, belt=BLACK), gi=True)
+        self.assertIn("adult_world_champion", row)
+        for level in range(1, 9):
+            self.assertIn(f"master_{level}_world_champion", row)
 
     def test_master_1_has_only_adult_and_master_1_fields(self):
         # Master 1 tournament — only adult + master_1 keys.

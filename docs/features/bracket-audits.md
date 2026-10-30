@@ -38,7 +38,7 @@ hide a layout problem.
 - Unknown gender, belt, or weight vocabulary is a category error. Noneligible
   age labels are skipped. Missing or unsupported ranking tables make criteria
   unverifiable but do not prevent layout analysis.
-- Only Adult and Master 1–7 weight divisions are eligible. Juvenile, teen,
+- Only Adult and Master 1–8 weight divisions are eligible. Juvenile, teen,
   other age divisions, and all open-class weight variants are skipped during
   discovery before their category pages are fetched.
 - Categories with fewer than four athletes are marked as skipped immediately

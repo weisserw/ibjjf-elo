@@ -101,6 +101,9 @@ Changing the event, category, or reloading competitors clears `hypotheticalRegis
 
 ## Data Items
 
+Master divisions include Master 1 through Master 8. Master 8 seeding considers
+adult and all eight master world-champion criteria.
+
 `Competitor` is defined in `BracketUtils.ts`. Important fields for this feature:
 
 - Identity/display: `id`, `ibjjf_id`, `slug`, `name`, `personal_name`, `team`, `instagram_profile`, `profile_image_url`, `country`, `country_note`, `country_note_pt`

@@ -31,6 +31,7 @@ from constants import (
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    MASTER_8,
     OPEN_CLASS,
     OPEN_CLASS_HEAVY,
     OPEN_CLASS_LIGHT,
@@ -52,6 +53,7 @@ SEEDING_MASTER_AGES_ORDERED = (
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    MASTER_8,
 )
 SEEDING_MASTER_AGES = frozenset(SEEDING_MASTER_AGES_ORDERED)
 

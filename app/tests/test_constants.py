@@ -10,14 +10,27 @@ from constants import (
     JUVENILE_1,
     JUVENILE_2,
     MEDIUM_HEAVY,
+    MASTER_8,
+    age_order,
+    age_order_adult_first,
+    age_order_all,
+    rated_ages,
     canonical_rating_age,
     same_or_higher_progression_ages,
     translate_age_keep_juvenile,
+    translate_age,
     translate_weight,
 )
 
 
 class ConstantsTestCase(unittest.TestCase):
+    def test_master_8_is_supported_in_age_translation_and_ordering(self):
+        self.assertEqual(translate_age("Master 8"), MASTER_8)
+        self.assertEqual(translate_age_keep_juvenile("Master 8"), MASTER_8)
+        for ages in (age_order, age_order_adult_first, age_order_all, rated_ages):
+            self.assertIn(MASTER_8, ages)
+        self.assertIn(MASTER_8, same_or_higher_progression_ages(ADULT))
+
     def test_translate_age_keep_juvenile_preserves_variants(self):
         self.assertEqual(translate_age_keep_juvenile("Juvenile 1"), JUVENILE_1)
         self.assertEqual(translate_age_keep_juvenile("Juvenile 2"), JUVENILE_2)

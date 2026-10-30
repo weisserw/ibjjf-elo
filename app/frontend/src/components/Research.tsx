@@ -579,6 +579,7 @@ function Research() {
                     <option value="Master 5">{t("Master 5")}</option>
                     <option value="Master 6">{t("Master 6")}</option>
                     <option value="Master 7">{t("Master 7")}</option>
+                    <option value="Master 8">{t("Master 8")}</option>
                   </select>
                 </div>
               </div>

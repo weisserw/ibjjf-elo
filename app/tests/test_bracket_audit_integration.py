@@ -170,10 +170,11 @@ class BracketAuditPersistenceAndWorkerTestCase(TestDbMixin, unittest.TestCase):
         }
         self.assertEqual(status_by_id["1"], "pending")
         self.assertEqual(status_by_id["2"], "pending")
-        for category_id in ("3", "4", "5", "6", "7"):
+        self.assertEqual(status_by_id["4"], "pending")
+        for category_id in ("3", "5", "6", "7"):
             self.assertEqual(status_by_id[category_id], "skipped")
         self.assertEqual(run.discovered_category_count, 7)
-        self.assertEqual(run.total_category_count, 2)
+        self.assertEqual(run.total_category_count, 3)
 
     def test_category_with_fewer_than_four_athletes_is_skipped_before_analysis(self):
         worker = importlib.import_module("bracket_audit_worker")

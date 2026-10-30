@@ -18,6 +18,7 @@ from constants import (
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    MASTER_8,
     JUVENILE,
     JUVENILE_1,
     JUVENILE_2,
@@ -881,6 +882,7 @@ def matches():
     age_master5 = request.args.get("age_master5")
     age_master6 = request.args.get("age_master6")
     age_master7 = request.args.get("age_master7")
+    age_master8 = request.args.get("age_master8")
     age_juvenile = request.args.get("age_juvenile")
     age_teen = request.args.get("age_teen")
     belt_grey = request.args.get("belt_grey")
@@ -969,6 +971,8 @@ def matches():
         age_master6 = age_master6.lower() == "true"
     if age_master7:
         age_master7 = age_master7.lower() == "true"
+    if age_master8:
+        age_master8 = age_master8.lower() == "true"
     if age_juvenile:
         age_juvenile = age_juvenile.lower() == "true"
     if age_teen:
@@ -1216,6 +1220,8 @@ def matches():
         ages.append(MASTER_6)
     if age_master7:
         ages.append(MASTER_7)
+    if age_master8:
+        ages.append(MASTER_8)
     if age_juvenile:
         ages.extend(JUVENILE_AGES)
     if age_teen:

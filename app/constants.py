@@ -167,6 +167,7 @@ MASTER_4 = "Master 4"
 MASTER_5 = "Master 5"
 MASTER_6 = "Master 6"
 MASTER_7 = "Master 7"
+MASTER_8 = "Master 8"
 
 
 age_order = [
@@ -184,6 +185,7 @@ age_order = [
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    MASTER_8,
 ]
 
 age_order_adult_first = [
@@ -196,6 +198,7 @@ age_order_adult_first = [
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    MASTER_8,
     TEEN_1,
     TEEN_2,
     TEEN_3,
@@ -216,6 +219,7 @@ age_order_all = [
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    MASTER_8,
 ]
 
 rated_ages = [
@@ -230,6 +234,7 @@ rated_ages = [
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    MASTER_8,
 ]
 
 rated_ages_in = ", ".join(f"'{age}'" for age in rated_ages)
@@ -284,6 +289,7 @@ def translate_age(age: str) -> str:
         MASTER_5,
         MASTER_6,
         MASTER_7,
+        MASTER_8,
     ]:
         raise ValueError("Invalid age " + age)
     return age
@@ -319,6 +325,7 @@ def translate_age_keep_juvenile(age: str) -> str:
         MASTER_5,
         MASTER_6,
         MASTER_7,
+        MASTER_8,
     ]:
         raise ValueError("Invalid age " + age)
     return age

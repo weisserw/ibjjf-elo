@@ -86,7 +86,7 @@ function EloFilters() {
   const weights = gender === 'Male' ? maleWeights : femaleWeights;
 
   const ageOptions = useMemo(() => {
-    return ages.map(age => ({
+    return ages.filter(age => age !== 'Master 8').map(age => ({
       value: age,
       label: t(age as translationKeys) + ' (' + ageYears[ages.indexOf(age)] + ')',
       selectedLabel: t(age as translationKeys),

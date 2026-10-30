@@ -31,6 +31,7 @@ from constants import (
     MASTER_5,
     MASTER_6,
     MASTER_7,
+    MASTER_8,
     TEEN_1,
     TEEN_2,
     TEEN_3,
@@ -97,6 +98,7 @@ BLACK_DEFAULT_RATINGS = {
     MASTER_5: 1765.15,
     MASTER_6: 1704.46,
     MASTER_7: 1692.46,
+    MASTER_8: 1650,
 }
 
 BROWN_DEFAULT_RATINGS = {
@@ -108,6 +110,7 @@ BROWN_DEFAULT_RATINGS = {
     MASTER_5: 1565.15,
     MASTER_6: 1504.46,
     MASTER_7: 1492.46,
+    MASTER_8: 1450,
 }
 
 PURPLE_DEFAULT_RATINGS = {
@@ -122,6 +125,7 @@ PURPLE_DEFAULT_RATINGS = {
     MASTER_5: 1365.15,
     MASTER_6: 1304.46,
     MASTER_7: 1292.46,
+    MASTER_8: 1250,
 }
 
 BLUE_DEFAULT_RATINGS = {
@@ -136,6 +140,7 @@ BLUE_DEFAULT_RATINGS = {
     MASTER_5: 1165.15,
     MASTER_6: 1104.46,
     MASTER_7: 1092.46,
+    MASTER_8: 1050,
 }
 
 WHITE_DEFAULT_RATINGS = {
@@ -150,6 +155,7 @@ WHITE_DEFAULT_RATINGS = {
     MASTER_5: 965.15,
     MASTER_6: 904.46,
     MASTER_7: 892.46,
+    MASTER_8: 850,
 }
 
 GREEN_DEFAULT_RATINGS = {
@@ -198,6 +204,8 @@ AGE_K_FACTOR_MODIFIERS = {
     MASTER_5: 0.7056,
     MASTER_6: 0.6543,
     MASTER_7: 0.6455,
+    # Extrapolate the Master 7 modifier by the same ratio as the defaults.
+    MASTER_8: 0.6455 * 1650 / 1692.46,
 }
 
 # the amount of "ghost rating points" to add to the rating of an athlete in the open class,

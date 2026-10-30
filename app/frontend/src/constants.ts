@@ -9,6 +9,7 @@ export const ages = [
   'Master 5',
   'Master 6',
   'Master 7',
+  'Master 8',
 ]
 
 export const ageYears = [
@@ -21,6 +22,7 @@ export const ageYears = [
   '50+',
   '55+',
   '60+',
+  '65+',
 ]
 
 export const juvenileRanks = [
