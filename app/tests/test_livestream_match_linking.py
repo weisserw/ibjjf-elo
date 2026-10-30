@@ -1635,7 +1635,52 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             ["bottom", "top"],
         )
 
-    def test_real_filip_esentur_transient_zero_does_not_split_match(self):
+    def _transient_zero_events(self):
+        # Synthetic reconstruction of the Filip/Esentur regression. The original
+        # OCR export was never committed; keep this case self-contained.
+        return [
+            self._event_data(
+                10167,
+                scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                timer_state="stopped",
+                timer_value="6:00",
+                top_points=0,
+                top_advantages=0,
+                top_penalties=0,
+                bottom_points=0,
+                bottom_advantages=0,
+                bottom_penalties=0,
+                top_athlete_name="Filip Vukovic",
+                bottom_athlete_name="Esentur T. Arstanbekov",
+            ),
+            self._event_data(10344, timer_state="running", timer_value="6:00"),
+            self._event_data(10450, bottom_points=2),
+            self._event_data(
+                10451, bottom_points=0, top_athlete_name="Unrelated OCR Flash"
+            ),
+            self._event_data(10452, bottom_team_name="Team"),
+            self._event_data(10455, bottom_points=2, top_athlete_name="Filip Vukovic"),
+            self._event_data(10800, bottom_points=13, bottom_advantages=3),
+            self._event_data(10815, timer_state="stopped", timer_value="0:00"),
+            self._event_data(
+                10825,
+                scoreboard_state=text_scan.SCOREBOARD_STATE_VISIBLE,
+                timer_state="stopped",
+                timer_value="6:00",
+                top_points=0,
+                top_advantages=0,
+                top_penalties=0,
+                bottom_points=0,
+                bottom_advantages=0,
+                bottom_penalties=0,
+                top_athlete_name="Jacob Steven Dove",
+                bottom_athlete_name="Brandon Jesus Romero",
+            ),
+            self._event_data(10920, timer_state="running", timer_value="6:00"),
+            self._event_data(10930, top_points=2),
+        ]
+
+    def test_filip_esentur_transient_zero_does_not_split_match(self):
         matches = self._match_setup(
             pairs=[
                 ("Filip Vukovic", "Esentur T. Arstanbekov"),
@@ -1643,7 +1688,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             ],
             match_offsets=[10380, 10920],
         )
-        events = self._fixture_events("filip_esentur_split.json")
+        events = self._transient_zero_events()
         with patch(
             "livestream_match_linking._is_transient_score_reset", return_value=False
         ):
@@ -1680,7 +1725,7 @@ class LivestreamMatchLinkingTestCase(TestDbMixin, unittest.TestCase):
             with self.subTest(variant=variant):
                 events = [
                     SimpleNamespace(**vars(event))
-                    for event in self._fixture_events("filip_esentur_split.json")
+                    for event in self._transient_zero_events()
                 ]
                 reset = next(event for event in events if event.frame_second == 10451)
                 restored = next(

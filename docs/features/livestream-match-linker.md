@@ -34,6 +34,12 @@ timer or scoreboard transitions, full score resets, different opponents, and
 later corrections retain the normal boundary behavior. Match identification
 and continuation name thresholds are unchanged.
 
+The Filip / Esentur regression tests use a self-contained synthetic timeline
+in `_transient_zero_events()` in `app/tests/test_livestream_match_linking.py`.
+The original OCR export was never committed. The reconstruction checks both
+complete match linking and the timer, blank, opponent, late-correction, and
+full-reset cases that must still split windows.
+
 For older tournaments whose matches contain no parseable mat numbers, candidate
 loading automatically switches to mat-less mode for that event. The linker
 considers all two-participant, fight-eligible matches covered by the archive's
