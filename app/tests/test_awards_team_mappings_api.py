@@ -174,6 +174,19 @@ class AwardsTeamMappingsApiTestCase(TestDbMixin, unittest.TestCase):
         self.assertEqual([t["team_name"] for t in teams], ["Other", "Academy"])
         self.assertEqual(teams[1]["wins"], 20)
 
+    def test_small_event_country_awards_return_up_to_ten_countries(self):
+        countries = ["ca", "mx", "gb", "fr", "de", "it", "es", "pt", "jp", "au", "nz"]
+        for country in countries:
+            for index in range(5):
+                name = f"{country} Athlete {index}"
+                self._match(country, name)
+                self.athletes[name].country = country
+        db.session.flush()
+
+        countries_awarded = self._awards(group_by="country")["teams"]
+        self.assertEqual(len(countries_awarded), 10)
+        self.assertEqual(len(self._awards()["teams"]), 3)
+
     def test_country_awards_ignore_team_mappings(self):
         for index in range(5):
             self._match(

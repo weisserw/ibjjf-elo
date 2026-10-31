@@ -194,7 +194,7 @@ def teams_awards():
         min_competing_athletes_required = min(15, max(5, round(pc)))
 
     limit = 10
-    if total_competing_athletes is not None:
+    if group_by != "country" and total_competing_athletes is not None:
         if total_competing_athletes < 350:
             limit = 3
         elif total_competing_athletes < 1200:

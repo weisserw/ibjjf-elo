@@ -55,8 +55,8 @@ Juvenile 2 matches for win percentage, average defeated rating, and
 distinct-athlete eligibility. Major
 tournaments have a name containing `campeonato brasileiro `, `pan ibjjf `,
 `european ibjjf `, or `world ibjjf ` (case-insensitive, including the trailing
-space). The event participation count that sets the minimum country size and
-result limit also includes only these four age divisions at these events. Other tournaments
+space). The event participation count that sets the minimum country size
+also includes only these four age divisions at these events. Other tournaments
 include all ages for country awards. Existing belt and rated-match requirements
 still apply. This filters
 which match ratings are averaged; it does not recalculate athlete Elo ratings.
@@ -73,7 +73,9 @@ is 0.75% (the four eligible age divisions at majors, all ages elsewhere). Both t
 are rounded and clamped to 5–15. Per-team eligibility counts distinct athletes
 in rated matches with
 eligible belts. Results are limited to 3, 5, or 10 teams according to event
-participation. Ties sort by win percentage, average defeated rating, then name.
+participation. Country results are limited to 10 regardless of event participation;
+countries must still meet eligibility requirements. Ties sort by win percentage,
+average defeated rating, then name.
 
 ## Tests
 
