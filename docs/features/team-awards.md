@@ -73,8 +73,8 @@ is 0.75% (the four eligible age divisions at majors, all ages elsewhere). Both t
 are rounded and clamped to 5–15. Per-team eligibility counts distinct athletes
 in rated matches with
 eligible belts. Results are limited to 3, 5, or 10 teams according to event
-participation. Country results are limited to 10 regardless of event participation;
-countries must still meet eligibility requirements. Ties sort by win percentage,
+participation. Country results have no result cap; countries must still meet
+eligibility requirements. Ties sort by win percentage,
 average defeated rating, then name.
 
 ## Tests

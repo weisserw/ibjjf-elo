@@ -475,7 +475,7 @@ def teams_awards():
                 avg_defeated_rating,
                 adjusted_ratio
             FROM ranked_teams
-            WHERE place <= :limit
+            WHERE :unlimited OR place <= :limit
             ORDER BY place
             """.format(
                 team_mapping_cte=team_mapping_cte,
@@ -495,6 +495,7 @@ def teams_awards():
             "rated": True,
             **age_params,
             "limit": limit,
+            "unlimited": group_by == "country",
             "min_competing_athletes_required": min_competing_athletes_required,
         },
     )
