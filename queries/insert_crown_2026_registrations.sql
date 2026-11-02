@@ -37,6 +37,7 @@ WITH invited (slot, athlete_name, division_id, team_name) AS (
         (5, 'Mateo Cardona',         '9232ca7b-7e8b-4464-8a5b-e05d581097ef'::uuid, 'AOJ'),
         (6, 'Ademir Barreto de Araújo',        '9232ca7b-7e8b-4464-8a5b-e05d581097ef'::uuid, 'GF Team'),
         (7, 'Samuel A. Nagai Hatchwell',             '9232ca7b-7e8b-4464-8a5b-e05d581097ef'::uuid, 'Inevat Brazilian Jiu-Jitsu'),
+        (47, 'Rerisson dos Santos Gabriel', '9232ca7b-7e8b-4464-8a5b-e05d581097ef'::uuid, 'Alliance'),
 
         -- Male / Adult / BLACK / Middle
         (8,  'Tarcisio Damasceno Santos', 'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Marcio Andre Jiu-Jitsu'),
@@ -76,6 +77,7 @@ WITH invited (slot, athlete_name, division_id, team_name) AS (
         (35, 'Aghata Adriane Rabelo Fernandes',    '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'CheckMat'),
         (36, 'Keanna Carolyn Klay',      '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Gracie Barra'),
         (37, 'Sabrina Rogéria Ataide B. Gondim', '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Fight Sports'),
+        (48, 'Sarah C. Firme Galvao', '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Atos Jiu-Jitsu'),
 
         -- Female / Adult / BLACK / Super Heavy
         (38, 'Larissa Dias de Almeida',          '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Elementum Jiu-Jitsu'),
