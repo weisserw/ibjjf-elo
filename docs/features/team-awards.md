@@ -15,6 +15,9 @@ Event team awards use the same resolver as athlete team history: exact matches
 take precedence over case-sensitive glob patterns, and more-specific glob
 patterns take precedence over broader ones. Unmatched names remain unchanged.
 Resolution is a single pass, not recursive mapping through multiple rules.
+The shared canonical-team comparison treats missing, empty, or whitespace-only
+team names as unknown, including when both participants have the same team ID.
+Blank actual names bypass mapping rules when building the canonical lookup.
 
 `_event_team_mapping` fetches distinct team IDs/names in the selected event's
 rated matches and resolves each distinct name once in Python. It supplies a

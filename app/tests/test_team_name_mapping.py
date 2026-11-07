@@ -13,6 +13,27 @@ from team_name_mapping import (
 
 
 class TeamNameMappingTestCase(unittest.TestCase):
+    def test_blank_team_names_are_not_same_team(self):
+        for name in (None, "", " ", "\t\n"):
+            with self.subTest(name=name):
+                names = {"a": name, "b": name, "c": "Alliance"}
+                self.assertFalse(same_canonical_team("a", "a", names))
+                self.assertFalse(same_canonical_team("a", "b", names))
+                self.assertFalse(same_canonical_team("a", "c", names))
+                self.assertFalse(same_canonical_team("c", "a", names))
+
+    def test_blank_actual_names_do_not_match_mapping_rules(self):
+        session = Mock()
+        rules = Mock()
+        rules.all.return_value = [("*", "Alliance")]
+        session.query.side_effect = [rules, [("a", ""), ("b", " \t\n")]]
+
+        names = load_canonical_team_names(session)
+
+        self.assertEqual(names, {"a": None, "b": None})
+        self.assertFalse(same_canonical_team("a", "a", names))
+        self.assertFalse(same_canonical_team("a", "b", names))
+
     def test_run_lookup_uses_two_queries_and_shared_mapping_precedence(self):
         session = Mock()
         rules = Mock()

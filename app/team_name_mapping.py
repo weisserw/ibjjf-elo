@@ -48,7 +48,7 @@ def load_canonical_team_names(session):
         if name not in resolved_names:
             resolved_names[name] = (
                 resolve_dupe_team_name(name, exact_mappings, glob_mappings)
-                if name
+                if name and name.strip()
                 else None
             )
         teams[team_id] = resolved_names[name]
@@ -58,6 +58,16 @@ def load_canonical_team_names(session):
 def same_canonical_team(red_team_id, blue_team_id, canonical_team_names=None):
     if red_team_id is None or blue_team_id is None:
         return False
+    if canonical_team_names is not None:
+        red_name = canonical_team_names.get(red_team_id)
+        blue_name = canonical_team_names.get(blue_team_id)
+        if (
+            not red_name
+            or not red_name.strip()
+            or not blue_name
+            or not blue_name.strip()
+        ):
+            return False
     if red_team_id == blue_team_id:
         return True
     if canonical_team_names is None:
