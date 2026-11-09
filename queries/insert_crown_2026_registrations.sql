@@ -46,7 +46,7 @@ WITH invited (slot, athlete_name, division_id, team_name) AS (
         (11, 'Rafael Belmont Gamba',    'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Alliance'),
         (12, 'Natan Chueng Freitas', 'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Unity Jiu-jitsu'),
         (13, 'Micael Ferreira Galvâo',     'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Thyago Martins BJJ Academy'),
-        (14, 'Uanderson Ferreira de Oliveira', 'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'Sertão Brazilian Jiu-Jitsu Internacional'),
+        (14, 'José Matheus Macedo de Lira Luna', 'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'CheckMat'),
         (15, 'Andy Tomas Murasaki Pereira', 'af34fb3c-c84f-49c8-a7ee-8453681d8c5b'::uuid, 'AOJ'),
 
         -- Male / Adult / BLACK / Heavy
@@ -72,12 +72,12 @@ WITH invited (slot, athlete_name, division_id, team_name) AS (
         -- Female / Adult / BLACK / Light
         (31, 'Nikolett Kis',     '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Sigma Jiu-Jitsu'),
         (32, 'Janaina Maia de Menezes',    '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Alliance'),
-        (33, 'Eliza Carvalho Nascimento', '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Marcio Andre Jiu-Jitsu'),
         (34, 'Elisabeth Ann Clay',   '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Six Blades Jiu-Jitsu'),
         (35, 'Aghata Adriane Rabelo Fernandes',    '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'CheckMat'),
         (36, 'Keanna Carolyn Klay',      '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Gracie Barra'),
         (37, 'Sabrina Rogéria Ataide B. Gondim', '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Fight Sports'),
         (48, 'Sarah C. Firme Galvao', '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'Atos Jiu-Jitsu'),
+        (49, 'Giovanah Oliveira da Silva', '97308d3f-f1a6-48f3-b920-d2ba1f8f9e6d'::uuid, 'JFC Almeida JJ'),
 
         -- Female / Adult / BLACK / Super Heavy
         (38, 'Larissa Dias de Almeida',          '27ccea96-27cc-450a-af34-ba2ea4c529da'::uuid, 'Elementum Jiu-Jitsu'),
