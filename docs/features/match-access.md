@@ -11,9 +11,10 @@ including highlights, are outside this protection.
 - `app/routes/matches.py`: runs the access guard before the existing IP limiter
   and before match queries.
 - `app/frontend/src/matchAccess.ts`: a dedicated Axios client. A
-  `403 match_access_required` starts one shared verification attempt, then
-  retries each waiting request once with its original parameters. A `429`
-  does not trigger verification or an automatic retry.
+  `403 match_access_required` for a missing, expired, or quota-exhausted session
+  starts one shared verification attempt, then retries each waiting request
+  once with its original parameters. A burst-limit `429` does not trigger
+  verification or an automatic retry.
 - `app/frontend/src/components/MatchAccessVerification.tsx`: loads Turnstile
   on demand, uses Managed mode with `interaction-only` appearance, and provides
   retry/cancel controls on failure. Mounted globally in `main.tsx` so Database,
@@ -33,7 +34,8 @@ independently unless the site redirects visitors to a canonical host.
 ## Usage limits
 
 Each session allows 15 requests per fixed 10-second bucket and reserves up to
-6,000 match-row units during its one-hour lifetime. A match-list request
+200 match-row units before fresh verification is required. Cookies expire
+after one hour even if their allowance remains unused. A match-list request
 reserves 12 units, or 100 when `athlete_id` is supplied, matching the maximum
 page sizes. Detail requests reserve one unit. Empty or invalid queries can
 still consume units. This is a conservative upper bound, not an exact count
@@ -41,10 +43,27 @@ of rows downloaded. Keep these reservations aligned with page-size changes.
 
 An atomic conditional database update reserves units before the main query.
 Counters work across processes and persist across restarts and IP changes.
-`429 match_access_limited` includes `Retry-After`. Verifying again with a valid
-cookie does not renew that session or reset its counters. Expired or deleted
-sessions require verification again. The existing per-process IP limiter
-continues to provide an additional burst check.
+Quota exhaustion returns `403 match_access_required` with
+`reason: quota_exhausted`. The frontend obtains a fresh Turnstile token and
+retries automatically; no reload or quota error is needed. Cloudflare may
+still require a checkbox. If verification fails, the existing retry/cancel UI
+remains available rather than leaving the request silently stuck.
+
+Every verification POST requires a fresh valid Turnstile token, even if its
+cookie is still valid. Successful verification issues a new random session ID
+and cookie, atomically replacing the old session ID in the database.
+The old cookie remains invalid after renewal; a copied cookie cannot benefit
+from the real browser renewing. Invalid or unavailable verification leaves
+the old session and counters unchanged. The replacement carries forward the
+old session's burst bucket/counter so renewal does not reset that limit.
+
+`429 match_access_limited` with `Retry-After` is reserved for the short burst
+limit. The frontend does not renew in response to it. Expired or deleted
+sessions require verification again. The existing per-process IP limiter also
+continues to provide an additional burst check. The 200-unit allowance is per
+verification, not a hard hourly data cap: a browser can keep browsing by
+passing fresh checks. Ordinary pages cost 12 units (16 pages per allowance),
+and athlete-history pages cost 100 (two pages per allowance).
 
 An attacker can discard cookies and solve another challenge to obtain a new
 session. This raises the cost of scraping; it does not prevent collection by
@@ -76,7 +95,9 @@ without a corresponding browser clearance flow.
 5. In a fresh browser session, check Database pagination, athlete match
    history, Research comparisons, and bracket score details. Direct requests
    without a cookie should return `403` JSON. Verify cookie flags, automatic
-   renewal on expiry, retry after blocked scripts, and `429` behavior.
+   renewal on expiry/quota exhaustion, retry after blocked scripts, old-cookie
+   revocation after renewal, and burst-limit `429` behavior. No new migration
+   or environment variable is required for the 200-unit renewal behavior.
 6. Schedule `flask purge-expired-match-access` daily from `app/` to remove
    expired session rows. Set an edge rate limit on `/api/access/verify`, tune
    against real traffic, and check that the origin cannot bypass edge rules.
@@ -110,9 +131,11 @@ node --test scripts/match-access.test.mjs
 
 Backend tests in `test_match_access.py` mock Siteverify and cover successful
 verification, cookie flags, malformed/failed verification, outages, forged and
-expired sessions, shared limits, weighted quotas, and disabled configuration.
-Frontend tests cover concurrent callers, retry bounds, rate-limit responses,
-verification failure/retry, and cancellation. Do not run a routine frontend
+expired sessions, shared limits, weighted quotas, renewal requiring fresh
+proof, old-cookie revocation, preserved burst limits, and disabled configuration.
+Frontend tests cover concurrent callers, transparent quota renewal, retry
+bounds, rate-limit responses, verification failure/retry, and cancellation.
+Do not run a routine frontend
 build because it rewrites generated SEO snippets.
 
 References:

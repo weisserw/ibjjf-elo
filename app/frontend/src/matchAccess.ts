@@ -49,7 +49,8 @@ export function cancelMatchAccess() {
 }
 
 // Use a separate client so unrelated APIs never trigger verification. Concurrent
-// failed requests share one challenge, and each original request retries once.
+// missing, expired, or quota-exhausted sessions share one challenge, and each
+// original request retries once. Burst-limit 429s never renew the allowance.
 export const matchesApi = axios.create();
 matchesApi.interceptors.response.use(response => response, async (error: unknown) => {
   if (!axios.isAxiosError(error)) throw error;

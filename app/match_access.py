@@ -22,7 +22,7 @@ SITE_KEY = "0x4AAAAAAGDvwrAtybkRVXKi"
 SESSION_SECONDS = 3600
 BURST_SECONDS = 10
 BURST_REQUESTS = 15
-SESSION_UNITS = 6000
+SESSION_UNITS = 200
 access_route = Blueprint("match_access", __name__)
 
 
@@ -126,11 +126,18 @@ def require_match_access():
     existing = db.session.get(session, identity)
     if existing is None or existing.expires_at <= now:
         return jsonify(error="Verification required", code="match_access_required"), 403
-    retry_after = (
-        existing.expires_at - now
-        if existing.units + units > SESSION_UNITS
-        else BURST_SECONDS - now % BURST_SECONDS
-    )
+    if existing.units + units > SESSION_UNITS:
+        # The browser handles this exactly like expiry: obtain fresh Turnstile
+        # proof, rotate the session, then retry the original request once.
+        return (
+            jsonify(
+                error="Verification required",
+                code="match_access_required",
+                reason="quota_exhausted",
+            ),
+            403,
+        )
+    retry_after = BURST_SECONDS - now % BURST_SECONDS
     response = jsonify(
         error="Match browsing limit reached. Please try again later.",
         code="match_access_limited",
@@ -153,13 +160,10 @@ def access_config():
 def verify_access():
     if not current_app.config.get("MATCH_ACCESS_ENABLED"):
         return jsonify(ok=True)
-    # Do not let an already verified session renew early to reset its counters.
+    # Every grant, including renewal of a valid cookie, requires fresh proof.
+    # Never reset counters on the same session ID: a copied cookie must stay invalid
+    # after the real browser obtains a replacement.
     identity = _session_id()
-    existing = db.session.get(MatchAccessSession, identity) if identity else None
-    now = int(time())
-    if existing is not None and existing.expires_at > now:
-        return jsonify(ok=True)
-
     if request.content_length is None or request.content_length > 4096:
         return jsonify(error="Invalid verification request"), 400
     payload = request.get_json(silent=True)
@@ -189,8 +193,23 @@ def verify_access():
     ):
         return jsonify(error="Verification failed. Please try again."), 403
 
+    now = int(time())
+    previous_identity = identity
     identity = secrets.token_hex(32)
-    db.session.add(MatchAccessSession(id=identity, expires_at=now + SESSION_SECONDS))
+    rotated = 0
+    if previous_identity:
+        # Rotate atomically while retaining the latest burst counters, including
+        # requests that arrived while Cloudflare verification was in flight.
+        rotated = db.session.execute(
+            update(MatchAccessSession)
+            .where(MatchAccessSession.id == previous_identity)
+            .values(id=identity, expires_at=now + SESSION_SECONDS, units=0)
+            .execution_options(synchronize_session=False)
+        ).rowcount
+    if rotated != 1:
+        db.session.add(
+            MatchAccessSession(id=identity, expires_at=now + SESSION_SECONDS)
+        )
     db.session.commit()
     response = jsonify(ok=True)
     response.set_cookie(

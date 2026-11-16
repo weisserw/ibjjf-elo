@@ -16,7 +16,6 @@ from extensions import db
 from match_access import (
     BURST_REQUESTS,
     COOKIE_NAME,
-    SESSION_SECONDS,
     SESSION_UNITS,
     MatchAccessSession,
     configure_match_access,
@@ -170,22 +169,76 @@ class MatchAccessTests(TestDbMixin, unittest.TestCase):
         with patch("match_access.time", return_value=100010):
             self.assertEqual(other_client.get("/api/matches?gi=true").status_code, 200)
 
-    def test_athlete_queries_reserve_more_units_and_cannot_reset_quota(self):
+    def test_athlete_quota_renews_only_with_fresh_proof_and_revokes_old_cookie(self):
         self.grant()
+        old_cookie = self.client.get_cookie(COOKIE_NAME, path="/api/").value
+        scraper = self.app.test_client()
+        scraper.set_cookie(COOKIE_NAME, old_cookie, path="/api/")
         with self.app.app_context():
             session = MatchAccessSession.query.one()
             session.units = SESSION_UNITS - 50
             db.session.commit()
-        response = self.client.get(
-            "/api/matches?gi=true&athlete_id=00000000-0000-0000-0000-000000000001"
-        )
-        self.assertEqual(response.status_code, 429)
-        self.assertEqual(response.headers["Retry-After"], str(SESSION_SECONDS))
-        self.grant()
+        path = "/api/matches?gi=true&athlete_id=00000000-0000-0000-0000-000000000001"
+        response = self.client.get(path)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json["code"], "match_access_required")
+        self.assertEqual(response.json["reason"], "quota_exhausted")
+        # Merely posting the valid cookie cannot refresh the allowance.
+        response = self.client.post("/api/access/verify", json={})
+        self.assertEqual(response.status_code, 400)
         self.verify.assert_called_once()
         with self.app.app_context():
             self.assertEqual(MatchAccessSession.query.one().units, SESSION_UNITS - 50)
+        # Failed Cloudflare verification must not revoke or refresh the session.
+        self.verify.return_value.json.return_value = {"success": False}
+        response = self.client.post("/api/access/verify", json={"token": "bad"})
+        self.assertEqual(response.status_code, 403)
+        with self.app.app_context():
+            self.assertEqual(MatchAccessSession.query.one().units, SESSION_UNITS - 50)
+        self.verify.return_value.json.return_value = {
+            "success": True,
+            "hostname": "jiujitsu.net",
+            "action": "match_access",
+        }
+        self.grant()
+        self.assertNotEqual(
+            old_cookie, self.client.get_cookie(COOKIE_NAME, path="/api/").value
+        )
+        with self.app.app_context():
+            self.assertEqual(MatchAccessSession.query.one().units, 0)
+        self.assertEqual(self.client.get(path).status_code, 200)
+        # Even a smaller query cannot use the old cookie after rotation.
+        response = scraper.get("/api/matches?gi=true")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json["code"], "match_access_required")
+
+    def test_exact_quota_boundary_requires_verification_on_next_request(self):
+        self.grant()
+        with self.app.app_context():
+            session = MatchAccessSession.query.one()
+            session.units = SESSION_UNITS - 12
+            db.session.commit()
         self.assertEqual(self.client.get("/api/matches?gi=true").status_code, 200)
+        response = self.client.get("/api/matches?gi=true")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json["reason"], "quota_exhausted")
+        with self.app.app_context():
+            self.assertEqual(MatchAccessSession.query.one().units, SESSION_UNITS)
+
+    def test_fresh_proof_does_not_reset_burst_counter(self):
+        self.grant()
+        with self.app.app_context():
+            session = MatchAccessSession.query.one()
+            session.units = SESSION_UNITS
+            session.burst_bucket = 100000 // 10
+            session.burst_requests = BURST_REQUESTS
+            db.session.commit()
+        self.grant()
+        response = self.client.get("/api/matches?gi=true")
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.json["code"], "match_access_limited")
+        with patch("match_access.time", return_value=100010):
+            self.assertEqual(self.client.get("/api/matches?gi=true").status_code, 200)
 
     def test_disabled_access_preserves_local_development(self):
         self.app.config["MATCH_ACCESS_ENABLED"] = False

@@ -64,6 +64,27 @@ test('429s, unrelated 403s, and a failed retry do not trigger a challenge loop',
   assert.equal(s.counts().configCalls, 0);
 });
 
+test('quota exhaustion renews once for concurrent requests and resumes browsing', async () => {
+  const s = setup();
+  const config = { url: '/api/matches', params: { gi: 'true', page: 17 } };
+  const quotaError = s.error(403, 'match_access_required', config);
+  quotaError.response.data.reason = 'quota_exhausted';
+  const otherError = s.error();
+  otherError.response.data.reason = 'quota_exhausted';
+  const first = s.rejectRequest(quotaError);
+  const second = s.rejectRequest(otherError);
+  await flush();
+  assert.equal(s.counts().configCalls, 1);
+  assert.equal(s.counts().retries, 0);
+  await s.access.submitMatchAccessToken('fresh-proof');
+  const [response] = await Promise.all([first, second]);
+  assert.equal(response.config.params.page, 17);
+  assert.equal(s.counts().retries, 2);
+  assert.equal(s.access.getMatchAccessRequest(), null);
+  await assert.rejects(s.rejectRequest(quotaError), value => value === quotaError);
+  assert.equal(s.counts().configCalls, 1);
+});
+
 test('failed token verification stays pending and can be retried', async () => {
   const s = setup();
   const request = s.rejectRequest(s.error());
