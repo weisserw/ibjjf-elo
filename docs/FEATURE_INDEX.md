@@ -9,6 +9,7 @@
 - [Bracket Views](features/bracket-views.md) - Live, registration, and archive tournament bracket views, their APIs, shared data shapes, tests, and regression history.
 - [Watchlists](features/watchlists.md) - Public saved tournament/athlete selections, registration search, shared live schedules, refresh leases, expiry, mobile view, and tests.
 - [Database View](features/database-view.md) - End-user match results tab, filters, row links, responsive table/card rendering, and match detail entry points.
+- [Match API Access](features/match-access.md) - Turnstile verification, anonymous access cookies, shared usage limits, deployment configuration, and tests.
 - [Homepage Video Count](features/homepage-video-count.md) - Cached count of free YouTube-covered matches, refresh paths, public API, and homepage banner.
 - [Highlight Research API](features/highlight-research-api.md) - Versioned public athlete, ranking, match, event, and logical-image contracts for the private highlight worker.
 - [Livestream Editor](features/livestream-editor.md) - Admin stream editing and copying a day's streams between events.

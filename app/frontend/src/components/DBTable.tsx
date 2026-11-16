@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import axios, { AxiosResponse } from 'axios';
+import { type AxiosResponse } from 'axios';
+import { matchesApi } from '../matchAccess';
 import DBFilters, {
   ageToFilter,
   genderToFilter,
@@ -41,7 +42,7 @@ function DBTable() {
 
   useEffect(() => {
     setReloading(true)
-    axios.get<Results>('/api/matches', {
+    matchesApi.get<Results>('/api/matches', {
       params: {
         gi: gi ? 'true' : 'false',
         ...filters,

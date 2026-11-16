@@ -18,6 +18,8 @@ from routes.news import news_route
 from routes.teams import teams_route
 from routes.highlights import highlights_route
 from site_statistics import refresh_covered_match_count
+from match_access import access_route, configure_match_access, MatchAccessSession
+from time import time
 
 logger = logging.getLogger("ibjjf")
 log_level = logging.DEBUG if os.getenv("DEBUG") else logging.INFO
@@ -36,6 +38,7 @@ CORS_ALLOWED_METHODS = "GET, POST"
 # Add the handler to the logger
 logger.addHandler(ch)
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="/")
+configure_match_access(app)
 if os.getenv("DATABASE_URL"):
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
 else:
@@ -43,6 +46,15 @@ else:
 
 db.init_app(app)
 migrate.init_app(app, db)
+
+
+@app.cli.command("purge-expired-match-access")
+def purge_expired_match_access():
+    deleted = MatchAccessSession.query.filter(
+        MatchAccessSession.expires_at <= int(time())
+    ).delete(synchronize_session=False)
+    db.session.commit()
+    print(f"Deleted {deleted} expired match access sessions.")
 
 
 @app.cli.command("refresh-site-statistics")
@@ -160,6 +172,7 @@ def add_cache_control_headers(response):
 
 app.register_blueprint(top_route)
 app.register_blueprint(matches_route)
+app.register_blueprint(access_route)
 app.register_blueprint(athletes_route)
 app.register_blueprint(events_route)
 app.register_blueprint(brackets_route)

@@ -1,4 +1,7 @@
 const translations = {
+    "Cancel": "Cancelar",
+    "Please verify to view matches.": "Verifique para ver as lutas.",
+    "Verification could not finish. Please allow the verification script and try again.": "Não foi possível concluir a verificação. Permita o script de verificação e tente novamente.",
     "Watchlist": "Lista de acompanhamento",
     "Watchlists": "Listas de acompanhamento",
     "Select at least one tournament and athlete.": "Selecione pelo menos um torneio e um atleta.",

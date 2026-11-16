@@ -2,6 +2,7 @@ import {useEffect, useState, useMemo, useCallback} from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
 import { Link, useParams } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
+import { matchesApi } from '../matchAccess';
 import { axiosErrorToast, getCountryName,
   type Registration, type DBRow as Row, type DBResults as Results,
   isHistorical, badgeForPercentile, percentileInteger, formatEventDates, teamSlugFromName, beltColorEmojis } from '../utils';
@@ -258,7 +259,7 @@ function Athlete() {
     if (!responseData) return;
 
     setReloading(true)
-    axios.get<Results>('/api/matches', {
+    matchesApi.get<Results>('/api/matches', {
       params: {
         gi: activeTab === 'Gi' ? 'true' : 'false',
         athlete_id: responseData.athlete.id,

@@ -1,0 +1,24 @@
+.match-access-verification {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  max-width: calc(100vw - 2rem);
+}
+
+.match-access-verification.is-visible {
+  padding: 1rem;
+  background: white;
+  color: #222;
+  border-radius: 6px;
+  box-shadow: 0 2px 16px #0003;
+}
+
+.match-access-verification p {
+  margin-bottom: 0.5rem;
+}
+
+.match-access-verification button {
+  margin: 0.5rem 0.5rem 0 0;
+}

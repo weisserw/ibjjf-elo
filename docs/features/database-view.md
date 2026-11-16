@@ -85,10 +85,12 @@ Primary results API:
 GET /api/matches
 ```
 
-`DBTable` calls it directly with Axios:
+`DBTable` calls it with the shared `matchesApi` Axios client, which handles
+Turnstile verification and a single retry when access expires. See
+[Match API Access](match-access.md) for configuration and shared usage limits.
 
 ```ts
-axios.get<DBResults>('/api/matches', {
+matchesApi.get<DBResults>('/api/matches', {
   params: {
     gi: gi ? 'true' : 'false',
     ...filters,

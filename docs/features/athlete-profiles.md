@@ -41,6 +41,8 @@ Backend/end-user APIs:
 - `app/routes/matches.py` serves `GET /api/matches`, which `Athlete.tsx` uses
   for the profile match table after the profile payload returns the canonical
   athlete UUID.
+  The shared `matchesApi` frontend client handles anonymous Turnstile access;
+  see [Match API Access](match-access.md) for session limits and configuration.
 - `app/photos.py` handles S3 clients, Instagram profile-photo scraping,
   profile-photo upload validation, and one-hour presigned public photo URLs.
 - `app/models.py` defines `Athlete`, `AthleteMediaCoverage`, `Medal`,

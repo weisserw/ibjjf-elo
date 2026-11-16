@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import axios from 'axios';
+import { matchesApi } from '../matchAccess';
 import { t, type translationKeys } from '../translate';
 
 import './MatchDetailView.css';
@@ -299,7 +299,7 @@ function MatchDetailView({ matchId, showTitle = false }: MatchDetailViewProps) {
     setError(null);
     setDetail(null);
 
-    axios.get<MatchDetailResponse>(`/api/matches/${matchId}/detail-events`)
+    matchesApi.get<MatchDetailResponse>(`/api/matches/${matchId}/detail-events`)
       .then(response => {
         if (!ignore) {
           setDetail(response.data);

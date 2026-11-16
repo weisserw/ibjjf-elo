@@ -7,6 +7,7 @@ from collections import defaultdict
 from time import time
 from sqlalchemy.sql import text
 from extensions import db
+from match_access import require_match_access
 from constants import (
     MALE,
     FEMALE,
@@ -840,6 +841,7 @@ def rate_limit():
     request_times.append(current_time)
 
 
+matches_route.before_request(require_match_access)
 matches_route.before_request(rate_limit)
 
 

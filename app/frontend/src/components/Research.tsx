@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import GiTabs from "./GiTabs"
 import Autosuggest from 'react-autosuggest'
 import axios, { AxiosResponse } from 'axios'
+import { matchesApi } from '../matchAccess';
 import { debounce } from 'lodash'
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
@@ -317,7 +318,7 @@ function Research() {
 
   useEffect(() => {
     if (firstAthleteToFetch && secondAthleteToFetch && firstAthleteToFetch !== secondAthleteToFetch) {
-      axios.get<Results>('/api/matches', {
+      matchesApi.get<Results>('/api/matches', {
         params: {
           gi: activeTab === 'Gi' ? 'true' : 'false',
           athlete_name: '"' + firstAthleteToFetch + '"',

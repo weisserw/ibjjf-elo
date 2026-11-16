@@ -83,6 +83,10 @@ Upstream dependency:
 
 ## Frontend API
 
+The shared `matchesApi` client handles anonymous Turnstile verification before
+retrying denied detail requests. See [Match API Access](match-access.md) for
+configuration and shared session limits.
+
 `MatchDetailView` calls:
 
 ```text
@@ -101,7 +105,7 @@ No separate frontend API client exists for this feature; the component calls the
 endpoint directly with:
 
 ```ts
-axios.get<MatchDetailResponse>(`/api/matches/${matchId}/detail-events`)
+matchesApi.get<MatchDetailResponse>(`/api/matches/${matchId}/detail-events`)
 ```
 
 ## Response Shape

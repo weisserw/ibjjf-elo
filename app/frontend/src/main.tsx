@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import MatchAccessVerification from './components/MatchAccessVerification';
 import './global.css';
 
 const container = document.getElementById('root');
@@ -9,6 +10,7 @@ if (container) {
   root.render(
     <React.StrictMode>
       <App />
+      <MatchAccessVerification />
     </React.StrictMode>
   );
 } else {
