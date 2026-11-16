@@ -23,6 +23,8 @@ SESSION_SECONDS = 3600
 BURST_SECONDS = 10
 BURST_REQUESTS = 15
 SESSION_UNITS = 200
+MATCH_PAGE_SIZE = 12
+MATCHUP_PAGE_SIZE = 100
 access_route = Blueprint("match_access", __name__)
 
 
@@ -82,6 +84,15 @@ def _session_id():
         return None
 
 
+def match_page_size(args):
+    """Share the actual query page size with access quota accounting."""
+    first = args.get("athlete_name")
+    second = args.get("athlete_name2")
+    if first and second and first != second:
+        return MATCHUP_PAGE_SIZE
+    return MATCH_PAGE_SIZE
+
+
 def require_match_access():
     if (
         not current_app.config.get("MATCH_ACCESS_ENABLED")
@@ -94,10 +105,10 @@ def require_match_access():
     if not identity:
         return jsonify(error="Verification required", code="match_access_required"), 403
 
-    # Reserve the maximum number of rows this request can expose, before SQL work.
+    # Match-list requests have a flat quota cost, including head-to-head results.
     units = 1
     if request.path == "/api/matches":
-        units = 100 if request.args.get("athlete_id") else 12
+        units = MATCH_PAGE_SIZE
     bucket = now // BURST_SECONDS
     session = MatchAccessSession
     result = db.session.execute(

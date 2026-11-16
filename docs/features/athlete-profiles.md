@@ -43,6 +43,11 @@ Backend/end-user APIs:
   athlete UUID.
   The shared `matchesApi` frontend client handles anonymous Turnstile access;
   see [Match API Access](match-access.md) for session limits and configuration.
+  Match history is fetched directly without a frontend response cache.
+  The match effect waits for the selected profile and page
+  reset, depends on canonical athlete identity rather than the profile object,
+  and ignores obsolete responses after navigation or tab changes. Profile
+  reloads and medal toggles therefore do not trigger duplicate match fetches.
 - `app/photos.py` handles S3 clients, Instagram profile-photo scraping,
   profile-photo upload validation, and one-hour presigned public photo URLs.
 - `app/models.py` defines `Athlete`, `AthleteMediaCoverage`, `Medal`,

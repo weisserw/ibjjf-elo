@@ -7,7 +7,7 @@ from collections import defaultdict
 from time import time
 from sqlalchemy.sql import text
 from extensions import db
-from match_access import require_match_access
+from match_access import match_page_size, require_match_access
 from constants import (
     MALE,
     FEMALE,
@@ -70,9 +70,6 @@ from livestreams import (
 )
 
 matches_route = Blueprint("matches_route", __name__)
-
-MATCH_PAGE_SIZE = 12
-ATHLETES_MATCH_PAGE_SIZE = 100
 
 INITIAL_RATE_LIMIT = 15
 RATE_LIMIT_WINDOW = 10
@@ -1455,9 +1452,7 @@ def matches():
         {filters}
     """
 
-    page_size = MATCH_PAGE_SIZE
-    if athlete_name and athlete_name2 and athlete_name != athlete_name2:
-        page_size = ATHLETES_MATCH_PAGE_SIZE
+    page_size = match_page_size(request.args)
 
     # get one extra match to determine if there are more pages
     params["limit"] = (page_size + 1) * 2

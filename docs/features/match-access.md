@@ -15,6 +15,10 @@ including highlights, are outside this protection.
   starts one shared verification attempt, then retries each waiting request
   once with its original parameters. A burst-limit `429` does not trigger
   verification or an automatic retry.
+  Requests are queued through verification and retry, so concurrent
+  requests cannot exhaust a session during renewal and expose
+  a second verification error. Athlete history is fetched directly without a
+  frontend response cache or in-flight request cache.
 - `app/frontend/src/components/MatchAccessVerification.tsx`: loads Turnstile
   on demand, uses Managed mode with `interaction-only` appearance, and provides
   retry/cancel controls on failure. Mounted globally in `main.tsx` so Database,
@@ -36,10 +40,11 @@ independently unless the site redirects visitors to a canonical host.
 Each session allows 15 requests per fixed 10-second bucket and reserves up to
 200 match-row units before fresh verification is required. Cookies expire
 after one hour even if their allowance remains unused. A match-list request
-reserves 12 units, or 100 when `athlete_id` is supplied, matching the maximum
-page sizes. Detail requests reserve one unit. Empty or invalid queries can
-still consume units. This is a conservative upper bound, not an exact count
-of rows downloaded. Keep these reservations aligned with page-size changes.
+costs 12 units, including athlete history and two-athlete comparisons. The
+comparison response still allows up to 100 matches; lowering its quota cost
+does not change its results or introduce frontend pagination. Detail requests
+cost one unit. Empty or invalid queries can still consume units. This is a
+request budget, not an exact count or upper bound on rows downloaded.
 
 An atomic conditional database update reserves units before the main query.
 Counters work across processes and persist across restarts and IP changes.
@@ -62,8 +67,26 @@ limit. The frontend does not renew in response to it. Expired or deleted
 sessions require verification again. The existing per-process IP limiter also
 continues to provide an additional burst check. The 200-unit allowance is per
 verification, not a hard hourly data cap: a browser can keep browsing by
-passing fresh checks. Ordinary pages cost 12 units (16 pages per allowance),
-and athlete-history pages cost 100 (two pages per allowance).
+passing fresh checks. All match-list requests cost 12 units
+(16 requests per allowance), including two-athlete comparisons.
+Repeated Gi/No-Gi switches fetch fresh history from the API. History
+pages cost 12, so the allowance covers 16 fresh history fetches. A handled
+`403` can appear in browser network tools
+before the successful verification/retry; this should not appear as a user-facing
+error. Browser tabs have independent request queues.
+
+## Challenge network diagnostics
+
+Cloudflare documents DNS lookup failures for some subdomains under
+`challenges.cloudflare.com` and `dnstest.dev` as expected, non-fatal parts of
+challenge execution. A failed subdomain request alone does not indicate that
+Siteverify failed. Our code loads the documented `challenges.cloudflare.com`
+script and posts tokens to our backend; it does not configure a `brunhild`
+hostname. Judge success by the widget callback, `/api/access/verify`, and the
+retried match response, rather than treating every internal network failure
+as a fatal error.
+
+See https://developers.cloudflare.com/cloudflare-challenges/troubleshooting/challenge-solve-issues/#failed-subdomain-network-requests-during-turnstile-challenges.
 
 An attacker can discard cookies and solve another challenge to obtain a new
 session. This raises the cost of scraping; it does not prevent collection by
@@ -134,7 +157,8 @@ verification, cookie flags, malformed/failed verification, outages, forged and
 expired sessions, shared limits, weighted quotas, renewal requiring fresh
 proof, old-cookie revocation, preserved burst limits, and disabled configuration.
 Frontend tests cover concurrent callers, transparent quota renewal, retry
-bounds, rate-limit responses, verification failure/retry, and cancellation.
+bounds, queued requests across renewal, rate-limit
+responses, verification failure/retry, and cancellation.
 Do not run a routine frontend
 build because it rewrites generated SEO snippets.
 

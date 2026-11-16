@@ -1,4 +1,4 @@
-import axios, { type InternalAxiosRequestConfig } from 'axios';
+import axios, { type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 
 type AccessRequest = { siteKey: string };
 let request: AccessRequest | null = null;
@@ -51,8 +51,8 @@ export function cancelMatchAccess() {
 // Use a separate client so unrelated APIs never trigger verification. Concurrent
 // missing, expired, or quota-exhausted sessions share one challenge, and each
 // original request retries once. Burst-limit 429s never renew the allowance.
-export const matchesApi = axios.create();
-matchesApi.interceptors.response.use(response => response, async (error: unknown) => {
+const client = axios.create();
+client.interceptors.response.use(response => response, async (error: unknown) => {
   if (!axios.isAxiosError(error)) throw error;
   const config = error.config as (InternalAxiosRequestConfig & { matchAccessRetried?: boolean }) | undefined;
   if (error.response?.status !== 403
@@ -62,5 +62,16 @@ matchesApi.interceptors.response.use(response => response, async (error: unknown
   }
   config.matchAccessRetried = true;
   await ensureMatchAccess();
-  return matchesApi.request(config);
+  return client.request(config);
 });
+
+// Keep requests queued through verification and the retry. Otherwise multiple
+// requests can immediately exhaust a session that is close to its quota.
+let queue: Promise<void> = Promise.resolve();
+export const matchesApi = {
+  get<T>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+    const result = queue.then(() => client.get<T>(url, config));
+    queue = result.then(() => undefined, () => undefined);
+    return result;
+  },
+};

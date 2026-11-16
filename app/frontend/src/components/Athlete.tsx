@@ -199,6 +199,7 @@ const beltOrder = [
 function Athlete() {
 	const { id } = useParams();
   const [responseData, setResponseData] = useState<ResponseData | null>(null);
+  const [loadedProfileKey, setLoadedProfileKey] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [reloading, setReloading] = useState(false)
@@ -239,41 +240,53 @@ function Athlete() {
   }, [id, activeTab]);
 
   useEffect(() => {
+    let ignore = false;
     const fetchData = async () => {
       setLoading(true);
       try {
         const response = await axios.get(`/api/athlete/${id}?gi=${activeTab === 'Gi' ? 'true' : 'false'}&all_medals=${showAllMedals ? 'true' : 'false'}`);
+        if (ignore) return;
         setResponseData(response.data);
+        setLoadedProfileKey(`${id}:${activeTab}`);
         setPage(1);
       } catch (error) {
-        axiosErrorToast(error);
+        if (!ignore) axiosErrorToast(error);
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
     fetchData();
+    return () => { ignore = true; };
   }, [id, activeTab, showAllMedals]);
 
+  // Wait for the selected profile and its page reset, instead of fetching the
+  // previous athlete/page while the new Gi/No-Gi profile is still loading.
+  const matchAthleteId = loadedProfileKey === `${id}:${activeTab}`
+    ? responseData?.athlete.id : undefined;
   useEffect(() => {
-    if (!responseData) return;
+    if (!matchAthleteId) return;
+    let ignore = false;
 
     setReloading(true)
     matchesApi.get<Results>('/api/matches', {
       params: {
         gi: activeTab === 'Gi' ? 'true' : 'false',
-        athlete_id: responseData.athlete.id,
-        page: page
-      }
+        athlete_id: matchAthleteId,
+        page,
+      },
     }).then((response: AxiosResponse<Results>) => {
+      if (ignore) return;
       setMatchData(response.data.rows)
       setTotalPages(response.data.totalPages)
       setReloading(false)
     }).catch((exception) => {
+      if (ignore) return;
       axiosErrorToast(exception)
       setReloading(false)
     });
-  }, [responseData, activeTab, page]);
+    return () => { ignore = true; };
+  }, [matchAthleteId, activeTab, page]);
 
   const parsedEloHistory = useMemo(() => {
     if (!responseData) return [];

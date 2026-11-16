@@ -10,14 +10,23 @@ function setup() {
   let configCalls = 0;
   let retries = 0;
   let postError;
+  let adapter = async config => ({ config, data: { rows: [], totalPages: 1 } });
+  let onVerify = () => {};
+  let networkCalls = 0;
+  const send = async config => {
+    networkCalls++;
+    try { return await adapter(config); }
+    catch (error) { return handler(error); }
+  };
   const client = {
     interceptors: { response: { use: (_success, failure) => { handler = failure; } } },
-    request: async config => { retries++; return { config, data: 'matches' }; },
+    request: async config => { retries++; return send(config); },
+    get: async (url, config) => send({ ...config, url }),
   };
   const axios = {
     create: () => client,
     get: async () => { configCalls++; return { data: { enabled: true, siteKey: 'public' } }; },
-    post: async () => { if (postError) throw postError; },
+    post: async () => { if (postError) throw postError; onVerify(); },
     isAxiosError: error => error?.isAxiosError === true,
   };
   const source = readFileSync(new URL('../src/matchAccess.ts', import.meta.url), 'utf8');
@@ -33,8 +42,10 @@ function setup() {
     access: exports,
     rejectRequest: (...args) => handler(...args),
     error,
-    counts: () => ({ configCalls, retries }),
+    counts: () => ({ configCalls, retries, networkCalls }),
     setPostError: value => { postError = value; },
+    setAdapter: value => { adapter = value; },
+    setOnVerify: value => { onVerify = value; },
   };
 }
 
@@ -98,7 +109,6 @@ test('failed token verification stays pending and can be retried', async () => {
   await request;
   assert.equal(s.counts().retries, 1);
 });
-
 test('cancelling clears verification and permits a later attempt', async () => {
   const s = setup();
   const request = s.rejectRequest(s.error());
@@ -112,4 +122,27 @@ test('cancelling clears verification and permits a later attempt', async () => {
   await s.access.submitMatchAccessToken('token');
   await next;
   assert.equal(s.counts().configCalls, 2);
+});
+
+test('queued comparison requests cannot exhaust a renewed session concurrently', async () => {
+  const s = setup();
+  let remaining = 24;
+  s.setAdapter(async config => {
+    if (remaining < 12) throw s.error(403, 'match_access_required', config);
+    remaining -= 12;
+    return { config, data: { rows: [], totalPages: 1 } };
+  });
+  s.setOnVerify(() => { remaining = 24; });
+  const requests = Array.from({ length: 4 }, (_, page) => s.access.matchesApi.get('/api/matches', {
+    params: { athlete_name: 'First', athlete_name2: 'Second', gi: 'true', page: page + 1 },
+  }));
+  await flush();
+  // The fourth request waits for the third's verification and successful retry.
+  assert.equal(s.counts().networkCalls, 3);
+  assert.equal(s.counts().configCalls, 1);
+  await s.access.submitMatchAccessToken('fresh-proof');
+  const responses = await Promise.all(requests);
+  assert.deepEqual(responses.map(response => response.config.params.page), [1, 2, 3, 4]);
+  assert.equal(s.counts().configCalls, 1);
+  assert.equal(s.counts().retries, 1);
 });

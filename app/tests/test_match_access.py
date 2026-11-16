@@ -169,16 +169,16 @@ class MatchAccessTests(TestDbMixin, unittest.TestCase):
         with patch("match_access.time", return_value=100010):
             self.assertEqual(other_client.get("/api/matches?gi=true").status_code, 200)
 
-    def test_athlete_quota_renews_only_with_fresh_proof_and_revokes_old_cookie(self):
+    def test_matchup_quota_renews_only_with_fresh_proof_and_revokes_old_cookie(self):
         self.grant()
         old_cookie = self.client.get_cookie(COOKIE_NAME, path="/api/").value
         scraper = self.app.test_client()
         scraper.set_cookie(COOKIE_NAME, old_cookie, path="/api/")
         with self.app.app_context():
             session = MatchAccessSession.query.one()
-            session.units = SESSION_UNITS - 50
+            session.units = SESSION_UNITS - 6
             db.session.commit()
-        path = "/api/matches?gi=true&athlete_id=00000000-0000-0000-0000-000000000001"
+        path = "/api/matches?gi=true&athlete_name=First&athlete_name2=Second"
         response = self.client.get(path)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json["code"], "match_access_required")
@@ -188,13 +188,13 @@ class MatchAccessTests(TestDbMixin, unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.verify.assert_called_once()
         with self.app.app_context():
-            self.assertEqual(MatchAccessSession.query.one().units, SESSION_UNITS - 50)
+            self.assertEqual(MatchAccessSession.query.one().units, SESSION_UNITS - 6)
         # Failed Cloudflare verification must not revoke or refresh the session.
         self.verify.return_value.json.return_value = {"success": False}
         response = self.client.post("/api/access/verify", json={"token": "bad"})
         self.assertEqual(response.status_code, 403)
         with self.app.app_context():
-            self.assertEqual(MatchAccessSession.query.one().units, SESSION_UNITS - 50)
+            self.assertEqual(MatchAccessSession.query.one().units, SESSION_UNITS - 6)
         self.verify.return_value.json.return_value = {
             "success": True,
             "hostname": "jiujitsu.net",
@@ -211,6 +211,22 @@ class MatchAccessTests(TestDbMixin, unittest.TestCase):
         response = scraper.get("/api/matches?gi=true")
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json["code"], "match_access_required")
+
+    def test_match_list_quota_cost_is_twelve_for_all_filters(self):
+        cases = (
+            ({"gi": "true"}, 12),
+            ({"gi": "true", "athlete_id": "00000000-0000-0000-0000-000000000001"}, 12),
+            ({"gi": "true", "athlete_name": "First"}, 12),
+            ({"gi": "true", "athlete_name": "First", "athlete_name2": "First"}, 12),
+            ({"gi": "true", "athlete_name": "First", "athlete_name2": "Second"}, 12),
+        )
+        for params, expected in cases:
+            with self.subTest(params=params):
+                self.grant()
+                response = self.client.get("/api/matches", query_string=params)
+                self.assertEqual(response.status_code, 200)
+                with self.app.app_context():
+                    self.assertEqual(MatchAccessSession.query.one().units, expected)
 
     def test_exact_quota_boundary_requires_verification_on_next_request(self):
         self.grant()
