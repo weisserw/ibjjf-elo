@@ -2,6 +2,22 @@
   "version": 1,
   "cases": [
     {
+      "fixture": "new_score_000_020.jpg",
+      "expect_layout": true,
+      "expected_digits": [0, 0, 0, 0, 2, 0],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": ["golden", "compressed_digits"]
+    },
+    {
+      "fixture": "new_score_000_930.jpg",
+      "expect_layout": true,
+      "expected_digits": [0, 0, 0, 9, 3, 0],
+      "palette_family": "bright",
+      "layout_family": "new_rendered",
+      "purposes": ["golden", "nine_centered_counter"]
+    },
+    {
       "fixture": "new_score_1800_200.jpg",
       "expect_layout": true,
       "expected_digits": [18, 0, 0, 2, 0, 0],

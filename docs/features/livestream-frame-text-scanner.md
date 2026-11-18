@@ -274,7 +274,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `ScanLivestreamFrameTextAdminApiStateTestCase`: replay-safe client retries and one-shot claim behavior.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  `scoreboard_cases.json` explicitly golden-tests all 95 scoreboard/name fixtures
+  `scoreboard_cases.json` explicitly golden-tests all 97 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG
@@ -294,6 +294,14 @@ Git history shows this area is sensitive to OCR edge cases and workflow/status h
 - Score digit ambiguity: historical fixes include `1 -> 3/7`, `3 -> 8`, `5 -> 6`,
   compressed `0 -> 6/9` loop-shape errors, damaged zeroes that resemble an `8`,
   edge-clipped digits, and small two-digit scores. Enclosed-counter and shape
+  checks only override a six/nine template match when the zero template is within
+  0.05 similarity: compression moves the counter in `new_score_000_930.jpg`
+  toward the center, which previously changed its bottom `9` to `0`.
+  Both this frame and `new_score_000_020.jpg` are covered by the corpus transforms,
+  combined parser manifest, and both public parser paths. The latter reads as
+  visible with `0,0,0 / 0,2,0` in the current implementation; its reported stored
+  blank result has not been reproduced with the supplied fixture.
+  Enclosed-counter and shape
   checks remain part of digit classification. Layout and foreground containment
   now resolve boundary failures structurally: `new_score_210_2200.jpg` retains
   the independently wider bottom green cell containing `22`, while

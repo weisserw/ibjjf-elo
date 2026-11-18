@@ -1085,11 +1085,15 @@ class ScoreboardDigitReader:
                 zero_prediction = self.classifier.predict(
                     mask, allowed_digits=frozenset((0,))
                 )
-                return DigitPrediction(
-                    0,
-                    zero_prediction.similarity,
-                    f"{zero_prediction.source}:score-zero-hole-geometry",
-                )
+                # Compression can move a nine's counter toward the middle.
+                # A centered hole only resolves an ambiguous template match;
+                # it must not override a substantially better six/nine match.
+                if zero_prediction.similarity >= prediction.similarity - 0.05:
+                    return DigitPrediction(
+                        0,
+                        zero_prediction.similarity,
+                        f"{zero_prediction.source}:score-zero-hole-geometry",
+                    )
             if prediction.digit == 6 and not hole_center_ys:
                 five_prediction = self.classifier.predict(
                     mask, allowed_digits=frozenset((5,))

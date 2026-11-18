@@ -1,5 +1,35 @@
 [
   {
+    "id": "new_score_000_020_compressed_digits",
+    "score_image": "new_score_000_020.jpg",
+    "timer_image": "timer_blank.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 2,
+      "bottom_penalties": 0,
+      "timer_state": "blank"
+    }
+  },
+  {
+    "id": "new_score_000_930_nine_centered_counter",
+    "score_image": "new_score_000_930.jpg",
+    "timer_image": "timer_blank.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 0,
+      "top_advantages": 0,
+      "top_penalties": 0,
+      "bottom_points": 9,
+      "bottom_advantages": 3,
+      "bottom_penalties": 0,
+      "timer_state": "blank"
+    }
+  },
+  {
     "id": "referee_near_scoreboard_and_dark_red_zero_timer",
     "score_image": "new_score_1800_200.jpg",
     "timer_image": "new_timer_0000_4.jpg",

@@ -2699,9 +2699,36 @@ class LivestreamFrameTextOcrFixtureTestCase(unittest.TestCase):
         }
 
         self.assertEqual(manifest["version"], 1)
-        self.assertEqual(len(manifest_names), 95)
+        self.assertEqual(len(manifest_names), 97)
         self.assertEqual(manifest_names, fixture_names)
         self.assertEqual(len(manifest_names), len(manifest["cases"]))
+
+    def test_compressed_score_frames_stay_visible_in_both_parser_paths(self):
+        parser = text_ocr.FrameImageTextParser("auto", "fixed_digit", "none")
+        for fixture, digits in (
+            ("new_score_000_020.jpg", (0, 0, 0, 0, 2, 0)),
+            ("new_score_000_930.jpg", (0, 0, 0, 9, 3, 0)),
+        ):
+            with open(os.path.join(self.fixture_dir, fixture), "rb") as fileobj:
+                score_image = fileobj.read()
+            for parse in (parser.parse_score_timer, parser.parse):
+                with self.subTest(fixture=fixture, path=parse.__name__):
+                    reading = parse(0, score_image, None)
+                    self.assertEqual(reading.scoreboard_state, "visible")
+                    self.assertEqual(
+                        tuple(
+                            getattr(reading, field)
+                            for field in (
+                                "top_points",
+                                "top_advantages",
+                                "top_penalties",
+                                "bottom_points",
+                                "bottom_advantages",
+                                "bottom_penalties",
+                            )
+                        ),
+                        digits,
+                    )
 
     def test_scoreboard_fixture_manifest_is_corpus_wide_golden(self):
         text_ocr.validate_ocr_engines("fixed_digit", "none")
