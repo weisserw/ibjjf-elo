@@ -149,7 +149,7 @@
             </thead>
             <tbody>
                 {% for row in event_rows %}
-                <tr>
+                <tr id="event-{{ row.event.id }}">
                     <td>{{ time_label(row.event.frame_second) }}</td>
                     <td>
                         {% if row.has_score_change %}
@@ -200,6 +200,13 @@
                         <a href="{{ url_for('livestream_frame_text_event_capture', archive_id=archive.id, event_id=row.event.id, crop_variant='scoreboard') }}">Scoreboard</a>
                         /
                         <a href="{{ url_for('livestream_frame_text_event_capture', archive_id=archive.id, event_id=row.event.id, crop_variant='timer') }}">Timer</a>
+                        {% if row.linked_match %}
+                        <form method="POST" class="is-inline-block ml-2">
+                            <input type="hidden" name="action" value="swap_match">
+                            <input type="hidden" name="event_id" value="{{ row.event.id }}">
+                            <button type="submit" class="button is-text is-small p-0" title="Swap top and bottom athletes for this linked match">Swap</button>
+                        </form>
+                        {% endif %}
                     </td>
                 </tr>
                 {% else %}

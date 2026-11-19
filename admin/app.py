@@ -1895,6 +1895,36 @@ def livestream_frame_text_scan_detail(archive_id):
                     error="No text scan found.",
                 )
             )
+        if request.form.get("action") == "swap_match":
+            try:
+                event_id = uuid.UUID(request.form.get("event_id", ""))
+            except ValueError:
+                abort(400)
+            event = LivestreamFrameTextEvent.query.filter_by(
+                id=event_id, scan_id=scan.id, archive_id=archive.id
+            ).one_or_none()
+            if event is None or event.match_id is None:
+                abort(400)
+            participants = MatchParticipant.query.filter_by(
+                match_id=event.match_id
+            ).all()
+            if len(participants) != 2 or {
+                participant.scoreboard_position for participant in participants
+            } != {"top", "bottom"}:
+                abort(400)
+            for participant in participants:
+                participant.scoreboard_position = (
+                    "bottom" if participant.scoreboard_position == "top" else "top"
+                )
+            db.session.commit()
+            return redirect(
+                url_for(
+                    "livestream_frame_text_scan_detail",
+                    archive_id=archive.id,
+                    message="Swapped linked match athletes.",
+                    _anchor=f"event-{event.id}",
+                )
+            )
         summary = link_completed_text_scan(db.session, scan)
         db.session.commit()
         if summary.skipped:

@@ -162,6 +162,10 @@ Admin/browser routes:
 - `GET/POST /livestream_frame_text_scans/<archive_id>`
   - `GET` displays scan segments and OCR events.
   - `POST` manually relinks a completed scan with `link_completed_text_scan()`.
+  - Linked event rows have a `Swap` action beside the capture links. It flips
+    the linked match participants' top/bottom scoreboard positions for the whole
+    match, leaving OCR events and final scoreboard values unchanged. Recreating
+    match links recalculates positions and can overwrite this manual correction.
 
 Worker/API route involved in automatic linking:
 
