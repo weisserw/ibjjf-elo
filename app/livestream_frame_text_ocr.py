@@ -908,7 +908,18 @@ def _score_mask_looks_like_one(mask) -> bool:
     left_third = mask[:, : max(1, width // 3)]
     lower_left = left_third[height // 2 :, :]
     right_third = mask[:, width - max(1, width // 3) :]
-    return bool(lower_left.mean() < 0.05 and right_third.mean() > 0.40)
+    # At four native pixels wide, one pixel of the stem can fall in the
+    # normalized left third. A continuous lower stem still distinguishes that
+    # compressed 1 from the varying-width lobes of a 3 or diagonal of a 7.
+    stem = mask[height // 3 : (height * 5) // 6, :]
+    straight_stem = bool(
+        lower_left.mean() < 0.35
+        and right_third.mean() > 0.40
+        and np.mean(np.all(stem, axis=0)) >= 0.25
+    )
+    return bool(
+        (lower_left.mean() < 0.05 and right_third.mean() > 0.40) or straight_stem
+    )
 
 
 def _score_digit_entry_looks_like_one(entry: ScoreDigitMask) -> bool:
@@ -1075,7 +1086,7 @@ class ScoreboardDigitReader:
 
     def _predict_score_digit(self, mask) -> DigitPrediction:
         prediction = self.classifier.predict(mask)
-        if prediction.digit in (6, 9):
+        if prediction.digit in (6, 8, 9):
             hole_center_ys = _score_mask_hole_center_ys(mask)
             if len(hole_center_ys) == 1 and (
                 SCORE_ZERO_HOLE_MIN_CENTER_Y
@@ -1085,7 +1096,8 @@ class ScoreboardDigitReader:
                 zero_prediction = self.classifier.predict(
                     mask, allowed_digits=frozenset((0,))
                 )
-                # Compression can move a nine's counter toward the middle.
+                # Compression can move a nine's counter toward the middle,
+                # or make a single-counter zero match an eight template.
                 # A centered hole only resolves an ambiguous template match;
                 # it must not override a substantially better six/nine match.
                 if zero_prediction.similarity >= prediction.similarity - 0.05:

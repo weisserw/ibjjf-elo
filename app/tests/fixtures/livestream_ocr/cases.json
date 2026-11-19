@@ -1,5 +1,20 @@
 [
   {
+    "id": "new_score_1130_000_compressed_one",
+    "score_image": "new_score_1130_000.jpg",
+    "timer_image": "timer_blank.jpg",
+    "expected": {
+      "scoreboard_state": "visible",
+      "top_points": 11,
+      "top_advantages": 3,
+      "top_penalties": 0,
+      "bottom_points": 0,
+      "bottom_advantages": 0,
+      "bottom_penalties": 0,
+      "timer_state": "blank"
+    }
+  },
+  {
     "id": "new_score_000_020_compressed_digits",
     "score_image": "new_score_000_020.jpg",
     "timer_image": "timer_blank.jpg",

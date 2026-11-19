@@ -274,7 +274,7 @@ Relevant tests live in `app/tests/test_livestream_frame_text_scan.py`:
 - `ScanLivestreamFrameTextAdminApiStateTestCase`: replay-safe client retries and one-shot claim behavior.
 - `ScanLivestreamFrameTextWorkerTestCase`: CLI worker behavior and parser/name OCR logic.
 - `LivestreamFrameTextOcrFixtureTestCase`: expensive OCR fixture coverage under `app/tests/fixtures/livestream_ocr`.
-  `scoreboard_cases.json` explicitly golden-tests all 97 scoreboard/name fixtures
+  `scoreboard_cases.json` explicitly golden-tests all 100 scoreboard/name fixtures
   and is set-equal to the fixture globs. Its coverage includes reviewed cell
   annotations, layout/segmentation contracts, every decimal digit, the malformed
   fail-closed case, and corpus-wide padding, translation, scaling, and JPEG
@@ -315,6 +315,15 @@ Git history shows this area is sensitive to OCR edge cases and workflow/status h
   the stem shape of `1`: `score_bad_040_001.jpg` previously read its bottom penalty
   as `3` because the digit exceeded the cell-relative width limit. Its compressed
   top zero also requires the counter-gap allowance described above.
+  Compressed narrow `1` glyphs also allow limited ink in the normalized left
+  third when a continuous stem spans the lower middle of the glyph. The digit
+  must still pass the narrow-width check. This keeps `new_score_1130_000.jpg`
+  reading `11,3,0 / 0,0,0` rather than `31,3,0 / 0,0,0`, including scaled
+  variants where the compressed `1` instead matched a `7` template.
+  The paired `new_score_1000_000` fixtures retain `10` as well. In the second
+  frame's reduced-scale variant, a zero narrowly matches an eight template;
+  one centered counter and a near-equal zero template resolve that ambiguity
+  before the missing-two-counters check would discard the reading.
 - Timer interpretation: previous fixes covered running/stopped mis-detection, blank timers emitting `stopped`, font differences between systems, digit errors, and extra events from clock jitter. Timer geometry is now detected from aligned digit candidates and locally coherent display colors rather than image-ratio search windows or whole-crop color density. Green timer digits take precedence over adjacent white scoreboard text in mixed tight crops so active timers are not mistaken for stopped timers. Dense horizontal foreground rows from video artifacts or timer-frame edges are removed within connected components before digit grouping so crop padding cannot change whether the artifact is recognized.
   Full-height digit fragments separated by a one-pixel JPEG/color-threshold seam are merged before grouping and retained together during classification, preventing clipped zeroes in small timer crops from being interpreted as extra digits.
   Black stopped-timer candidates are clipped to broad red display bounds, preventing dark video outside a tightly cropped timer from joining the leading digit and turning `10:00` into a false `0:00`.
