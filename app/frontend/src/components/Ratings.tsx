@@ -1,7 +1,7 @@
 import { useState, useContext, useMemo, useEffect, type FormEvent } from 'react';
 import GiTabs from './GiTabs';
 import EloTable from './EloTable';
-import useNewsPosts from '../useNewsPosts';
+import /*useNewsPosts, */{ WPPost } from '../useNewsPosts';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import Autosuggest from 'react-autosuggest';
@@ -24,7 +24,8 @@ type RatingsSearchSuggestion =
   | TeamSuggestion;
 
 function Ratings() {
-  const { posts, loading, error } = useNewsPosts();
+  //const { posts: WPPost[], loading, error } = useNewsPosts();
+  const {posts, loading, error } = {posts: [] as WPPost[], loading: false, error: null};
 
   const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
